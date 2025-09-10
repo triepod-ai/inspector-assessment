@@ -29,6 +29,8 @@
     "clean": "rimraf ./node_modules ./client/node_modules ./cli/node_modules ./build ./client/dist ./server/build ./cli/build ./package-lock.json && npm install",
     "dev": "node client/bin/start.js --dev",
     "dev:windows": "node client/bin/start.js --dev",
+    "kill": "node scripts/kill-server.js",
+    "restart": "npm run kill && npm run dev",
     "dev:sdk": "npm run link:sdk && concurrently \"npm run dev\" \"cd sdk && npm run build:esm:w\"",
     "link:sdk": "(test -d sdk || ln -sf ${MCP_SDK:-$PWD/../typescript-sdk} sdk) && (cd sdk && npm link && (test -d node_modules || npm i)) && npm link @modelcontextprotocol/sdk",
     "unlink:sdk": "(cd sdk && npm unlink -g) && rm sdk && npm unlink @modelcontextprotocol/sdk",

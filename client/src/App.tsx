@@ -45,6 +45,7 @@ import {
   Hash,
   Key,
   MessageSquare,
+  ClipboardCheck,
 } from "lucide-react";
 
 import { z } from "zod";
@@ -59,6 +60,7 @@ import RootsTab from "./components/RootsTab";
 import SamplingTab, { PendingRequest } from "./components/SamplingTab";
 import Sidebar from "./components/Sidebar";
 import ToolsTab from "./components/ToolsTab";
+import AssessmentTab from "./components/AssessmentTab";
 import { InspectorConfig } from "./lib/configurationTypes";
 import {
   getMCPProxyAddress,
@@ -262,6 +264,7 @@ const App = () => {
         ...(serverCapabilities?.resources ? ["resources"] : []),
         ...(serverCapabilities?.prompts ? ["prompts"] : []),
         ...(serverCapabilities?.tools ? ["tools"] : []),
+        ...(serverCapabilities?.tools ? ["assessment"] : []),
         "ping",
         "sampling",
         "elicitations",
@@ -719,6 +722,7 @@ const App = () => {
       );
 
       setToolResult(response);
+      return response;
     } catch (e) {
       const toolResult: CompatibilityCallToolResult = {
         content: [
@@ -730,6 +734,7 @@ const App = () => {
         isError: true,
       };
       setToolResult(toolResult);
+      return toolResult;
     }
   };
 
@@ -872,6 +877,13 @@ const App = () => {
                 >
                   <Hammer className="w-4 h-4 mr-2" />
                   Tools
+                </TabsTrigger>
+                <TabsTrigger
+                  value="assessment"
+                  disabled={!serverCapabilities?.tools}
+                >
+                  <ClipboardCheck className="w-4 h-4 mr-2" />
+                  Assessment
                 </TabsTrigger>
                 <TabsTrigger value="ping">
                   <Bell className="w-4 h-4 mr-2" />
@@ -1032,6 +1044,14 @@ const App = () => {
                         clearError("resources");
                         readResource(uri);
                       }}
+                    />
+                    <AssessmentTab
+                      tools={tools}
+                      callTool={async (name, params) => {
+                        const result = await callTool(name, params);
+                        return result;
+                      }}
+                      serverName={command || "MCP Server"}
                     />
                     <ConsoleTab />
                     <PingTab
