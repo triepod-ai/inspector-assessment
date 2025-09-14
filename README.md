@@ -1,8 +1,17 @@
 # MCP Inspector
 
-The MCP inspector is a developer tool for testing and debugging MCP servers.
+The MCP inspector is a developer tool for testing and debugging MCP servers with comprehensive assessment capabilities for validating server functionality, security, documentation, and compliance.
 
 ![MCP Inspector Screenshot](https://raw.githubusercontent.com/modelcontextprotocol/inspector/main/mcp-inspector.png)
+
+## Key Features
+
+- **Interactive Testing**: Visual interface for testing MCP server tools, resources, and prompts
+- **Comprehensive Assessment**: Automated validation of server functionality, error handling, documentation, security, and usability
+- **Enhanced Testing Modes**: Multi-scenario validation with progressive complexity testing
+- **Business Logic Validation**: Distinguishes between proper error handling and unintended failures
+- **Detailed Test Reports**: Confidence scoring, test scenario details, and actionable recommendations
+- **Multiple Transport Support**: STDIO, SSE, and Streamable HTTP transports
 
 ## Architecture Overview
 
@@ -12,6 +21,112 @@ The MCP Inspector consists of two main components that work together:
 - **MCP Proxy (MCPP)**: A Node.js server that acts as a protocol bridge, connecting the web UI to MCP servers via various transport methods (stdio, SSE, streamable-http)
 
 Note that the proxy is not a network proxy for intercepting traffic. Instead, it functions as both an MCP client (connecting to your MCP server) and an HTTP server (serving the web UI), enabling browser-based interaction with MCP servers that use different transport protocols.
+
+## Assessment Capabilities
+
+The MCP Inspector includes a comprehensive assessment system that validates MCP servers against multiple quality criteria:
+
+### Assessment Categories
+
+1. **Functionality Testing** (35% weight)
+   - Multi-scenario validation with happy path, edge cases, and boundary testing
+   - Progressive complexity testing from simple to complex inputs
+   - Business logic validation to distinguish proper error handling from failures
+   - Confidence scoring based on test coverage and consistency
+
+2. **Error Handling** (25% weight)
+   - Invalid input resilience testing
+   - Comprehensive error message analysis
+   - Resource validation vs. unintended failures
+   - Quality scoring for descriptive error messages
+
+3. **Documentation** (20% weight)
+   - Tool description completeness and clarity
+   - Parameter documentation validation
+   - README structure and examples evaluation
+   - API documentation quality assessment
+
+4. **Security** (10% weight)
+   - Input validation and sanitization checks
+   - Authentication/authorization testing
+   - Sensitive data exposure detection
+   - Security best practices compliance
+
+5. **Usability** (10% weight)
+   - Tool naming consistency analysis
+   - Description quality assessment
+   - Schema completeness validation
+   - Parameter clarity evaluation
+
+### Enhanced Testing Features
+
+#### Multi-Scenario Validation
+
+The inspector tests each tool with multiple scenarios:
+
+- **Happy Path**: Valid inputs with expected success cases
+- **Edge Cases**: Boundary values and unusual but valid inputs
+- **Error Cases**: Invalid inputs to test error handling
+- **Boundary Testing**: Maximum/minimum values and limits
+
+#### Progressive Complexity Testing
+
+Tools are tested with progressively complex inputs:
+
+1. **Simple**: Basic, minimal valid inputs
+2. **Moderate**: Typical real-world usage patterns
+3. **Complex**: Advanced scenarios with multiple parameters
+4. **Extreme**: Stress testing with maximum complexity
+
+#### Business Logic Validation
+
+The assessment distinguishes between:
+
+- **Proper Validation**: Expected errors for invalid business logic (e.g., "User not found")
+- **Tool Failures**: Unexpected errors indicating implementation issues
+- **Resource Validation**: Proper handling of non-existent resources
+- **Input Validation**: Appropriate rejection of malformed inputs
+
+### Assessment Configuration
+
+Configure assessment behavior through the UI:
+
+| Setting                   | Description                                   | Default  |
+| ------------------------- | --------------------------------------------- | -------- |
+| Enhanced Testing          | Enable multi-scenario validation              | Enabled  |
+| Max Tools to Test         | Number of tools to test (-1 for all)          | 10       |
+| Error Handling Test Limit | Tools to test for error handling (-1 for all) | 5        |
+| Test Complexity           | Simple, Moderate, or Complex scenarios        | Moderate |
+
+### Viewing Assessment Results
+
+The Assessment tab provides:
+
+- **Overall Score**: Weighted aggregate score with letter grade (A-F)
+- **Category Breakdown**: Individual scores for each assessment category
+- **Tool Details**: Click any tool name to see detailed test results including:
+  - Test scenarios executed
+  - Input parameters used
+  - Actual responses received
+  - Pass/fail status with confidence scores
+  - Specific issues identified
+- **Recommendations**: Actionable suggestions for improvement
+- **Test Coverage**: Visual indicators of testing completeness
+
+### Assessment API
+
+Programmatically run assessments using the CLI:
+
+```bash
+# Run full assessment
+npx @modelcontextprotocol/inspector --cli node build/index.js --assess
+
+# Run specific category
+npx @modelcontextprotocol/inspector --cli node build/index.js --assess functionality
+
+# Export assessment results
+npx @modelcontextprotocol/inspector --cli node build/index.js --assess --output assessment-report.json
+```
 
 ## Running the Inspector
 
