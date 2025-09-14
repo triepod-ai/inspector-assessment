@@ -91,6 +91,7 @@ const App = () => {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [promptContent, setPromptContent] = useState<string>("");
   const [tools, setTools] = useState<Tool[]>([]);
+  const [isLoadingTools, setIsLoadingTools] = useState(false);
   const [toolResult, setToolResult] =
     useState<CompatibilityCallToolResult | null>(null);
   const [errors, setErrors] = useState<Record<string, string | null>>({
@@ -689,17 +690,22 @@ const App = () => {
   };
 
   const listTools = async () => {
-    const response = await sendMCPRequest(
-      {
-        method: "tools/list" as const,
-        params: nextToolCursor ? { cursor: nextToolCursor } : {},
-      },
-      ListToolsResultSchema,
-      "tools",
-    );
-    setTools(response.tools);
-    setNextToolCursor(response.nextCursor);
-    cacheToolOutputSchemas(response.tools);
+    setIsLoadingTools(true);
+    try {
+      const response = await sendMCPRequest(
+        {
+          method: "tools/list" as const,
+          params: nextToolCursor ? { cursor: nextToolCursor } : {},
+        },
+        ListToolsResultSchema,
+        "tools",
+      );
+      setTools(response.tools);
+      setNextToolCursor(response.nextCursor);
+      cacheToolOutputSchemas(response.tools);
+    } finally {
+      setIsLoadingTools(false);
+    }
   };
 
   const callTool = async (name: string, params: Record<string, unknown>) => {
@@ -851,9 +857,23 @@ const App = () => {
             <Tabs
               value={activeTab}
               className="w-full p-4"
-              onValueChange={(value) => {
+              onValueChange={async (value) => {
                 setActiveTab(value);
                 window.location.hash = value;
+
+                // Auto-load tools when assessment tab is selected
+                if (
+                  value === "assessment" &&
+                  tools.length === 0 &&
+                  serverCapabilities?.tools
+                ) {
+                  try {
+                    clearError("tools");
+                    await listTools();
+                  } catch (error) {
+                    console.error("Failed to auto-load tools:", error);
+                  }
+                }
               }}
             >
               <TabsList className="mb-4 py-0">
@@ -1047,6 +1067,7 @@ const App = () => {
                     />
                     <AssessmentTab
                       tools={tools}
+                      isLoadingTools={isLoadingTools}
                       callTool={async (name, params) => {
                         const result = await callTool(name, params);
                         return result;
