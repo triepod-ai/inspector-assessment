@@ -20,3 +20,4 @@ mcp.json
 .claude/settings.local.json
 .claude
 logs/
+.mcp.json
