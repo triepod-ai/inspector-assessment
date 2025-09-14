@@ -442,7 +442,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
           name: `tool_${i}`,
           description: `Tool ${i}`,
           inputSchema: {
-            type: "object",
+            type: "object" as const,
             properties: { id: { type: "string" } },
           },
         }));

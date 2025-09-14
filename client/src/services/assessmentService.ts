@@ -12,6 +12,7 @@ import {
   UsabilityAssessment,
   UsabilityMetrics,
   ToolTestResult,
+  EnhancedToolTestResult,
   SecurityTestResult,
   AssessmentStatus,
   AssessmentConfiguration,
@@ -20,7 +21,17 @@ import {
   SecurityRiskLevel,
   ErrorTestDetail,
   CodeExample,
+  MCPSpecComplianceAssessment,
+  SupplyChainAssessment,
+  PrivacyComplianceAssessment,
 } from "@/lib/assessmentTypes";
+import { MCPSpecComplianceAssessor } from "./assessment/modules/MCPSpecComplianceAssessor";
+import { ErrorHandlingAssessor } from "./assessment/modules/ErrorHandlingAssessor";
+// import { SupplyChainAssessor } from "./assessment/modules/SupplyChainAssessor";
+// import { PrivacyComplianceAssessor } from "./assessment/modules/PrivacyComplianceAssessor";
+import { AssessmentContext } from "./assessment/AssessmentOrchestrator";
+import { TestDataGenerator } from "./assessment/TestDataGenerator";
+import { TestScenarioEngine } from "./assessment/TestScenarioEngine";
 import {
   Tool,
   CompatibilityCallToolResult,
@@ -31,6 +42,48 @@ interface SchemaProperty {
   enum?: unknown[];
   minimum?: number;
 }
+
+/**
+ * Standard JSON-RPC 2.0 error codes required for MCP compliance
+ *
+ * Per MCP specification: "All MCP messages must follow JSON-RPC 2.0 specification"
+ * and "Standard error codes range from parse errors (-32700) to internal errors (-32603)"
+ *
+ * These error codes are REQUIRED for full MCP compliance as MCP mandates
+ * JSON-RPC 2.0 compatibility.
+ */
+const STANDARD_ERROR_CODES = {
+  PARSE_ERROR: {
+    code: -32700,
+    name: "Parse Error",
+    description: "Invalid JSON was received by the server",
+    mcpRequired: true,
+  },
+  INVALID_REQUEST: {
+    code: -32600,
+    name: "Invalid Request",
+    description: "The JSON sent is not a valid Request object",
+    mcpRequired: true,
+  },
+  METHOD_NOT_FOUND: {
+    code: -32601,
+    name: "Method Not Found",
+    description: "The method does not exist or is not available",
+    mcpRequired: true,
+  },
+  INVALID_PARAMS: {
+    code: -32602,
+    name: "Invalid Params",
+    description: "Invalid method parameters",
+    mcpRequired: true,
+  },
+  INTERNAL_ERROR: {
+    code: -32603,
+    name: "Internal Error",
+    description: "Internal JSON-RPC error",
+    mcpRequired: true,
+  },
+} as const;
 
 export class MCPAssessmentService {
   private config: AssessmentConfiguration;
@@ -56,12 +109,50 @@ export class MCPAssessmentService {
     this.startTime = Date.now();
     this.totalTestsRun = 0;
 
+    // Create a context for assessors
+    const context: AssessmentContext = {
+      serverName,
+      tools,
+      callTool,
+      readmeContent,
+      config: this.config,
+      // Note: serverInfo is not available in this legacy service
+      // The new AssessmentOrchestrator should be used for proper protocol version detection
+      serverInfo: undefined,
+      packageJson: undefined,
+      packageLock: undefined,
+      privacyPolicy: undefined,
+    };
+
     // Run all assessment categories
     const functionality = await this.assessFunctionality(tools, callTool);
     const security = await this.assessSecurity(tools, callTool);
-    const documentation = this.assessDocumentation(readmeContent || "");
-    const errorHandling = await this.assessErrorHandling(tools, callTool);
+    const documentation = this.assessDocumentation(readmeContent || "", tools);
+
+    // Use the new ErrorHandlingAssessor module for error handling assessment
+    const errorHandlingAssessor = new ErrorHandlingAssessor(this.config);
+    const errorHandling = await errorHandlingAssessor.assess(context);
+
     const usability = this.assessUsability(tools);
+
+    // Run extended assessment if enabled
+    let mcpSpecCompliance: MCPSpecComplianceAssessment | undefined;
+    let supplyChain: SupplyChainAssessment | undefined;
+    let privacy: PrivacyComplianceAssessment | undefined;
+
+    if (this.config.enableExtendedAssessment) {
+      // Run MCP Spec Compliance assessment
+      const mcpAssessor = new MCPSpecComplianceAssessor(this.config);
+      mcpSpecCompliance = await mcpAssessor.assess(context);
+
+      // TODO: Fix SupplyChainAssessor and PrivacyComplianceAssessor to return proper types
+      // For now, leave them undefined to prevent blank screen issues
+      // const supplyChainAssessor = new SupplyChainAssessor(this.config);
+      // supplyChain = await supplyChainAssessor.assess(context);
+
+      // const privacyAssessor = new PrivacyComplianceAssessor(this.config);
+      // privacy = await privacyAssessor.assess(context);
+    }
 
     // Determine overall status
     const overallStatus = this.determineOverallStatus(
@@ -100,6 +191,9 @@ export class MCPAssessmentService {
       documentation,
       errorHandling,
       usability,
+      mcpSpecCompliance,
+      supplyChain,
+      privacy,
       overallStatus,
       summary,
       recommendations,
@@ -110,8 +204,176 @@ export class MCPAssessmentService {
 
   /**
    * Assess functionality by testing all tools
+   * Uses enhanced multi-scenario testing when enabled in config
    */
   private async assessFunctionality(
+    tools: Tool[],
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<CompatibilityCallToolResult>,
+  ): Promise<FunctionalityAssessment> {
+    // Use enhanced testing if enabled
+    if (this.config.enableEnhancedTesting) {
+      return this.assessFunctionalityEnhanced(tools, callTool);
+    }
+
+    // Original simple testing for backward compatibility
+    return this.assessFunctionalitySimple(tools, callTool);
+  }
+
+  /**
+   * Enhanced functionality assessment with multi-scenario testing
+   */
+  private async assessFunctionalityEnhanced(
+    tools: Tool[],
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<CompatibilityCallToolResult>,
+  ): Promise<FunctionalityAssessment> {
+    const engine = new TestScenarioEngine(this.config.testTimeout);
+    const toolResults: ToolTestResult[] = [];
+    const enhancedResults: EnhancedToolTestResult[] = [];
+    let workingCount = 0;
+    let partiallyWorkingCount = 0;
+    const brokenTools: string[] = [];
+
+    for (const tool of tools) {
+      if (this.config.skipBrokenTools && brokenTools.length > 3) {
+        // Skip remaining if too many failures
+        toolResults.push({
+          toolName: tool.name,
+          tested: false,
+          status: "untested",
+        });
+        continue;
+      }
+
+      // Run comprehensive testing
+      const comprehensiveResult = await engine.testToolComprehensively(
+        tool,
+        callTool,
+      );
+      this.totalTestsRun += comprehensiveResult.scenariosExecuted;
+
+      // Convert to enhanced result for detailed reporting
+      const enhancedResult: EnhancedToolTestResult = {
+        toolName: comprehensiveResult.toolName,
+        tested: comprehensiveResult.tested,
+        status: comprehensiveResult.overallStatus,
+        confidence: comprehensiveResult.confidence,
+        scenariosExecuted: comprehensiveResult.scenariosExecuted,
+        scenariosPassed: comprehensiveResult.scenariosPassed,
+        scenariosFailed: comprehensiveResult.scenariosFailed,
+        executionTime: comprehensiveResult.executionTime,
+        validationSummary: comprehensiveResult.summary,
+        recommendations: comprehensiveResult.recommendations,
+        detailedResults: comprehensiveResult.scenarioResults.map((sr) => ({
+          scenarioName: sr.scenario.name,
+          category: sr.scenario.category,
+          passed: sr.validation.isValid,
+          confidence: sr.validation.confidence,
+          issues: sr.validation.issues,
+          evidence: sr.validation.evidence,
+        })),
+      };
+      enhancedResults.push(enhancedResult);
+
+      // Convert to simple result for backward compatibility
+      const simpleStatus =
+        comprehensiveResult.overallStatus === "fully_working" ||
+        comprehensiveResult.overallStatus === "partially_working"
+          ? "working"
+          : comprehensiveResult.overallStatus === "connectivity_only" ||
+              comprehensiveResult.overallStatus === "broken"
+            ? "broken"
+            : "untested";
+
+      toolResults.push({
+        toolName: tool.name,
+        tested: true,
+        status: simpleStatus,
+        executionTime: comprehensiveResult.executionTime,
+        // Include summary of scenarios as test parameters for visibility
+        testParameters: {
+          scenariosRun: comprehensiveResult.scenariosExecuted,
+          scenariosPassed: comprehensiveResult.scenariosPassed,
+          confidence: comprehensiveResult.confidence,
+        },
+        response: {
+          enhancedTestingSummary: {
+            status: comprehensiveResult.overallStatus,
+            confidence: comprehensiveResult.confidence,
+            recommendations: comprehensiveResult.recommendations,
+          },
+        },
+      });
+
+      // Count results
+      if (comprehensiveResult.overallStatus === "fully_working") {
+        workingCount++;
+      } else if (comprehensiveResult.overallStatus === "partially_working") {
+        workingCount++; // Count as working for backward compatibility
+        partiallyWorkingCount++;
+      } else if (
+        comprehensiveResult.overallStatus === "broken" ||
+        comprehensiveResult.overallStatus === "connectivity_only"
+      ) {
+        brokenTools.push(tool.name);
+      }
+    }
+
+    const testedTools = toolResults.filter((r) => r.tested).length;
+    const coveragePercentage = (testedTools / tools.length) * 100;
+
+    // Calculate overall confidence based on enhanced results
+    const avgConfidence =
+      enhancedResults.length > 0
+        ? enhancedResults.reduce((sum, r) => sum + r.confidence, 0) /
+          enhancedResults.length
+        : 0;
+
+    let status: AssessmentStatus = "PASS";
+    if (avgConfidence < 50 || coveragePercentage < 50) {
+      status = "FAIL";
+    } else if (
+      avgConfidence < 75 ||
+      coveragePercentage < 90 ||
+      brokenTools.length > 2
+    ) {
+      status = "NEED_MORE_INFO";
+    }
+
+    const explanation =
+      `Enhanced Testing: Tested ${testedTools}/${tools.length} tools (${coveragePercentage.toFixed(1)}% coverage). ` +
+      `${workingCount} fully/partially working (${partiallyWorkingCount} partial), ${brokenTools.length} broken. ` +
+      `Average confidence: ${avgConfidence.toFixed(1)}%.${
+        brokenTools.length > 0 ? ` Broken tools: ${brokenTools.join(", ")}` : ""
+      }`;
+
+    // Store enhanced results in the response for detailed reporting
+    const result: FunctionalityAssessment = {
+      totalTools: tools.length,
+      testedTools,
+      workingTools: workingCount,
+      brokenTools,
+      coveragePercentage,
+      status,
+      explanation,
+      toolResults,
+    };
+
+    // Add enhanced results as a property (not in type yet, but available for reporting)
+    (result as any).enhancedResults = enhancedResults;
+
+    return result;
+  }
+
+  /**
+   * Original simple functionality assessment (backward compatibility)
+   */
+  private async assessFunctionalitySimple(
     tools: Tool[],
     callTool: (
       name: string,
@@ -240,64 +502,192 @@ export class MCPAssessmentService {
     return params;
   }
 
+  // Removed deprecated generateInvalidTestParameters method - now using generateMultipleInvalidTestCases directly
+
   /**
-   * Generate invalid test parameters to test error handling
+   * Generate multiple invalid test cases for comprehensive error testing
    */
-  private generateInvalidTestParameters(tool: Tool): Record<string, unknown> {
+  private generateMultipleInvalidTestCases(tool: Tool): Array<{
+    testType: string;
+    params: Record<string, unknown>;
+    description: string;
+  }> {
+    const testCases: Array<{
+      testType: string;
+      params: Record<string, unknown>;
+      description: string;
+    }> = [];
+
     if (!tool.inputSchema) {
       // If no schema, send completely invalid params
-      return { invalid_param: "test", unexpected_field: 123 };
+      return [
+        {
+          testType: "invalid_structure",
+          params: { invalid_param: "test", unexpected_field: 123 },
+          description: "Completely invalid parameters",
+        },
+      ];
     }
 
-    const params: Record<string, unknown> = {};
-
-    // Strategy 1: Send wrong types for known fields
+    // Test Case 1: Wrong types for first field
     if (tool.inputSchema.type === "object" && tool.inputSchema.properties) {
+      const wrongTypeParams: Record<string, unknown> = {};
       const properties = Object.entries(tool.inputSchema.properties);
       if (properties.length > 0) {
         const [key, schema] = properties[0] as [string, SchemaProperty];
         const schemaType = schema.type;
-
         // Intentionally use wrong type
         switch (schemaType) {
           case "string":
-            params[key] = 123; // Send number instead of string
+            wrongTypeParams[key] = 123;
             break;
           case "number":
           case "integer":
-            params[key] = "not_a_number"; // Send string instead of number
+            wrongTypeParams[key] = "not_a_number";
             break;
           case "boolean":
-            params[key] = "not_a_boolean"; // Send string instead of boolean
+            wrongTypeParams[key] = "not_a_boolean";
             break;
           case "array":
-            params[key] = "not_an_array"; // Send string instead of array
+            wrongTypeParams[key] = "not_an_array";
             break;
           case "object":
-            params[key] = "not_an_object"; // Send string instead of object
+            wrongTypeParams[key] = "not_an_object";
             break;
           default:
-            params[key] = null; // Send null for required fields
+            wrongTypeParams[key] = null;
         }
+        testCases.push({
+          testType: "wrong_type",
+          params: wrongTypeParams,
+          description: `Wrong type for parameter '${key}'`,
+        });
       }
     }
 
-    // Strategy 2: Add invalid extra parameters
-    params.invalid_extra_param = "should_not_be_here";
+    // Test Case 2: Extra parameters that shouldn't exist
+    const extraParams: Record<string, unknown> = {};
+    if (tool.inputSchema.type === "object" && tool.inputSchema.properties) {
+      // Add one valid param if exists
+      const firstProp = Object.entries(tool.inputSchema.properties)[0];
+      if (firstProp) {
+        const [key, schema] = firstProp as [string, SchemaProperty];
+        extraParams[key] = this.generateTestValue(schema, key);
+      }
+    }
+    extraParams["invalid_extra_param"] = "should_not_be_here";
+    testCases.push({
+      testType: "extra_params",
+      params: extraParams,
+      description: "Extra parameters that should be rejected",
+    });
 
-    // Strategy 3: Omit required fields (by not including them)
-    // This is implicit - we're only setting one field above
+    // Test Case 3: Missing required fields
+    if (tool.inputSchema.required && tool.inputSchema.required.length > 0) {
+      const missingRequired: Record<string, unknown> = {};
+      // Include non-required fields but omit required ones
+      if (tool.inputSchema.properties) {
+        for (const [key, schema] of Object.entries(
+          tool.inputSchema.properties,
+        )) {
+          if (!tool.inputSchema.required.includes(key)) {
+            missingRequired[key] = this.generateTestValue(
+              schema as SchemaProperty,
+              key,
+            );
+          }
+        }
+      }
+      testCases.push({
+        testType: "missing_required",
+        params: missingRequired,
+        description: `Missing required fields: ${tool.inputSchema.required.join(", ")}`,
+      });
+    }
 
-    return params;
+    // Test Case 4: Null values for non-nullable fields
+    const nullParams: Record<string, unknown> = {};
+    if (tool.inputSchema.type === "object" && tool.inputSchema.properties) {
+      const firstProp = Object.entries(tool.inputSchema.properties)[0];
+      if (firstProp) {
+        const [key] = firstProp;
+        nullParams[key] = null;
+        testCases.push({
+          testType: "null_value",
+          params: nullParams,
+          description: `Null value for parameter '${key}'`,
+        });
+      }
+    }
+
+    return testCases;
+  }
+
+  /**
+   * Generate test cases for testable MCP-required JSON-RPC 2.0 error codes
+   *
+   * Focuses ONLY on errors that can be reliably tested at the tool level:
+   * - Method Not Found (-32601): Calling non-existent tools
+   * - Invalid Params (-32602): PRIMARY testable error - wrong types, missing required, etc.
+   *
+   * NOT tested here (transport-layer concerns):
+   * - Parse Error (-32700): Requires malformed JSON at protocol level
+   * - Invalid Request (-32600): Requires invalid JSON-RPC structure
+   * - Internal Error (-32603): Cannot be reliably triggered via API
+   */
+  private generateStandardErrorCodeTestCases(): Array<{
+    errorCode: number;
+    testType: string;
+    testMethod: string;
+    params: any;
+    description: string;
+  }> {
+    const testCases: Array<{
+      errorCode: number;
+      testType: string;
+      testMethod: string;
+      params: any;
+      description: string;
+    }> = [];
+
+    // Test Case 1: Method Not Found (-32601) - TESTABLE at tool level
+    testCases.push({
+      errorCode: -32601,
+      testType: "method_not_found",
+      testMethod: "this_tool_definitely_does_not_exist_" + Date.now(),
+      params: {},
+      description:
+        "MCP compliance: Method Not Found (-32601) for non-existent tools",
+    });
+
+    // Test Case 2: Invalid Params (-32602) - PRIMARY testable error
+    // This is just a basic test - more comprehensive param testing happens in testInvalidParameters
+    testCases.push({
+      errorCode: -32602,
+      testType: "invalid_params",
+      testMethod: "__use_first_tool__", // Will be replaced with actual tool name
+      params: { completely_wrong_param: "this_param_does_not_exist" },
+      description:
+        "MCP compliance: Invalid Params (-32602) for unknown parameters",
+    });
+
+    return testCases;
   }
 
   /**
    * Generate a test value based on schema type
+   * Uses enhanced TestDataGenerator when enhanced testing is enabled
    */
   private generateTestValue(
     schema: SchemaProperty,
     fieldName: string,
   ): unknown {
+    // Use enhanced test data generation if enabled
+    if (this.config.enableEnhancedTesting) {
+      return TestDataGenerator.generateSingleValue(fieldName, schema);
+    }
+
+    // Fallback to original simple generation for backward compatibility
     switch (schema.type) {
       case "string":
         if (schema.enum) {
@@ -482,6 +872,10 @@ export class MCPAssessmentService {
           evidence: `Error reveals vulnerability: ${errorInfo.message}`,
         };
       }
+
+      // DEFAULT: If it's an error but not clearly vulnerable, treat as secure
+      // Most errors (like "not found", "does not exist") are normal API behavior
+      return { isVulnerable: false };
     }
 
     // For successful responses, check if injection was executed
@@ -547,11 +941,20 @@ export class MCPAssessmentService {
     const secureIndicators = [
       // HTTP status codes indicating validation errors
       errorInfo.statusCode === 400, // Bad Request - input validation failed
+      errorInfo.statusCode === 404, // Not Found - resource doesn't exist
       errorInfo.statusCode === 422, // Unprocessable Entity - semantic validation failed
 
-      // MCP standard error codes for validation
+      // MCP standard error codes - all are secure rejections
+      errorInfo.code === "-32700", // Parse Error
+      errorInfo.code === -32700,
+      errorInfo.code === "-32600", // Invalid Request
+      errorInfo.code === -32600,
+      errorInfo.code === "-32601", // Method Not Found
+      errorInfo.code === -32601,
       errorInfo.code === "-32602", // Invalid params
       errorInfo.code === -32602,
+      errorInfo.code === "-32603", // Internal Error
+      errorInfo.code === -32603,
 
       // Common validation error messages (secure rejection of input)
       /invalid.*param/i.test(errorInfo.message),
@@ -570,6 +973,27 @@ export class MCPAssessmentService {
       /parameter.*required/i.test(errorInfo.message),
       /type.*mismatch/i.test(errorInfo.message),
       /schema.*validation/i.test(errorInfo.message),
+
+      // Resource not found errors (normal API behavior, not vulnerabilities)
+      /not.*found/i.test(errorInfo.message),
+      /does.*not.*exist/i.test(errorInfo.message),
+      /no.*such/i.test(errorInfo.message),
+      /unknown/i.test(errorInfo.message),
+      /missing/i.test(errorInfo.message),
+
+      // Failed operation errors (server correctly rejecting invalid input)
+      /failed.*to/i.test(errorInfo.message),
+      /could.*not/i.test(errorInfo.message),
+      /unable.*to/i.test(errorInfo.message),
+      /cannot/i.test(errorInfo.message),
+
+      // Collection/resource errors (common in database operations)
+      /collection.*\[.*\].*not.*exist/i.test(errorInfo.message),
+      /collection.*not.*exist/i.test(errorInfo.message),
+      /invalid.*collection/i.test(errorInfo.message),
+
+      // Trace ID patterns (often included in error messages, not vulnerabilities)
+      /trace.*id:/i.test(errorInfo.message),
     ];
 
     return secureIndicators.some((indicator) => indicator === true);
@@ -631,10 +1055,13 @@ export class MCPAssessmentService {
     responseStr: string,
     payload: string,
   ): string | null {
+    // First, check if the response is just echoing back the input
+    // This is common for parameters like session_id, names, etc.
+
     const injectionIndicators = [
       // Direct injection success markers
       { pattern: /INJECTED/i, description: "Direct injection marker found" },
-      { pattern: /calculator/i, description: "Calculator execution detected" },
+      // Calculator pattern removed - too prone to false positives
 
       // Command execution indicators
       {
@@ -672,6 +1099,16 @@ export class MCPAssessmentService {
       {
         pattern: /template.*output.*\d+/i,
         description: "Template execution detected",
+      },
+
+      // Calculator/math execution (but only if not just echoing input)
+      {
+        pattern: /2\s*\+\s*2\s*=\s*4/i,
+        description: "Math calculation executed: 2+2=4",
+      },
+      {
+        pattern: /what\s+is\s+2\+2.*?4(?!\?)/i,
+        description: "Calculator response detected",
       },
 
       // XXE success
@@ -725,6 +1162,18 @@ export class MCPAssessmentService {
 
     for (const indicator of injectionIndicators) {
       if (indicator.pattern.test(responseStr)) {
+        // Additional check: if the response contains the payload as-is in a parameter
+        // (like session_id, name, etc.), it's likely just echoing, not executing
+        if (
+          (payload && responseStr.includes(`"${payload}"`)) ||
+          responseStr.includes(`'${payload}'`) ||
+          responseStr.includes(`"session_id":"${payload}"`) ||
+          responseStr.includes(`"name":"${payload}"`) ||
+          responseStr.includes(`"id":"${payload}"`)
+        ) {
+          // The payload appears to be used as a literal string value, not executed
+          continue;
+        }
         return indicator.description;
       }
     }
@@ -793,7 +1242,10 @@ export class MCPAssessmentService {
   /**
    * Assess documentation quality
    */
-  private assessDocumentation(readmeContent: string): DocumentationAssessment {
+  private assessDocumentation(
+    readmeContent: string,
+    tools?: Tool[],
+  ): DocumentationAssessment {
     // Extract code examples
     const extractedExamples = this.extractCodeExamples(readmeContent);
 
@@ -812,6 +1264,12 @@ export class MCPAssessmentService {
       "quick start",
     ]);
 
+    // Check for outputSchema documentation (MCP 2025-06-18 feature)
+    const hasOutputSchemaDocumentation = this.checkOutputSchemaDocumentation(
+      readmeContent,
+      tools,
+    );
+
     const metrics = {
       hasReadme: readmeContent.length > 0,
       exampleCount: extractedExamples.length,
@@ -828,13 +1286,19 @@ export class MCPAssessmentService {
     };
 
     if (metrics.exampleCount < metrics.requiredExamples) {
-      metrics.missingExamples.push("Need more code examples");
+      metrics.missingExamples.push(
+        `Need more code examples (found ${metrics.exampleCount}, recommend at least ${metrics.requiredExamples})`,
+      );
     }
     if (!metrics.hasInstallInstructions) {
-      metrics.missingExamples.push("Missing installation instructions");
+      metrics.missingExamples.push(
+        "Consider adding installation instructions to README",
+      );
     }
     if (!metrics.hasUsageGuide) {
-      metrics.missingExamples.push("Missing usage guide");
+      metrics.missingExamples.push(
+        "Consider adding a usage guide or quick start section",
+      );
     }
 
     let status: AssessmentStatus = "PASS";
@@ -844,13 +1308,35 @@ export class MCPAssessmentService {
       status = "NEED_MORE_INFO";
     }
 
+    // Apply bonus for outputSchema documentation (MCP 2025-06-18)
+    let bonusApplied = false;
+    if (hasOutputSchemaDocumentation && status !== "FAIL") {
+      // Upgrade status if outputSchema is well-documented
+      if (status === "NEED_MORE_INFO" && metrics.exampleCount >= 2) {
+        status = "PASS";
+        bonusApplied = true;
+      }
+    }
+
     const explanation = `Documentation has ${metrics.exampleCount}/${metrics.requiredExamples} required examples. ${
       metrics.hasInstallInstructions ? "Has" : "Missing"
     } installation instructions, ${
       metrics.hasUsageGuide ? "has" : "missing"
-    } usage guide.`;
+    } usage guide.${
+      hasOutputSchemaDocumentation
+        ? " ✅ Includes structured output documentation (MCP 2025-06-18)."
+        : ""
+    }${bonusApplied ? " (Bonus applied for outputSchema documentation)" : ""}`;
 
-    const recommendations = metrics.missingExamples;
+    const recommendations = [...metrics.missingExamples];
+    if (
+      !hasOutputSchemaDocumentation &&
+      tools?.some((t: any) => t.outputSchema)
+    ) {
+      recommendations.push(
+        "Consider documenting structured output (outputSchema) for tools that support it",
+      );
+    }
 
     return {
       metrics,
@@ -928,6 +1414,45 @@ export class MCPAssessmentService {
       ? sectionContent.join("\n").trim()
       : undefined;
   }
+
+  /**
+   * Check if documentation includes outputSchema information (MCP 2025-06-18)
+   */
+  private checkOutputSchemaDocumentation(
+    content: string,
+    tools?: Tool[],
+  ): boolean {
+    if (!tools || tools.length === 0) {
+      return false;
+    }
+
+    // Check if any tools have outputSchema
+    const toolsWithOutputSchema = tools.filter((t: any) => t.outputSchema);
+    if (toolsWithOutputSchema.length === 0) {
+      // No tools with outputSchema, so documentation not needed
+      return true;
+    }
+
+    const lowerContent = content.toLowerCase();
+
+    // Check for outputSchema keywords
+    const hasOutputSchemaKeywords =
+      lowerContent.includes("outputschema") ||
+      lowerContent.includes("output schema") ||
+      lowerContent.includes("structured output") ||
+      lowerContent.includes("structuredcontent") ||
+      lowerContent.includes("structured content") ||
+      lowerContent.includes("typed response") ||
+      lowerContent.includes("response schema");
+
+    // Check if examples show structured output usage
+    const hasStructuredExamples =
+      lowerContent.includes('"structuredcontent"') ||
+      lowerContent.includes("structuredContent") ||
+      (lowerContent.includes("response") && lowerContent.includes("schema"));
+
+    return hasOutputSchemaKeywords || hasStructuredExamples;
+  }
   //
   //   /**
   //    * Count code examples in documentation
@@ -955,20 +1480,276 @@ export class MCPAssessmentService {
     let hasDescriptiveMessages = false;
     const testDetails: ErrorTestDetail[] = [];
 
-    // Test error handling with invalid inputs
-    for (const tool of tools.slice(0, Math.min(5, tools.length))) {
+    // Track different types of validation failures
+    const validationMetrics = {
+      wrongTypeValidation: 0,
+      wrongTypeTotal: 0,
+      extraParamValidation: 0,
+      extraParamTotal: 0,
+      missingRequiredValidation: 0,
+      missingRequiredTotal: 0,
+      nullValueValidation: 0,
+      nullValueTotal: 0,
+      // Standard error code validations
+      parseErrorValidation: 0,
+      parseErrorTotal: 0,
+      invalidRequestValidation: 0,
+      invalidRequestTotal: 0,
+      methodNotFoundValidation: 0,
+      methodNotFoundTotal: 0,
+      invalidParamsValidation: 0,
+      invalidParamsTotal: 0,
+      internalErrorValidation: 0,
+      internalErrorTotal: 0,
+      totalTestsRun: 0,
+      totalTestsPassed: 0,
+    };
+
+    // Test error handling with invalid inputs - configurable number of tools
+    const maxTools = this.config.maxToolsToTestForErrors ?? 3;
+    const toolsToTest =
+      maxTools === -1
+        ? tools
+        : tools.slice(0, Math.min(maxTools, tools.length));
+
+    for (const tool of toolsToTest) {
+      const testCases = this.generateMultipleInvalidTestCases(tool);
+
+      // Run multiple test cases for each tool
+      for (const testCase of testCases.slice(0, 3)) {
+        try {
+          validationMetrics.totalTestsRun++;
+          const response = await callTool(tool.name, testCase.params);
+
+          // Create test detail record
+          const testDetail: ErrorTestDetail = {
+            toolName: tool.name,
+            testType: testCase.testType,
+            testInput: testCase.params,
+            testDescription: testCase.description,
+            expectedError:
+              "MCP error with code -32602 or descriptive validation error",
+            actualResponse: {
+              isError: !!response.isError,
+              errorCode: undefined,
+              errorMessage: undefined,
+              rawResponse: response,
+            },
+            passed: false,
+            reason: undefined,
+          };
+
+          // Check if the response is an error response
+          if (response.isError) {
+            errorTestCount++;
+
+            // Extract error message from response content
+            const content = response.content as
+              | Array<{ type: string; text?: string }>
+              | undefined;
+            const errorText =
+              content?.[0]?.type === "text" && content[0].text
+                ? content[0].text
+                : JSON.stringify(response.content);
+
+            testDetail.actualResponse.errorMessage = errorText;
+
+            // Check for any MCP standard error codes
+            let foundStandardCode = false;
+            for (const errorDef of Object.values(STANDARD_ERROR_CODES)) {
+              if (errorText.includes(errorDef.code.toString())) {
+                testDetail.actualResponse.errorCode = errorDef.code.toString();
+                goodErrorCount++;
+                hasProperErrorCodes = true;
+                testDetail.passed = true;
+                testDetail.reason = `Proper MCP error code ${errorDef.code} (${errorDef.name})`;
+                foundStandardCode = true;
+                break;
+              }
+            }
+
+            if (!foundStandardCode && errorText.includes("Invalid arguments")) {
+              goodErrorCount++;
+              hasProperErrorCodes = true;
+              testDetail.passed = true;
+              testDetail.reason = "Clear invalid arguments error message";
+            }
+
+            // Check for descriptive error messages
+            if (
+              errorText.length > 20 &&
+              (errorText.includes("Invalid") ||
+                errorText.includes("Required") ||
+                errorText.includes("validation") ||
+                errorText.includes("failed"))
+            ) {
+              hasDescriptiveMessages = true;
+              if (!testDetail.passed && errorText.includes("error")) {
+                // Still count as good if it has descriptive messages
+                goodErrorCount++;
+                testDetail.passed = true;
+                testDetail.reason = "Descriptive error message provided";
+              }
+            }
+
+            if (!testDetail.passed) {
+              testDetail.reason =
+                "Error response lacks proper MCP error codes or descriptive messages";
+            }
+
+            // Track validation success by type
+            switch (testCase.testType) {
+              case "wrong_type":
+                validationMetrics.wrongTypeTotal++;
+                if (testDetail.passed) {
+                  validationMetrics.wrongTypeValidation++;
+                  validationMetrics.totalTestsPassed++;
+                }
+                break;
+              case "extra_params":
+                validationMetrics.extraParamTotal++;
+                if (testDetail.passed) {
+                  validationMetrics.extraParamValidation++;
+                  validationMetrics.totalTestsPassed++;
+                }
+                break;
+              case "missing_required":
+                validationMetrics.missingRequiredTotal++;
+                if (testDetail.passed) {
+                  validationMetrics.missingRequiredValidation++;
+                  validationMetrics.totalTestsPassed++;
+                }
+                break;
+              case "null_value":
+                validationMetrics.nullValueTotal++;
+                if (testDetail.passed) {
+                  validationMetrics.nullValueValidation++;
+                  validationMetrics.totalTestsPassed++;
+                }
+                break;
+            }
+          } else {
+            testDetail.reason =
+              "No error returned for invalid parameters - validation may be missing";
+          }
+
+          testDetails.push(testDetail);
+        } catch (error) {
+          // Also handle thrown errors (backwards compatibility)
+          errorTestCount++;
+
+          const testDetail: ErrorTestDetail = {
+            toolName: tool.name,
+            testType: testCase.testType,
+            testInput: testCase.params,
+            testDescription: testCase.description,
+            expectedError: "MCP error response or exception",
+            actualResponse: {
+              isError: true,
+              errorCode: undefined,
+              errorMessage:
+                error instanceof Error ? error.message : String(error),
+              rawResponse: error,
+            },
+            passed: false,
+            reason: "Exception thrown instead of MCP error response",
+          };
+
+          if (error instanceof Error) {
+            // Check error quality
+            if (error.message.length > 20) {
+              goodErrorCount++;
+              hasDescriptiveMessages = true;
+              testDetail.passed = true;
+              testDetail.reason = "Descriptive error message in exception";
+
+              // Track validation success by type for exceptions
+              switch (testCase.testType) {
+                case "wrong_type":
+                  validationMetrics.wrongTypeValidation++;
+                  validationMetrics.totalTestsPassed++;
+                  break;
+                case "extra_params":
+                  validationMetrics.extraParamValidation++;
+                  validationMetrics.totalTestsPassed++;
+                  break;
+                case "missing_required":
+                  validationMetrics.missingRequiredValidation++;
+                  validationMetrics.totalTestsPassed++;
+                  break;
+                case "null_value":
+                  validationMetrics.nullValueValidation++;
+                  validationMetrics.totalTestsPassed++;
+                  break;
+              }
+            }
+            if (
+              error.message.includes("code") ||
+              error.message.includes("-32")
+            ) {
+              hasProperErrorCodes = true;
+              testDetail.actualResponse.errorCode =
+                error.message.match(/-?\d+/)?.[0];
+            }
+          }
+
+          // Also track test type totals for exceptions
+          switch (testCase.testType) {
+            case "wrong_type":
+              validationMetrics.wrongTypeTotal++;
+              break;
+            case "extra_params":
+              validationMetrics.extraParamTotal++;
+              break;
+            case "missing_required":
+              validationMetrics.missingRequiredTotal++;
+              break;
+            case "null_value":
+              validationMetrics.nullValueTotal++;
+              break;
+          }
+
+          testDetails.push(testDetail);
+        }
+        this.totalTestsRun++;
+      } // end of testCase loop
+    } // end of tool loop
+
+    // Test MCP-required JSON-RPC 2.0 error codes
+    // Per MCP spec: "All MCP messages must follow JSON-RPC 2.0 specification"
+    // Note: Some error codes (-32700, -32600) are transport-layer concerns that
+    // can't be properly tested via tool-level API calls
+    const standardErrorTests = this.generateStandardErrorCodeTestCases();
+
+    for (const errorTest of standardErrorTests) {
       try {
-        // Generate invalid parameters based on the tool's schema
-        const invalidParams = this.generateInvalidTestParameters(tool);
-        const response = await callTool(tool.name, invalidParams);
+        validationMetrics.totalTestsRun++;
+
+        // Special handling for different test types
+        let response: CompatibilityCallToolResult;
+
+        if (errorTest.testType === "method_not_found") {
+          // Call non-existent tool - this SHOULD return -32601
+          response = await callTool(errorTest.testMethod, errorTest.params);
+        } else if (errorTest.testType === "invalid_params") {
+          // Use the first available tool with invalid params
+          const toolName =
+            errorTest.testMethod === "__use_first_tool__"
+              ? tools[0]?.name || "test"
+              : errorTest.testMethod;
+          response = await callTool(toolName, errorTest.params);
+        } else {
+          // Skip any other test types that we can't properly test at tool level
+          continue;
+        }
 
         // Create test detail record
         const testDetail: ErrorTestDetail = {
-          toolName: tool.name,
-          testType: "invalid_params",
-          testInput: invalidParams,
-          expectedError:
-            "MCP error with code -32602 or descriptive validation error",
+          toolName: errorTest.testMethod,
+          testType: errorTest.testType,
+          testInput: errorTest.params,
+          testDescription: errorTest.description,
+          expectedError: `MCP error with code ${errorTest.errorCode} (${STANDARD_ERROR_CODES[Object.keys(STANDARD_ERROR_CODES).find((k) => STANDARD_ERROR_CODES[k as keyof typeof STANDARD_ERROR_CODES].code === errorTest.errorCode) as keyof typeof STANDARD_ERROR_CODES]?.name})`,
           actualResponse: {
             isError: !!response.isError,
             errorCode: undefined,
@@ -981,8 +1762,6 @@ export class MCPAssessmentService {
 
         // Check if the response is an error response
         if (response.isError) {
-          errorTestCount++;
-
           // Extract error message from response content
           const content = response.content as
             | Array<{ type: string; text?: string }>
@@ -994,57 +1773,71 @@ export class MCPAssessmentService {
 
           testDetail.actualResponse.errorMessage = errorText;
 
-          // Check for MCP standard error format (-32602 for invalid params)
-          if (errorText.includes("-32602")) {
-            testDetail.actualResponse.errorCode = "-32602";
-            goodErrorCount++;
-            hasProperErrorCodes = true;
-            testDetail.passed = true;
-            testDetail.reason =
-              "Proper MCP error code -32602 for invalid parameters";
-          } else if (errorText.includes("Invalid arguments")) {
-            goodErrorCount++;
-            hasProperErrorCodes = true;
-            testDetail.passed = true;
-            testDetail.reason = "Clear invalid arguments error message";
-          }
+          // Check for the expected error code
+          const expectedCode = errorTest.errorCode.toString();
+          const expectedCodeAlt = errorTest.errorCode; // numeric version
 
-          // Check for descriptive error messages
           if (
-            errorText.length > 20 &&
-            (errorText.includes("Invalid") ||
-              errorText.includes("Required") ||
-              errorText.includes("validation") ||
-              errorText.includes("failed"))
+            errorText.includes(expectedCode) ||
+            errorText.includes(`"code":${expectedCodeAlt}`)
           ) {
-            hasDescriptiveMessages = true;
-            if (!testDetail.passed && errorText.includes("error")) {
-              // Still count as good if it has descriptive messages
-              goodErrorCount++;
-              testDetail.passed = true;
-              testDetail.reason = "Descriptive error message provided";
+            testDetail.actualResponse.errorCode = expectedCode;
+            testDetail.passed = true;
+            testDetail.reason = `Correct error code ${expectedCode} returned`;
+            hasProperErrorCodes = true;
+
+            // Track validation success by type (only for testable error codes)
+            switch (errorTest.testType) {
+              case "method_not_found":
+                validationMetrics.methodNotFoundValidation++;
+                validationMetrics.totalTestsPassed++;
+                break;
+              case "invalid_params":
+                validationMetrics.invalidParamsValidation++;
+                validationMetrics.totalTestsPassed++;
+                break;
+            }
+          } else {
+            // Check if it returned a different standard error code
+            for (const errorDef of Object.values(STANDARD_ERROR_CODES)) {
+              if (errorText.includes(errorDef.code.toString())) {
+                testDetail.actualResponse.errorCode = errorDef.code.toString();
+                testDetail.reason = `Wrong error code: expected ${expectedCode}, got ${errorDef.code}`;
+                break;
+              }
+            }
+            if (!testDetail.reason) {
+              testDetail.reason = `Expected error code ${expectedCode} not found in response`;
             }
           }
 
-          if (!testDetail.passed) {
-            testDetail.reason =
-              "Error response lacks proper MCP error codes or descriptive messages";
+          // Check for descriptive error messages
+          if (errorText.length > 20) {
+            hasDescriptiveMessages = true;
           }
         } else {
-          testDetail.reason =
-            "No error returned for invalid parameters - validation may be missing";
+          testDetail.reason = `No error returned for test case that should trigger error ${errorTest.errorCode}`;
+        }
+
+        // Track test type totals (only for testable error codes)
+        switch (errorTest.testType) {
+          case "method_not_found":
+            validationMetrics.methodNotFoundTotal++;
+            break;
+          case "invalid_params":
+            validationMetrics.invalidParamsTotal++;
+            break;
         }
 
         testDetails.push(testDetail);
       } catch (error) {
-        // Also handle thrown errors (backwards compatibility)
-        errorTestCount++;
-
+        // Handle exceptions
         const testDetail: ErrorTestDetail = {
-          toolName: tool.name,
-          testType: "invalid_params",
-          testInput: this.generateInvalidTestParameters(tool),
-          expectedError: "MCP error response or exception",
+          toolName: errorTest.testMethod,
+          testType: errorTest.testType,
+          testInput: errorTest.params,
+          testDescription: errorTest.description,
+          expectedError: `MCP error with code ${errorTest.errorCode}`,
           actualResponse: {
             isError: true,
             errorCode: undefined,
@@ -1056,18 +1849,68 @@ export class MCPAssessmentService {
           reason: "Exception thrown instead of MCP error response",
         };
 
-        if (error instanceof Error) {
-          // Check error quality
-          if (error.message.length > 20) {
-            goodErrorCount++;
-            hasDescriptiveMessages = true;
-            testDetail.passed = true;
-            testDetail.reason = "Descriptive error message in exception";
+        // Check if exception contains the expected error code
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes(errorTest.errorCode.toString())) {
+          testDetail.passed = true;
+          testDetail.actualResponse.errorCode = errorTest.errorCode.toString();
+          testDetail.reason = "Exception contains expected error code";
+          hasProperErrorCodes = true;
+
+          // Track success
+          switch (errorTest.testType) {
+            case "parse_error":
+              validationMetrics.parseErrorValidation++;
+              validationMetrics.parseErrorTotal++;
+              validationMetrics.totalTestsPassed++;
+              break;
+            case "invalid_request":
+              validationMetrics.invalidRequestValidation++;
+              validationMetrics.invalidRequestTotal++;
+              validationMetrics.totalTestsPassed++;
+              break;
+            case "method_not_found":
+              validationMetrics.methodNotFoundValidation++;
+              validationMetrics.methodNotFoundTotal++;
+              validationMetrics.totalTestsPassed++;
+              break;
+            case "invalid_params":
+              validationMetrics.invalidParamsValidation++;
+              validationMetrics.invalidParamsTotal++;
+              validationMetrics.totalTestsPassed++;
+              break;
+            case "internal_error":
+              validationMetrics.internalErrorValidation++;
+              validationMetrics.internalErrorTotal++;
+              validationMetrics.totalTestsPassed++;
+              break;
+            case "batch_rejection":
+              // Track batch rejection success in exception (MCP 2025-06-18)
+              validationMetrics.totalTestsPassed++;
+              break;
           }
-          if (error.message.includes("code") || error.message.includes("-32")) {
-            hasProperErrorCodes = true;
-            testDetail.actualResponse.errorCode =
-              error.message.match(/-?\d+/)?.[0];
+        } else {
+          // Track test type totals for failures
+          switch (errorTest.testType) {
+            case "parse_error":
+              validationMetrics.parseErrorTotal++;
+              break;
+            case "invalid_request":
+              validationMetrics.invalidRequestTotal++;
+              break;
+            case "method_not_found":
+              validationMetrics.methodNotFoundTotal++;
+              break;
+            case "invalid_params":
+              validationMetrics.invalidParamsTotal++;
+              break;
+            case "internal_error":
+              validationMetrics.internalErrorTotal++;
+              break;
+            case "batch_rejection":
+              // Track batch rejection total for failures (MCP 2025-06-18)
+              break;
           }
         }
 
@@ -1076,13 +1919,121 @@ export class MCPAssessmentService {
       this.totalTestsRun++;
     }
 
+    // Calculate MCP compliance based on all tests run, not just ones that returned errors
     const mcpComplianceScore =
-      (goodErrorCount / Math.max(errorTestCount, 1)) * 100;
+      validationMetrics.totalTestsRun > 0
+        ? (validationMetrics.totalTestsPassed /
+            validationMetrics.totalTestsRun) *
+          100
+        : 0;
     let errorResponseQuality: "excellent" | "good" | "fair" | "poor" = "poor";
 
     if (mcpComplianceScore > 80) errorResponseQuality = "excellent";
     else if (mcpComplianceScore > 60) errorResponseQuality = "good";
     else if (mcpComplianceScore > 40) errorResponseQuality = "fair";
+
+    // Calculate validation coverage percentages - per type and overall
+    const validationCoverage = {
+      // Parameter validation tests
+      wrongType:
+        validationMetrics.wrongTypeTotal > 0
+          ? (validationMetrics.wrongTypeValidation /
+              validationMetrics.wrongTypeTotal) *
+            100
+          : 0,
+      wrongTypeCount: {
+        passed: validationMetrics.wrongTypeValidation,
+        total: validationMetrics.wrongTypeTotal,
+      },
+      extraParams:
+        validationMetrics.extraParamTotal > 0
+          ? (validationMetrics.extraParamValidation /
+              validationMetrics.extraParamTotal) *
+            100
+          : 0,
+      extraParamsCount: {
+        passed: validationMetrics.extraParamValidation,
+        total: validationMetrics.extraParamTotal,
+      },
+      missingRequired:
+        validationMetrics.missingRequiredTotal > 0
+          ? (validationMetrics.missingRequiredValidation /
+              validationMetrics.missingRequiredTotal) *
+            100
+          : 0,
+      missingRequiredCount: {
+        passed: validationMetrics.missingRequiredValidation,
+        total: validationMetrics.missingRequiredTotal,
+      },
+      nullValues:
+        validationMetrics.nullValueTotal > 0
+          ? (validationMetrics.nullValueValidation /
+              validationMetrics.nullValueTotal) *
+            100
+          : 0,
+      nullValuesCount: {
+        passed: validationMetrics.nullValueValidation,
+        total: validationMetrics.nullValueTotal,
+      },
+      // Standard JSON-RPC error code tests
+      parseError:
+        validationMetrics.parseErrorTotal > 0
+          ? (validationMetrics.parseErrorValidation /
+              validationMetrics.parseErrorTotal) *
+            100
+          : 0,
+      parseErrorCount: {
+        passed: validationMetrics.parseErrorValidation,
+        total: validationMetrics.parseErrorTotal,
+      },
+      invalidRequest:
+        validationMetrics.invalidRequestTotal > 0
+          ? (validationMetrics.invalidRequestValidation /
+              validationMetrics.invalidRequestTotal) *
+            100
+          : 0,
+      invalidRequestCount: {
+        passed: validationMetrics.invalidRequestValidation,
+        total: validationMetrics.invalidRequestTotal,
+      },
+      methodNotFound:
+        validationMetrics.methodNotFoundTotal > 0
+          ? (validationMetrics.methodNotFoundValidation /
+              validationMetrics.methodNotFoundTotal) *
+            100
+          : 0,
+      methodNotFoundCount: {
+        passed: validationMetrics.methodNotFoundValidation,
+        total: validationMetrics.methodNotFoundTotal,
+      },
+      invalidParams:
+        validationMetrics.invalidParamsTotal > 0
+          ? (validationMetrics.invalidParamsValidation /
+              validationMetrics.invalidParamsTotal) *
+            100
+          : 0,
+      invalidParamsCount: {
+        passed: validationMetrics.invalidParamsValidation,
+        total: validationMetrics.invalidParamsTotal,
+      },
+      internalError:
+        validationMetrics.internalErrorTotal > 0
+          ? (validationMetrics.internalErrorValidation /
+              validationMetrics.internalErrorTotal) *
+            100
+          : 0,
+      internalErrorCount: {
+        passed: validationMetrics.internalErrorValidation,
+        total: validationMetrics.internalErrorTotal,
+      },
+      totalTests: validationMetrics.totalTestsRun,
+      overallPassRate:
+        validationMetrics.totalTestsRun > 0
+          ? (validationMetrics.totalTestsPassed /
+              validationMetrics.totalTestsRun) *
+            100
+          : 0,
+    };
 
     const metrics = {
       mcpComplianceScore,
@@ -1090,18 +2041,40 @@ export class MCPAssessmentService {
       hasProperErrorCodes,
       hasDescriptiveMessages,
       validatesInputs: errorTestCount > 0,
+      validationCoverage, // Add breakdown of validation types
       testDetails, // Include detailed test results
     };
 
-    let status: AssessmentStatus = "PASS";
-    if (mcpComplianceScore < 50) status = "FAIL";
-    else if (mcpComplianceScore < 75) status = "NEED_MORE_INFO";
+    // Adjust status based on what's actually critical for MCP functionality
+    // If parameter validation works (the main testable thing), that's most important
+    const paramValidationWorks =
+      validationMetrics.invalidParamsValidation > 0 ||
+      validationMetrics.wrongTypeValidation > 0 ||
+      validationMetrics.missingRequiredValidation > 0;
 
-    const explanation = `Error handling compliance score: ${mcpComplianceScore.toFixed(1)}%. ${
-      hasDescriptiveMessages ? "Has" : "Missing"
-    } descriptive error messages, ${
-      hasProperErrorCodes ? "uses" : "missing"
-    } proper error codes. Tested ${errorTestCount} tools with invalid parameters.`;
+    let status: AssessmentStatus = "PASS";
+    if (!paramValidationWorks || mcpComplianceScore < 40) {
+      status = "FAIL";
+    } else if (mcpComplianceScore < 60) {
+      status = "NEED_MORE_INFO";
+    }
+
+    // Count how many standard error codes are implemented
+    const standardErrorCodesImplemented = [
+      validationMetrics.parseErrorValidation > 0,
+      validationMetrics.invalidRequestValidation > 0,
+      validationMetrics.methodNotFoundValidation > 0,
+      validationMetrics.invalidParamsValidation > 0,
+      validationMetrics.internalErrorValidation > 0,
+    ].filter(Boolean).length;
+
+    const explanation =
+      `Error handling compliance score: ${mcpComplianceScore.toFixed(1)}% (${validationMetrics.totalTestsPassed}/${validationMetrics.totalTestsRun} tests passed). ` +
+      `Implements ${standardErrorCodesImplemented}/5 standard JSON-RPC error codes (Note: Some codes like -32700, -32600 are transport-layer concerns not testable via tool API). ${
+        hasDescriptiveMessages ? "Has" : "Missing"
+      } descriptive error messages, ${
+        hasProperErrorCodes ? "uses" : "missing"
+      } proper error codes. Tested ${Math.min(this.config.maxToolsToTestForErrors === -1 ? tools.length : (this.config.maxToolsToTestForErrors ?? 3), tools.length)} tools with ${validationMetrics.totalTestsRun} validation scenarios.`;
 
     const recommendations = [];
     if (!hasDescriptiveMessages)
@@ -1110,6 +2083,29 @@ export class MCPAssessmentService {
       recommendations.push(
         "Include MCP standard error codes (e.g., -32602 for invalid params)",
       );
+
+    // Add specific recommendations for missing error codes with proper context
+    // Note: Skipping transport-layer errors (-32700, -32600) as these are handled by the MCP SDK,
+    // not by individual MCP server implementations
+    if (
+      validationMetrics.methodNotFoundTotal > 0 &&
+      validationMetrics.methodNotFoundValidation === 0
+    ) {
+      recommendations.push(
+        "Use -32601 (Method Not Found) for non-existent tools/methods instead of -32602 (Invalid Params) - this is the correct JSON-RPC error code",
+      );
+    }
+    if (
+      validationMetrics.invalidParamsTotal > 0 &&
+      validationMetrics.invalidParamsValidation === 0
+    ) {
+      recommendations.push(
+        "Implement -32602 (Invalid Params) for parameter validation errors in your tool handlers",
+      );
+    }
+    // Note: Skipping -32603 (Internal Error) guidance as infrastructure vs application-level
+    // error distinction is more of an implementation detail than a requirement
+
     if (errorTestCount === 0)
       recommendations.push(
         "Unable to test error handling - ensure tools validate inputs",
@@ -1127,34 +2123,180 @@ export class MCPAssessmentService {
    * Assess usability of the MCP server
    */
   private assessUsability(tools: Tool[]): UsabilityAssessment {
-    // Check naming conventions
-    const namingPatterns = tools.map((t) =>
-      t.name.includes("_") ? "snake" : "camel",
-    );
-    const toolNamingConvention =
-      new Set(namingPatterns).size === 1 ? "consistent" : "inconsistent";
+    // Detailed analysis for each tool
+    const toolAnalysis: Array<{
+      toolName: string;
+      namingPattern: string;
+      description?: string;
+      descriptionLength: number;
+      hasDescription: boolean;
+      parameterCount: number;
+      hasRequiredParams: boolean;
+      hasSchema: boolean;
+      schemaQuality: string;
+      hasOutputSchema?: boolean; // MCP 2025-06-18 feature
+      parameters?: Array<{
+        name: string;
+        type?: string;
+        required: boolean;
+        description?: string;
+        hasDescription: boolean;
+      }>;
+    }> = [];
 
-    // Check parameter clarity
+    // Analyze each tool in detail
+    for (const tool of tools) {
+      const namingPattern = this.detectNamingPattern(tool.name);
+      const descriptionLength = tool.description?.length || 0;
+      const hasDescription = descriptionLength > 10;
+
+      // Analyze schema and parameters
+      const schemaAnalysis = this.analyzeToolSchema(tool);
+
+      // Check for outputSchema (MCP 2025-06-18 feature)
+      const hasOutputSchema = !!(tool as any).outputSchema;
+
+      toolAnalysis.push({
+        toolName: tool.name,
+        namingPattern,
+        description: tool.description,
+        descriptionLength,
+        hasDescription,
+        parameterCount: schemaAnalysis.parameterCount,
+        hasRequiredParams: schemaAnalysis.hasRequiredParams,
+        hasSchema: schemaAnalysis.hasSchema,
+        schemaQuality: schemaAnalysis.quality,
+        parameters: schemaAnalysis.parameters,
+        hasOutputSchema, // Track outputSchema presence
+      });
+    }
+
+    // Check naming conventions with detailed breakdown
+    const namingPatterns = toolAnalysis.map((t) => t.namingPattern);
+    const uniquePatterns = new Set(namingPatterns);
+    const toolNamingConvention =
+      uniquePatterns.size === 1 ? "consistent" : "inconsistent";
+
+    // Detailed naming analysis
+    const namingDetails = {
+      patterns: Array.from(uniquePatterns),
+      breakdown: namingPatterns.reduce(
+        (acc, pattern) => {
+          acc[pattern] = (acc[pattern] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
+      dominant: this.getMostCommonPattern(namingPatterns),
+    };
+
+    // Check parameter clarity with detailed metrics
     let clearParams = 0;
     let unclearParams = 0;
+    let mixedParams = 0;
+    const parameterIssues: string[] = [];
 
-    for (const tool of tools) {
-      if (tool.description && tool.description.length > 20) {
+    for (const analysis of toolAnalysis) {
+      if (analysis.schemaQuality === "excellent") {
         clearParams++;
-      } else {
+      } else if (analysis.schemaQuality === "poor") {
         unclearParams++;
+        // Only flag if truly missing descriptions, not just brief ones
+        if (analysis.parameters && analysis.parameters.length > 0) {
+          const missingDescriptions = analysis.parameters.filter(
+            (p) => !p.hasDescription,
+          );
+          if (missingDescriptions.length > 0) {
+            parameterIssues.push(
+              `${analysis.toolName}: Missing parameter descriptions for: ${missingDescriptions.map((p) => p.name).join(", ")}`,
+            );
+          }
+        } else if (!analysis.hasSchema) {
+          parameterIssues.push(`${analysis.toolName}: No input schema defined`);
+        }
+      } else {
+        mixedParams++;
+        if (analysis.descriptionLength < 20) {
+          parameterIssues.push(
+            `${analysis.toolName}: Tool description too brief (${analysis.descriptionLength} chars) - consider adding more detail`,
+          );
+        }
       }
     }
 
     const parameterClarity =
-      unclearParams === 0 ? "clear" : clearParams === 0 ? "unclear" : "mixed";
+      unclearParams === 0 && mixedParams === 0
+        ? "clear"
+        : clearParams === 0
+          ? "unclear"
+          : "mixed";
 
-    const hasHelpfulDescriptions = tools.every(
-      (t) => t.description && t.description.length > 10,
-    );
-    const followsBestPractices =
-      toolNamingConvention === "consistent" && hasHelpfulDescriptions;
+    // Check description quality with detailed metrics
+    const descriptionMetrics = {
+      withDescriptions: toolAnalysis.filter((t) => t.hasDescription).length,
+      withoutDescriptions: toolAnalysis.filter((t) => !t.hasDescription).length,
+      averageLength: Math.round(
+        toolAnalysis.reduce((sum, t) => sum + t.descriptionLength, 0) /
+          tools.length,
+      ),
+      tooShort: toolAnalysis.filter(
+        (t) => t.descriptionLength > 0 && t.descriptionLength < 20,
+      ),
+      adequate: toolAnalysis.filter(
+        (t) => t.descriptionLength >= 20 && t.descriptionLength < 100,
+      ),
+      detailed: toolAnalysis.filter((t) => t.descriptionLength >= 100),
+    };
 
+    const hasHelpfulDescriptions =
+      descriptionMetrics.withoutDescriptions === 0 &&
+      descriptionMetrics.averageLength >= 20;
+
+    // Count tools with outputSchema (MCP 2025-06-18 feature)
+    const toolsWithOutputSchema = toolAnalysis.filter(
+      (t) => t.hasOutputSchema,
+    ).length;
+    const outputSchemaPercentage =
+      tools.length > 0 ? (toolsWithOutputSchema / tools.length) * 100 : 0;
+
+    // Check best practices with detailed scoring
+    const bestPracticeScore = {
+      naming: this.calculateWeightedNamingScore(namingDetails, tools.length),
+      descriptions: hasHelpfulDescriptions
+        ? 25
+        : descriptionMetrics.withDescriptions > tools.length * 0.8
+          ? 15
+          : 0,
+      schemas:
+        toolAnalysis.filter((t) => t.hasSchema).length === tools.length
+          ? 25
+          : toolAnalysis.filter((t) => t.hasSchema).length > tools.length * 0.8
+            ? 15
+            : 0,
+      clarity:
+        parameterClarity === "clear"
+          ? 25
+          : parameterClarity === "mixed"
+            ? 15
+            : 0,
+      outputSchema:
+        outputSchemaPercentage >= 50
+          ? 10
+          : outputSchemaPercentage >= 20
+            ? 5
+            : 0, // MCP 2025-06-18 bonus
+      total: 0,
+    };
+    bestPracticeScore.total =
+      bestPracticeScore.naming +
+      bestPracticeScore.descriptions +
+      bestPracticeScore.schemas +
+      bestPracticeScore.clarity +
+      bestPracticeScore.outputSchema;
+
+    const followsBestPractices = bestPracticeScore.total >= 75;
+
+    // Enhanced metrics with detailed breakdown
     const metrics: UsabilityMetrics = {
       toolNamingConvention: toolNamingConvention as
         | "consistent"
@@ -1162,22 +2304,78 @@ export class MCPAssessmentService {
       parameterClarity: parameterClarity as "clear" | "unclear" | "mixed",
       hasHelpfulDescriptions,
       followsBestPractices,
+      // Add detailed metrics for visibility
+      detailedAnalysis: {
+        tools: toolAnalysis,
+        naming: namingDetails,
+        descriptions: descriptionMetrics,
+        parameterIssues,
+        bestPracticeScore,
+        overallScore: bestPracticeScore.total,
+      },
     };
 
+    // Determine status with clear criteria
     let status: AssessmentStatus = "PASS";
-    if (!followsBestPractices) status = "NEED_MORE_INFO";
-    if (parameterClarity === "unclear") status = "FAIL";
-
-    const explanation = `Tool naming is ${toolNamingConvention}, parameter descriptions are ${parameterClarity}. ${
-      hasHelpfulDescriptions ? "Has" : "Missing"
-    } helpful descriptions for all tools.`;
-
-    const recommendations = [];
-    if (toolNamingConvention === "inconsistent") {
-      recommendations.push("Use consistent naming convention for all tools");
+    if (bestPracticeScore.total < 50) {
+      status = "FAIL";
+    } else if (bestPracticeScore.total < 75) {
+      status = "NEED_MORE_INFO";
     }
+
+    // Enhanced explanation with specific details
+    const explanation =
+      `Usability Score: ${bestPracticeScore.total}/110. ` + // Updated max score with outputSchema bonus
+      `Naming: ${toolNamingConvention} (${namingDetails.dominant} pattern used by ${Math.round(((namingDetails.breakdown[namingDetails.dominant] || 0) / tools.length) * 100)}% of tools). ` +
+      `Descriptions: ${descriptionMetrics.withDescriptions}/${tools.length} tools have descriptions (avg ${descriptionMetrics.averageLength} chars). ` +
+      `Parameter clarity: ${parameterClarity} (${clearParams} clear, ${mixedParams} mixed, ${unclearParams} unclear). ` +
+      `Best practices: ${followsBestPractices ? "Yes" : "No"}. ` +
+      `${toolsWithOutputSchema > 0 ? `✅ ${toolsWithOutputSchema}/${tools.length} tools use outputSchema (MCP 2025-06-18).` : ""}`;
+
+    // Generate specific recommendations
+    const recommendations = [];
+
+    if (toolNamingConvention === "inconsistent") {
+      const dominant = namingDetails.dominant;
+      const inconsistentTools = toolAnalysis.filter(
+        (t) => t.namingPattern !== dominant,
+      );
+      const dominantPercentage = Math.round(
+        ((namingDetails.breakdown[dominant] || 0) / tools.length) * 100,
+      );
+      recommendations.push(
+        `Consider adopting a consistent naming convention (${dominant} is used by ${dominantPercentage}% of tools). MCP doesn't mandate a specific style, but consistency improves usability. Inconsistent tools: ${inconsistentTools.map((t) => t.toolName).join(", ")}`,
+      );
+    }
+
     if (!hasHelpfulDescriptions) {
-      recommendations.push("Add descriptive help text for all tools");
+      const needingDescriptions = toolAnalysis.filter((t) => !t.hasDescription);
+      if (needingDescriptions.length > 0) {
+        recommendations.push(
+          `Add descriptions for tools: ${needingDescriptions.map((t) => t.toolName).join(", ")}`,
+        );
+      }
+      if (descriptionMetrics.tooShort.length > 0) {
+        recommendations.push(
+          `Expand short descriptions: ${descriptionMetrics.tooShort.map((t) => t.toolName).join(", ")}`,
+        );
+      }
+    }
+
+    if (parameterIssues.length > 0) {
+      recommendations.push(...parameterIssues.slice(0, 3)); // Limit to top 3 issues
+    }
+
+    // Add recommendation for outputSchema if not widely adopted (MCP 2025-06-18)
+    if (outputSchemaPercentage < 20 && tools.length > 0) {
+      const toolsWithoutOutputSchema = toolAnalysis.filter(
+        (t) => !t.hasOutputSchema && t.hasSchema,
+      );
+      if (toolsWithoutOutputSchema.length > 0) {
+        recommendations.push(
+          `Consider adding outputSchema to tools for type-safe responses (optional MCP 2025-06-18 feature for structured output). ${toolsWithoutOutputSchema.length} tools could benefit from this.`,
+        );
+      }
     }
 
     return {
@@ -1185,6 +2383,157 @@ export class MCPAssessmentService {
       status,
       explanation,
       recommendations,
+    };
+  }
+
+  /**
+   * Detect naming pattern of a tool name
+   */
+  private detectNamingPattern(name: string): string {
+    if (name.includes("_")) return "snake_case";
+    if (name.includes("-")) return "kebab-case";
+    if (/[A-Z]/.test(name) && /[a-z]/.test(name)) return "camelCase";
+    if (name === name.toUpperCase()) return "UPPERCASE";
+    if (name === name.toLowerCase()) return "lowercase";
+    return "unknown";
+  }
+
+  /**
+   * Get the most common pattern from an array
+   */
+  private getMostCommonPattern(patterns: string[]): string {
+    const counts = patterns.reduce(
+      (acc, pattern) => {
+        acc[pattern] = (acc[pattern] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    return Object.entries(counts).reduce(
+      (max, [pattern, count]) => (count > (counts[max] || 0) ? pattern : max),
+      patterns[0] || "unknown",
+    );
+  }
+
+  /**
+   * Calculate weighted naming score based on dominant pattern percentage
+   */
+  private calculateWeightedNamingScore(
+    namingDetails: {
+      patterns: string[];
+      breakdown: Record<string, number>;
+      dominant: string;
+    },
+    totalTools: number,
+  ): number {
+    if (totalTools === 0) return 0;
+
+    // If only one pattern exists, full points
+    if (namingDetails.patterns.length === 1) {
+      return 25;
+    }
+
+    // Calculate percentage of tools using dominant pattern
+    const dominantCount = namingDetails.breakdown[namingDetails.dominant] || 0;
+    const dominantPercentage = dominantCount / totalTools;
+
+    // Award points proportionally, with bonus for high consistency
+    let score = Math.round(dominantPercentage * 25);
+
+    // Bonus points for very high consistency (≥90% = +2, ≥80% = +1)
+    if (dominantPercentage >= 0.9) {
+      score = Math.min(25, score + 2);
+    } else if (dominantPercentage >= 0.8) {
+      score = Math.min(25, score + 1);
+    }
+
+    return score;
+  }
+
+  /**
+   * Analyze tool schema quality
+   */
+  private analyzeToolSchema(tool: Tool): {
+    hasSchema: boolean;
+    parameterCount: number;
+    hasRequiredParams: boolean;
+    quality: string;
+    parameters?: Array<{
+      name: string;
+      type?: string;
+      required: boolean;
+      description?: string;
+      hasDescription: boolean;
+    }>;
+  } {
+    if (!tool.inputSchema) {
+      return {
+        hasSchema: false,
+        parameterCount: 0,
+        hasRequiredParams: false,
+        quality: "poor",
+      };
+    }
+
+    const schema = tool.inputSchema;
+    const properties = schema.properties || {};
+    const required = schema.required || [];
+    const parameterCount = Object.keys(properties).length;
+
+    // Collect parameter details
+    const parameters: Array<{
+      name: string;
+      type?: string;
+      required: boolean;
+      description?: string;
+      hasDescription: boolean;
+    }> = [];
+
+    // Check if parameters have descriptions
+    let descriptionsCount = 0;
+    let goodDescriptions = 0;
+
+    for (const [name, prop] of Object.entries(properties)) {
+      const propSchema = prop as any;
+      const hasDesc = !!propSchema.description;
+
+      if (hasDesc) {
+        descriptionsCount++;
+        if (propSchema.description.length > 20) {
+          goodDescriptions++;
+        }
+      }
+
+      parameters.push({
+        name,
+        type: propSchema.type || "unknown",
+        required: required.includes(name),
+        description: propSchema.description,
+        hasDescription: hasDesc,
+      });
+    }
+
+    const descriptionRatio =
+      parameterCount > 0 ? descriptionsCount / parameterCount : 0;
+    const qualityRatio =
+      parameterCount > 0 ? goodDescriptions / parameterCount : 0;
+
+    let quality = "poor";
+    if (qualityRatio >= 0.8) {
+      quality = "excellent";
+    } else if (descriptionRatio >= 0.8) {
+      quality = "good";
+    } else if (descriptionRatio >= 0.5) {
+      quality = "fair";
+    }
+
+    return {
+      hasSchema: true,
+      parameterCount,
+      hasRequiredParams: required.length > 0,
+      quality,
+      parameters,
     };
   }
 
@@ -1326,21 +2675,82 @@ export class MCPAssessmentService {
   ): string[] {
     const recommendations = [];
 
+    // Add section headers to organize recommendations
+
+    // Critical MCP Compliance Issues (highest priority)
+    const complianceIssues = [];
+
     if (functionality.brokenTools.length > 0) {
-      recommendations.push(
+      complianceIssues.push(
         `Fix broken tools: ${functionality.brokenTools.join(", ")}`,
       );
     }
 
+    // Filter error handling recommendations for compliance issues
+    const errorComplianceIssues = errorHandling.recommendations.filter(
+      (r) =>
+        r.includes("-3260") ||
+        r.includes("-3270") ||
+        r.includes("error code") ||
+        r.includes("MCP standard"),
+    );
+    complianceIssues.push(...errorComplianceIssues);
+
+    // Filter usability recommendations for compliance issues (schema, parameters)
+    const usabilityComplianceIssues = usability.recommendations.filter(
+      (r) => r.includes("schema") || r.includes("parameter descriptions for:"),
+    );
+    complianceIssues.push(...usabilityComplianceIssues);
+
+    if (complianceIssues.length > 0) {
+      recommendations.push("=== MCP Compliance Issues ===");
+      recommendations.push(...complianceIssues);
+    }
+
+    // Security Issues (high priority)
     if (security.vulnerabilities.length > 0) {
+      recommendations.push("=== Security Issues ===");
       recommendations.push(
         ...this.generateSecurityRecommendations(security.vulnerabilities),
       );
     }
 
-    recommendations.push(...documentation.recommendations);
-    recommendations.push(...errorHandling.recommendations);
-    recommendations.push(...usability.recommendations);
+    // Best Practices (medium priority)
+    const bestPractices = [];
+
+    // Filter for best practice recommendations
+    const usabilityBestPractices = usability.recommendations.filter(
+      (r) =>
+        r.includes("naming convention") ||
+        r.includes("outputSchema") ||
+        (r.includes("consider") && !r.includes("parameter descriptions for:")),
+    );
+    bestPractices.push(...usabilityBestPractices);
+
+    // Error handling best practices (non-compliance)
+    const errorBestPractices = errorHandling.recommendations.filter(
+      (r) => !errorComplianceIssues.includes(r) && r.includes("descriptive"),
+    );
+    bestPractices.push(...errorBestPractices);
+
+    if (bestPractices.length > 0) {
+      recommendations.push("=== Best Practices ===");
+      recommendations.push(...bestPractices);
+    }
+
+    // Documentation Quality (lower priority)
+    const docIssues = documentation.recommendations.filter(
+      (r) =>
+        r.includes("example") ||
+        r.includes("installation") ||
+        r.includes("usage") ||
+        r.includes("guide"),
+    );
+
+    if (docIssues.length > 0) {
+      recommendations.push("=== Documentation Quality ===");
+      recommendations.push(...docIssues);
+    }
 
     return recommendations;
   }
