@@ -22,6 +22,8 @@ import { SESSION_KEYS, getServerSpecificKey } from "./lib/constants";
 import { AuthDebuggerState, EMPTY_DEBUGGER_STATE } from "./lib/auth-types";
 import { OAuthStateMachine } from "./lib/oauth-state-machine";
 import { cacheToolOutputSchemas } from "./utils/schemaUtils";
+import { cleanParams } from "./utils/paramUtils";
+import type { JsonSchemaType } from "./utils/jsonUtils";
 import React, {
   Suspense,
   useCallback,
@@ -45,6 +47,7 @@ import {
   Hash,
   Key,
   MessageSquare,
+  ClipboardCheck,
 } from "lucide-react";
 
 import { z } from "zod";
@@ -59,6 +62,7 @@ import RootsTab from "./components/RootsTab";
 import SamplingTab, { PendingRequest } from "./components/SamplingTab";
 import Sidebar from "./components/Sidebar";
 import ToolsTab from "./components/ToolsTab";
+import AssessmentTab from "./components/AssessmentTab";
 import { InspectorConfig } from "./lib/configurationTypes";
 import {
   getMCPProxyAddress,
@@ -74,6 +78,10 @@ import ElicitationTab, {
   PendingElicitationRequest,
   ElicitationResponse,
 } from "./components/ElicitationTab";
+import {
+  CustomHeaders,
+  migrateFromLegacyAuth,
+} from "./lib/types/customHeaders";
 
 const CONFIG_LOCAL_STORAGE_KEY = "inspectorConfig_v1";
 
@@ -89,6 +97,7 @@ const App = () => {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [promptContent, setPromptContent] = useState<string>("");
   const [tools, setTools] = useState<Tool[]>([]);
+  const [isLoadingTools, setIsLoadingTools] = useState(false);
   const [toolResult, setToolResult] =
     useState<CompatibilityCallToolResult | null>(null);
   const [errors, setErrors] = useState<Record<string, string | null>>({
@@ -103,6 +112,14 @@ const App = () => {
   const [transportType, setTransportType] = useState<
     "stdio" | "sse" | "streamable-http"
   >(getInitialTransportType);
+  const [connectionType, setConnectionType] = useState<"direct" | "proxy">(
+    () => {
+      return (
+        (localStorage.getItem("lastConnectionType") as "direct" | "proxy") ||
+        "proxy"
+      );
+    },
+  );
   const [logLevel, setLogLevel] = useState<LoggingLevel>("debug");
   const [notifications, setNotifications] = useState<ServerNotification[]>([]);
   const [roots, setRoots] = useState<Root[]>([]);
@@ -125,6 +142,39 @@ const App = () => {
 
   const [oauthScope, setOauthScope] = useState<string>(() => {
     return localStorage.getItem("lastOauthScope") || "";
+  });
+
+  // Custom headers state with migration from legacy auth
+  const [customHeaders, setCustomHeaders] = useState<CustomHeaders>(() => {
+    const savedHeaders = localStorage.getItem("lastCustomHeaders");
+    if (savedHeaders) {
+      try {
+        return JSON.parse(savedHeaders);
+      } catch (error) {
+        console.warn(
+          `Failed to parse custom headers: "${savedHeaders}", will try legacy migration`,
+          error,
+        );
+        // Fall back to migration if JSON parsing fails
+      }
+    }
+
+    // Migrate from legacy auth if available
+    const legacyToken = localStorage.getItem("lastBearerToken") || "";
+    const legacyHeaderName = localStorage.getItem("lastHeaderName") || "";
+
+    if (legacyToken) {
+      return migrateFromLegacyAuth(legacyToken, legacyHeaderName);
+    }
+
+    // Default to empty array
+    return [
+      {
+        name: "Authorization",
+        value: "Bearer ",
+        enabled: false,
+      },
+    ];
   });
 
   const [pendingSampleRequests, setPendingSampleRequests] = useState<
@@ -213,11 +263,11 @@ const App = () => {
     args,
     sseUrl,
     env,
-    bearerToken,
-    headerName,
+    customHeaders,
     oauthClientId,
     oauthScope,
     config,
+    connectionType,
     onNotification: (notification) => {
       setNotifications((prev) => [...prev, notification as ServerNotification]);
     },
@@ -262,6 +312,7 @@ const App = () => {
         ...(serverCapabilities?.resources ? ["resources"] : []),
         ...(serverCapabilities?.prompts ? ["prompts"] : []),
         ...(serverCapabilities?.tools ? ["tools"] : []),
+        ...(serverCapabilities?.tools ? ["assessment"] : []),
         "ping",
         "sampling",
         "elicitations",
@@ -303,12 +354,41 @@ const App = () => {
   }, [transportType]);
 
   useEffect(() => {
-    localStorage.setItem("lastBearerToken", bearerToken);
+    localStorage.setItem("lastConnectionType", connectionType);
+  }, [connectionType]);
+
+  useEffect(() => {
+    if (bearerToken) {
+      localStorage.setItem("lastBearerToken", bearerToken);
+    } else {
+      localStorage.removeItem("lastBearerToken");
+    }
   }, [bearerToken]);
 
   useEffect(() => {
-    localStorage.setItem("lastHeaderName", headerName);
+    if (headerName) {
+      localStorage.setItem("lastHeaderName", headerName);
+    } else {
+      localStorage.removeItem("lastHeaderName");
+    }
   }, [headerName]);
+
+  useEffect(() => {
+    localStorage.setItem("lastCustomHeaders", JSON.stringify(customHeaders));
+  }, [customHeaders]);
+
+  // Auto-migrate from legacy auth when custom headers are empty but legacy auth exists
+  useEffect(() => {
+    if (customHeaders.length === 0 && (bearerToken || headerName)) {
+      const migratedHeaders = migrateFromLegacyAuth(bearerToken, headerName);
+      if (migratedHeaders.length > 0) {
+        setCustomHeaders(migratedHeaders);
+        // Clear legacy auth after migration
+        setBearerToken("");
+        setHeaderName("");
+      }
+    }
+  }, [bearerToken, headerName, customHeaders, setCustomHeaders]);
 
   useEffect(() => {
     localStorage.setItem("lastOauthClientId", oauthClientId);
@@ -686,29 +766,40 @@ const App = () => {
   };
 
   const listTools = async () => {
-    const response = await sendMCPRequest(
-      {
-        method: "tools/list" as const,
-        params: nextToolCursor ? { cursor: nextToolCursor } : {},
-      },
-      ListToolsResultSchema,
-      "tools",
-    );
-    setTools(response.tools);
-    setNextToolCursor(response.nextCursor);
-    cacheToolOutputSchemas(response.tools);
+    setIsLoadingTools(true);
+    try {
+      const response = await sendMCPRequest(
+        {
+          method: "tools/list" as const,
+          params: nextToolCursor ? { cursor: nextToolCursor } : {},
+        },
+        ListToolsResultSchema,
+        "tools",
+      );
+      setTools(response.tools);
+      setNextToolCursor(response.nextCursor);
+      cacheToolOutputSchemas(response.tools);
+    } finally {
+      setIsLoadingTools(false);
+    }
   };
 
   const callTool = async (name: string, params: Record<string, unknown>) => {
     lastToolCallOriginTabRef.current = currentTabRef.current;
 
     try {
+      // Find the tool schema to clean parameters properly
+      const tool = tools.find((t) => t.name === name);
+      const cleanedParams = tool?.inputSchema
+        ? cleanParams(params, tool.inputSchema as JsonSchemaType)
+        : params;
+
       const response = await sendMCPRequest(
         {
           method: "tools/call" as const,
           params: {
             name,
-            arguments: params,
+            arguments: cleanedParams,
             _meta: {
               progressToken: progressTokenRef.current++,
             },
@@ -719,6 +810,9 @@ const App = () => {
       );
 
       setToolResult(response);
+      // Clear any validation errors since tool execution completed
+      setErrors((prev) => ({ ...prev, tools: null }));
+      return response;
     } catch (e) {
       const toolResult: CompatibilityCallToolResult = {
         content: [
@@ -730,6 +824,9 @@ const App = () => {
         isError: true,
       };
       setToolResult(toolResult);
+      // Clear validation errors - tool execution errors are shown in ToolResults
+      setErrors((prev) => ({ ...prev, tools: null }));
+      return toolResult;
     }
   };
 
@@ -810,10 +907,8 @@ const App = () => {
           setEnv={setEnv}
           config={config}
           setConfig={setConfig}
-          bearerToken={bearerToken}
-          setBearerToken={setBearerToken}
-          headerName={headerName}
-          setHeaderName={setHeaderName}
+          customHeaders={customHeaders}
+          setCustomHeaders={setCustomHeaders}
           oauthClientId={oauthClientId}
           setOauthClientId={setOauthClientId}
           oauthScope={oauthScope}
@@ -823,6 +918,8 @@ const App = () => {
           logLevel={logLevel}
           sendLogLevelRequest={sendLogLevelRequest}
           loggingSupported={!!serverCapabilities?.logging || false}
+          connectionType={connectionType}
+          setConnectionType={setConnectionType}
         />
         <div
           onMouseDown={handleSidebarDragStart}
@@ -846,9 +943,23 @@ const App = () => {
             <Tabs
               value={activeTab}
               className="w-full p-4"
-              onValueChange={(value) => {
+              onValueChange={async (value) => {
                 setActiveTab(value);
                 window.location.hash = value;
+
+                // Auto-load tools when assessment tab is selected
+                if (
+                  value === "assessment" &&
+                  tools.length === 0 &&
+                  serverCapabilities?.tools
+                ) {
+                  try {
+                    clearError("tools");
+                    await listTools();
+                  } catch (error) {
+                    console.error("Failed to auto-load tools:", error);
+                  }
+                }
               }}
             >
               <TabsList className="mb-4 py-0">
@@ -872,6 +983,13 @@ const App = () => {
                 >
                   <Hammer className="w-4 h-4 mr-2" />
                   Tools
+                </TabsTrigger>
+                <TabsTrigger
+                  value="assessment"
+                  disabled={!serverCapabilities?.tools}
+                >
+                  <ClipboardCheck className="w-4 h-4 mr-2" />
+                  Assessment
                 </TabsTrigger>
                 <TabsTrigger value="ping">
                   <Bell className="w-4 h-4 mr-2" />
@@ -1032,6 +1150,15 @@ const App = () => {
                         clearError("resources");
                         readResource(uri);
                       }}
+                    />
+                    <AssessmentTab
+                      tools={tools}
+                      isLoadingTools={isLoadingTools}
+                      callTool={async (name, params) => {
+                        const result = await callTool(name, params);
+                        return result;
+                      }}
+                      serverName={command || "MCP Server"}
                     />
                     <ConsoleTab />
                     <PingTab

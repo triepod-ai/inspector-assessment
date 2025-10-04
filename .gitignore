@@ -18,3 +18,7 @@ client/test-results/
 client/e2e/test-results/
 mcp.json
 .claude/settings.local.json
+.claude
+logs/
+.mcp.json
+docs/doc_MCP_INSPECTOR_5POINT_ASSESSMENT_WHITEPAPER.docx

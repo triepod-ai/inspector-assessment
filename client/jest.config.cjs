@@ -1,36 +1,38 @@
 module.exports = {
   preset: "ts-jest",
-  testEnvironment: "jest-fixed-jsdom",
-  moduleNameMapper: {
-    "^@/(.*)$": "<rootDir>/src/$1",
-    "\\.css$": "<rootDir>/src/__mocks__/styleMock.js",
-  },
+  testEnvironment: "jsdom",
+  roots: ["<rootDir>/src"],
+  testMatch: ["**/__tests__/**/*.ts?(x)", "**/?(*.)+(spec|test).ts?(x)"],
   transform: {
     "^.+\\.tsx?$": [
       "ts-jest",
       {
-        jsx: "react-jsx",
-        tsconfig: "tsconfig.jest.json",
+        tsconfig: {
+          jsx: "react",
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
+        },
       },
     ],
   },
-  extensionsToTreatAsEsm: [".ts", ".tsx"],
-  testRegex: "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
-  // Exclude directories and files that don't need to be tested
-  testPathIgnorePatterns: [
-    "/node_modules/",
-    "/dist/",
-    "/bin/",
-    "/e2e/",
-    "\\.config\\.(js|ts|cjs|mjs)$",
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
+    "\\.(css|less|scss|sass)$": "identity-obj-proxy",
+  },
+  setupFilesAfterEnv: ["<rootDir>/src/test/setup.ts"],
+  collectCoverageFrom: [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.d.ts",
+    "!src/**/*.stories.tsx",
+    "!src/main.tsx",
+    "!src/vite-env.d.ts",
   ],
-  // Exclude the same patterns from coverage reports
-  coveragePathIgnorePatterns: [
-    "/node_modules/",
-    "/dist/",
-    "/bin/",
-    "/e2e/",
-    "\\.config\\.(js|ts|cjs|mjs)$",
-  ],
-  randomize: true,
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+  },
 };

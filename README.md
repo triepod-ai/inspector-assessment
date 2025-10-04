@@ -1,8 +1,120 @@
 # MCP Inspector
 
-The MCP inspector is a developer tool for testing and debugging MCP servers.
+The MCP inspector is a developer tool for testing and debugging MCP servers with comprehensive assessment capabilities for validating server functionality, security, documentation, and compliance.
 
 ![MCP Inspector Screenshot](https://raw.githubusercontent.com/modelcontextprotocol/inspector/main/mcp-inspector.png)
+
+## About This Fork
+
+This is an enhanced fork of [Anthropic's MCP Inspector](https://github.com/modelcontextprotocol/inspector) with significantly expanded assessment capabilities for MCP server validation and testing.
+
+**Original Repository**: https://github.com/modelcontextprotocol/inspector
+**Our Enhanced Fork**: https://github.com/triepod-ai/inspector-assessment
+
+### What We Added
+
+We've built a comprehensive assessment framework on top of the original inspector that transforms it from a debugging tool into a full validation suite for MCP servers. Our enhancements focus on accuracy, depth, and actionable insights for MCP server developers.
+
+## Key Features
+
+- **Interactive Testing**: Visual interface for testing MCP server tools, resources, and prompts
+- **Comprehensive Assessment**: Automated validation of server functionality, error handling, documentation, security, and usability
+- **Enhanced Testing Modes**: Multi-scenario validation with progressive complexity testing
+- **Business Logic Validation**: Distinguishes between proper error handling and unintended failures
+- **Detailed Test Reports**: Confidence scoring, test scenario details, and actionable recommendations
+- **Multiple Transport Support**: STDIO, SSE, and Streamable HTTP transports
+
+## Our Enhancements to the MCP Inspector
+
+We've significantly expanded the original MCP Inspector's capabilities with advanced assessment features that go far beyond basic debugging. Here's what makes our fork unique:
+
+### 1. Enhanced Business Logic Error Detection
+
+**Problem**: The original inspector couldn't distinguish between broken tools and tools that correctly validate input. A tool returning "user not found" would be marked as broken.
+
+**Our Solution**: Confidence-based validation system (ResponseValidator.ts:client/src/services/assessment/ResponseValidator.ts)
+
+- **MCP Standard Error Code Recognition**: Properly identifies error codes like `-32602` (Invalid params) as successful validation
+- **Confidence Scoring**: Multi-factor analysis determines if errors represent proper business logic
+- **Tool Type Awareness**: Different validation thresholds for CRUD vs utility tools
+- **Impact**: Estimated 80% reduction in false positives for resource-based tools (based on analysis in [FUNCTIONALITY_TEST_ENHANCEMENTS_IMPLEMENTED.md](docs/FUNCTIONALITY_TEST_ENHANCEMENTS_IMPLEMENTED.md#key-problems-addressed))
+
+### 2. Progressive Complexity Testing
+
+**Problem**: Testing tools with only complex inputs makes it hard to identify where functionality breaks down.
+
+**Our Solution**: Four-level progressive testing (TestScenarioEngine.ts:client/src/services/assessment/TestScenarioEngine.ts)
+
+1. **Minimal**: Only required fields with simplest values
+2. **Simple**: Required fields with realistic simple values
+3. **Typical**: Common usage patterns with realistic data
+4. **Complex**: All parameters with nested structures
+
+**Benefits**:
+
+- Identifies exact complexity level where tools fail
+- Provides specific, actionable recommendations
+- Helps developers understand tool limitations and requirements
+
+### 3. Realistic Test Data Generation
+
+**Problem**: Generic test data like "test_value" and fake IDs trigger validation errors, causing false failures.
+
+**Our Solution**: Context-aware test data generation (TestDataGenerator.ts:client/src/services/assessment/TestDataGenerator.ts)
+
+- **Publicly Accessible URLs**: `https://www.google.com`, `https://api.github.com/users/octocat`
+- **Real API Endpoints**: Uses actual test APIs like jsonplaceholder.typicode.com
+- **Valid UUIDs**: Properly formatted identifiers that won't trigger format validation
+- **Context Awareness**: Generates appropriate data based on field names (email, url, id, etc.)
+
+### 4. Comprehensive Assessment Methodology
+
+**Based on Real-World Testing**: Our methodology has been validated through systematic testing using the taskmanager MCP server as a case study (11 tools tested with 8 security injection patterns, detailed in [ASSESSMENT_METHODOLOGY.md](docs/ASSESSMENT_METHODOLOGY.md)).
+
+**Five Core Assessment Areas** (detailed in docs/ASSESSMENT_METHODOLOGY.md:docs/ASSESSMENT_METHODOLOGY.md):
+
+1. **Functionality Testing** (35% weight)
+   - Multi-scenario validation with progressive complexity
+   - Coverage tracking and reliability scoring
+   - Performance measurement
+
+2. **Security Assessment** (25% weight)
+   - 8 distinct injection attack patterns
+   - Direct command injection, role override, data exfiltration detection
+   - Vulnerability analysis with risk levels (HIGH/MEDIUM/LOW)
+
+3. **Documentation Analysis** (20% weight)
+   - README structure and completeness
+   - Code example extraction and validation
+   - API reference quality assessment
+
+4. **Error Handling** (25% weight)
+   - MCP protocol compliance scoring
+   - Error response quality analysis
+   - Invalid input resilience testing
+
+5. **Usability Evaluation** (10% weight)
+   - Naming convention consistency
+   - Parameter clarity assessment
+   - Best practices compliance
+
+### 5. Advanced Assessment Components
+
+We've built a complete assessment architecture with specialized modules:
+
+- **AssessmentOrchestrator.ts**: Coordinates multi-phase testing across all assessment dimensions
+- **ResponseValidator.ts**: Advanced response validation with confidence scoring
+- **TestScenarioEngine.ts**: Generates and executes progressive complexity tests
+- **TestDataGenerator.ts**: Context-aware realistic test data generation
+- **Assessment UI Components**: Rich visualization of test results and recommendations
+
+### Documentation
+
+Our enhancements include comprehensive documentation:
+
+- **ASSESSMENT_METHODOLOGY.md**: Complete methodology with examples and best practices
+- **FUNCTIONALITY_TEST_ENHANCEMENTS_IMPLEMENTED.md**: Implementation details and impact analysis
+- **Test Coverage Reports**: Detailed validation of our assessment accuracy
 
 ## Architecture Overview
 
@@ -12,6 +124,114 @@ The MCP Inspector consists of two main components that work together:
 - **MCP Proxy (MCPP)**: A Node.js server that acts as a protocol bridge, connecting the web UI to MCP servers via various transport methods (stdio, SSE, streamable-http)
 
 Note that the proxy is not a network proxy for intercepting traffic. Instead, it functions as both an MCP client (connecting to your MCP server) and an HTTP server (serving the web UI), enabling browser-based interaction with MCP servers that use different transport protocols.
+
+## Assessment Capabilities
+
+Our enhanced MCP Inspector includes a comprehensive assessment system that validates MCP servers against Anthropic's directory submission requirements and MCP protocol standards:
+
+### Assessment Categories
+
+1. **Functionality Testing** (35% weight)
+   - Multi-scenario validation with happy path, edge cases, and boundary testing
+   - Progressive complexity testing from simple to complex inputs
+   - Business logic validation to distinguish proper error handling from failures
+   - Confidence scoring based on test coverage and consistency
+
+2. **Error Handling** (25% weight)
+   - Invalid input resilience testing
+   - Comprehensive error message analysis
+   - Resource validation vs. unintended failures
+   - Quality scoring for descriptive error messages
+
+3. **Documentation** (20% weight)
+   - Tool description completeness and clarity
+   - Parameter documentation validation
+   - README structure and examples evaluation
+   - API documentation quality assessment
+
+4. **Security** (10% weight)
+   - Input validation and sanitization checks
+   - Authentication/authorization testing
+   - Sensitive data exposure detection
+   - Security best practices compliance
+
+5. **Usability** (10% weight)
+   - Tool naming consistency analysis
+   - Description quality assessment
+   - Schema completeness validation
+   - Parameter clarity evaluation
+
+### Enhanced Testing Features
+
+**Note**: The features below are our enhancements to the original MCP Inspector. See the "Our Enhancements" section above for detailed technical descriptions.
+
+#### Multi-Scenario Validation
+
+The inspector tests each tool with multiple scenarios:
+
+- **Happy Path**: Valid inputs with expected success cases
+- **Edge Cases**: Boundary values and unusual but valid inputs
+- **Error Cases**: Invalid inputs to test error handling
+- **Boundary Testing**: Maximum/minimum values and limits
+
+#### Progressive Complexity Testing
+
+Tools are tested with progressively complex inputs:
+
+1. **Simple**: Basic, minimal valid inputs
+2. **Moderate**: Typical real-world usage patterns
+3. **Complex**: Advanced scenarios with multiple parameters
+4. **Extreme**: Stress testing with maximum complexity
+
+#### Business Logic Validation
+
+The assessment distinguishes between:
+
+- **Proper Validation**: Expected errors for invalid business logic (e.g., "User not found")
+- **Tool Failures**: Unexpected errors indicating implementation issues
+- **Resource Validation**: Proper handling of non-existent resources
+- **Input Validation**: Appropriate rejection of malformed inputs
+
+### Assessment Configuration
+
+Configure assessment behavior through the UI:
+
+| Setting                   | Description                                   | Default  |
+| ------------------------- | --------------------------------------------- | -------- |
+| Enhanced Testing          | Enable multi-scenario validation              | Enabled  |
+| Max Tools to Test         | Number of tools to test (-1 for all)          | 10       |
+| Error Handling Test Limit | Tools to test for error handling (-1 for all) | 5        |
+| Test Complexity           | Simple, Moderate, or Complex scenarios        | Moderate |
+
+### Viewing Assessment Results
+
+The Assessment tab provides:
+
+- **Overall Score**: Weighted aggregate score with letter grade (A-F)
+- **Category Breakdown**: Individual scores for each assessment category
+- **Tool Details**: Click any tool name to see detailed test results including:
+  - Test scenarios executed
+  - Input parameters used
+  - Actual responses received
+  - Pass/fail status with confidence scores
+  - Specific issues identified
+- **Recommendations**: Actionable suggestions for improvement
+- **Test Coverage**: Visual indicators of testing completeness
+
+### Assessment API
+
+Programmatically run assessments using the CLI:
+
+```bash
+# Run full assessment
+npx @modelcontextprotocol/inspector --cli node build/index.js --assess
+
+# Run specific category
+npx @modelcontextprotocol/inspector --cli node build/index.js --assess functionality
+
+# Export assessment results
+npx @modelcontextprotocol/inspector --cli node build/index.js --assess --output assessment-report.json
+```
 
 ## Running the Inspector
 
@@ -98,6 +318,16 @@ The MCP Inspector provides convenient buttons to export server launch configurat
   }
   ```
 
+  **Streamable HTTP transport example:**
+
+  ```json
+  {
+    "type": "streamable-http",
+    "url": "http://localhost:3000/mcp",
+    "note": "For Streamable HTTP connections, add this URL directly in your MCP Client"
+  }
+  ```
+
 - **Servers File** - Copies a complete MCP configuration file structure to your clipboard, with your current server configuration added as `default-server`. This can be saved directly as `mcp.json`.
 
   **STDIO transport example:**
@@ -131,9 +361,23 @@ The MCP Inspector provides convenient buttons to export server launch configurat
   }
   ```
 
+  **Streamable HTTP transport example:**
+
+  ```json
+  {
+    "mcpServers": {
+      "default-server": {
+        "type": "streamable-http",
+        "url": "http://localhost:3000/mcp",
+        "note": "For Streamable HTTP connections, add this URL directly in your MCP Client"
+      }
+    }
+  }
+  ```
+
 These buttons appear in the Inspector UI after you've configured your server settings, making it easy to save and reuse your configurations.
 
-For SSE transport connections, the Inspector provides similar functionality for both buttons. The "Server Entry" button copies the SSE URL configuration that can be added to your existing configuration file, while the "Servers File" button creates a complete configuration file containing the SSE URL for direct use in clients.
+For SSE and Streamable HTTP transport connections, the Inspector provides similar functionality for both buttons. The "Server Entry" button copies the configuration that can be added to your existing configuration file, while the "Servers File" button creates a complete configuration file containing the URL for direct use in clients.
 
 You can paste the Server Entry into your existing `mcp.json` file under your chosen server name, or use the complete Servers File payload to create a new configuration file.
 
@@ -431,6 +675,75 @@ npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com --me
 | **Debugging**            | Request history, visualized errors, and real-time notifications           | Direct JSON output for log analysis and integration with other tools                                                                                 |
 | **Automation**           | N/A                                                                       | Ideal for CI/CD pipelines, batch processing, and integration with coding assistants                                                                  |
 | **Learning MCP**         | Rich visual interface helps new users understand server capabilities      | Simplified commands for focused learning of specific endpoints                                                                                       |
+
+## Evidence & Validation
+
+All performance claims in this README are backed by implementation analysis and documented methodology. We maintain transparency about what has been measured versus estimated.
+
+**📋 Complete Validation Report**: See [CLAIMS_VALIDATION.md](CLAIMS_VALIDATION.md) for detailed evidence supporting every claim made in this README.
+
+### Validated Claims
+
+| Claim                                     | Evidence                                                                                                                                 | Type       |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| Progressive complexity testing (4 levels) | Implementation in [TestScenarioEngine.ts](client/src/services/assessment/TestScenarioEngine.ts)                                          | Measured   |
+| 8 security injection patterns             | Implementation in [ASSESSMENT_METHODOLOGY.md](docs/ASSESSMENT_METHODOLOGY.md#eight-security-test-patterns)                               | Measured   |
+| Context-aware test data generation        | Implementation in [TestDataGenerator.ts](client/src/services/assessment/TestDataGenerator.ts)                                            | Measured   |
+| MCP error code recognition                | Implementation in [ResponseValidator.ts](client/src/services/assessment/ResponseValidator.ts)                                            | Measured   |
+| 80% reduction in false positives          | Analysis in [FUNCTIONALITY_TEST_ENHANCEMENTS_IMPLEMENTED.md](docs/FUNCTIONALITY_TEST_ENHANCEMENTS_IMPLEMENTED.md#key-problems-addressed) | Estimated  |
+| Taskmanager case study results            | Methodology validation in [ASSESSMENT_METHODOLOGY.md](docs/ASSESSMENT_METHODOLOGY.md)                                                    | Case Study |
+
+### Supporting Documentation
+
+- **Implementation Details**: [FUNCTIONALITY_TEST_ENHANCEMENTS_IMPLEMENTED.md](docs/FUNCTIONALITY_TEST_ENHANCEMENTS_IMPLEMENTED.md)
+- **Assessment Methodology**: [ASSESSMENT_METHODOLOGY.md](docs/ASSESSMENT_METHODOLOGY.md)
+- **Testing Comparison**: [TESTING_COMPARISON_EXAMPLE.md](docs/TESTING_COMPARISON_EXAMPLE.md)
+- **Error Handling Validation**: [ERROR_HANDLING_VALIDATION_SUMMARY.md](ERROR_HANDLING_VALIDATION_SUMMARY.md)
+
+### Reproducibility
+
+All enhancements can be verified by:
+
+1. Examining the source code in `client/src/services/assessment/`
+2. Running the test suites in `client/src/services/__tests__/`
+3. Reviewing the methodology documentation in `docs/`
+4. Testing against your own MCP servers using the assessment features
+
+## Contributing & Citing This Work
+
+### For Researchers and Developers
+
+If you use our enhanced MCP Inspector in your research, testing, or MCP server development, please cite this work:
+
+```
+MCP Inspector - Enhanced Assessment Fork
+https://github.com/triepod-ai/inspector-assessment
+Enhancements: Advanced assessment methodology, progressive complexity testing,
+business logic error detection, and comprehensive security validation.
+Based on Anthropic's MCP Inspector: https://github.com/modelcontextprotocol/inspector
+```
+
+### Documentation
+
+- **Comprehensive Assessment Methodology**: [docs/ASSESSMENT_METHODOLOGY.md](docs/ASSESSMENT_METHODOLOGY.md)
+- **Functionality Test Enhancements**: [docs/FUNCTIONALITY_TEST_ENHANCEMENTS_IMPLEMENTED.md](docs/FUNCTIONALITY_TEST_ENHANCEMENTS_IMPLEMENTED.md)
+- **Original MCP Inspector Documentation**: https://modelcontextprotocol.io/docs/tools/inspector
+
+### Contributing
+
+We welcome contributions to our enhanced assessment capabilities! Areas of particular interest:
+
+- Additional security injection patterns
+- More sophisticated business logic detection
+- Performance profiling enhancements
+- Integration with CI/CD pipelines
+- Additional assessment visualizations
+
+Please submit issues and pull requests to our repository: https://github.com/triepod-ai/inspector-assessment
+
+### Acknowledgments
+
+This project builds upon the excellent foundation provided by Anthropic's MCP Inspector team. We're grateful for their work on the original inspector and the MCP protocol specification.
 
 ## License
 

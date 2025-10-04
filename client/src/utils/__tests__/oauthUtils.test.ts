@@ -2,7 +2,7 @@ import {
   generateOAuthErrorDescription,
   parseOAuthCallbackParams,
   generateOAuthState,
-} from "@/utils/oauthUtils.ts";
+} from "@/utils/oauthUtils";
 
 describe("parseOAuthCallbackParams", () => {
   it("Returns successful: true and code when present", () => {
