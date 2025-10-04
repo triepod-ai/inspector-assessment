@@ -23,7 +23,6 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
   MCPSpecComplianceAssessment,
-  SupplyChainAssessment,
   PrivacyComplianceAssessment,
   AssessmentStatus,
 } from "@/lib/assessmentTypes";
@@ -34,7 +33,7 @@ interface ExtendedCategoryProps {
   icon: React.ReactNode;
   status: AssessmentStatus;
   children: React.ReactNode;
-  jsonData?: Record<string, any>; // Changed from unknown to more specific type
+  jsonData?: Record<string, unknown>;
   defaultExpanded?: boolean;
 }
 
@@ -215,7 +214,11 @@ export const MCPSpecComplianceDisplay: React.FC<MCPSpecComplianceProps> = ({
   );
 };
 
-interface SupplyChainProps {
+// Supply Chain Display removed - not essential for MCP Directory approval
+// This category provided supplemental dependency checking but was determined
+// to be out of scope for MCP interface assessment
+
+/* interface SupplyChainProps {
   assessment: SupplyChainAssessment;
 }
 
@@ -346,7 +349,7 @@ export const SupplyChainDisplay: React.FC<SupplyChainProps> = ({
       </div>
     </ExtendedAssessmentCategory>
   );
-};
+}; */
 
 // Dynamic Security Display removed - not essential for MCP Directory approval
 // This category provided supplemental security testing but was determined

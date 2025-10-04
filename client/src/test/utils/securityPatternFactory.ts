@@ -2,7 +2,7 @@
 
 export interface SecurityTestCase {
   pattern: string;
-  payload: any;
+  payload: Record<string, unknown> | string;
   expectedRisk: "low" | "medium" | "high" | "critical";
   description: string;
 }
@@ -182,13 +182,18 @@ export function generatePatternVariations(
   const variations: SecurityTestCase[] = [];
 
   for (let i = 0; i < count; i++) {
+    const payload =
+      typeof pattern.payload === "string"
+        ? pattern.payload
+        : {
+            ...pattern.payload,
+            variation: i,
+            timestamp: Date.now() + i,
+          };
+
     variations.push({
       ...pattern,
-      payload: {
-        ...pattern.payload,
-        variation: i,
-        timestamp: Date.now() + i,
-      },
+      payload,
       description: `${pattern.description} - Variation ${i + 1}`,
     });
   }
@@ -197,7 +202,7 @@ export function generatePatternVariations(
 }
 
 // Helper to create a mixed attack payload
-export function createMixedAttackPayload(): any {
+export function createMixedAttackPayload(): Record<string, unknown> {
   return {
     command: "; rm -rf /", // Direct Command Injection
     role: "admin", // Role Override

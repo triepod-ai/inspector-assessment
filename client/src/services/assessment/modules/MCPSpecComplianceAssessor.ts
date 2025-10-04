@@ -96,11 +96,13 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
    */
   private extractProtocolVersion(context: AssessmentContext): string {
     // Try metadata.protocolVersion first
-    if (context.serverInfo?.metadata?.protocolVersion) {
-      this.log(
-        `Using protocol version from metadata: ${context.serverInfo.metadata.protocolVersion}`,
-      );
-      return context.serverInfo.metadata.protocolVersion;
+    const metadata = context.serverInfo?.metadata as
+      | Record<string, unknown>
+      | undefined;
+    const protocolVersion = metadata?.protocolVersion as string | undefined;
+    if (protocolVersion) {
+      this.log(`Using protocol version from metadata: ${protocolVersion}`);
+      return protocolVersion;
     }
 
     // Fall back to server version
@@ -306,7 +308,10 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
     }
 
     // Check transport from metadata
-    const transport = context.serverInfo?.metadata?.transport;
+    const metadata = context.serverInfo?.metadata as
+      | Record<string, unknown>
+      | undefined;
+    const transport = metadata?.transport as string | undefined;
     const supportsStreamableHTTP =
       transport === "streamable-http" ||
       transport === "http" ||
@@ -358,10 +363,14 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
     context: AssessmentContext,
   ): AnnotationSupportMetrics {
     // Check if server metadata indicates annotation support
-    const supportsAnnotations =
-      context.serverInfo?.metadata?.annotations?.supported || false;
-    const customAnnotations =
-      context.serverInfo?.metadata?.annotations?.types || [];
+    const metadata = context.serverInfo?.metadata as
+      | Record<string, unknown>
+      | undefined;
+    const annotations = metadata?.annotations as
+      | Record<string, unknown>
+      | undefined;
+    const supportsAnnotations = (annotations?.supported as boolean) || false;
+    const customAnnotations = (annotations?.types as string[]) || [];
 
     return {
       supportsReadOnlyHint: supportsAnnotations,
@@ -379,14 +388,27 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
     context: AssessmentContext,
   ): StreamingSupportMetrics {
     // Check if server metadata indicates streaming support
-    const supportsStreaming =
-      context.serverInfo?.metadata?.streaming?.supported || false;
-    const protocol = context.serverInfo?.metadata?.streaming?.protocol;
+    const metadata = context.serverInfo?.metadata as
+      | Record<string, unknown>
+      | undefined;
+    const streaming = metadata?.streaming as
+      | Record<string, unknown>
+      | undefined;
+    const supportsStreaming = (streaming?.supported as boolean) || false;
+    const protocol = streaming?.protocol as string | undefined;
+
+    // Validate protocol is one of the allowed types
+    const validProtocols = ["http-streaming", "sse", "websocket"];
+    const streamingProtocol =
+      protocol && validProtocols.includes(protocol)
+        ? (protocol as "http-streaming" | "sse" | "websocket")
+        : supportsStreaming
+          ? "http-streaming"
+          : undefined;
 
     return {
       supportsStreaming: supportsStreaming,
-      streamingProtocol:
-        protocol || (supportsStreaming ? "http-streaming" : undefined),
+      streamingProtocol,
     };
   }
 
@@ -397,38 +419,42 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
     context: AssessmentContext,
   ): OAuthComplianceMetrics | undefined {
     // Check if OAuth is configured
-    const oauthConfig = context.serverInfo?.metadata?.oauth;
+    const metadata = context.serverInfo?.metadata as
+      | Record<string, unknown>
+      | undefined;
+    const oauthConfig = metadata?.oauth as Record<string, unknown> | undefined;
 
     if (!oauthConfig || !oauthConfig.enabled) {
       // OAuth is optional for MCP servers
       return undefined;
     }
 
-    // Extract OAuth configuration
+    // Extract OAuth configuration with type assertions
     const resourceIndicators: string[] = [];
 
     if (oauthConfig.resourceIndicators) {
-      resourceIndicators.push(...oauthConfig.resourceIndicators);
+      const indicators = oauthConfig.resourceIndicators as string[];
+      resourceIndicators.push(...indicators);
     }
     if (oauthConfig.resourceServer) {
-      resourceIndicators.push(oauthConfig.resourceServer);
+      resourceIndicators.push(oauthConfig.resourceServer as string);
     }
     if (
       oauthConfig.authorizationEndpoint &&
-      !resourceIndicators.includes(oauthConfig.authorizationEndpoint)
+      !resourceIndicators.includes(oauthConfig.authorizationEndpoint as string)
     ) {
-      resourceIndicators.push(oauthConfig.authorizationEndpoint);
+      resourceIndicators.push(oauthConfig.authorizationEndpoint as string);
     }
 
     return {
       implementsResourceServer: oauthConfig.enabled === true,
-      supportsRFC8707: oauthConfig.supportsRFC8707 || false,
+      supportsRFC8707: (oauthConfig.supportsRFC8707 as boolean) || false,
       resourceIndicators: resourceIndicators,
       tokenValidation: oauthConfig.tokenValidation !== false, // Default to true if not specified
       scopeEnforcement: oauthConfig.scopeEnforcement !== false, // Default to true if not specified
       // Added missing properties that UI expects
       supportsOAuth: oauthConfig.enabled === true,
-      supportsPKCE: oauthConfig.supportsPKCE || false,
+      supportsPKCE: (oauthConfig.supportsPKCE as boolean) || false,
     };
   }
 

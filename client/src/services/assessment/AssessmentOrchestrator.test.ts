@@ -19,8 +19,6 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       errorHandling: true,
       usability: true,
       mcpSpecCompliance: true,
-      supplyChain: true,
-      dynamicSecurity: true,
       privacy: true,
       humanInLoop: true,
     };
@@ -129,10 +127,8 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       expect(result.errorHandling).toBeDefined();
       expect(result.usability).toBeDefined();
 
-      // Extended assessments (New 5)
+      // Extended assessments
       expect(result.mcpSpecCompliance).toBeDefined();
-      expect(result.supplyChain).toBeDefined();
-      expect(result.dynamicSecurity).toBeDefined();
       expect(result.privacy).toBeDefined();
       expect(result.humanInLoop).toBeDefined();
 
@@ -212,8 +208,6 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       expect(result.security.overallRiskLevel).toBe("HIGH");
       expect(result.security.vulnerabilities.length).toBeGreaterThan(0);
       expect(result.mcpSpecCompliance?.status).toBe("FAIL");
-      expect(result.supplyChain?.status).toBe("FAIL");
-      expect(result.dynamicSecurity?.status).toBe("FAIL");
       expect(result.summary).toContain("critical security issues");
     });
 
@@ -360,7 +354,6 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       expect(result.errorHandling?.status).toBe("PASS");
       expect(result.usability?.status).toBe("PASS");
       expect(result.mcpSpecCompliance?.status).toBe("PASS");
-      expect(result.supplyChain?.status).toBe("PASS");
       expect(result.privacy?.status).toBe("PASS");
       expect(result.humanInLoop?.status).toBe("PASS");
       expect(result.summary).toContain("enterprise-grade");
@@ -377,8 +370,6 @@ describe("AssessmentOrchestrator Integration Tests", () => {
         errorHandling: false, // Disabled
         usability: false, // Disabled
         mcpSpecCompliance: false,
-        supplyChain: false,
-        dynamicSecurity: false,
         privacy: false,
         humanInLoop: false,
       };
@@ -404,8 +395,6 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       expect(result.errorHandling).toBeUndefined(); // Should be undefined when disabled
       expect(result.usability).toBeUndefined(); // Should be undefined when disabled
       expect(result.mcpSpecCompliance).toBeUndefined();
-      expect(result.supplyChain).toBeUndefined();
-      expect(result.dynamicSecurity).toBeUndefined();
       expect(result.privacy).toBeUndefined();
       expect(result.humanInLoop).toBeUndefined();
     });

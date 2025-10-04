@@ -23,8 +23,6 @@ import { UsabilityAssessor } from "./modules/UsabilityAssessor";
 
 // Extended assessment modules
 import { MCPSpecComplianceAssessor } from "./modules/MCPSpecComplianceAssessor";
-import { SupplyChainAssessor } from "./modules/SupplyChainAssessor";
-import { DynamicSecurityAssessor } from "./modules/DynamicSecurityAssessor";
 import { PrivacyComplianceAssessor } from "./modules/PrivacyComplianceAssessor";
 import { HumanInLoopAssessor } from "./modules/HumanInLoopAssessor";
 
@@ -36,23 +34,23 @@ export interface AssessmentContext {
     params: Record<string, unknown>,
   ) => Promise<CompatibilityCallToolResult>;
   readmeContent?: string;
-  packageJson?: any;
-  packageLock?: any;
-  privacyPolicy?: any;
+  packageJson?: unknown;
+  packageLock?: unknown;
+  privacyPolicy?: unknown;
   config: AssessmentConfiguration;
   serverInfo?: {
     name: string;
     version?: string;
-    metadata?: any;
-    privacyPolicy?: any;
-    dataRetention?: any;
-    encryption?: any;
-    dataTransfer?: any;
-    consent?: any;
-    coppaCompliance?: any;
-    dataSubjectRights?: any;
-    jurisdiction?: any;
-    dataLocalization?: any;
+    metadata?: unknown;
+    privacyPolicy?: unknown;
+    dataRetention?: unknown;
+    encryption?: unknown;
+    dataTransfer?: unknown;
+    consent?: unknown;
+    coppaCompliance?: unknown;
+    dataSubjectRights?: unknown;
+    jurisdiction?: unknown;
+    dataLocalization?: unknown;
   };
 }
 
@@ -70,8 +68,6 @@ export class AssessmentOrchestrator {
 
   // Extended assessors
   private mcpSpecAssessor?: MCPSpecComplianceAssessor;
-  private supplyChainAssessor?: SupplyChainAssessor;
-  private dynamicSecurityAssessor?: DynamicSecurityAssessor;
   private privacyAssessor?: PrivacyComplianceAssessor;
   private humanInLoopAssessor?: HumanInLoopAssessor;
 
@@ -89,12 +85,6 @@ export class AssessmentOrchestrator {
     if (this.config.enableExtendedAssessment) {
       if (this.config.assessmentCategories?.mcpSpecCompliance) {
         this.mcpSpecAssessor = new MCPSpecComplianceAssessor(this.config);
-      }
-      if (this.config.assessmentCategories?.supplyChain) {
-        this.supplyChainAssessor = new SupplyChainAssessor(this.config);
-      }
-      if (this.config.assessmentCategories?.dynamicSecurity) {
-        this.dynamicSecurityAssessor = new DynamicSecurityAssessor(this.config);
       }
       if (this.config.assessmentCategories?.privacy) {
         this.privacyAssessor = new PrivacyComplianceAssessor(this.config);
@@ -146,20 +136,6 @@ export class AssessmentOrchestrator {
             .then((r) => (assessmentResults.mcpSpecCompliance = r)),
         );
       }
-      if (this.supplyChainAssessor) {
-        assessmentPromises.push(
-          this.supplyChainAssessor
-            .assess(context)
-            .then((r) => (assessmentResults.supplyChain = r)),
-        );
-      }
-      if (this.dynamicSecurityAssessor) {
-        assessmentPromises.push(
-          this.dynamicSecurityAssessor
-            .assess(context)
-            .then((r) => (assessmentResults.dynamicSecurity = r)),
-        );
-      }
       if (this.privacyAssessor) {
         assessmentPromises.push(
           this.privacyAssessor
@@ -191,14 +167,6 @@ export class AssessmentOrchestrator {
       if (this.mcpSpecAssessor) {
         assessmentResults.mcpSpecCompliance =
           await this.mcpSpecAssessor.assess(context);
-      }
-      if (this.supplyChainAssessor) {
-        assessmentResults.supplyChain =
-          await this.supplyChainAssessor.assess(context);
-      }
-      if (this.dynamicSecurityAssessor) {
-        assessmentResults.dynamicSecurity =
-          await this.dynamicSecurityAssessor.assess(context);
       }
       if (this.privacyAssessor) {
         assessmentResults.privacy = await this.privacyAssessor.assess(context);
@@ -277,12 +245,6 @@ export class AssessmentOrchestrator {
     }
 
     // Extended assessments
-    if (results.dynamicSecurity?.runtimeTests) {
-      total += results.dynamicSecurity.runtimeTests.length;
-    }
-    if (results.dynamicSecurity?.sandboxTests) {
-      total += results.dynamicSecurity.sandboxTests.length;
-    }
 
     return total;
   }
@@ -329,17 +291,6 @@ export class AssessmentOrchestrator {
       parts.push(
         `${results.functionality.brokenTools.length} tools are not functioning correctly.`,
       );
-    }
-
-    if (results.supplyChain?.vulnerabilities?.length > 0) {
-      const critical = results.supplyChain.vulnerabilities.filter(
-        (v: any) => v.severity === "CRITICAL",
-      ).length;
-      if (critical > 0) {
-        parts.push(
-          `${critical} critical supply chain vulnerabilities detected.`,
-        );
-      }
     }
 
     return parts.join(" ");

@@ -218,6 +218,49 @@ export class HumanInLoopAssessor extends BaseAssessor {
       capabilities: [] as string[],
     };
 
+    // Check serverInfo metadata for override configuration
+    const metadata = context.serverInfo?.metadata as
+      | Record<string, unknown>
+      | undefined;
+    const oversightConfig = metadata?.humanOversight as
+      | Record<string, unknown>
+      | undefined;
+    if (oversightConfig) {
+      const overrideCaps = oversightConfig.overrideCapabilities as
+        | string[]
+        | undefined;
+      if (overrideCaps) {
+        if (overrideCaps.includes("cancel")) {
+          capabilities.canCancel = true;
+          capabilities.capabilities.push("Cancel operations");
+        }
+        if (overrideCaps.includes("pause")) {
+          capabilities.canPause = true;
+          capabilities.capabilities.push("Pause operations");
+        }
+        if (overrideCaps.includes("modify")) {
+          capabilities.canModify = true;
+          capabilities.capabilities.push("Modify operations");
+        }
+        if (overrideCaps.includes("revert")) {
+          capabilities.canRevert = true;
+          capabilities.capabilities.push("Revert changes");
+        }
+      }
+      if (oversightConfig.modificationAllowed) {
+        capabilities.canModify = true;
+        if (!capabilities.capabilities.includes("Modify operations")) {
+          capabilities.capabilities.push("Modify operations");
+        }
+      }
+      if (oversightConfig.revertCapability) {
+        capabilities.canRevert = true;
+        if (!capabilities.capabilities.includes("Revert changes")) {
+          capabilities.capabilities.push("Revert changes");
+        }
+      }
+    }
+
     // Check for override-related tools
     for (const tool of context.tools) {
       const name = tool.name.toLowerCase();
@@ -305,7 +348,33 @@ export class HumanInLoopAssessor extends BaseAssessor {
       features: [] as string[],
     };
 
-    // Check for transparency-related features
+    // Check serverInfo metadata for transparency configuration
+    const metadata = context.serverInfo?.metadata as
+      | Record<string, unknown>
+      | undefined;
+    const transparencyConfig = metadata?.transparency as
+      | Record<string, unknown>
+      | undefined;
+    if (transparencyConfig) {
+      if (transparencyConfig.explainableOutputs) {
+        transparency.explainability = true;
+        transparency.features.push("explainable_outputs");
+      }
+      if (transparencyConfig.decisionRationale) {
+        transparency.decisionVisibility = true;
+        transparency.features.push("decision_rationale");
+      }
+      if (transparencyConfig.confidenceScores) {
+        transparency.confidenceScores = true;
+        transparency.features.push("confidence_scores");
+      }
+      if (transparencyConfig.auditLogging) {
+        transparency.auditLogging = true;
+        transparency.features.push("audit_logging");
+      }
+    }
+
+    // Check for transparency-related features in tools
     for (const tool of context.tools) {
       const name = tool.name.toLowerCase();
       const desc = tool.description?.toLowerCase() || "";

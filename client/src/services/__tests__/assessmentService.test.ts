@@ -11,15 +11,8 @@ import { MCPAssessmentService } from "../assessmentService";
 import {
   AssessmentConfiguration,
   PROMPT_INJECTION_TESTS,
-  SecurityRiskLevel,
-  AssessmentStatus,
-  ToolTestResult,
-  SecurityTestResult,
 } from "@/lib/assessmentTypes";
-import {
-  Tool,
-  CompatibilityCallToolResult,
-} from "@modelcontextprotocol/sdk/types.js";
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 // Mock data for testing
 const MOCK_TOOLS: Tool[] = [
@@ -589,9 +582,8 @@ describe("MCPAssessmentService", () => {
         );
 
         // Should use first enum value
-        const callArgs = mockCallTool.mock.calls[0];
-        expect(callArgs[1].mode).toBe("read");
-        expect(callArgs[1].format).toBe("json");
+        expect(mockCallTool.mock.calls[0][1].mode).toBe("read");
+        expect(mockCallTool.mock.calls[0][1].format).toBe("json");
       });
 
       it("should detect URL and email field types", async () => {
@@ -605,10 +597,15 @@ describe("MCPAssessmentService", () => {
           mockCallTool,
         );
 
-        const callArgs = mockCallTool.mock.calls[0];
-        expect(callArgs[1].website_url).toBe("https://example.com");
-        expect(callArgs[1].contact_email).toBe("test@example.com");
-        expect(callArgs[1].backup_url).toBe("https://example.com");
+        expect(mockCallTool.mock.calls[0][1].website_url).toBe(
+          "https://example.com",
+        );
+        expect(mockCallTool.mock.calls[0][1].contact_email).toBe(
+          "test@example.com",
+        );
+        expect(mockCallTool.mock.calls[0][1].backup_url).toBe(
+          "https://example.com",
+        );
       });
     });
 
@@ -705,7 +702,7 @@ describe("MCPAssessmentService", () => {
 
     describe("Async Tool Dependencies", () => {
       it("should handle tools with async dependencies", async () => {
-        mockCallTool.mockImplementation(async (toolName, params) => {
+        mockCallTool.mockImplementation(async (toolName, _params) => {
           // Simulate dependency on previous tool result
           await new Promise((resolve) => setTimeout(resolve, 10));
           return { content: [{ type: "text", text: `${toolName} completed` }] };

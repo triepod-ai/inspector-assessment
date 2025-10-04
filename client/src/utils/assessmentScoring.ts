@@ -105,32 +105,43 @@ export function calculateAssessmentScores(
   };
 }
 
-export function extractCategoryIssues(category: any): string[] {
+export function extractCategoryIssues(category: unknown): string[] {
   const issues: string[] = [];
 
-  // Extract from different category types
-  if (category.vulnerabilities && Array.isArray(category.vulnerabilities)) {
-    issues.push(...category.vulnerabilities);
+  // Type guard for category object
+  if (typeof category !== "object" || category === null) {
+    return issues;
   }
 
-  if (category.brokenTools && Array.isArray(category.brokenTools)) {
-    category.brokenTools.forEach((tool: string) => {
-      issues.push(`Tool '${tool}' is not working`);
+  const cat = category as Record<string, unknown>;
+
+  // Extract from different category types
+  if (cat.vulnerabilities && Array.isArray(cat.vulnerabilities)) {
+    issues.push(...cat.vulnerabilities);
+  }
+
+  if (cat.brokenTools && Array.isArray(cat.brokenTools)) {
+    cat.brokenTools.forEach((tool) => {
+      if (typeof tool === "string") {
+        issues.push(`Tool '${tool}' is not working`);
+      }
     });
   }
 
-  if (category.missingElements && Array.isArray(category.missingElements)) {
-    issues.push(...category.missingElements);
+  if (cat.missingElements && Array.isArray(cat.missingElements)) {
+    issues.push(...cat.missingElements);
   }
 
-  if (category.issues && Array.isArray(category.issues)) {
-    issues.push(...category.issues);
+  if (cat.issues && Array.isArray(cat.issues)) {
+    issues.push(...cat.issues);
   }
 
-  if (category.explanation && issues.length === 0) {
+  if (cat.explanation && issues.length === 0) {
     // Use explanation as a fallback if no specific issues
-    if (category.status === "FAIL" || category.status === "NEED_MORE_INFO") {
-      issues.push(category.explanation);
+    if (cat.status === "FAIL" || cat.status === "NEED_MORE_INFO") {
+      if (typeof cat.explanation === "string") {
+        issues.push(cat.explanation);
+      }
     }
   }
 

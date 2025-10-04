@@ -22,17 +22,20 @@ describe("HumanInLoopAssessor", () => {
     it("should assess human-in-the-loop with comprehensive oversight", async () => {
       // Arrange
       mockContext.serverInfo = {
-        humanOversight: {
-          preExecutionReview: true,
-          postExecutionReview: true,
-          continuousMonitoring: true,
-          reviewThresholds: ["high-risk", "sensitive-data", "financial"],
-          overrideCapabilities: ["cancel", "modify", "revert", "pause"],
-          auditLogging: true,
-          emergencyControls: {
-            killSwitch: true,
-            safeModeAvailable: true,
-            manualOverride: true,
+        name: "test-server",
+        metadata: {
+          humanOversight: {
+            preExecutionReview: true,
+            postExecutionReview: true,
+            continuousMonitoring: true,
+            reviewThresholds: ["high-risk", "sensitive-data", "financial"],
+            overrideCapabilities: ["cancel", "modify", "revert", "pause"],
+            auditLogging: true,
+            emergencyControls: {
+              killSwitch: true,
+              safeModeAvailable: true,
+              manualOverride: true,
+            },
           },
         },
       };
@@ -55,10 +58,13 @@ describe("HumanInLoopAssessor", () => {
     it("should detect missing review mechanisms", async () => {
       // Arrange
       mockContext.serverInfo = {
-        humanOversight: {
-          preExecutionReview: false,
-          postExecutionReview: false,
-          continuousMonitoring: false,
+        name: "test-server",
+        metadata: {
+          humanOversight: {
+            preExecutionReview: false,
+            postExecutionReview: false,
+            continuousMonitoring: false,
+          },
         },
       };
 
@@ -79,11 +85,14 @@ describe("HumanInLoopAssessor", () => {
     it("should assess override capabilities", async () => {
       // Arrange
       mockContext.serverInfo = {
-        humanOversight: {
-          overrideCapabilities: ["cancel", "pause"],
-          emergencyStopAvailable: true,
-          modificationAllowed: false,
-          revertCapability: false,
+        name: "test-server",
+        metadata: {
+          humanOversight: {
+            overrideCapabilities: ["cancel", "pause"],
+            emergencyStopAvailable: true,
+            modificationAllowed: false,
+            revertCapability: false,
+          },
         },
       };
 
@@ -103,12 +112,15 @@ describe("HumanInLoopAssessor", () => {
     it("should evaluate transparency features", async () => {
       // Arrange
       mockContext.serverInfo = {
-        transparency: {
-          explainableOutputs: true,
-          decisionRationale: true,
-          confidenceScores: true,
-          auditLogging: true,
-          traceabilityEnabled: true,
+        name: "test-server",
+        metadata: {
+          transparency: {
+            explainableOutputs: true,
+            decisionRationale: true,
+            confidenceScores: true,
+            auditLogging: true,
+            traceabilityEnabled: true,
+          },
         },
       };
 

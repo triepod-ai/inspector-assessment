@@ -503,7 +503,7 @@ export class PrivacyComplianceAssessor extends BaseAssessor {
     ];
 
     // Check server info and tools for encryption indicators
-    const serverStr = JSON.stringify(context.serverInfo).toLowerCase();
+    const serverStr = JSON.stringify(context.serverInfo || {}).toLowerCase();
 
     // Check for encryption at rest
     if (

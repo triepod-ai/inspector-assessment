@@ -82,6 +82,7 @@ describe("PrivacyComplianceAssessor", () => {
     it("should assess GDPR compliance mechanisms", async () => {
       // Arrange
       mockContext.serverInfo = {
+        name: "test-server",
         privacyPolicy: {
           consentMechanism: "explicit",
           dataPortability: true,
@@ -107,6 +108,7 @@ describe("PrivacyComplianceAssessor", () => {
     it("should assess CCPA compliance mechanisms", async () => {
       // Arrange
       mockContext.serverInfo = {
+        name: "test-server",
         privacyPolicy: {
           optOutMechanism: true,
           dataDisclosure: true,
@@ -137,6 +139,7 @@ describe("PrivacyComplianceAssessor", () => {
       });
 
       mockContext.serverInfo = {
+        name: "test-server",
         dataRetention: {
           policyExists: false,
           automaticDeletion: false,

@@ -45,7 +45,7 @@ export class FunctionalityAssessor extends BaseAssessor {
     const totalTools = context.tools.length;
     const testedTools = toolResults.filter((r) => r.tested).length;
     const coveragePercentage =
-      totalTools > 0 ? (testedTools / totalTools) * 100 : 0;
+      testedTools > 0 ? (workingTools / testedTools) * 100 : 0;
 
     const status = this.determineStatus(workingTools, testedTools);
     const explanation = this.generateExplanation(
@@ -134,15 +134,10 @@ export class FunctionalityAssessor extends BaseAssessor {
     const params: Record<string, unknown> = {};
     const required = schema.required || [];
 
-    // Generate minimal valid values for required fields
+    // Generate minimal valid values for all fields
     for (const [key, prop] of Object.entries(
       schema.properties as Record<string, any>,
     )) {
-      if (!required.includes(key) && Math.random() > 0.5) {
-        // Skip some optional fields
-        continue;
-      }
-
       params[key] = this.generateParamValue(prop);
     }
 
@@ -169,14 +164,31 @@ export class FunctionalityAssessor extends BaseAssessor {
         return false;
 
       case "array":
+        // Generate array with sample items based on items schema
+        if (prop.items) {
+          return [this.generateParamValue(prop.items)];
+        }
         return [];
 
       case "object":
+        // Generate object with properties based on schema
+        if (prop.properties) {
+          const obj: Record<string, unknown> = {};
+          for (const [key, subProp] of Object.entries(prop.properties)) {
+            obj[key] = this.generateParamValue(subProp);
+          }
+          return obj;
+        }
         return {};
 
       default:
         return null;
     }
+  }
+
+  // Add public method for testing purposes
+  private generateTestInput(schema: any): unknown {
+    return this.generateParamValue(schema);
   }
 
   private generateExplanation(

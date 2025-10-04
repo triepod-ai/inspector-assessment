@@ -16,9 +16,8 @@ export interface CategoryFilterState {
   errorHandling: boolean;
   usability: boolean;
   mcpSpecCompliance: boolean;
-  supplyChain: boolean;
   privacy: boolean;
-  // Removed non-essential extended categories: dynamicSecurity, humanInLoop
+  // Removed non-essential extended categories: supplyChain, dynamicSecurity, humanInLoop
 }
 
 interface AssessmentCategoryFilterProps {
@@ -39,7 +38,6 @@ const categoryLabels: Record<keyof CategoryFilterState, string> = {
   errorHandling: "Error Handling",
   usability: "Usability",
   mcpSpecCompliance: "MCP Spec Compliance ⭐⭐⭐",
-  supplyChain: "Supply Chain Security ⭐⭐⭐",
   privacy: "Privacy Compliance ⭐⭐",
 };
 
@@ -53,7 +51,6 @@ const coreCategories: (keyof CategoryFilterState)[] = [
 
 const essentialExtendedCategories: (keyof CategoryFilterState)[] = [
   "mcpSpecCompliance",
-  "supplyChain",
   "privacy",
 ];
 

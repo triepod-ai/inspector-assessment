@@ -32,12 +32,12 @@ describe("FunctionalityAssessor", () => {
       const result = await assessor.assess(mockContext);
 
       // Assert
-      expect(result.functionality).toBeDefined();
-      expect(result.functionality.toolsTotal).toBe(3);
-      expect(result.functionality.toolsTested).toBe(3);
-      expect(result.functionality.toolsWorking).toBe(3);
-      expect(result.functionality.toolsBroken).toBe(0);
-      expect(result.functionality.functionalityScore).toBeGreaterThan(0);
+      expect(result).toBeDefined();
+      expect(result.totalTools).toBe(3);
+      expect(result.testedTools).toBe(3);
+      expect(result.workingTools).toBe(3);
+      expect(result.brokenTools.length).toBe(0);
+      expect(result.coveragePercentage).toBeGreaterThan(0);
     });
 
     it("should handle broken tools correctly", async () => {
@@ -59,9 +59,9 @@ describe("FunctionalityAssessor", () => {
       const result = await assessor.assess(mockContext);
 
       // Assert
-      expect(result.functionality.toolsWorking).toBe(2);
-      expect(result.functionality.toolsBroken).toBe(1);
-      expect(result.functionality.brokenTools).toContain("broken");
+      expect(result.workingTools).toBe(2);
+      expect(result.brokenTools.length).toBe(1);
+      expect(result.brokenTools).toContain("broken");
     });
 
     it("should skip broken tools when configured", async () => {
@@ -83,7 +83,7 @@ describe("FunctionalityAssessor", () => {
 
       // Assert
       expect(mockContext.callTool).toHaveBeenCalledTimes(2);
-      expect(result.functionality.toolsTested).toBe(2);
+      expect(result.testedTools).toBe(2);
     });
 
     it("should calculate functionality score correctly", async () => {
@@ -103,12 +103,15 @@ describe("FunctionalityAssessor", () => {
       const result = await assessor.assess(mockContext);
 
       // Assert
-      expect(result.functionality.functionalityScore).toBe(50); // 1 working out of 2
+      expect(result.coveragePercentage).toBe(50); // 1 working out of 2
     });
 
     it("should handle timeout correctly", async () => {
       // Arrange
-      mockContext.config.testTimeout = 100;
+      const timeoutConfig = createMockAssessmentConfig();
+      timeoutConfig.testTimeout = 100;
+      const timeoutAssessor = new FunctionalityAssessor(timeoutConfig);
+
       mockContext.callTool = jest
         .fn()
         .mockImplementation(
@@ -125,11 +128,11 @@ describe("FunctionalityAssessor", () => {
       mockContext.tools = tools;
 
       // Act
-      const result = await assessor.assess(mockContext);
+      const result = await timeoutAssessor.assess(mockContext);
 
       // Assert
-      expect(result.functionality.toolsBroken).toBe(1);
-      expect(result.functionality.brokenTools).toContain("slow-tool");
+      expect(result.brokenTools.length).toBe(1);
+      expect(result.brokenTools).toContain("slow-tool");
     });
 
     it("should handle empty tools array", async () => {
@@ -140,8 +143,8 @@ describe("FunctionalityAssessor", () => {
       const result = await assessor.assess(mockContext);
 
       // Assert
-      expect(result.functionality.toolsTotal).toBe(0);
-      expect(result.functionality.functionalityScore).toBe(0);
+      expect(result.totalTools).toBe(0);
+      expect(result.coveragePercentage).toBe(0);
     });
 
     it("should test tools with various input schemas", async () => {
@@ -233,8 +236,8 @@ describe("FunctionalityAssessor", () => {
       const result = await assessor.assess(mockContext);
 
       // Assert
-      expect(result.functionality.toolsBroken).toBe(1);
-      expect(result.functionality.brokenTools).toContain("failing-tool");
+      expect(result.brokenTools.length).toBe(1);
+      expect(result.brokenTools).toContain("failing-tool");
     });
   });
 
@@ -274,7 +277,7 @@ describe("FunctionalityAssessor", () => {
         },
       };
 
-      const input = assessor["generateTestInput"](schema);
+      const input = assessor["generateTestInput"](schema) as any;
       expect(input).toHaveProperty("nested");
       expect(input.nested).toHaveProperty("value");
       expect(typeof input.nested.value).toBe("string");

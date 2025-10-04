@@ -156,8 +156,6 @@ describe("Assessment Performance Benchmarks", () => {
         errorHandling: true,
         usability: true,
         mcpSpecCompliance: false,
-        supplyChain: false,
-        dynamicSecurity: false,
         privacy: false,
         humanInLoop: false,
       };
@@ -171,8 +169,6 @@ describe("Assessment Performance Benchmarks", () => {
         errorHandling: true,
         usability: true,
         mcpSpecCompliance: true,
-        supplyChain: true,
-        dynamicSecurity: true,
         privacy: true,
         humanInLoop: true,
       };

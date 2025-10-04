@@ -22,7 +22,6 @@ import {
   ErrorTestDetail,
   CodeExample,
   MCPSpecComplianceAssessment,
-  SupplyChainAssessment,
   PrivacyComplianceAssessment,
 } from "@/lib/assessmentTypes";
 import { MCPSpecComplianceAssessor } from "./assessment/modules/MCPSpecComplianceAssessor";
@@ -137,7 +136,6 @@ export class MCPAssessmentService {
 
     // Run extended assessment if enabled
     let mcpSpecCompliance: MCPSpecComplianceAssessment | undefined;
-    let supplyChain: SupplyChainAssessment | undefined;
     let privacy: PrivacyComplianceAssessment | undefined;
 
     if (this.config.enableExtendedAssessment) {
@@ -192,7 +190,6 @@ export class MCPAssessmentService {
       errorHandling,
       usability,
       mcpSpecCompliance,
-      supplyChain,
       privacy,
       overallStatus,
       summary,
@@ -1468,7 +1465,6 @@ export class MCPAssessmentService {
    * Assess error handling quality
    * @deprecated - Kept for reference, use ErrorHandlingAssessor module instead
    */
-  // @ts-expect-error - deprecated method kept for reference
   private async _assessErrorHandling(
     tools: Tool[],
     callTool: (

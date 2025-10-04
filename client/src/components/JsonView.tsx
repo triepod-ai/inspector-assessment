@@ -51,6 +51,8 @@ const JsonView = memo(
           variant: "destructive",
         });
       }
+      // setCopied is from useState and is stable, doesn't need to be in deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [toast, normalizedData]);
 
     return (

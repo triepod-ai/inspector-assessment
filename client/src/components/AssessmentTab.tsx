@@ -35,6 +35,7 @@ import {
   AssessmentConfiguration,
   DEFAULT_ASSESSMENT_CONFIG,
   SecurityTestResult,
+  EnhancedToolTestResult,
 } from "@/lib/assessmentTypes";
 import { MCPAssessmentService } from "@/services/assessmentService";
 import {
@@ -44,7 +45,6 @@ import {
 import JsonView from "./JsonView";
 import {
   MCPSpecComplianceDisplay,
-  SupplyChainDisplay,
   PrivacyComplianceDisplay,
 } from "./ExtendedAssessmentCategories";
 import {
@@ -100,11 +100,11 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
     errorHandling: true,
     usability: true,
     mcpSpecCompliance: true,
-    supplyChain: true,
     privacy: true,
-    // Removed non-essential categories: dynamicSecurity, humanInLoop
+    // Removed non-essential categories: supplyChain, dynamicSecurity, humanInLoop
   });
-  const [selectedToolDetails, setSelectedToolDetails] = useState<any>(null);
+  const [selectedToolDetails, setSelectedToolDetails] =
+    useState<EnhancedToolTestResult | null>(null);
 
   const assessmentService = useMemo(
     () => new MCPAssessmentService(config),
@@ -141,9 +141,6 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
       if (config.enableExtendedAssessment) {
         if (categoryFilter.mcpSpecCompliance && assessment.mcpSpecCompliance) {
           statuses.push(assessment.mcpSpecCompliance.status);
-        }
-        if (categoryFilter.supplyChain && assessment.supplyChain) {
-          statuses.push(assessment.supplyChain.status);
         }
         if (categoryFilter.privacy && assessment.privacy) {
           statuses.push(assessment.privacy.status);
@@ -577,7 +574,6 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                   errorHandling: true,
                   usability: true,
                   mcpSpecCompliance: true,
-                  supplyChain: true,
                   privacy: true,
                 })
               }
@@ -589,7 +585,6 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                   errorHandling: false,
                   usability: false,
                   mcpSpecCompliance: false,
-                  supplyChain: false,
                   privacy: false,
                 })
               }
@@ -1751,12 +1746,6 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
               )}
 
             {config.enableExtendedAssessment &&
-              assessment.supplyChain &&
-              categoryFilter.supplyChain && (
-                <SupplyChainDisplay assessment={assessment.supplyChain} />
-              )}
-
-            {config.enableExtendedAssessment &&
               assessment.privacy &&
               categoryFilter.privacy && (
                 <PrivacyComplianceDisplay assessment={assessment.privacy} />
@@ -1892,7 +1881,17 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                           </h3>
                           <div className="space-y-4">
                             {selectedToolDetails.enhancedResult.scenarioResults.map(
-                              (scenarioResult: any, index: number) => (
+                              (
+                                scenarioResult: {
+                                  scenarioName: string;
+                                  category: string;
+                                  passed: boolean;
+                                  confidence: number;
+                                  issues: string[];
+                                  evidence: string[];
+                                },
+                                index: number,
+                              ) => (
                                 <div
                                   key={index}
                                   className="border rounded-lg p-3 bg-background max-w-full overflow-hidden"
@@ -2213,7 +2212,14 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
 
 // Helper component for expandable error test details
 const ErrorTestItem: React.FC<{
-  test: any;
+  test: {
+    passed: boolean;
+    testName: string;
+    input?: unknown;
+    expectedError?: string;
+    actualError?: string;
+    response?: unknown;
+  };
 }> = ({ test }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -2840,32 +2846,6 @@ const generateTextReport = (
       assessment.mcpSpecCompliance.explanation,
       `- Protocol Version: ${assessment.mcpSpecCompliance.protocolVersion}`,
       `- Compliance Score: ${assessment.mcpSpecCompliance.complianceScore.toFixed(1)}%`,
-    );
-  }
-
-  if (assessment.supplyChain) {
-    lines.push(
-      "",
-      "SUPPLY CHAIN SECURITY",
-      "-".repeat(40),
-      `Status: ${assessment.supplyChain.status}`,
-      assessment.supplyChain.explanation,
-      `- Total Dependencies: ${assessment.supplyChain.dependencies.totalDependencies}`,
-      `- Vulnerabilities: ${assessment.supplyChain.vulnerabilities.length}`,
-      `- Package Integrity: ${assessment.supplyChain.packageIntegrity.integrityScore.toFixed(1)}%`,
-    );
-  }
-
-  if (assessment.dynamicSecurity) {
-    lines.push(
-      "",
-      "DYNAMIC SECURITY",
-      "-".repeat(40),
-      `Status: ${assessment.dynamicSecurity.status}`,
-      assessment.dynamicSecurity.explanation,
-      `- Runtime Tests: ${assessment.dynamicSecurity.runtimeTests.length}`,
-      `- Fuzzing Results: ${assessment.dynamicSecurity.fuzzingResults.passed} passed, ${assessment.dynamicSecurity.fuzzingResults.failed} failed`,
-      `- Anomaly Score: ${assessment.dynamicSecurity.behaviorAnalysis.anomalyScore.toFixed(1)}/100`,
     );
   }
 

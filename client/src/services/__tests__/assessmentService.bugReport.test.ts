@@ -28,10 +28,7 @@
  */
 
 import { MCPAssessmentService } from "../assessmentService";
-import {
-  Tool,
-  CompatibilityCallToolResult,
-} from "@modelcontextprotocol/sdk/types.js";
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 describe("CRITICAL SECURITY BUGS - Assessment Service", () => {
   let service: MCPAssessmentService;
@@ -247,9 +244,7 @@ describe("CRITICAL SECURITY BUGS - Assessment Service", () => {
         },
       }));
 
-      let callCount = 0;
       mockCallTool.mockImplementation((toolName) => {
-        callCount++;
         // Tools 6-10 are vulnerable but won't be tested
         if (toolName.includes("tool_6") || toolName.includes("tool_7")) {
           return Promise.resolve({
@@ -293,7 +288,7 @@ describe("CRITICAL SECURITY BUGS - Assessment Service", () => {
         content: [{ type: "text", text: "OK" }],
       });
 
-      const result = await service.runFullAssessment(
+      await service.runFullAssessment(
         "enterprise-server",
         enterpriseTools,
         mockCallTool,
@@ -400,7 +395,7 @@ describe("CRITICAL SECURITY BUGS - Assessment Service", () => {
     it("Treats information disclosure same as remote code execution", async () => {
       // Simulate different severity vulnerabilities
       let callCount = 0;
-      mockCallTool.mockImplementation((toolName, params) => {
+      mockCallTool.mockImplementation((_toolName, _params) => {
         callCount++;
 
         if (callCount === 1) {
@@ -460,9 +455,7 @@ describe("CRITICAL SECURITY BUGS - Assessment Service", () => {
   describe("BUG IMPACT ANALYSIS", () => {
     it("Demonstrates false sense of security with comprehensive vulnerable server", async () => {
       // Create server with multiple serious vulnerabilities that current assessment misses
-      mockCallTool.mockImplementation((toolName, params) => {
-        const paramStr = JSON.stringify(params);
-
+      mockCallTool.mockImplementation((toolName, _params) => {
         // SQL injection vulnerability
         if (toolName === "search_data") {
           return Promise.resolve({

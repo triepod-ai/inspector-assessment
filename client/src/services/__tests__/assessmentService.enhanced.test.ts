@@ -334,10 +334,7 @@ describe("Enhanced Security Assessment", () => {
 
   describe("Enhanced Polyglot Detection", () => {
     it("should detect polyglot payloads with enhanced patterns", async () => {
-      const polyglotPayload =
-        "jaVasCript:/*-/*`/*\\`/*'/*\"/**/(/* */onerror=alert('XSS') )//";
-
-      mockCallTool.mockImplementation((toolName, params) => {
+      mockCallTool.mockImplementation((_toolName, params) => {
         const paramStr = JSON.stringify(params);
         if (
           paramStr.includes("jaVasCript") ||
@@ -573,8 +570,7 @@ describe("Enhanced Security Assessment", () => {
 
   describe("Payload Reflection Detection", () => {
     it("should detect when malicious payloads are reflected in responses", async () => {
-      mockCallTool.mockImplementation((toolName, params) => {
-        const paramStr = JSON.stringify(params);
+      mockCallTool.mockImplementation((_toolName, params) => {
         // Simulate vulnerable server that reflects input
         if (params && typeof params === "object" && "input" in params) {
           const input = params.input as string;

@@ -310,16 +310,16 @@ export interface StreamingSupportMetrics {
   };
 }
 
-// Supply Chain Security Assessment
-export interface SupplyChainAssessment {
-  dependencies: DependencyAnalysis;
-  vulnerabilities: VulnerabilityReport[];
-  sbom?: SoftwareBillOfMaterials;
-  packageIntegrity: PackageIntegrityMetrics;
-  status: AssessmentStatus;
-  explanation: string;
-  recommendations: string[];
-}
+// Supply Chain Security Assessment - REMOVED (out of scope for Anthropic requirements)
+// export interface SupplyChainAssessment {
+//   dependencies: DependencyAnalysis;
+//   vulnerabilities: VulnerabilityReport[];
+//   sbom?: SoftwareBillOfMaterials;
+//   packageIntegrity: PackageIntegrityMetrics;
+//   status: AssessmentStatus;
+//   explanation: string;
+//   recommendations: string[];
+// }
 
 export interface DependencyAnalysis {
   totalDependencies: number;
@@ -359,16 +359,16 @@ export interface PackageIntegrityMetrics {
   squattingRisk: "HIGH" | "MEDIUM" | "LOW";
 }
 
-// Dynamic Security Assessment
-export interface DynamicSecurityAssessment {
-  runtimeTests: RuntimeTestResult[];
-  fuzzingResults: FuzzingReport;
-  sandboxTests: SandboxTestResult[];
-  behaviorAnalysis: BehaviorAnalysisReport;
-  status: AssessmentStatus;
-  explanation: string;
-  recommendations: string[];
-}
+// Dynamic Security Assessment - REMOVED (merged into SecurityAssessor)
+// export interface DynamicSecurityAssessment {
+//   runtimeTests: RuntimeTestResult[];
+//   fuzzingResults: FuzzingReport;
+//   sandboxTests: SandboxTestResult[];
+//   behaviorAnalysis: BehaviorAnalysisReport;
+//   status: AssessmentStatus;
+//   explanation: string;
+//   recommendations: string[];
+// }
 
 export interface RuntimeTestResult {
   testName: string;
@@ -513,10 +513,8 @@ export interface MCPDirectoryAssessment {
   errorHandling: ErrorHandlingAssessment;
   usability: UsabilityAssessment;
 
-  // Extended assessment areas (New 5)
+  // Extended assessment areas (Reduced to 3 - aligned with Anthropic requirements)
   mcpSpecCompliance?: MCPSpecComplianceAssessment;
-  supplyChain?: SupplyChainAssessment;
-  dynamicSecurity?: DynamicSecurityAssessment;
   privacy?: PrivacyComplianceAssessment;
   humanInLoop?: HumanInLoopAssessment;
 
@@ -666,8 +664,6 @@ export interface AssessmentConfiguration {
     errorHandling: boolean;
     usability: boolean;
     mcpSpecCompliance?: boolean;
-    supplyChain?: boolean;
-    dynamicSecurity?: boolean;
     privacy?: boolean;
     humanInLoop?: boolean;
   };
@@ -693,8 +689,6 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
     errorHandling: true,
     usability: true,
     mcpSpecCompliance: false,
-    supplyChain: false,
-    dynamicSecurity: false,
     privacy: false,
     humanInLoop: false,
   },
