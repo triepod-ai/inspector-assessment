@@ -4,7 +4,9 @@
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "module": "ESNext",
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
   },
   "include": ["src"]
 }

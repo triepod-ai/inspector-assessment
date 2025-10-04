@@ -158,7 +158,7 @@ export class SupplyChainAssessor extends BaseAssessor {
     for (const dep of dependencies) {
       // Check against known vulnerable versions
       for (const vuln of knownVulnerablePackages) {
-        const [pkg, version] = vuln.split("@");
+        const [pkg, _version] = vuln.split("@");
         if (dep.name === pkg) {
           const vulnerability = `${dep.name}@${dep.version} has known vulnerabilities`;
           vulnerabilities.push(vulnerability);
@@ -311,7 +311,8 @@ export class SupplyChainAssessor extends BaseAssessor {
     // In a real implementation, this would generate a proper SBOM
     // For now, we'll simulate it
     try {
-      const sbom = {
+      // @ts-expect-error - SBOM structure prepared for future use
+      const _sbom = {
         bomFormat: "CycloneDX",
         specVersion: "1.4",
         serialNumber: `urn:uuid:${Date.now()}`,

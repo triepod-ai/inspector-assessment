@@ -664,7 +664,7 @@ export class HumanInLoopAssessor extends BaseAssessor {
     reviewMechanisms: any,
     overrideCapabilities: any,
     transparency: any,
-    auditTrail: any,
+    _auditTrail: any,
     emergencyControls: any,
   ): string {
     const parts: string[] = [];

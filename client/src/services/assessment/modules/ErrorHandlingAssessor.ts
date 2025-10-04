@@ -512,10 +512,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
   private calculateMetrics(
     tests: ErrorTestDetail[],
-    passed: number,
+    _passed: number, // parameter kept for API compatibility
   ): ErrorHandlingMetrics {
-    const total = tests.length;
-
     // Calculate enhanced score with bonus points for quality
     let enhancedScore = 0;
     let maxPossibleScore = 0;
@@ -525,9 +523,6 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
       if (test.passed) {
         enhancedScore += 100; // Base points for passing
-
-        // Bonus points for error quality
-        const errorMsg = test.actualResponse.errorMessage?.toLowerCase() ?? "";
 
         // Extra points for specific field names in error
         if (

@@ -3,11 +3,7 @@
  * Tests tool functionality and basic operations
  */
 
-import {
-  FunctionalityAssessment,
-  ToolTestResult,
-  AssessmentStatus,
-} from "@/lib/assessmentTypes";
+import { FunctionalityAssessment, ToolTestResult } from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 

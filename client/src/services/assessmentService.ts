@@ -1466,8 +1466,10 @@ export class MCPAssessmentService {
 
   /**
    * Assess error handling quality
+   * @deprecated - Kept for reference, use ErrorHandlingAssessor module instead
    */
-  private async assessErrorHandling(
+  // @ts-expect-error - deprecated method kept for reference
+  private async _assessErrorHandling(
     tools: Tool[],
     callTool: (
       name: string,

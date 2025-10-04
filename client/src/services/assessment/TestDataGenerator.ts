@@ -316,7 +316,7 @@ export class TestDataGenerator {
   /**
    * Generate realistic parameters based on schema and variant
    */
-  private static generateRealisticParams(
+  public static generateRealisticParams(
     tool: Tool,
     variant: "typical" | "empty" | "maximum" | "special",
   ): Record<string, unknown> {

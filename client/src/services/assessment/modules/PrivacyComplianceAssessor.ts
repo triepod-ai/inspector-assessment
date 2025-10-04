@@ -436,7 +436,6 @@ export class PrivacyComplianceAssessor extends BaseAssessor {
 
     // Check for retention-related functionality
     for (const tool of context.tools) {
-      const name = tool.name.toLowerCase();
       const desc = tool.description?.toLowerCase() || "";
 
       if (
