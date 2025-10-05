@@ -761,7 +761,7 @@ const App = () => {
       ListPromptsResultSchema,
       "prompts",
     );
-    setPrompts(response.prompts);
+    setPrompts(response.prompts as Prompt[]);
     setNextPromptCursor(response.nextCursor);
   };
 

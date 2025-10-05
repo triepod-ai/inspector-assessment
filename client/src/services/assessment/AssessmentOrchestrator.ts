@@ -23,8 +23,6 @@ import { UsabilityAssessor } from "./modules/UsabilityAssessor";
 
 // Extended assessment modules
 import { MCPSpecComplianceAssessor } from "./modules/MCPSpecComplianceAssessor";
-import { PrivacyComplianceAssessor } from "./modules/PrivacyComplianceAssessor";
-import { HumanInLoopAssessor } from "./modules/HumanInLoopAssessor";
 
 export interface AssessmentContext {
   serverName: string;
@@ -42,15 +40,6 @@ export interface AssessmentContext {
     name: string;
     version?: string;
     metadata?: unknown;
-    privacyPolicy?: unknown;
-    dataRetention?: unknown;
-    encryption?: unknown;
-    dataTransfer?: unknown;
-    consent?: unknown;
-    coppaCompliance?: unknown;
-    dataSubjectRights?: unknown;
-    jurisdiction?: unknown;
-    dataLocalization?: unknown;
   };
 }
 
@@ -68,8 +57,6 @@ export class AssessmentOrchestrator {
 
   // Extended assessors
   private mcpSpecAssessor?: MCPSpecComplianceAssessor;
-  private privacyAssessor?: PrivacyComplianceAssessor;
-  private humanInLoopAssessor?: HumanInLoopAssessor;
 
   constructor(config: Partial<AssessmentConfiguration> = {}) {
     this.config = { ...DEFAULT_ASSESSMENT_CONFIG, ...config };
@@ -85,12 +72,6 @@ export class AssessmentOrchestrator {
     if (this.config.enableExtendedAssessment) {
       if (this.config.assessmentCategories?.mcpSpecCompliance) {
         this.mcpSpecAssessor = new MCPSpecComplianceAssessor(this.config);
-      }
-      if (this.config.assessmentCategories?.privacy) {
-        this.privacyAssessor = new PrivacyComplianceAssessor(this.config);
-      }
-      if (this.config.assessmentCategories?.humanInLoop) {
-        this.humanInLoopAssessor = new HumanInLoopAssessor(this.config);
       }
     }
   }
@@ -136,20 +117,6 @@ export class AssessmentOrchestrator {
             .then((r) => (assessmentResults.mcpSpecCompliance = r)),
         );
       }
-      if (this.privacyAssessor) {
-        assessmentPromises.push(
-          this.privacyAssessor
-            .assess(context)
-            .then((r) => (assessmentResults.privacy = r)),
-        );
-      }
-      if (this.humanInLoopAssessor) {
-        assessmentPromises.push(
-          this.humanInLoopAssessor
-            .assess(context)
-            .then((r) => (assessmentResults.humanInLoop = r)),
-        );
-      }
 
       await Promise.all(assessmentPromises);
     } else {
@@ -167,13 +134,6 @@ export class AssessmentOrchestrator {
       if (this.mcpSpecAssessor) {
         assessmentResults.mcpSpecCompliance =
           await this.mcpSpecAssessor.assess(context);
-      }
-      if (this.privacyAssessor) {
-        assessmentResults.privacy = await this.privacyAssessor.assess(context);
-      }
-      if (this.humanInLoopAssessor) {
-        assessmentResults.humanInLoop =
-          await this.humanInLoopAssessor.assess(context);
       }
     }
 

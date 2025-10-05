@@ -36,6 +36,8 @@ import {
   DEFAULT_ASSESSMENT_CONFIG,
   SecurityTestResult,
   EnhancedToolTestResult,
+  ToolTestResult,
+  ErrorTestDetail,
 } from "@/lib/assessmentTypes";
 import { MCPAssessmentService } from "@/services/assessmentService";
 import {
@@ -43,10 +45,7 @@ import {
   CompatibilityCallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import JsonView from "./JsonView";
-import {
-  MCPSpecComplianceDisplay,
-  PrivacyComplianceDisplay,
-} from "./ExtendedAssessmentCategories";
+import { MCPSpecComplianceDisplay } from "./ExtendedAssessmentCategories";
 import {
   AssessmentCategoryFilter,
   CategoryFilterState,
@@ -103,8 +102,9 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
     privacy: true,
     // Removed non-essential categories: supplyChain, dynamicSecurity, humanInLoop
   });
-  const [selectedToolDetails, setSelectedToolDetails] =
-    useState<EnhancedToolTestResult | null>(null);
+  const [selectedToolDetails, setSelectedToolDetails] = useState<
+    ToolTestResult | EnhancedToolTestResult | null
+  >(null);
 
   const assessmentService = useMemo(
     () => new MCPAssessmentService(config),
@@ -141,9 +141,6 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
       if (config.enableExtendedAssessment) {
         if (categoryFilter.mcpSpecCompliance && assessment.mcpSpecCompliance) {
           statuses.push(assessment.mcpSpecCompliance.status);
-        }
-        if (categoryFilter.privacy && assessment.privacy) {
-          statuses.push(assessment.privacy.status);
         }
       }
 
@@ -1745,12 +1742,6 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                 />
               )}
 
-            {config.enableExtendedAssessment &&
-              assessment.privacy &&
-              categoryFilter.privacy && (
-                <PrivacyComplianceDisplay assessment={assessment.privacy} />
-              )}
-
             {/* Overall Recommendations */}
             {assessment.recommendations.length > 0 && (
               <div className="bg-muted p-4 rounded-lg">
@@ -1794,7 +1785,8 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                 <div className="bg-secondary/50 rounded-lg p-4">
                   <h3 className="font-semibold mb-2 flex items-center gap-2">
                     Status
-                    {selectedToolDetails.status === "working" ? (
+                    {selectedToolDetails.status === "working" ||
+                    selectedToolDetails.status === "fully_working" ? (
                       <CheckCircle className="h-4 w-4 text-green-600" />
                     ) : selectedToolDetails.status === "broken" ? (
                       <XCircle className="h-4 w-4 text-red-600" />
@@ -1821,7 +1813,7 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                 </div>
 
                 {/* Enhanced Test Results if available */}
-                {selectedToolDetails.enhancedResult && (
+                {"confidence" in selectedToolDetails && (
                   <>
                     {/* Overall Classification */}
                     <div className="bg-secondary/50 rounded-lg p-4">
@@ -1833,65 +1825,50 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                           <span className="font-medium">Classification:</span>{" "}
                           <span
                             className={`font-semibold ${
-                              selectedToolDetails.enhancedResult
-                                .classification === "fully_working"
+                              selectedToolDetails.status === "fully_working"
                                 ? "text-green-600"
-                                : selectedToolDetails.enhancedResult
-                                      .classification === "partially_working"
+                                : selectedToolDetails.status ===
+                                    "partially_working"
                                   ? "text-yellow-600"
-                                  : selectedToolDetails.enhancedResult
-                                        .classification === "connectivity_only"
+                                  : selectedToolDetails.status ===
+                                      "connectivity_only"
                                     ? "text-orange-600"
                                     : "text-red-600"
                             }`}
                           >
-                            {selectedToolDetails.enhancedResult.classification
+                            {selectedToolDetails.status
                               ?.replace("_", " ")
                               .toUpperCase()}
                           </span>
                         </div>
                         <div>
                           <span className="font-medium">Confidence:</span>{" "}
-                          {(
-                            selectedToolDetails.enhancedResult.confidence * 100
-                          ).toFixed(1)}
-                          %
+                          {(selectedToolDetails.confidence * 100).toFixed(1)}%
                         </div>
                         <div>
                           <span className="font-medium">Scenarios Tested:</span>{" "}
-                          {selectedToolDetails.enhancedResult.scenarioResults
-                            ?.length || 0}
+                          {selectedToolDetails.detailedResults?.length || 0}
                         </div>
                         <div>
                           <span className="font-medium">Success Rate:</span>{" "}
-                          {selectedToolDetails.enhancedResult.successRate
-                            ? `${(selectedToolDetails.enhancedResult.successRate * 100).toFixed(1)}%`
+                          {selectedToolDetails.scenariosPassed &&
+                          selectedToolDetails.scenariosExecuted
+                            ? `${((selectedToolDetails.scenariosPassed / selectedToolDetails.scenariosExecuted) * 100).toFixed(1)}%`
                             : "N/A"}
                         </div>
                       </div>
                     </div>
 
                     {/* Detailed Test Scenarios with Full Data */}
-                    {selectedToolDetails.enhancedResult.scenarioResults &&
-                      selectedToolDetails.enhancedResult.scenarioResults
-                        .length > 0 && (
+                    {selectedToolDetails.detailedResults &&
+                      selectedToolDetails.detailedResults.length > 0 && (
                         <div className="bg-secondary/50 rounded-lg p-4">
                           <h3 className="font-semibold mb-3">
                             Test Scenarios & Data
                           </h3>
                           <div className="space-y-4">
-                            {selectedToolDetails.enhancedResult.scenarioResults.map(
-                              (
-                                scenarioResult: {
-                                  scenarioName: string;
-                                  category: string;
-                                  passed: boolean;
-                                  confidence: number;
-                                  issues: string[];
-                                  evidence: string[];
-                                },
-                                index: number,
-                              ) => (
+                            {selectedToolDetails.detailedResults.map(
+                              (scenarioResult, index) => (
                                 <div
                                   key={index}
                                   className="border rounded-lg p-3 bg-background max-w-full overflow-hidden"
@@ -1900,214 +1877,80 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                                   <div className="flex justify-between items-start mb-3 pb-2 border-b">
                                     <div>
                                       <h4 className="font-medium text-sm">
-                                        {scenarioResult.scenario?.name ||
+                                        {scenarioResult.scenarioName ||
                                           `Scenario ${index + 1}`}
                                       </h4>
-                                      {scenarioResult.scenario?.description && (
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                          {scenarioResult.scenario.description}
-                                        </p>
-                                      )}
-                                      {scenarioResult.scenario?.category && (
-                                        <span className="text-xs px-2 py-1 bg-muted rounded mt-1 inline-block">
-                                          {scenarioResult.scenario.category.replace(
-                                            "_",
-                                            " ",
-                                          )}
-                                        </span>
-                                      )}
+                                      <span className="text-xs px-2 py-1 bg-muted rounded mt-1 inline-block">
+                                        {scenarioResult.category.replace(
+                                          "_",
+                                          " ",
+                                        )}
+                                      </span>
                                     </div>
                                     <div className="flex flex-col items-end gap-1">
                                       <span
                                         className={`text-xs px-2 py-1 rounded font-medium ${
-                                          scenarioResult.validation?.isValid
+                                          scenarioResult.passed
                                             ? "bg-green-100 text-green-800"
                                             : "bg-red-100 text-red-800"
                                         }`}
                                       >
-                                        {scenarioResult.validation?.isValid
+                                        {scenarioResult.passed
                                           ? "PASSED"
                                           : "FAILED"}
                                       </span>
-                                      {scenarioResult.validation?.confidence !==
-                                        undefined && (
-                                        <span className="text-xs text-muted-foreground">
-                                          {(
-                                            scenarioResult.validation
-                                              .confidence * 100
-                                          ).toFixed(0)}
-                                          % confidence
-                                        </span>
-                                      )}
+                                      <span className="text-xs text-muted-foreground">
+                                        {(
+                                          scenarioResult.confidence * 100
+                                        ).toFixed(0)}
+                                        % confidence
+                                      </span>
                                     </div>
                                   </div>
 
-                                  {/* Test Input Parameters */}
-                                  {scenarioResult.scenario?.params && (
-                                    <div className="mb-3">
-                                      <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                                        Test Input Parameters
-                                      </h5>
-                                      <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                                        <pre className="text-xs whitespace-pre-wrap break-words font-mono leading-relaxed">
-                                          {JSON.stringify(
-                                            scenarioResult.scenario.params,
-                                            null,
-                                            2,
+                                  {/* Issues */}
+                                  {scenarioResult.issues &&
+                                    scenarioResult.issues.length > 0 && (
+                                      <div className="mb-3">
+                                        <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                                          Issues Found
+                                        </h5>
+                                        <ul className="list-disc list-inside text-xs space-y-0.5 bg-red-50 border border-red-200 rounded p-3">
+                                          {scenarioResult.issues.map(
+                                            (issue, i) => (
+                                              <li
+                                                key={i}
+                                                className="text-red-700"
+                                              >
+                                                {issue}
+                                              </li>
+                                            ),
                                           )}
-                                        </pre>
+                                        </ul>
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
 
-                                  {/* Tool Response */}
-                                  {(scenarioResult.response ||
-                                    scenarioResult.error) && (
-                                    <div className="mb-3">
-                                      <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                                        Tool Response{" "}
-                                        {scenarioResult.executionTime &&
-                                          `(${scenarioResult.executionTime}ms)`}
-                                      </h5>
-                                      <div
-                                        className={`border rounded p-3 ${
-                                          scenarioResult.error
-                                            ? "bg-red-50 border-red-200"
-                                            : "bg-gray-50 border-gray-200"
-                                        }`}
-                                      >
-                                        <pre className="text-xs whitespace-pre-wrap break-words font-mono leading-relaxed">
-                                          {scenarioResult.error ||
-                                            (typeof scenarioResult.response ===
-                                            "string"
-                                              ? scenarioResult.response
-                                              : JSON.stringify(
-                                                  scenarioResult.response,
-                                                  null,
-                                                  2,
-                                                ))}
-                                        </pre>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Expected Behavior */}
-                                  {scenarioResult.scenario
-                                    ?.expectedBehavior && (
-                                    <div className="mb-3">
-                                      <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                                        Expected Behavior
-                                      </h5>
-                                      <p className="text-xs text-gray-700 bg-yellow-50 border border-yellow-200 rounded p-2 whitespace-pre-wrap break-words">
-                                        {
-                                          scenarioResult.scenario
-                                            .expectedBehavior
-                                        }
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {/* Validation Results */}
-                                  {scenarioResult.validation && (
-                                    <div className="mb-3">
-                                      <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                                        Assessment Results
-                                      </h5>
-                                      <div
-                                        className={`border rounded p-3 ${
-                                          scenarioResult.validation.isValid
-                                            ? "bg-green-50 border-green-200"
-                                            : "bg-red-50 border-red-200"
-                                        }`}
-                                      >
-                                        <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-                                          <div>
-                                            <span className="font-medium">
-                                              Classification:
-                                            </span>{" "}
-                                            <span
-                                              className={
-                                                scenarioResult.validation
-                                                  .classification ===
-                                                "fully_working"
-                                                  ? "text-green-700 font-medium"
-                                                  : scenarioResult.validation
-                                                        .classification ===
-                                                      "partially_working"
-                                                    ? "text-yellow-700 font-medium"
-                                                    : "text-red-700 font-medium"
-                                              }
-                                            >
-                                              {scenarioResult.validation.classification?.replace(
-                                                "_",
-                                                " ",
-                                              ) || "unknown"}
-                                            </span>
-                                          </div>
-                                          <div>
-                                            <span className="font-medium">
-                                              Error Type:
-                                            </span>{" "}
-                                            {scenarioResult.validation.isError
-                                              ? "Execution Error"
-                                              : "Response Received"}
-                                          </div>
-                                        </div>
-
-                                        {/* Issues */}
-                                        {scenarioResult.validation.issues &&
-                                          scenarioResult.validation.issues
-                                            .length > 0 && (
-                                            <div className="mb-2">
-                                              <span className="text-xs font-medium">
-                                                Issues Found:
-                                              </span>
-                                              <ul className="list-disc list-inside text-xs mt-1 space-y-0.5">
-                                                {scenarioResult.validation.issues.map(
-                                                  (
-                                                    issue: string,
-                                                    i: number,
-                                                  ) => (
-                                                    <li
-                                                      key={i}
-                                                      className="text-red-700"
-                                                    >
-                                                      {issue}
-                                                    </li>
-                                                  ),
-                                                )}
-                                              </ul>
-                                            </div>
+                                  {/* Evidence */}
+                                  {scenarioResult.evidence &&
+                                    scenarioResult.evidence.length > 0 && (
+                                      <div className="mb-3">
+                                        <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                                          Evidence
+                                        </h5>
+                                        <ul className="list-disc list-inside text-xs space-y-0.5 bg-green-50 border border-green-200 rounded p-3">
+                                          {scenarioResult.evidence.map(
+                                            (evidence, i) => (
+                                              <li
+                                                key={i}
+                                                className="text-green-700"
+                                              >
+                                                {evidence}
+                                              </li>
+                                            ),
                                           )}
-
-                                        {/* Evidence */}
-                                        {scenarioResult.validation.evidence &&
-                                          scenarioResult.validation.evidence
-                                            .length > 0 && (
-                                            <div>
-                                              <span className="text-xs font-medium">
-                                                Evidence:
-                                              </span>
-                                              <ul className="list-disc list-inside text-xs mt-1 space-y-0.5">
-                                                {scenarioResult.validation.evidence.map(
-                                                  (
-                                                    evidence: string,
-                                                    i: number,
-                                                  ) => (
-                                                    <li
-                                                      key={i}
-                                                      className="text-green-700"
-                                                    >
-                                                      {evidence}
-                                                    </li>
-                                                  ),
-                                                )}
-                                              </ul>
-                                            </div>
-                                          )}
+                                        </ul>
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
                                 </div>
                               ),
                             )}
@@ -2116,34 +1959,16 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                       )}
 
                     {/* Recommendations */}
-                    {selectedToolDetails.enhancedResult.recommendations &&
-                      selectedToolDetails.enhancedResult.recommendations
-                        .length > 0 && (
+                    {selectedToolDetails.recommendations &&
+                      selectedToolDetails.recommendations.length > 0 && (
                         <div className="bg-secondary/50 rounded-lg p-4">
                           <h3 className="font-semibold mb-2">
                             Recommendations
                           </h3>
                           <ul className="list-disc list-inside text-sm space-y-1">
-                            {selectedToolDetails.enhancedResult.recommendations.map(
+                            {selectedToolDetails.recommendations.map(
                               (rec: string, index: number) => (
                                 <li key={index}>{rec}</li>
-                              ),
-                            )}
-                          </ul>
-                        </div>
-                      )}
-
-                    {/* Issues Found */}
-                    {selectedToolDetails.enhancedResult.issues &&
-                      selectedToolDetails.enhancedResult.issues.length > 0 && (
-                        <div className="bg-red-50 rounded-lg p-4">
-                          <h3 className="font-semibold mb-2 text-red-800">
-                            Issues Found
-                          </h3>
-                          <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
-                            {selectedToolDetails.enhancedResult.issues.map(
-                              (issue: string, index: number) => (
-                                <li key={index}>{issue}</li>
                               ),
                             )}
                           </ul>
@@ -2153,20 +1978,21 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                 )}
 
                 {/* Basic test data if no enhanced results */}
-                {!selectedToolDetails.enhancedResult && (
+                {!("confidence" in selectedToolDetails) && (
                   <>
-                    {selectedToolDetails.testInput && (
-                      <div className="bg-secondary/50 rounded-lg p-4">
-                        <h3 className="font-semibold mb-2">Test Input</h3>
-                        <pre className="text-xs bg-background rounded p-2 overflow-x-auto">
-                          {JSON.stringify(
-                            selectedToolDetails.testInput,
-                            null,
-                            2,
-                          )}
-                        </pre>
-                      </div>
-                    )}
+                    {"testParameters" in selectedToolDetails &&
+                      selectedToolDetails.testParameters && (
+                        <div className="bg-secondary/50 rounded-lg p-4">
+                          <h3 className="font-semibold mb-2">Test Input</h3>
+                          <pre className="text-xs bg-background rounded p-2 overflow-x-auto">
+                            {JSON.stringify(
+                              selectedToolDetails.testParameters,
+                              null,
+                              2,
+                            )}
+                          </pre>
+                        </div>
+                      )}
 
                     {selectedToolDetails.response && (
                       <div className="bg-secondary/50 rounded-lg p-4">
@@ -2212,14 +2038,7 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
 
 // Helper component for expandable error test details
 const ErrorTestItem: React.FC<{
-  test: {
-    passed: boolean;
-    testName: string;
-    input?: unknown;
-    expectedError?: string;
-    actualError?: string;
-    response?: unknown;
-  };
+  test: ErrorTestDetail;
 }> = ({ test }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -2326,22 +2145,22 @@ const ErrorTestItem: React.FC<{
               )}
 
               {/* Show raw response if available and not too large */}
-              {test.actualResponse.rawResponse &&
-                test.actualResponse.rawResponse !== "[response omitted]" &&
-                test.actualResponse.rawResponse !==
+              {Boolean(test.actualResponse.rawResponse) &&
+                String(test.actualResponse.rawResponse) !==
+                  "[response omitted]" &&
+                String(test.actualResponse.rawResponse) !==
                   "[error details omitted]" && (
                   <details className="mt-2">
                     <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
                       View Raw Response
                     </summary>
                     <pre className="mt-1 p-2 bg-background rounded text-xs overflow-x-auto max-h-32">
-                      {typeof test.actualResponse.rawResponse === "string"
-                        ? test.actualResponse.rawResponse
-                        : JSON.stringify(
-                            test.actualResponse.rawResponse,
-                            null,
-                            2,
-                          )}
+                      {((): string => {
+                        const raw = test.actualResponse.rawResponse;
+                        return typeof raw === "string"
+                          ? raw
+                          : JSON.stringify(raw, null, 2);
+                      })()}
                     </pre>
                   </details>
                 )}
@@ -2849,30 +2668,7 @@ const generateTextReport = (
     );
   }
 
-  if (assessment.privacy) {
-    lines.push(
-      "",
-      "PRIVACY COMPLIANCE",
-      "-".repeat(40),
-      `Status: ${assessment.privacy.status}`,
-      assessment.privacy.explanation,
-      `- GDPR Compliant: ${assessment.privacy.regulatoryCompliance.gdprCompliant ? "Yes" : "No"}`,
-      `- CCPA Compliant: ${assessment.privacy.regulatoryCompliance.ccpaCompliant ? "Yes" : "No"}`,
-      `- PII Detection: ${assessment.privacy.piiDetection.totalFindings} findings`,
-    );
-  }
-
-  if (assessment.humanInLoop) {
-    lines.push(
-      "",
-      "HUMAN-IN-THE-LOOP",
-      "-".repeat(40),
-      `Status: ${assessment.humanInLoop.status}`,
-      assessment.humanInLoop.explanation,
-      `- Review Mechanisms: ${assessment.humanInLoop.reviewMechanisms.hasPreExecutionReview ? "Pre" : ""} ${assessment.humanInLoop.reviewMechanisms.hasPostExecutionReview ? "Post" : ""} ${assessment.humanInLoop.reviewMechanisms.hasContinuousMonitoring ? "Continuous" : ""}`,
-      `- Override Capabilities: ${assessment.humanInLoop.overrideCapabilities.canCancelExecution ? "Cancel" : ""} ${assessment.humanInLoop.overrideCapabilities.canModifyParameters ? "Modify" : ""} ${assessment.humanInLoop.overrideCapabilities.canRevertActions ? "Revert" : ""}`,
-    );
-  }
+  // Privacy and HumanInLoop sections removed - outside Anthropic's 5 core criteria
 
   if (assessment.recommendations.length > 0) {
     lines.push("", "RECOMMENDATIONS", "-".repeat(40));

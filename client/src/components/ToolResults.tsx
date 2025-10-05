@@ -117,7 +117,11 @@ const ToolResults = ({
     ) {
       compatibilityResult = checkContentCompatibility(
         structuredResult.structuredContent,
-        structuredResult.content,
+        structuredResult.content as Array<{
+          type: string;
+          text?: string;
+          [key: string]: unknown;
+        }>,
       );
     }
 

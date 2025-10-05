@@ -406,100 +406,9 @@ export interface BehaviorAnalysisReport {
 }
 
 // Privacy Compliance Assessment
-export interface PrivacyComplianceAssessment {
-  dataHandling: DataHandlingMetrics;
-  consentMechanisms: ConsentMetrics;
-  regulatoryCompliance: RegulatoryComplianceMetrics;
-  piiDetection: PIIDetectionReport;
-  status: AssessmentStatus;
-  explanation: string;
-  recommendations: string[];
-}
-
-export interface DataHandlingMetrics {
-  collectsPII: boolean;
-  dataCategories: string[];
-  storageLocation: "local" | "cloud" | "hybrid";
-  encryptionAtRest: boolean;
-  encryptionInTransit: boolean;
-  dataRetentionDays?: number;
-  deletionMechanism: boolean;
-  // Added missing property that UI expects
-  retentionPolicy?: string;
-}
-
-export interface ConsentMetrics {
-  requiresConsent: boolean;
-  consentGranularity: "blanket" | "categorical" | "granular";
-  optOutAvailable: boolean;
-  consentRevocable: boolean;
-}
-
-export interface RegulatoryComplianceMetrics {
-  gdprCompliant?: boolean;
-  ccpaCompliant?: boolean;
-  hipaaCompliant?: boolean;
-  coppaCompliant?: boolean;
-  otherRegulations?: string[];
-}
-
-export interface PIIDetectionReport {
-  piiFieldsDetected: string[];
-  sensitiveDataTypes: string[];
-  anonymizationApplied: boolean;
-  pseudonymizationApplied: boolean;
-  // Added missing properties that UI expects
-  detectedTypes?: string[];
-  totalFindings?: number;
-  affectedTools?: string[];
-}
-
-// Human-in-the-Loop Assessment
-export interface HumanInLoopAssessment {
-  reviewMechanisms: ReviewMechanismMetrics;
-  overrideCapabilities: OverrideCapabilityMetrics;
-  transparencyFeatures: TransparencyMetrics;
-  auditTrail: AuditTrailMetrics;
-  status: AssessmentStatus;
-  explanation: string;
-  recommendations: string[];
-}
-
-export interface ReviewMechanismMetrics {
-  requiresHumanReview: boolean;
-  reviewThresholds?: string[];
-  reviewCategories: string[];
-  averageReviewTime?: number;
-  // Added missing properties that UI expects
-  hasPreExecutionReview?: boolean;
-  hasPostExecutionReview?: boolean;
-  hasContinuousMonitoring?: boolean;
-}
-
-export interface OverrideCapabilityMetrics {
-  allowsOverride: boolean;
-  overrideGranularity: "global" | "per-tool" | "per-action";
-  overrideAuditLog: boolean;
-  emergencyStopAvailable: boolean;
-  // Added missing properties that UI expects
-  canCancelExecution?: boolean;
-  canModifyParameters?: boolean;
-  canRevertActions?: boolean;
-}
-
-export interface TransparencyMetrics {
-  explainableOutputs: boolean;
-  confidenceScores: boolean;
-  decisionRationale: boolean;
-  uncertaintyIndicators: boolean;
-}
-
-export interface AuditTrailMetrics {
-  logsAllActions: boolean;
-  logRetentionDays: number;
-  logsTampering: boolean;
-  exportFormats: string[];
-}
+// Bloat interfaces removed: PrivacyComplianceAssessment, HumanInLoopAssessment
+// and all related metric interfaces (DataHandling, Consent, Regulatory, PII, Review, Override, Transparency, AuditTrail)
+// These are outside Anthropic's 5 core MCP directory criteria
 
 export interface MCPDirectoryAssessment {
   serverName: string;
@@ -513,10 +422,8 @@ export interface MCPDirectoryAssessment {
   errorHandling: ErrorHandlingAssessment;
   usability: UsabilityAssessment;
 
-  // Extended assessment areas (Reduced to 3 - aligned with Anthropic requirements)
+  // Extended assessment areas (MCP Spec Compliance)
   mcpSpecCompliance?: MCPSpecComplianceAssessment;
-  privacy?: PrivacyComplianceAssessment;
-  humanInLoop?: HumanInLoopAssessment;
 
   // Overall assessment
   overallStatus: AssessmentStatus;
@@ -664,8 +571,6 @@ export interface AssessmentConfiguration {
     errorHandling: boolean;
     usability: boolean;
     mcpSpecCompliance?: boolean;
-    privacy?: boolean;
-    humanInLoop?: boolean;
   };
 }
 
@@ -689,7 +594,5 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
     errorHandling: true,
     usability: true,
     mcpSpecCompliance: false,
-    privacy: false,
-    humanInLoop: false,
   },
 };

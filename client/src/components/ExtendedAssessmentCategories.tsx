@@ -9,8 +9,6 @@
 import React, { useState } from "react";
 import {
   Shield,
-  Package,
-  Lock,
   ChevronDown,
   ChevronUp,
   AlertCircle,
@@ -19,11 +17,9 @@ import {
   Code2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
   MCPSpecComplianceAssessment,
-  PrivacyComplianceAssessment,
   AssessmentStatus,
 } from "@/lib/assessmentTypes";
 import JsonView from "./JsonView";
@@ -137,7 +133,7 @@ export const MCPSpecComplianceDisplay: React.FC<MCPSpecComplianceProps> = ({
       title="MCP Spec Compliance"
       icon={<Shield className="h-5 w-5 text-blue-600" />}
       status={assessment.status}
-      jsonData={assessment}
+      jsonData={assessment as unknown as Record<string, unknown>}
     >
       <div className="space-y-4">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
@@ -353,141 +349,11 @@ export const SupplyChainDisplay: React.FC<SupplyChainProps> = ({
 
 // Dynamic Security Display removed - not essential for MCP Directory approval
 // This category provided supplemental security testing but was determined
-// to be less critical than Supply Chain Security, MCP Spec Compliance, and Privacy Compliance
+// to be less critical than core requirements
 
-interface PrivacyComplianceProps {
-  assessment: PrivacyComplianceAssessment;
-}
-
-export const PrivacyComplianceDisplay: React.FC<PrivacyComplianceProps> = ({
-  assessment,
-}) => {
-  return (
-    <ExtendedAssessmentCategory
-      title="Privacy Compliance"
-      icon={<Lock className="h-5 w-5 text-indigo-600" />}
-      status={assessment.status}
-      jsonData={assessment}
-    >
-      <div className="space-y-4">
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4">
-          <p className="text-sm text-indigo-800 font-medium mb-1">
-            ⚖️ Legal & Ethical Requirement
-          </p>
-          <p className="text-xs text-indigo-700">
-            Ensures compliance with privacy regulations (GDPR, CCPA) and
-            Anthropic's data handling standards. Validates user consent
-            mechanisms, data retention policies, and PII protection to prevent
-            regulatory risk.
-          </p>
-        </div>
-        <p className="text-sm">{assessment.explanation}</p>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-muted-foreground">
-              Data Encryption
-            </label>
-            <div className="flex gap-2 mt-1">
-              <Badge
-                variant={
-                  assessment.dataHandling.encryptionAtRest
-                    ? "default"
-                    : "secondary"
-                }
-              >
-                At Rest
-              </Badge>
-              <Badge
-                variant={
-                  assessment.dataHandling.encryptionInTransit
-                    ? "default"
-                    : "secondary"
-                }
-              >
-                In Transit
-              </Badge>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">
-              Data Retention
-            </label>
-            <p className="text-sm font-medium">
-              {assessment.dataHandling.retentionPolicy || "Not specified"}
-            </p>
-          </div>
-        </div>
-
-        <div>
-          <h5 className="text-sm font-semibold mb-2">Regulatory Compliance</h5>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center justify-between p-2 bg-muted rounded">
-              <span className="text-sm">GDPR</span>
-              <Badge
-                variant={
-                  assessment.regulatoryCompliance.gdprCompliant
-                    ? "default"
-                    : "secondary"
-                }
-              >
-                {assessment.regulatoryCompliance.gdprCompliant
-                  ? "Compliant"
-                  : "Non-compliant"}
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between p-2 bg-muted rounded">
-              <span className="text-sm">CCPA</span>
-              <Badge
-                variant={
-                  assessment.regulatoryCompliance.ccpaCompliant
-                    ? "default"
-                    : "secondary"
-                }
-              >
-                {assessment.regulatoryCompliance.ccpaCompliant
-                  ? "Compliant"
-                  : "Non-compliant"}
-              </Badge>
-            </div>
-          </div>
-        </div>
-
-        {assessment.piiDetection.detectedTypes &&
-          assessment.piiDetection.detectedTypes.length > 0 && (
-            <div>
-              <h5 className="text-sm font-semibold mb-2">PII Detection</h5>
-              <div className="flex flex-wrap gap-2">
-                {assessment.piiDetection.detectedTypes.map((type, idx) => (
-                  <Badge key={idx} variant="outline">
-                    {type}
-                  </Badge>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Found {assessment.piiDetection.totalFindings || 0} instances
-                across {assessment.piiDetection.affectedTools?.length || 0}{" "}
-                tools
-              </p>
-            </div>
-          )}
-
-        {assessment.recommendations &&
-          assessment.recommendations.length > 0 && (
-            <div>
-              <h5 className="text-sm font-semibold">Recommendations</h5>
-              <ul className="list-disc list-inside text-sm mt-1 space-y-1">
-                {assessment.recommendations.map((rec, idx) => (
-                  <li key={idx}>{rec}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-      </div>
-    </ExtendedAssessmentCategory>
-  );
-};
+// Privacy Compliance Display removed - not essential for MCP Directory approval
+// This category was removed along with PrivacyComplianceAssessor module
 
 // Human-in-the-Loop Display removed - not essential for MCP Directory approval
 // This category provided workflow enhancement features but was determined
-// to be less critical than Supply Chain Security, MCP Spec Compliance, and Privacy Compliance
+// to be less critical than core requirements
