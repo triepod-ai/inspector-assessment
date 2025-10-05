@@ -91,6 +91,30 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   ): Promise<ErrorTestDetail> {
     const testInput = {}; // Empty params
 
+    // Check if tool has any required parameters
+    const schema = this.getToolSchema(tool);
+    const hasRequiredParams =
+      schema?.required &&
+      Array.isArray(schema.required) &&
+      schema.required.length > 0;
+
+    // If no required parameters, this test should pass (empty input is valid)
+    if (!hasRequiredParams) {
+      return {
+        toolName: tool.name,
+        testType: "missing_required",
+        testInput,
+        expectedError: "Missing required parameters",
+        actualResponse: {
+          isError: false,
+          errorMessage: undefined,
+          rawResponse: "Skipped - no required parameters",
+        },
+        passed: true,
+        reason: "No required parameters (tool correctly accepts empty input)",
+      };
+    }
+
     try {
       const response = await this.executeWithTimeout(
         callTool(tool.name, testInput),

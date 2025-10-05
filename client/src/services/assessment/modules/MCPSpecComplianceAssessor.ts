@@ -44,6 +44,7 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
 
     // Run basic compliance checks
     const complianceChecks = {
+      serverInfoValidity: this.checkServerInfoValidity(context.serverInfo),
       jsonRpcCompliance: await this.checkJsonRpcCompliance(callTool),
       schemaCompliance: this.checkSchemaCompliance(tools),
       protocolVersionHandling: true, // Assume working if we got this far
@@ -60,13 +61,18 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
     const passedChecks = Object.values(complianceChecks).filter(Boolean).length;
     const complianceScore = (passedChecks / totalChecks) * 100;
 
-    // Determine status
-    const status: AssessmentStatus =
-      complianceScore >= 90
-        ? "PASS"
-        : complianceScore >= 70
-          ? "NEED_MORE_INFO"
-          : "FAIL";
+    // Determine status - serverInfoValidity is a critical check
+    let status: AssessmentStatus;
+    if (!complianceChecks.serverInfoValidity) {
+      // If server info is malformed, that's a FAIL regardless of other checks
+      status = "FAIL";
+    } else if (complianceScore >= 90) {
+      status = "PASS";
+    } else if (complianceScore >= 70) {
+      status = "NEED_MORE_INFO";
+    } else {
+      status = "FAIL";
+    }
 
     const explanation = this.generateExplanation(
       complianceScore,
@@ -137,6 +143,34 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
       // The fact that we got a structured response means JSON-RPC works
       return true;
     }
+  }
+
+  /**
+   * Check if server info is valid and properly formatted
+   */
+  private checkServerInfoValidity(serverInfo: any): boolean {
+    if (!serverInfo) {
+      // No server info is acceptable (optional)
+      return true;
+    }
+
+    // Check if name is properly set (should be a string, not null/undefined)
+    if (serverInfo.name !== undefined && serverInfo.name !== null) {
+      if (typeof serverInfo.name !== "string") {
+        this.log("Server info name is not a string");
+        return false;
+      }
+    }
+
+    // Check if metadata is properly formatted (should be an object if present)
+    if (serverInfo.metadata !== undefined && serverInfo.metadata !== null) {
+      if (typeof serverInfo.metadata !== "object") {
+        this.log("Server info metadata is not an object");
+        return false;
+      }
+    }
+
+    return true;
   }
 
   /**

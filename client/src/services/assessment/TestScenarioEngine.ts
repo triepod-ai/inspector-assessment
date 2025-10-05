@@ -47,13 +47,12 @@ export interface ComprehensiveToolTestResult {
     boundariesTotal: number;
     errorHandlingWorks: boolean;
   };
-  // NEW: Progressive complexity analysis
+  // Progressive complexity analysis (diagnostic testing only)
+  // Note: Typical and complex scenarios validated separately in multi-scenario testing
   progressiveComplexity?: {
     minimalWorks: boolean;
     simpleWorks: boolean;
-    typicalWorks: boolean;
-    complexWorks: boolean;
-    failurePoint?: "minimal" | "simple" | "typical" | "complex" | "none";
+    failurePoint?: "minimal" | "simple" | "none";
   };
   recommendations: string[];
 }
@@ -78,8 +77,6 @@ export class TestScenarioEngine {
     const result: ComprehensiveToolTestResult["progressiveComplexity"] = {
       minimalWorks: false,
       simpleWorks: false,
-      typicalWorks: false,
-      complexWorks: false,
       failurePoint: undefined,
     };
 
@@ -92,7 +89,19 @@ export class TestScenarioEngine {
           setTimeout(() => reject(new Error("Timeout")), this.testTimeout),
         ),
       ]);
-      result.minimalWorks = !minimalResult.isError;
+
+      // Tool works if it returns successfully OR if it returns a business logic error
+      // (business logic errors indicate the tool is validating correctly)
+      const isBusinessError = minimalResult.isError
+        ? ResponseValidator.isBusinessLogicError({
+            tool,
+            input: minimalParams,
+            response: minimalResult,
+            scenarioCategory: "happy_path",
+          } as ValidationContext)
+        : false;
+
+      result.minimalWorks = !minimalResult.isError || isBusinessError;
     } catch {
       result.minimalWorks = false;
       result.failurePoint = "minimal";
@@ -108,54 +117,30 @@ export class TestScenarioEngine {
           setTimeout(() => reject(new Error("Timeout")), this.testTimeout),
         ),
       ]);
-      result.simpleWorks = !simpleResult.isError;
+
+      // Tool works if it returns successfully OR if it returns a business logic error
+      const isBusinessError = simpleResult.isError
+        ? ResponseValidator.isBusinessLogicError({
+            tool,
+            input: simpleParams,
+            response: simpleResult,
+            scenarioCategory: "happy_path",
+          } as ValidationContext)
+        : false;
+
+      result.simpleWorks = !simpleResult.isError || isBusinessError;
     } catch {
       result.simpleWorks = false;
       result.failurePoint = "simple";
       return result;
     }
 
-    // Test 3: Typical complexity - realistic normal usage
-    const typicalParams = TestDataGenerator.generateRealisticParams(
-      tool,
-      "typical",
-    );
-    try {
-      const typicalResult = await Promise.race([
-        callTool(tool.name, typicalParams),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout")), this.testTimeout),
-        ),
-      ]);
-      result.typicalWorks = !typicalResult.isError;
-    } catch {
-      result.typicalWorks = false;
-      result.failurePoint = "typical";
-      return result;
-    }
-
-    // Test 4: Complex - all params with nested structures
-    const complexParams = TestDataGenerator.generateRealisticParams(
-      tool,
-      "maximum",
-    );
-    try {
-      const complexResult = await Promise.race([
-        callTool(tool.name, complexParams),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout")), this.testTimeout),
-        ),
-      ]);
-      result.complexWorks = !complexResult.isError;
-      if (!result.complexWorks) {
-        result.failurePoint = "complex";
-      } else {
-        result.failurePoint = "none"; // Everything works!
-      }
-    } catch {
-      result.complexWorks = false;
-      result.failurePoint = "complex";
-    }
+    // Test 3 & 4: REMOVED (redundant with Happy Path and Edge Case scenarios)
+    // - Typical test duplicates Happy Path scenario (both use generateRealisticParams("typical"))
+    // - Maximum test duplicates Edge Case - Maximum Values scenario
+    // Progressive complexity now focuses on diagnostic testing (minimal → simple)
+    // Full coverage provided by multi-scenario testing with validation
+    result.failurePoint = "none"; // Passed minimal and simple tests
 
     return result;
   }
@@ -531,27 +516,12 @@ export class TestScenarioEngine {
               "Check parameter validation and type handling",
             );
             break;
-          case "typical":
+          case "none":
             recommendations.push(
-              "Tool handles simple cases but fails with typical usage patterns",
-            );
-            recommendations.push(
-              "Review handling of common parameter combinations",
-            );
-            break;
-          case "complex":
-            recommendations.push(
-              "Tool works for most cases but struggles with complex/nested data",
-            );
-            recommendations.push(
-              "Consider simplifying complex parameter handling or documenting limitations",
+              "✅ Progressive complexity tests passed - see scenario results for typical and edge case coverage",
             );
             break;
         }
-      } else if (pc.failurePoint === "none") {
-        recommendations.push(
-          "✅ Tool handles all complexity levels successfully",
-        );
       }
     }
 

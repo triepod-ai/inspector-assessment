@@ -132,7 +132,7 @@ export class FunctionalityAssessor extends BaseAssessor {
     if (!schema?.properties) return {};
 
     const params: Record<string, unknown> = {};
-    const required = schema.required || [];
+    // const required = schema.required || []; // Unused but kept for future validation
 
     // Generate minimal valid values for all fields
     for (const [key, prop] of Object.entries(
@@ -186,10 +186,10 @@ export class FunctionalityAssessor extends BaseAssessor {
     }
   }
 
-  // Add public method for testing purposes
-  private generateTestInput(schema: any): unknown {
-    return this.generateParamValue(schema);
-  }
+  // Add public method for testing purposes (currently unused but kept for potential future use)
+  // private generateTestInput(schema: any): unknown {
+  //   return this.generateParamValue(schema);
+  // }
 
   private generateExplanation(
     total: number,

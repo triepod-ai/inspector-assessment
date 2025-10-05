@@ -201,6 +201,27 @@ export class TestDataGenerator {
 
     const properties = tool.inputSchema.properties || {};
 
+    // OPTIMIZATION: Check if any fields have boundary constraints before generating tests
+    // This prevents running boundary tests on tools that don't define min/max constraints
+    let hasBoundaries = false;
+    for (const [_key, schema] of Object.entries(properties)) {
+      const schemaObj = schema as any;
+      if (
+        schemaObj.minimum !== undefined ||
+        schemaObj.maximum !== undefined ||
+        schemaObj.minLength !== undefined ||
+        schemaObj.maxLength !== undefined
+      ) {
+        hasBoundaries = true;
+        break;
+      }
+    }
+
+    // Early return if no boundaries defined - saves 0-4 test scenarios per tool
+    if (!hasBoundaries) {
+      return scenarios;
+    }
+
     for (const [key, schema] of Object.entries(properties)) {
       const schemaObj = schema as any;
 

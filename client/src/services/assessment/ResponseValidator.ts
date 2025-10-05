@@ -108,7 +108,7 @@ export class ResponseValidator {
    * Check if error is a business logic error (not a tool failure)
    * These errors indicate the tool is working correctly but rejecting invalid business data
    */
-  private static isBusinessLogicError(context: ValidationContext): boolean {
+  static isBusinessLogicError(context: ValidationContext): boolean {
     const content = context.response.content as
       | Array<{ type: string; text?: string }>
       | undefined;
@@ -157,6 +157,19 @@ export class ResponseValidator {
       "object not found",
       "record not found",
       "item not found",
+      "node not found",
+      "nodes not found",
+      "no entities",
+      "no results",
+      "not exist",
+      "no nodes",
+      "no matching",
+      "no matches",
+      "empty result",
+      "zero results",
+      "nothing found",
+      "no data",
+      "no items",
 
       // Data validation errors (tool is validating data format/content)
       "invalid format",
@@ -334,9 +347,10 @@ export class ResponseValidator {
     // Require at least 50% confidence that this is business logic validation
     const confidence = confidenceFactors / totalFactors;
 
-    // For tools that are expected to validate, be more lenient (40% confidence)
-    // For other tools, require higher confidence (60%)
-    const confidenceThreshold = isValidationExpected ? 0.4 : 0.6;
+    // For tools that are expected to validate, be more lenient (30% confidence)
+    // For other tools, require higher confidence (50%)
+    // Lowered thresholds to better catch business logic errors that may not match all patterns
+    const confidenceThreshold = isValidationExpected ? 0.3 : 0.5;
 
     return confidence >= confidenceThreshold;
   }
@@ -447,9 +461,47 @@ export class ResponseValidator {
     }
 
     // Check for minimal content length
-    if (textContent.length < 10) {
+    // But allow short responses for mutation tools (create/update/delete) that might return simple "Success"
+    const toolName = context.tool.name.toLowerCase();
+    const isMutationTool =
+      toolName.includes("create") ||
+      toolName.includes("update") ||
+      toolName.includes("delete") ||
+      toolName.includes("add") ||
+      toolName.includes("remove") ||
+      toolName.includes("insert");
+
+    if (textContent.length < 10 && !isMutationTool) {
       result.issues.push("Response content is too short to be meaningful");
       return false;
+    }
+
+    // For mutation tools, accept common success indicators even if short
+    if (isMutationTool && textContent.length < 10) {
+      const successIndicators = [
+        "success",
+        "ok",
+        "done",
+        "created",
+        "updated",
+        "deleted",
+        "added",
+        "removed",
+      ];
+      const hasSuccessIndicator = successIndicators.some((indicator) =>
+        textContent.toLowerCase().includes(indicator),
+      );
+
+      if (!hasSuccessIndicator) {
+        result.issues.push(
+          "Short response lacks success confirmation for mutation operation",
+        );
+        return false;
+      }
+
+      // Short success message is acceptable
+      result.evidence.push("Mutation operation confirmed with short response");
+      return true;
     }
 
     // Check for actual data/information
