@@ -28,3 +28,15 @@ global.ResizeObserver = jest.fn().mockImplementation(() => ({
   unobserve: jest.fn(),
   disconnect: jest.fn(),
 })) as unknown as typeof ResizeObserver;
+
+// Polyfill URL.canParse for Node < 19.9.0
+if (!URL.canParse) {
+  URL.canParse = (url: string, base?: string): boolean => {
+    try {
+      new URL(url, base);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+}

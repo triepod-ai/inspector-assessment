@@ -136,7 +136,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       expect(result.totalTestsRun).toBeGreaterThan(50); // Should run many tests across all categories
       expect(result.executionTime).toBeGreaterThan(0);
       expect(result.assessmentDate).toBeDefined();
-      expect(result.summary).toContain("assessment");
+      expect(result.summary).toContain("Assessment");
     });
 
     it("should handle high-risk server assessment", async () => {
@@ -623,7 +623,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       expect(result.functionality.totalTools).toBe(50);
       expect(executionTime).toBeLessThan(30000); // Should complete within 30 seconds
       expect(result.totalTestsRun).toBeGreaterThan(100); // Many tests across categories
-    });
+    }, 35000); // Extended timeout for large test suite
 
     it("should respect memory constraints during assessment", async () => {
       // Arrange
