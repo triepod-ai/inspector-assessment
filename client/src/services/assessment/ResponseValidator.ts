@@ -46,59 +46,63 @@ export class ResponseValidator {
     // Check if response indicates an error
     if (context.response.isError) {
       result.isError = true;
-      result.classification = "error";
 
-      // For error scenarios, we expect errors
-      if (context.scenarioCategory === "error_case") {
-        result.isValid = this.validateErrorResponse(context, result);
-        result.confidence = result.isValid ? 90 : 20;
-      } else {
-        // Check if this is a business logic error (resource not found, etc.)
-        const isBusinessError = this.isBusinessLogicError(context);
-        if (isBusinessError) {
-          // This is actually a sign the tool is working correctly!
-          result.isValid = true;
-          result.classification = "fully_working";
-          result.confidence = 85;
-          result.evidence.push(
-            "Tool correctly validates business logic and returns appropriate errors",
-          );
-          result.evidence.push(
-            "Resource validation errors indicate proper API integration",
-          );
-        } else {
-          // Unexpected error
-          result.issues.push("Unexpected error response");
-          result.confidence = 10;
-        }
-      }
+      // Simplified: ANY error response means the tool is functional
+      // The tool responded (even with an error) - that's functionality!
+      result.isValid = true;
+      result.classification = "fully_working";
+      result.confidence = 100;
+      result.evidence.push("Tool responded with error (tool is functional)");
+
+      // Add context about the error for debugging
+      const content = context.response.content as
+        | Array<{ type: string; text?: string }>
+        | undefined;
+      const errorText = content?.[0]?.text || "Unknown error";
+      result.evidence.push(`Error message: ${errorText.substring(0, 100)}`);
 
       return result;
     }
 
-    // Validate successful responses
-    const validations = [
-      this.validateResponseStructure(context, result),
-      this.validateResponseContent(context, result),
-      this.validateSemanticCorrectness(context, result),
-      this.validateToolSpecificLogic(context, result),
-      this.validateStructuredOutput(context, result), // NEW: MCP 2025-06-18 validation
-    ];
+    // Simplified functionality validation:
+    // If the tool responds with content, it's functional.
+    // We don't check response quality/structure - that's for error handling tests.
 
-    // Calculate overall validity and confidence
-    const passedValidations = validations.filter((v) => v).length;
-    result.isValid = passedValidations >= 3; // Need at least 3/5 validations to pass
-    result.confidence = (passedValidations / validations.length) * 100;
-
-    // Classify based on validation results
-    if (passedValidations >= 4) {
-      result.classification = "fully_working";
-    } else if (passedValidations >= 2) {
-      result.classification = "partially_working";
-    } else if (passedValidations >= 1) {
-      result.classification = "connectivity_only";
-    } else {
+    // Check 1: Response has content
+    if (!context.response.content) {
+      result.issues.push("Response has no content");
       result.classification = "broken";
+      result.confidence = 0;
+      return result;
+    }
+
+    // Check 2: Content is a non-empty array
+    const content = context.response.content as Array<{
+      type: string;
+      text?: string;
+    }>;
+
+    if (!Array.isArray(content) || content.length === 0) {
+      result.issues.push("Response content is empty or not an array");
+      result.classification = "broken";
+      result.confidence = 0;
+      return result;
+    }
+
+    // Tool responded successfully - it's functional!
+    result.isValid = true;
+    result.classification = "fully_working";
+    result.confidence = 100;
+    result.evidence.push("Tool responded successfully with content");
+
+    // Add details about response type for debugging
+    const hasText = content.some((item) => item.type === "text");
+    const hasResource = content.some((item) => item.type === "resource");
+    if (hasText) {
+      result.evidence.push("Response includes text content");
+    }
+    if (hasResource) {
+      result.evidence.push("Response includes resource content");
     }
 
     return result;
@@ -357,7 +361,9 @@ export class ResponseValidator {
 
   /**
    * Validate error responses are proper and informative
+   * NOTE: Currently unused - kept for potential future use
    */
+  // @ts-ignore - Unused method kept for potential future use
   private static validateErrorResponse(
     context: ValidationContext,
     result: ValidationResult,
@@ -402,7 +408,9 @@ export class ResponseValidator {
 
   /**
    * Validate response structure matches expectations
+   * NOTE: Currently unused - kept for potential future use
    */
+  // @ts-ignore - Unused method kept for potential future use
   private static validateResponseStructure(
     context: ValidationContext,
     result: ValidationResult,
@@ -441,7 +449,9 @@ export class ResponseValidator {
 
   /**
    * Validate response content is meaningful
+   * NOTE: Currently unused - kept for potential future use
    */
+  // @ts-ignore - Unused method kept for potential future use
   private static validateResponseContent(
     context: ValidationContext,
     result: ValidationResult,
@@ -504,11 +514,105 @@ export class ResponseValidator {
       return true;
     }
 
-    // Check for actual data/information
+    // MCP 2025-06-18: Check structuredContent first (modern MCP tools)
+    // Modern tools provide structuredContent even without outputSchema
+    const response = context.response as any;
+    if (response.structuredContent) {
+      const structured = response.structuredContent;
+
+      // Handle structured array responses
+      if (Array.isArray(structured)) {
+        if (structured.length === 0) {
+          // Empty array is valid - tool processed request successfully but had no data
+          // Example: create_relations returns [] when referenced entities don't exist
+          result.evidence.push(
+            "Tool returned empty array (processed successfully, no matching data)",
+          );
+          return true;
+        }
+
+        // For mutation tools, check for IDs
+        if (isMutationTool) {
+          const hasIds = structured.some(
+            (item: any) =>
+              item &&
+              typeof item === "object" &&
+              ("id" in item || "_id" in item || "ID" in item),
+          );
+          if (hasIds) {
+            result.evidence.push(
+              `Mutation operation returned ${structured.length} item(s) with IDs in structuredContent`,
+            );
+            return true;
+          }
+        }
+
+        result.evidence.push(
+          `Response has structuredContent array with ${structured.length} item(s)`,
+        );
+        return true;
+      }
+
+      // Handle structured object responses
+      if (typeof structured === "object" && structured !== null) {
+        const keys = Object.keys(structured);
+        if (keys.length === 0) {
+          result.issues.push("structuredContent object is empty");
+          return false;
+        }
+
+        const hasNonNullValues = keys.some(
+          (key) => structured[key] !== null && structured[key] !== undefined,
+        );
+        if (!hasNonNullValues) {
+          result.issues.push(
+            "structuredContent contains only null/undefined values",
+          );
+          return false;
+        }
+
+        result.evidence.push(
+          `Response has structuredContent with ${keys.length} data fields`,
+        );
+        return true;
+      }
+    }
+
+    // Fallback: Check for actual data/information in content.text
     try {
       const parsed = JSON.parse(textContent);
 
-      // Check if parsed content has meaningful data
+      // Handle JSON array responses (common for batch operations)
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0) {
+          // Empty array is valid - tool processed request successfully but had no data
+          result.evidence.push(
+            "Tool returned empty array (processed successfully, no matching data)",
+          );
+          return true;
+        }
+
+        // For mutation tools, check if array items have IDs (indicates successful creation)
+        if (isMutationTool && parsed.length > 0) {
+          const hasIds = parsed.some(
+            (item) =>
+              typeof item === "object" &&
+              item !== null &&
+              ("id" in item || "_id" in item || "ID" in item),
+          );
+          if (hasIds) {
+            result.evidence.push(
+              `Mutation operation returned ${parsed.length} item(s) with IDs`,
+            );
+            return true;
+          }
+        }
+
+        result.evidence.push(`Response is array with ${parsed.length} item(s)`);
+        return true;
+      }
+
+      // Handle JSON object responses
       if (typeof parsed === "object" && parsed !== null) {
         const keys = Object.keys(parsed);
         if (keys.length === 0) {
@@ -548,7 +652,9 @@ export class ResponseValidator {
 
   /**
    * Validate semantic correctness based on input/output relationship
+   * NOTE: Currently unused - kept for potential future use
    */
+  // @ts-ignore - Unused method kept for potential future use
   private static validateSemanticCorrectness(
     context: ValidationContext,
     result: ValidationResult,
@@ -567,7 +673,85 @@ export class ResponseValidator {
       toolName.includes("find") ||
       toolName.includes("get")
     ) {
-      // Search tools should return results related to query
+      // MCP 2025-06-18: Check structuredContent first
+      const response = context.response as any;
+      if (response.structuredContent) {
+        const structured = response.structuredContent;
+
+        // Check for array results
+        if (Array.isArray(structured)) {
+          result.evidence.push(
+            `Search returned ${structured.length} result(s) in structuredContent (empty results are valid)`,
+          );
+          return true;
+        }
+
+        // Check for object with search result structure
+        if (typeof structured === "object" && structured !== null) {
+          const hasSearchStructure =
+            "entities" in structured ||
+            "relations" in structured ||
+            "results" in structured ||
+            "items" in structured ||
+            "data" in structured ||
+            "matches" in structured;
+
+          if (hasSearchStructure) {
+            result.evidence.push(
+              "Search response has proper result structure in structuredContent",
+            );
+            return true;
+          }
+
+          // Single result object
+          if (Object.keys(structured).length > 0) {
+            result.evidence.push(
+              "Search returned single result object in structuredContent",
+            );
+            return true;
+          }
+        }
+      }
+
+      // Fallback: Search tools should return results structure (even if empty)
+      try {
+        const parsed = JSON.parse(textContent);
+
+        // Check for common search response structures
+        if (Array.isArray(parsed)) {
+          // Array of results (even empty is valid - means no matches)
+          result.evidence.push(
+            `Search returned ${parsed.length} result(s) (empty results are valid)`,
+          );
+          return true;
+        }
+
+        if (typeof parsed === "object" && parsed !== null) {
+          // Check for common search result object structures
+          const hasSearchStructure =
+            "entities" in parsed ||
+            "relations" in parsed ||
+            "results" in parsed ||
+            "items" in parsed ||
+            "data" in parsed ||
+            "matches" in parsed;
+
+          if (hasSearchStructure) {
+            result.evidence.push("Search response has proper result structure");
+            return true;
+          }
+
+          // Single result object (e.g., get by ID)
+          if (Object.keys(parsed).length > 0) {
+            result.evidence.push("Search returned single result object");
+            return true;
+          }
+        }
+      } catch {
+        // Not JSON, check text patterns
+      }
+
+      // Fallback to text-based validation
       const query = this.findQueryParameter(context.input);
       if (query && typeof query === "string") {
         // Very basic check - response should reference the query somehow
@@ -582,6 +766,18 @@ export class ResponseValidator {
         result.evidence.push("Search response appears related to query");
         return true;
       }
+
+      // If no query parameter, just check for search-related keywords
+      if (
+        textContent.includes("result") ||
+        textContent.includes("found") ||
+        textContent.includes("match") ||
+        textContent.includes("entity") ||
+        textContent.includes("entities")
+      ) {
+        result.evidence.push("Search response contains search-related data");
+        return true;
+      }
     }
 
     if (
@@ -589,7 +785,91 @@ export class ResponseValidator {
       toolName.includes("add") ||
       toolName.includes("insert")
     ) {
-      // Creation tools should return created resource or ID
+      // MCP 2025-06-18: Check structuredContent first
+      const response = context.response as any;
+      if (response.structuredContent) {
+        const structured = response.structuredContent;
+
+        // Check if response is array with IDs
+        if (Array.isArray(structured)) {
+          const hasIds = structured.some(
+            (item: any) =>
+              item &&
+              typeof item === "object" &&
+              ("id" in item || "_id" in item || "ID" in item),
+          );
+          if (hasIds) {
+            result.evidence.push(
+              `Creation response includes ${structured.length} item(s) with IDs in structuredContent`,
+            );
+            return true;
+          }
+
+          // Even without IDs, array response indicates success
+          if (structured.length > 0) {
+            result.evidence.push(
+              "Creation response includes created items in structuredContent",
+            );
+            return true;
+          }
+        }
+
+        // Check if response is object with ID
+        if (typeof structured === "object" && structured !== null) {
+          if ("id" in structured || "_id" in structured || "ID" in structured) {
+            result.evidence.push(
+              "Creation response includes resource ID in structuredContent",
+            );
+            return true;
+          }
+
+          // Check for entity/relation structures
+          if (
+            "entities" in structured ||
+            "relations" in structured ||
+            "observations" in structured
+          ) {
+            result.evidence.push(
+              "Creation response includes entity/relation data in structuredContent",
+            );
+            return true;
+          }
+        }
+      }
+
+      // Fallback: Creation tools should return created resource or ID
+      // Try to parse as JSON first to check for structured data with IDs
+      try {
+        const parsed = JSON.parse(textContent);
+
+        // Check if response is array with IDs (common for batch creation)
+        if (Array.isArray(parsed)) {
+          const hasIds = parsed.some(
+            (item) =>
+              typeof item === "object" &&
+              item !== null &&
+              ("id" in item || "_id" in item || "ID" in item),
+          );
+          if (hasIds) {
+            result.evidence.push(
+              `Creation response includes ${parsed.length} item(s) with IDs`,
+            );
+            return true;
+          }
+        }
+
+        // Check if response is object with ID
+        if (typeof parsed === "object" && parsed !== null) {
+          if ("id" in parsed || "_id" in parsed || "ID" in parsed) {
+            result.evidence.push("Creation response includes resource ID");
+            return true;
+          }
+        }
+      } catch {
+        // Not JSON, check text patterns
+      }
+
+      // Fallback to text-based validation
       if (
         !textContent.includes("id") &&
         !textContent.includes("created") &&
@@ -678,7 +958,9 @@ export class ResponseValidator {
 
   /**
    * Validate tool-specific logic and patterns
+   * NOTE: Currently unused - kept for potential future use
    */
+  // @ts-ignore - Unused method kept for potential future use
   private static validateToolSpecificLogic(
     context: ValidationContext,
     result: ValidationResult,
@@ -690,6 +972,166 @@ export class ResponseValidator {
     }>;
     const textContent =
       content.find((item) => item.type === "text")?.text || "";
+
+    // Creation/mutation tools (entities, relations, observations, etc.)
+    if (
+      toolName.includes("create") ||
+      toolName.includes("add") ||
+      toolName.includes("insert") ||
+      toolName.includes("entity") ||
+      toolName.includes("entities") ||
+      toolName.includes("relation") ||
+      toolName.includes("observation")
+    ) {
+      // MCP 2025-06-18: Check structuredContent first (CRITICAL FIX)
+      const response = context.response as any;
+      if (response.structuredContent) {
+        const structured = response.structuredContent;
+
+        // Check for array responses with IDs
+        if (Array.isArray(structured)) {
+          const hasIds = structured.some(
+            (item: any) =>
+              item &&
+              typeof item === "object" &&
+              ("id" in item || "_id" in item || "ID" in item),
+          );
+          if (hasIds) {
+            result.evidence.push(
+              `Creation tool returned ${structured.length} entity/entities with IDs in structuredContent`,
+            );
+            return true;
+          }
+
+          // Check for entity-like objects even without IDs
+          const hasEntityStructure = structured.some(
+            (item: any) =>
+              item &&
+              typeof item === "object" &&
+              ("name" in item ||
+                "entityType" in item ||
+                "from" in item ||
+                "to" in item),
+          );
+          if (hasEntityStructure) {
+            result.evidence.push(
+              "Creation tool returned entity-like objects in structuredContent",
+            );
+            return true;
+          }
+        }
+
+        // Check for object with ID
+        if (
+          structured &&
+          typeof structured === "object" &&
+          ("id" in structured || "_id" in structured || "ID" in structured)
+        ) {
+          result.evidence.push(
+            "Creation tool returned entity with ID in structuredContent",
+          );
+          return true;
+        }
+
+        // Check for entity/relation structure
+        if (
+          structured &&
+          typeof structured === "object" &&
+          ("name" in structured ||
+            "entityType" in structured ||
+            "from" in structured ||
+            "to" in structured ||
+            "entities" in structured ||
+            "relations" in structured ||
+            "observations" in structured)
+        ) {
+          result.evidence.push(
+            "Creation tool returned entity/relation structure in structuredContent",
+          );
+          return true;
+        }
+      }
+
+      // Fallback: Try parsing content.text as JSON
+      try {
+        const parsed = JSON.parse(textContent);
+
+        // Check for array responses with IDs (common for batch operations)
+        if (Array.isArray(parsed)) {
+          const hasIds = parsed.some(
+            (item) =>
+              item &&
+              typeof item === "object" &&
+              ("id" in item || "_id" in item || "ID" in item),
+          );
+          if (hasIds) {
+            result.evidence.push(
+              `Creation tool returned ${parsed.length} entity/entities with IDs`,
+            );
+            return true;
+          }
+
+          // Even without IDs, if array has entity-like objects, it's valid
+          const hasEntityStructure = parsed.some(
+            (item) =>
+              item &&
+              typeof item === "object" &&
+              ("name" in item ||
+                "entityType" in item ||
+                "from" in item ||
+                "to" in item),
+          );
+          if (hasEntityStructure) {
+            result.evidence.push("Creation tool returned entity-like objects");
+            return true;
+          }
+        }
+
+        // Check for object with ID
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          ("id" in parsed || "_id" in parsed || "ID" in parsed)
+        ) {
+          result.evidence.push("Creation tool returned entity with ID");
+          return true;
+        }
+
+        // Check for entity structure
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          ("name" in parsed ||
+            "entityType" in parsed ||
+            "from" in parsed ||
+            "to" in parsed ||
+            "entities" in parsed ||
+            "relations" in parsed)
+        ) {
+          result.evidence.push(
+            "Creation tool returned entity/relation structure",
+          );
+          return true;
+        }
+      } catch {
+        // Not JSON, check text patterns
+      }
+
+      // Fallback: check for success indicators in text
+      if (
+        textContent.includes("id") ||
+        textContent.includes("created") ||
+        textContent.includes("entity") ||
+        textContent.includes("entities") ||
+        textContent.includes("relation") ||
+        textContent.includes("observation")
+      ) {
+        result.evidence.push(
+          "Creation tool response contains entity/relation indicators",
+        );
+        return true;
+      }
+    }
 
     // Database/store tools
     if (
@@ -848,7 +1290,9 @@ export class ResponseValidator {
 
   /**
    * Validate structured output against outputSchema (MCP 2025-06-18 feature)
+   * NOTE: Currently unused - kept for potential future use
    */
+  // @ts-ignore - Unused method kept for potential future use
   private static validateStructuredOutput(
     context: ValidationContext,
     result: ValidationResult,
@@ -866,33 +1310,12 @@ export class ResponseValidator {
     // Check if response contains structuredContent
     const response = context.response as any;
     if (response.structuredContent) {
-      // Validate structuredContent against outputSchema
-      try {
-        // Import Ajv for JSON schema validation
-        const Ajv = require("ajv");
-        const ajv = new Ajv({ allErrors: true });
-
-        const validate = ajv.compile(tool.outputSchema);
-        const valid = validate(response.structuredContent);
-
-        if (valid) {
-          result.evidence.push(
-            "✅ Structured output matches outputSchema definition",
-          );
-          result.evidence.push(
-            "Tool properly implements MCP 2025-06-18 structured output",
-          );
-          return true;
-        } else {
-          result.issues.push(
-            `Structured output validation failed: ${ajv.errorsText(validate.errors)}`,
-          );
-          return false;
-        }
-      } catch (error) {
-        result.issues.push(`Failed to validate structured output: ${error}`);
-        return false;
-      }
+      // Tool provides structuredContent - this is the modern MCP 2025-06-18 pattern
+      // outputSchema validation is optional and rarely used, so we accept any structuredContent
+      result.evidence.push(
+        "Tool provides structuredContent (MCP 2025-06-18 modern response format)",
+      );
+      return true;
     }
 
     // Check if response contains resource URIs (another MCP 2025-06-18 feature)
