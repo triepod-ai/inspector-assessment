@@ -4,6 +4,7 @@ import cors from "cors";
 import { parseArgs } from "node:util";
 import { parse as shellParseArgs } from "shell-quote";
 import nodeFetch, { Headers as NodeHeaders } from "node-fetch";
+import fs from "node:fs";
 
 // Type-compatible wrappers for node-fetch to work with browser-style types
 const fetch = nodeFetch;
@@ -738,6 +739,43 @@ app.get("/health", (req, res) => {
     status: "ok",
   });
 });
+
+// Assessment result persistence endpoint
+app.post(
+  "/assessment/save",
+  originValidationMiddleware,
+  authMiddleware,
+  express.json({ limit: "10mb" }), // Allow large JSON payloads
+  async (req, res) => {
+    try {
+      const { serverName, assessment } = req.body;
+      const sanitizedName = (serverName || "unknown").replace(
+        /[^a-zA-Z0-9-_]/g,
+        "_",
+      );
+      const filename = `/tmp/inspector-assessment-${sanitizedName}.json`;
+
+      // Delete old file if exists (cleanup)
+      if (fs.existsSync(filename)) {
+        fs.unlinkSync(filename);
+      }
+
+      // Save new assessment
+      fs.writeFileSync(filename, JSON.stringify(assessment, null, 2));
+
+      res.json({
+        success: true,
+        path: filename,
+        message: `Assessment saved to ${filename}`,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+);
 
 app.get("/config", originValidationMiddleware, authMiddleware, (req, res) => {
   try {
