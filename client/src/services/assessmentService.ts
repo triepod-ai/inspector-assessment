@@ -157,7 +157,7 @@ export class MCPAssessmentService {
 
   /**
    * Assess functionality by testing all tools
-   * Uses enhanced multi-scenario testing when enabled in config
+   * Uses comprehensive multi-scenario testing with validation
    */
   private async assessFunctionality(
     tools: Tool[],
@@ -166,13 +166,8 @@ export class MCPAssessmentService {
       params: Record<string, unknown>,
     ) => Promise<CompatibilityCallToolResult>,
   ): Promise<FunctionalityAssessment> {
-    // Use enhanced testing if enabled
-    if (this.config.enableEnhancedTesting) {
-      return this.assessFunctionalityEnhanced(tools, callTool);
-    }
-
-    // Original simple testing for backward compatibility
-    return this.assessFunctionalitySimple(tools, callTool);
+    // Always use comprehensive multi-scenario testing
+    return this.assessFunctionalityEnhanced(tools, callTool);
   }
 
   /**
@@ -324,118 +319,6 @@ export class MCPAssessmentService {
   }
 
   /**
-   * Original simple functionality assessment (backward compatibility)
-   */
-  private async assessFunctionalitySimple(
-    tools: Tool[],
-    callTool: (
-      name: string,
-      params: Record<string, unknown>,
-    ) => Promise<CompatibilityCallToolResult>,
-  ): Promise<FunctionalityAssessment> {
-    const toolResults: ToolTestResult[] = [];
-    let workingCount = 0;
-    const brokenTools: string[] = [];
-
-    for (const tool of tools) {
-      if (this.config.skipBrokenTools && brokenTools.length > 3) {
-        // Skip remaining if too many failures
-        toolResults.push({
-          toolName: tool.name,
-          tested: false,
-          status: "untested",
-        });
-        continue;
-      }
-
-      const result = await this.testTool(tool, callTool);
-      toolResults.push(result);
-      this.totalTestsRun++;
-
-      if (result.status === "working") {
-        workingCount++;
-      } else if (result.status === "broken") {
-        brokenTools.push(tool.name);
-      }
-    }
-
-    const testedTools = toolResults.filter((r) => r.tested).length;
-    const coveragePercentage = (testedTools / tools.length) * 100;
-
-    let status: AssessmentStatus = "PASS";
-    if (coveragePercentage < 50) {
-      status = "FAIL";
-    } else if (coveragePercentage < 90 || brokenTools.length > 2) {
-      status = "NEED_MORE_INFO";
-    }
-
-    const explanation = `Tested ${testedTools}/${tools.length} tools (${coveragePercentage.toFixed(1)}% coverage). ${workingCount} tools working, ${brokenTools.length} broken.${
-      brokenTools.length > 0 ? ` Broken tools: ${brokenTools.join(", ")}` : ""
-    }`;
-
-    return {
-      totalTools: tools.length,
-      testedTools,
-      workingTools: workingCount,
-      brokenTools,
-      coveragePercentage,
-      status,
-      explanation,
-      toolResults,
-    };
-  }
-
-  /**
-   * Test an individual tool
-   */
-  private async testTool(
-    tool: Tool,
-    callTool: (
-      name: string,
-      params: Record<string, unknown>,
-    ) => Promise<CompatibilityCallToolResult>,
-  ): Promise<ToolTestResult> {
-    const startTime = Date.now();
-
-    try {
-      // Generate test parameters based on the tool's input schema
-      const testParams = this.generateTestParameters(tool);
-
-      // Call the tool with timeout
-      const result = await Promise.race([
-        callTool(tool.name, testParams),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Timeout")),
-            this.config.testTimeout,
-          ),
-        ),
-      ]);
-
-      const executionTime = Date.now() - startTime;
-
-      return {
-        toolName: tool.name,
-        tested: true,
-        status: "working",
-        executionTime,
-        testParameters: testParams,
-        response: result,
-      };
-    } catch (error) {
-      const executionTime = Date.now() - startTime;
-
-      return {
-        toolName: tool.name,
-        tested: true,
-        status: "broken",
-        error: error instanceof Error ? error.message : String(error),
-        executionTime,
-      };
-    }
-  }
-
-  /**
    * Generate test parameters for a tool based on its schema
    */
   private generateTestParameters(tool: Tool): Record<string, unknown> {
@@ -461,47 +344,14 @@ export class MCPAssessmentService {
 
   /**
    * Generate a test value based on schema type
-   * Uses enhanced TestDataGenerator when enhanced testing is enabled
+   * Always uses comprehensive TestDataGenerator for realistic test data
    */
   private generateTestValue(
     schema: SchemaProperty,
     fieldName: string,
   ): unknown {
-    // Use enhanced test data generation if enabled
-    if (this.config.enableEnhancedTesting) {
-      return TestDataGenerator.generateSingleValue(fieldName, schema);
-    }
-
-    // Fallback to original simple generation for backward compatibility
-    switch (schema.type) {
-      case "string":
-        if (schema.enum) {
-          return schema.enum[0];
-        }
-        if (fieldName.toLowerCase().includes("url")) {
-          return "https://example.com";
-        }
-        if (fieldName.toLowerCase().includes("email")) {
-          return "test@example.com";
-        }
-        return "test_value";
-
-      case "number":
-      case "integer":
-        return schema.minimum ?? 1;
-
-      case "boolean":
-        return true;
-
-      case "array":
-        return [];
-
-      case "object":
-        return {};
-
-      default:
-        return null;
-    }
+    // Always use comprehensive test data generation
+    return TestDataGenerator.generateSingleValue(fieldName, schema);
   }
 
   /**

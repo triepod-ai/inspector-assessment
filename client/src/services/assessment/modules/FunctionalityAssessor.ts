@@ -186,10 +186,10 @@ export class FunctionalityAssessor extends BaseAssessor {
     }
   }
 
-  // Add public method for testing purposes (currently unused but kept for potential future use)
-  // private generateTestInput(schema: any): unknown {
-  //   return this.generateParamValue(schema);
-  // }
+  // Public method for testing purposes - allows tests to verify parameter generation logic
+  public generateTestInput(schema: any): unknown {
+    return this.generateParamValue(schema);
+  }
 
   private generateExplanation(
     total: number,

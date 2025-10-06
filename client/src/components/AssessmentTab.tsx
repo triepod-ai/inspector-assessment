@@ -169,6 +169,34 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
     });
   }, []);
 
+  const autoSaveAssessment = useCallback(
+    async (assessment: MCPDirectoryAssessment) => {
+      try {
+        const response = await fetch("/assessment/save", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            serverName: serverName,
+            assessment: assessment,
+          }),
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          console.log("✅ Assessment auto-saved:", result.path);
+        } else {
+          console.error("❌ Failed to auto-save assessment:", result.error);
+        }
+      } catch (error) {
+        console.error("❌ Failed to auto-save assessment:", error);
+        // Don't show error to user - this is a background operation
+      }
+    },
+    [serverName],
+  );
+
   const runAssessment = useCallback(async () => {
     setIsRunning(true);
     setError(null);
@@ -186,6 +214,10 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
       );
 
       setAssessment(result);
+
+      // Auto-save assessment to file for troubleshooting
+      await autoSaveAssessment(result);
+
       setCurrentTest("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Assessment failed");
@@ -193,7 +225,14 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
     } finally {
       setIsRunning(false);
     }
-  }, [assessmentService, serverName, tools, callTool, readmeContent]);
+  }, [
+    assessmentService,
+    serverName,
+    tools,
+    callTool,
+    readmeContent,
+    autoSaveAssessment,
+  ]);
 
   const copyReport = useCallback(() => {
     if (!assessment) return;
@@ -331,23 +370,6 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
               <Label htmlFor="parallelTesting">Enable Parallel Testing</Label>
             </div>
             */}
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="enhancedTesting"
-                checked={config.enableEnhancedTesting || false}
-                onCheckedChange={(checked) =>
-                  setConfig({ ...config, enableEnhancedTesting: !!checked })
-                }
-                disabled={isRunning}
-              />
-              <Label
-                htmlFor="enhancedTesting"
-                title="Tests each tool multiple times with different scenarios: normal data, edge cases, boundary values, and error conditions. Provides more thorough validation but takes longer to complete."
-              >
-                Run comprehensive tests (slower but more thorough)
-              </Label>
-            </div>
 
             <div className="flex items-center space-x-2">
               <Label

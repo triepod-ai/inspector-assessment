@@ -559,8 +559,7 @@ export interface AssessmentConfiguration {
   enableExtendedAssessment?: boolean;
   parallelTesting?: boolean;
   maxParallelTests?: number;
-  // Enhanced testing configuration
-  enableEnhancedTesting?: boolean; // Use multi-scenario testing with validation
+  // Testing configuration (always uses comprehensive multi-scenario testing)
   scenariosPerTool?: number; // Max scenarios per tool (default 5-20 based on complexity)
   maxToolsToTestForErrors?: number; // Max number of tools to test for error handling (default 3, use -1 for all)
   mcpProtocolVersion?: string;
@@ -584,7 +583,6 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
   enableExtendedAssessment: false,
   parallelTesting: false,
   maxParallelTests: 5,
-  enableEnhancedTesting: false, // Default to false for backward compatibility
   maxToolsToTestForErrors: -1, // Default to test ALL tools for comprehensive compliance
   mcpProtocolVersion: "2025-06",
   assessmentCategories: {
