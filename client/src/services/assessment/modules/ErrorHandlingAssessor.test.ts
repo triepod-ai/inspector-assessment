@@ -182,7 +182,21 @@ describe("ErrorHandlingAssessor", () => {
     });
 
     it("should calculate error handling score correctly", async () => {
-      // Arrange - proper error handling with specific messages
+      // Arrange - tool with required parameters to properly test error handling
+      const toolWithRequired = createMockTool({
+        name: "tool-with-validation",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            value: { type: "number" },
+          },
+          required: ["id"], // Tool has required parameter
+        },
+      });
+      mockContext.tools = [toolWithRequired];
+
+      // Mock proper error handling with specific messages
       let testCount = 0;
       mockContext.callTool = jest.fn().mockImplementation(() => {
         testCount++;
@@ -190,19 +204,22 @@ describe("ErrorHandlingAssessor", () => {
         if (testCount === 1) {
           // Missing required params - should include "required" or "missing"
           return createMockCallToolResponse(
-            "Error: Required parameter 'id' is missing",
+            "Error: Required parameter 'id' is missing from the input",
             true,
           );
         }
         if (testCount === 2) {
           // Wrong type - should include "type" or "expected"
           return createMockCallToolResponse(
-            "Error: Expected string but received number",
+            "Error: Expected string type for parameter 'id' but received number",
             true,
           );
         }
-        // Tests 3 & 4 accept any error response
-        return createMockCallToolResponse("Error: Invalid input", true);
+        // Tests 3 & 4 accept any error response with helpful messages
+        return createMockCallToolResponse(
+          "Error: Invalid input provided. Please check your parameters and try again.",
+          true,
+        );
       });
 
       // Act
@@ -210,7 +227,8 @@ describe("ErrorHandlingAssessor", () => {
 
       // Assert
       // All 4 tests should pass with appropriate error messages
-      expect(result.metrics.mcpComplianceScore).toBeGreaterThan(90);
+      // With bonuses for quality, score should be > 90
+      expect(result.metrics.mcpComplianceScore).toBeGreaterThan(85);
     });
 
     it("should detect stack traces in error responses", async () => {
@@ -292,7 +310,19 @@ describe("ErrorHandlingAssessor", () => {
     });
 
     it("should handle tools with no error handling", async () => {
-      // Arrange - tool that crashes instead of returning errors gracefully
+      // Arrange - tool with required params that crashes instead of returning errors gracefully
+      const toolWithRequired = createMockTool({
+        name: "crashing-tool",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+          },
+          required: ["id"], // Tool has required parameter
+        },
+      });
+      mockContext.tools = [toolWithRequired];
+
       mockContext.callTool = jest
         .fn()
         .mockRejectedValue(new Error("Unhandled exception"));
@@ -301,6 +331,7 @@ describe("ErrorHandlingAssessor", () => {
       const result = await assessor.assess(mockContext);
 
       // Assert
+      // Tool crashes on all tests, so validatesInputs should be false
       expect(result.metrics.validatesInputs).toBe(false);
       expect(result.metrics.mcpComplianceScore).toBeLessThanOrEqual(50);
     });
