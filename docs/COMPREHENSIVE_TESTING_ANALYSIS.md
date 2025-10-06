@@ -1,9 +1,12 @@
 # Comprehensive Testing Analysis
 
-## Standard vs Comprehensive Test Mode Comparison
+> **📌 Historical Note (2025-10-06)**: This analysis led to the decision to make comprehensive testing the **only** testing mode. The dual-mode system has been removed, and all testing now uses comprehensive multi-scenario validation by default.
+
+## Standard vs Comprehensive Test Mode Comparison (Historical)
 
 **Date**: 2025-10-05
 **Purpose**: Evaluate the value and potential bloat in comprehensive testing mode
+**Outcome**: Comprehensive testing adopted as the sole mode
 
 ---
 

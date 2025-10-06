@@ -18,8 +18,7 @@ We've built a comprehensive assessment framework on top of the original inspecto
 ## Key Features
 
 - **Interactive Testing**: Visual interface for testing MCP server tools, resources, and prompts
-- **Comprehensive Assessment**: Automated validation of server functionality, error handling, documentation, security, and usability
-- **Enhanced Testing Modes**: Multi-scenario validation with progressive complexity testing
+- **Comprehensive Assessment**: Automated validation of server functionality, error handling, documentation, security, and usability using multi-scenario testing with progressive complexity
 - **Business Logic Validation**: Distinguishes between proper error handling and unintended failures
 - **Detailed Test Reports**: Confidence scoring, test scenario details, and actionable recommendations
 - **Multiple Transport Support**: STDIO, SSE, and Streamable HTTP transports
@@ -215,9 +214,9 @@ Our enhanced MCP Inspector includes a comprehensive assessment system that valid
    - Error code standard compliance
    - Protocol specification adherence
 
-### Enhanced Testing Features
+### Testing Features
 
-**Note**: The features below are our enhancements to the original MCP Inspector. See the "Our Enhancements" section above for detailed technical descriptions.
+**Note**: All testing uses comprehensive multi-scenario validation. See the "Our Enhancements" section above for detailed technical descriptions.
 
 #### Multi-Scenario Validation
 
@@ -250,12 +249,11 @@ The assessment distinguishes between:
 
 Configure assessment behavior through the UI:
 
-| Setting                   | Description                                   | Default  |
-| ------------------------- | --------------------------------------------- | -------- |
-| Enhanced Testing          | Enable multi-scenario validation              | Enabled  |
-| Max Tools to Test         | Number of tools to test (-1 for all)          | 10       |
-| Error Handling Test Limit | Tools to test for error handling (-1 for all) | 5        |
-| Test Complexity           | Simple, Moderate, or Complex scenarios        | Moderate |
+| Setting                   | Description                                   | Default |
+| ------------------------- | --------------------------------------------- | ------- |
+| Error Handling Test Limit | Tools to test for error handling (-1 for all) | 3       |
+
+**Note**: All functionality testing now uses comprehensive multi-scenario validation by default. Error handling tests can be limited to a subset of tools for faster testing.
 
 ### Viewing Assessment Results
 
@@ -271,6 +269,49 @@ The Assessment tab provides:
   - Specific issues identified
 - **Recommendations**: Actionable suggestions for improvement
 - **Test Coverage**: Visual indicators of testing completeness
+
+### Assessment Result Persistence
+
+**New in 2025-10-06**: Assessment results are automatically saved to JSON files for fast CLI-based analysis and troubleshooting.
+
+**Automatic Save**:
+
+- Every assessment run automatically saves to `/tmp/inspector-assessment-{serverName}.json`
+- Old results are automatically deleted before new runs
+- No manual export needed - completely transparent
+- Console shows: `✅ Assessment auto-saved: /tmp/inspector-assessment-{name}.json`
+
+**Quick Analysis Examples**:
+
+```bash
+# View full assessment results
+cat /tmp/inspector-assessment-memory-mcp.json | jq
+
+# Check only functionality results
+cat /tmp/inspector-assessment-memory-mcp.json | jq '.functionality'
+
+# List broken tools
+cat /tmp/inspector-assessment-memory-mcp.json | jq '.functionality.brokenTools'
+
+# Get specific tool test results
+cat /tmp/inspector-assessment-memory-mcp.json | jq '.functionality.enhancedResults[] | select(.toolName == "search_nodes")'
+
+# Summary of all tools and their status
+cat /tmp/inspector-assessment-memory-mcp.json | jq '.functionality.enhancedResults[] | {tool: .toolName, status: .overallStatus}'
+
+# Count security vulnerabilities found
+cat /tmp/inspector-assessment-memory-mcp.json | jq '.security.vulnerabilities | length'
+
+# Check error handling coverage
+cat /tmp/inspector-assessment-memory-mcp.json | jq '.errorHandling.metrics.validationCoverage'
+```
+
+**Benefits**:
+
+- Fast troubleshooting with `jq`, `grep`, or any CLI tool
+- Easy integration with scripts and automation
+- No need to manually export results each time
+- Results persist between inspector sessions for comparison
 
 ### Test Suite Validation
 

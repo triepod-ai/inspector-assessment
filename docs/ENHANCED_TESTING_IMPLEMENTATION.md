@@ -1,8 +1,10 @@
 # Enhanced Functionality Testing Implementation
 
+> **📌 Note (2025-10-06)**: As of this date, comprehensive multi-scenario testing is now the **default and only** testing mode. The `enableEnhancedTesting` configuration option has been removed. This document describes the current testing methodology.
+
 ## Overview
 
-This document describes the comprehensive enhancement to MCP Inspector's functionality testing, transforming it from superficial "ping tests" to true functionality validation with multi-scenario testing and response validation.
+This document describes the comprehensive testing methodology used by MCP Inspector for functionality validation, which uses multi-scenario testing and response validation to ensure true functionality beyond simple connectivity checks.
 
 ## Problem Statement
 
