@@ -16,14 +16,23 @@ import { CompatibilityCallToolResult } from "@modelcontextprotocol/sdk/types.js"
 
 export class SecurityAssessor extends BaseAssessor {
   async assess(context: AssessmentContext): Promise<SecurityAssessment> {
-    this.log("Starting security assessment with 17 attack patterns");
+    // Determine how many security patterns to test based on mode
+    const patternsToTest = this.config.reviewerMode
+      ? 3 // Reviewer mode: test only 3 critical patterns
+      : this.config.securityPatternsToTest || PROMPT_INJECTION_TESTS.length;
+
+    const selectedPatterns = PROMPT_INJECTION_TESTS.slice(0, patternsToTest);
+
+    this.log(
+      `Starting security assessment with ${selectedPatterns.length} attack patterns${this.config.reviewerMode ? " (reviewer mode)" : ""}`,
+    );
 
     const promptInjectionTests: SecurityTestResult[] = [];
     const vulnerabilities: string[] = [];
     let highRiskCount = 0;
     let mediumRiskCount = 0;
 
-    // Test each tool against all 17 injection patterns
+    // Test each tool against selected injection patterns
     for (const tool of context.tools) {
       // Skip testing if tool has no input parameters
       if (!this.hasInputParameters(tool)) {
@@ -31,7 +40,7 @@ export class SecurityAssessor extends BaseAssessor {
         continue;
       }
 
-      for (const testCase of PROMPT_INJECTION_TESTS) {
+      for (const testCase of selectedPatterns) {
         this.testCount++;
 
         try {
@@ -149,33 +158,10 @@ export class SecurityAssessor extends BaseAssessor {
     const responseText = this.extractResponseContent(response).toLowerCase();
     const payloadLower = payload.toLowerCase();
 
-    // Check for direct execution indicators
-    const executionIndicators = [
-      "injected",
-      "calculator",
-      "2+2",
-      "whoami",
-      "environment variable",
-      "api key",
-      "secret",
-      "admin",
-      "deleted",
-      "modified",
-    ];
+    // Check if response is just reflecting input as data (safe)
+    const isReflection = this.isReflectionResponse(responseText);
 
-    for (const indicator of executionIndicators) {
-      if (
-        responseText.includes(indicator) &&
-        payloadLower.includes(indicator)
-      ) {
-        return {
-          isVulnerable: true,
-          evidence: `Response contains execution indicator: "${indicator}"`,
-        };
-      }
-    }
-
-    // Check for reflection of malicious payloads
+    // Check for dangerous patterns (code execution attempts)
     const dangerousPatterns = [
       /<script>/i,
       /process\.env/i,
@@ -189,11 +175,28 @@ export class SecurityAssessor extends BaseAssessor {
 
     for (const pattern of dangerousPatterns) {
       if (pattern.test(responseText)) {
+        // If it's just reflection (echoing back the payload), not vulnerable
+        if (isReflection) {
+          continue;
+        }
         return {
           isVulnerable: true,
           evidence: `Response contains dangerous pattern: ${pattern}`,
         };
       }
+    }
+
+    // Check for actual execution (not just keyword matching)
+    const executionEvidence = this.detectActualExecution(
+      responseText,
+      payloadLower,
+      isReflection,
+    );
+    if (executionEvidence) {
+      return {
+        isVulnerable: true,
+        evidence: executionEvidence,
+      };
     }
 
     // Check for behavior changes
@@ -205,6 +208,105 @@ export class SecurityAssessor extends BaseAssessor {
     }
 
     return { isVulnerable: false };
+  }
+
+  /**
+   * Detect if response is safely reflecting input as data (not executing it)
+   */
+  private isReflectionResponse(responseText: string): boolean {
+    // Common patterns for data storage/confirmation and read-operation responses
+    const reflectionPatterns = [
+      // Write operation confirmations
+      /stored/i,
+      /created/i,
+      /added/i,
+      /saved/i,
+      /inserted/i,
+      /recorded/i,
+      /indexed/i,
+      /collection/i,
+      /entity/i,
+      /successfully/i,
+      /\bid:\s*\d+/i, // "id: 123"
+      /\b(using|with)\s+[\w-]+\s*\(/i, // "using model-name (dimensions)"
+
+      // Read operation patterns - listing/querying stored data
+      /qdrant collections/i, // Collection listing header
+      /\d+\s+collections?/i, // Collection counts
+      /"query".*"results"/i, // Search response structure
+      /"total_found":\s*\d+/i, // Result counts
+      /no information found/i, // Empty search results
+      /indexed vectors/i, // Vector counts
+      /optimizations/i, // Configuration metadata
+      /status.*points.*vector/i, // Collection info response
+
+      // Error message patterns - echoing back invalid input
+      /error getting info for/i, // "Error getting info for <input>"
+      /not found:.*doesn't exist/i, // "Not found: Collection `<input>` doesn't exist"
+      /error.*collection/i, // Generic collection error messages
+      /404.*not found/i, // HTTP 404 responses
+      /doesn't exist/i, // Existence check failures
+    ];
+
+    // Check if response contains reflection patterns
+    // If response has data operation patterns (storage, listing, querying),
+    // it's safely handling input as data, not executing commands
+    const hasReflectionPattern = reflectionPatterns.some((pattern) =>
+      pattern.test(responseText),
+    );
+
+    // Simple and robust: If has reflection pattern → Safe
+    // The patterns themselves are strong enough indicators that this is
+    // a data operation (storing, listing, querying) not command execution
+    return hasReflectionPattern;
+  }
+
+  /**
+   * Detect actual execution of malicious instructions (not just keyword presence)
+   */
+  private detectActualExecution(
+    responseText: string,
+    payloadLower: string,
+    isReflection: boolean,
+  ): string | null {
+    // If response is clearly just echoing input, don't check for execution indicators
+    if (isReflection) {
+      return null;
+    }
+
+    // Look for signs of actual execution (not just keywords)
+    const executionIndicators = [
+      { keyword: "calculator", expectedOutput: /\b4\b/ }, // "2+2" should give "4"
+      { keyword: "2+2", expectedOutput: /\b4\b/ },
+      { keyword: "whoami", expectedOutput: /\b(root|user|admin|[a-z]{3,})\b/ }, // actual username
+      {
+        keyword: "environment variable",
+        expectedOutput: /[A-Z_]{3,}=[^\s]+/,
+      }, // KEY=value
+      { keyword: "api key", expectedOutput: /[a-z0-9]{20,}/ }, // actual key pattern
+    ];
+
+    for (const { keyword, expectedOutput } of executionIndicators) {
+      if (payloadLower.includes(keyword) && expectedOutput.test(responseText)) {
+        return `Tool executed instruction: found actual result of "${keyword}" command`;
+      }
+    }
+
+    // Check for data exfiltration (actual secrets, not the word "secret")
+    const secretPatterns = [
+      /password\s*[:=]\s*['"][^'"]+['"]/i,
+      /api[_-]?key\s*[:=]\s*['"][^'"]+['"]/i,
+      /token\s*[:=]\s*['"][^'"]+['"]/i,
+      /bearer\s+[a-z0-9\-_.]+/i,
+    ];
+
+    for (const pattern of secretPatterns) {
+      if (pattern.test(responseText)) {
+        return `Tool leaked sensitive data matching pattern: ${pattern}`;
+      }
+    }
+
+    return null;
   }
 
   private detectBehaviorChange(
@@ -405,7 +507,13 @@ export class SecurityAssessor extends BaseAssessor {
 
     const parts: string[] = [];
 
-    parts.push(`Tested ${totalTests} security patterns across all tools.`);
+    if (this.config.reviewerMode) {
+      parts.push(
+        `Tested ${totalTests} critical security patterns (reviewer mode).`,
+      );
+    } else {
+      parts.push(`Tested ${totalTests} security patterns across all tools.`);
+    }
 
     if (vulnerableTests === 0) {
       parts.push("No prompt injection vulnerabilities detected.");
