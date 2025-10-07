@@ -40,12 +40,10 @@ export abstract class BaseAssessor {
   }
 
   /**
-   * Log if verbose logging is enabled
+   * Log assessment progress
    */
   protected log(message: string): void {
-    if (this.config.verboseLogging) {
-      console.log(`[${this.constructor.name}] ${message}`);
-    }
+    console.log(`[${this.constructor.name}] ${message}`);
   }
 
   /**

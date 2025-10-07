@@ -16,8 +16,7 @@ export interface CategoryFilterState {
   errorHandling: boolean;
   usability: boolean;
   mcpSpecCompliance: boolean;
-  privacy: boolean;
-  // Removed non-essential extended categories: supplyChain, dynamicSecurity, humanInLoop
+  // Removed non-essential extended categories: supplyChain, dynamicSecurity, humanInLoop, privacy
 }
 
 interface AssessmentCategoryFilterProps {
@@ -37,8 +36,7 @@ const categoryLabels: Record<keyof CategoryFilterState, string> = {
   documentation: "Documentation",
   errorHandling: "Error Handling",
   usability: "Usability",
-  mcpSpecCompliance: "MCP Spec Compliance ⭐⭐⭐",
-  privacy: "Privacy Compliance ⭐⭐",
+  mcpSpecCompliance: "MCP Spec Compliance",
 };
 
 const coreCategories: (keyof CategoryFilterState)[] = [
@@ -51,7 +49,6 @@ const coreCategories: (keyof CategoryFilterState)[] = [
 
 const essentialExtendedCategories: (keyof CategoryFilterState)[] = [
   "mcpSpecCompliance",
-  "privacy",
 ];
 
 export const AssessmentCategoryFilter: React.FC<
@@ -66,7 +63,7 @@ export const AssessmentCategoryFilter: React.FC<
   const [isExpanded, setIsExpanded] = React.useState(false);
 
   const activeCount = Object.values(categories).filter(Boolean).length;
-  const totalCount = isExtendedEnabled ? 8 : 5; // 5 core + 3 essential extended
+  const totalCount = isExtendedEnabled ? 6 : 5; // 5 core + 1 extended (MCP spec)
 
   return (
     <div className="border rounded-lg p-4 mb-4">
@@ -133,11 +130,10 @@ export const AssessmentCategoryFilter: React.FC<
             <div>
               <div className="mb-3">
                 <h5 className="text-sm font-medium mb-1">
-                  Essential Extended Categories
+                  Extended Categories
                 </h5>
                 <p className="text-xs text-muted-foreground">
-                  Critical for MCP Directory approval by Anthropic hiring
-                  managers
+                  Advanced MCP protocol testing (developer mode)
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-3">

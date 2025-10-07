@@ -41,12 +41,8 @@ export function createMockAssessmentConfig(
   overrides?: Partial<AssessmentConfiguration>,
 ): AssessmentConfiguration {
   return {
-    autoTest: true,
     testTimeout: 5000,
     skipBrokenTools: true,
-    verboseLogging: false,
-    generateReport: true,
-    saveEvidence: true,
     enableExtendedAssessment: false,
     parallelTesting: false,
     maxParallelTests: 3,

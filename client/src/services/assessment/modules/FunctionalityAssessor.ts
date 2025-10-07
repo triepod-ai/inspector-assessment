@@ -9,7 +9,9 @@ import { AssessmentContext } from "../AssessmentOrchestrator";
 
 export class FunctionalityAssessor extends BaseAssessor {
   async assess(context: AssessmentContext): Promise<FunctionalityAssessment> {
-    this.log("Starting functionality assessment");
+    this.log(
+      `Starting functionality assessment${this.config.reviewerMode ? " (reviewer mode - quick verification)" : ""}`,
+    );
 
     const toolResults: ToolTestResult[] = [];
     const brokenTools: string[] = [];
@@ -17,16 +19,6 @@ export class FunctionalityAssessor extends BaseAssessor {
 
     for (const tool of context.tools) {
       this.testCount++;
-
-      if (!this.config.autoTest) {
-        // Skip actual testing if autoTest is disabled
-        toolResults.push({
-          toolName: tool.name,
-          tested: false,
-          status: "untested",
-        });
-        continue;
-      }
 
       const result = await this.testTool(tool, context.callTool);
       toolResults.push(result);

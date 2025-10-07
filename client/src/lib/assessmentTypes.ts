@@ -549,19 +549,18 @@ export const PROMPT_INJECTION_TESTS: Omit<
 ];
 
 export interface AssessmentConfiguration {
-  autoTest: boolean;
   testTimeout: number; // milliseconds
   skipBrokenTools: boolean;
-  verboseLogging: boolean;
-  generateReport: boolean;
-  saveEvidence: boolean;
+  // Reviewer mode: simplify testing for Anthropic review workflow
+  reviewerMode?: boolean;
   // Extended configuration for new categories
   enableExtendedAssessment?: boolean;
   parallelTesting?: boolean;
   maxParallelTests?: number;
   // Testing configuration (always uses comprehensive multi-scenario testing)
   scenariosPerTool?: number; // Max scenarios per tool (default 5-20 based on complexity)
-  maxToolsToTestForErrors?: number; // Max number of tools to test for error handling (default 3, use -1 for all)
+  maxToolsToTestForErrors?: number; // Max number of tools to test for error handling (default -1 for all, use positive number to limit)
+  securityPatternsToTest?: number; // Number of security patterns to test (default all 17, reviewer mode uses 3)
   mcpProtocolVersion?: string;
   assessmentCategories?: {
     functionality: boolean;
@@ -574,16 +573,14 @@ export interface AssessmentConfiguration {
 }
 
 export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
-  autoTest: true,
   testTimeout: 30000, // 30 seconds per tool
   skipBrokenTools: false,
-  verboseLogging: true,
-  generateReport: true,
-  saveEvidence: true,
+  reviewerMode: false,
   enableExtendedAssessment: false,
   parallelTesting: false,
   maxParallelTests: 5,
   maxToolsToTestForErrors: -1, // Default to test ALL tools for comprehensive compliance
+  securityPatternsToTest: 17, // Test all security patterns by default
   mcpProtocolVersion: "2025-06",
   assessmentCategories: {
     functionality: true,
@@ -592,5 +589,49 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
     errorHandling: true,
     usability: true,
     mcpSpecCompliance: false,
+  },
+};
+
+// Reviewer mode configuration: optimized for fast, human-assisted reviews
+// Focuses on Anthropic's 5 core requirements only
+export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
+  testTimeout: 10000, // 10 seconds per tool (faster)
+  skipBrokenTools: true, // Skip broken tools to save time
+  reviewerMode: true,
+  enableExtendedAssessment: false, // Disable extended assessments (not required for directory approval)
+  parallelTesting: true, // Faster execution
+  maxParallelTests: 5,
+  scenariosPerTool: 1, // Single realistic test per tool
+  maxToolsToTestForErrors: 3, // Test only first 3 tools for error handling
+  securityPatternsToTest: 3, // Test only 3 critical security patterns
+  mcpProtocolVersion: "2025-06",
+  assessmentCategories: {
+    functionality: true,
+    security: true,
+    documentation: true,
+    errorHandling: true,
+    usability: true,
+    mcpSpecCompliance: false, // Not part of Anthropic's 5 core requirements
+  },
+};
+
+// Developer mode configuration: comprehensive testing for debugging
+export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
+  testTimeout: 30000, // 30 seconds per tool
+  skipBrokenTools: false,
+  reviewerMode: false,
+  enableExtendedAssessment: true,
+  parallelTesting: false, // Sequential for easier debugging
+  maxParallelTests: 5,
+  maxToolsToTestForErrors: -1, // Test ALL tools
+  securityPatternsToTest: 17, // Test all security patterns
+  mcpProtocolVersion: "2025-06",
+  assessmentCategories: {
+    functionality: true,
+    security: true,
+    documentation: true,
+    errorHandling: true,
+    usability: true,
+    mcpSpecCompliance: true, // Include extended assessments
   },
 };
