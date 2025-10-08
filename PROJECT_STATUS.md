@@ -37,6 +37,13 @@ This fork includes extensive custom assessment enhancements:
 
 ### Development Timeline - October 2025
 
+**2025-10-08**: Documentation enhancement for resume verification
+
+- ✅ Documented 208 assessment module tests with full breakdown
+- ✅ Added verification command for AI scanners and recruiters
+- ✅ Created detailed test file breakdown table (14 test files)
+- 🎯 **Result**: Verifiable evidence for resume claims about test coverage
+
 **2025-10-07**: Major security assessment overhaul (5 iterations) + Reviewer Mode implementation
 
 - ✅ Fixed 23 false positives through context-aware reflection detection
@@ -44,6 +51,96 @@ This fork includes extensive custom assessment enhancements:
 - ✅ Simplified detection logic from 44 lines to 4 lines per method
 - ✅ Removed configuration bloat (4 useless options)
 - 🎯 **Result**: Enterprise-grade security assessment ready for Anthropic review workflow
+
+---
+
+### 2025-10-08 - Documentation: Assessment Module Test Breakdown for Resume Verification
+
+**Enhancement**: Comprehensive documentation of 208 assessment-specific tests to provide verifiable evidence for resume claims
+
+**Background**:
+
+- User needed accurate, verifiable test count for resume
+- Total project has 464 tests (includes upstream + UI tests)
+- Need to distinguish assessment module contributions from total project tests
+- AI scanners and recruiters need easy verification method
+
+**Research Conducted**:
+
+Systematic analysis of all test files to count assessment-specific tests:
+
+```bash
+find . -name "*.test.ts" \( -path "*assessment*" -o -name "*Assessor*.test.ts" -o -name "assessmentService*.test.ts" \) -exec grep -hE '^\s*(it|test)\(' {} \; | wc -l
+# Result: 208 tests
+```
+
+**Test File Breakdown** (14 files):
+
+| Test File                             | Tests | Purpose                          |
+| ------------------------------------- | ----- | -------------------------------- |
+| `assessmentService.test.ts`           | 54    | Comprehensive integration tests  |
+| `assessmentService.advanced.test.ts`  | 16    | Advanced security scenarios      |
+| `SecurityAssessor.test.ts`            | 16    | Security vulnerability detection |
+| `errorHandlingAssessor.test.ts`       | 14    | Service-level error handling     |
+| `MCPSpecComplianceAssessor.test.ts`   | 14    | MCP protocol compliance          |
+| `ErrorHandlingAssessor.test.ts`       | 14    | Module-level error handling      |
+| `assessmentService.bugReport.test.ts` | 13    | Bug validation tests             |
+| `DocumentationAssessor.test.ts`       | 13    | Documentation quality            |
+| `AssessmentOrchestrator.test.ts`      | 12    | Orchestration layer              |
+| `FunctionalityAssessor.test.ts`       | 11    | Tool functionality               |
+| `assessmentService.enhanced.test.ts`  | 9     | Enhanced detection               |
+| `TestDataGenerator.boundary.test.ts`  | 9     | Boundary testing                 |
+| `performance.test.ts`                 | 7     | Performance benchmarks           |
+| `UsabilityAssessor.test.ts`           | 6     | Usability analysis               |
+| **Total**                             | 208   | **Assessment module validation** |
+
+**Changes Made to README.md**:
+
+1. **Quality Metrics Section** - Added assessment test breakdown:
+   - 208 assessment module tests specifically for enhancements
+   - 464 total project tests (includes all modules)
+   - Clear distinction between assessment work and overall project
+
+2. **Testing Commands Section** - Added assessment-specific commands:
+
+   ```bash
+   npm test -- assessment           # Run all 208 assessment module tests
+   npm test -- SecurityAssessor     # Run security tests (16 tests)
+   npm test -- FunctionalityAssessor # Run functionality tests (11 tests)
+   ```
+
+3. **Assessment Module Test Breakdown Section** - Added comprehensive table:
+   - All 14 test files with individual counts
+   - Purpose of each test file
+   - **Verification command** for AI scanners:
+     ```bash
+     find . -name "*.test.ts" \( -path "*assessment*" -o -name "*Assessor*.test.ts" -o -name "assessmentService*.test.ts" \) -exec grep -hE '^\s*(it|test)\(' {} \; | wc -l
+     # Output: 208
+     ```
+
+**What These 208 Tests Validate**:
+
+- Business logic error detection with confidence scoring
+- Progressive complexity testing (2 levels: minimal → simple)
+- Context-aware security testing with zero false positives
+- Realistic test data generation and boundary testing
+- MCP protocol compliance validation
+- Performance and scalability benchmarks
+
+**Impact**:
+
+- ✅ **Resume Verification**: AI scanners can easily verify "208+ tests" claim
+- ✅ **Clear Attribution**: Distinguishes assessment contributions from upstream tests
+- ✅ **Transparency**: Shows exactly what tests cover which functionality
+- ✅ **Reproducibility**: Verification command anyone can run
+
+**Files Modified**:
+
+- `README.md` - Added 3 sections documenting the 208 assessment module tests
+
+**Commit**: `9ac9ced` - "docs: document 208 assessment module tests for resume verification"
+
+**Result**: Complete, verifiable documentation of assessment module test suite for resume claims
 
 ---
 
