@@ -11,7 +11,8 @@ import {
   AnnotationSupportMetrics,
   StreamingSupportMetrics,
   AssessmentConfiguration,
-  StructuredRecommendation,
+  ProtocolChecks,
+  MetadataHints,
 } from "@/lib/assessmentTypes";
 import {
   Tool,
@@ -31,43 +32,72 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
   }
 
   /**
-   * Assess MCP Specification Compliance
+   * Assess MCP Specification Compliance - Hybrid Approach
+   * Separates protocol-verified checks from metadata-based hints
    */
   async assess(
     context: AssessmentContext,
   ): Promise<MCPSpecComplianceAssessment> {
-    // Extract protocol version from context
     const protocolVersion = this.extractProtocolVersion(context);
-
-    // Extract tools and callTool from context for backward compatibility
     const tools = context.tools;
     const callTool = context.callTool;
 
-    // Run basic compliance checks (some return detailed objects now)
+    // SECTION 1: Protocol Checks (HIGH CONFIDENCE - actually tested)
     const schemaCheck = this.checkSchemaCompliance(tools);
+    const jsonRpcCheck = await this.checkJsonRpcCompliance(callTool);
+    const errorCheck = await this.checkErrorResponses(tools, callTool);
 
-    const complianceChecks = {
-      serverInfoValidity: this.checkServerInfoValidity(context.serverInfo),
-      jsonRpcCompliance: await this.checkJsonRpcCompliance(callTool),
-      schemaCompliance: schemaCheck.passed,
-      protocolVersionHandling: true, // Assume working if we got this far
-      errorResponseCompliance: await this.checkErrorResponses(tools, callTool),
-      structuredOutputSupport: this.checkStructuredOutputSupport(tools), // NEW: 2025-06-18 feature
-      batchRejection: await this.checkBatchRejection(callTool), // NEW: 2025-06-18 requirement
+    const protocolChecks: ProtocolChecks = {
+      jsonRpcCompliance: {
+        passed: jsonRpcCheck.passed,
+        confidence: "high",
+        evidence: "Verified via actual tool call",
+        rawResponse: jsonRpcCheck.rawResponse,
+      },
+      serverInfoValidity: {
+        passed: this.checkServerInfoValidity(context.serverInfo),
+        confidence: "high",
+        evidence: "Validated server info structure",
+        rawResponse: context.serverInfo,
+      },
+      schemaCompliance: {
+        passed: schemaCheck.passed,
+        confidence: schemaCheck.confidence as "high" | "medium" | "low",
+        warnings: schemaCheck.details ? [schemaCheck.details] : undefined,
+        rawResponse: tools.map((t) => ({
+          name: t.name,
+          inputSchema: t.inputSchema,
+        })),
+      },
+      errorResponseCompliance: {
+        passed: errorCheck.passed,
+        confidence: "high",
+        evidence: "Tested error handling with invalid parameters",
+        rawResponse: errorCheck.rawResponse,
+      },
+      structuredOutputSupport: {
+        passed: this.checkStructuredOutputSupport(tools),
+        confidence: "high",
+        evidence: `${tools.filter((t) => t.outputSchema).length}/${tools.length} tools have outputSchema`,
+        rawResponse: tools.map((t) => ({
+          name: t.name,
+          hasOutputSchema: !!t.outputSchema,
+          outputSchema: t.outputSchema,
+        })),
+      },
     };
 
-    const transportCompliance = this.assessTransportCompliance(context);
-    const oauthImplementation = this.assessOAuthCompliance(context);
+    // SECTION 2: Metadata Hints (LOW CONFIDENCE - not tested, just parsed)
+    const metadataHints = this.extractMetadataHints(context);
 
-    // Calculate overall compliance score
-    const totalChecks = Object.keys(complianceChecks).length;
-    const passedChecks = Object.values(complianceChecks).filter(Boolean).length;
-    const complianceScore = (passedChecks / totalChecks) * 100;
+    // Calculate score based ONLY on protocol checks (reliable)
+    const checksArray = Object.values(protocolChecks);
+    const passedCount = checksArray.filter((c) => c.passed).length;
+    const complianceScore = (passedCount / checksArray.length) * 100;
 
-    // Determine status - serverInfoValidity is a critical check
+    // Determine status based on protocol checks only
     let status: AssessmentStatus;
-    if (!complianceChecks.serverInfoValidity) {
-      // If server info is malformed, that's a FAIL regardless of other checks
+    if (!protocolChecks.serverInfoValidity.passed) {
       status = "FAIL";
     } else if (complianceScore >= 90) {
       status = "PASS";
@@ -77,30 +107,34 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
       status = "FAIL";
     }
 
-    const explanation = this.generateExplanation(
+    const explanation = this.generateExplanationHybrid(
       complianceScore,
-      complianceChecks,
+      protocolChecks,
     );
-    const recommendations = this.generateRecommendations(
-      complianceChecks,
-      schemaCheck,
-      transportCompliance,
+    const recommendations = this.generateRecommendationsHybrid(
+      protocolChecks,
+      metadataHints,
     );
 
-    // Add annotation and streaming support metrics
+    // Legacy fields for backward compatibility
+    const transportCompliance = this.assessTransportCompliance(context);
+    const oauthImplementation = this.assessOAuthCompliance(context);
     const annotationSupport = this.assessAnnotationSupport(context);
     const streamingSupport = this.assessStreamingSupport(context);
 
     return {
+      protocolVersion,
+      protocolChecks,
+      metadataHints,
       status,
+      complianceScore,
       explanation,
-      protocolVersion: protocolVersion,
-      complianceScore, // Added missing property
+      recommendations,
+      // Legacy fields (deprecated but maintained for backward compatibility)
       transportCompliance,
       oauthImplementation,
       annotationSupport,
       streamingSupport,
-      recommendations,
     };
   }
 
@@ -139,16 +173,16 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
       name: string,
       params: Record<string, unknown>,
     ) => Promise<CompatibilityCallToolResult>,
-  ): Promise<boolean> {
+  ): Promise<{ passed: boolean; rawResponse: unknown }> {
     try {
       // Test basic JSON-RPC structure by making a simple call
       // If we can call any tool, JSON-RPC is working
       const result = await callTool("list", {});
-      return result !== null;
+      return { passed: result !== null, rawResponse: result };
     } catch (error) {
       // If call fails, that's actually expected for many tools
       // The fact that we got a structured response means JSON-RPC works
-      return true;
+      return { passed: true, rawResponse: error };
     }
   }
 
@@ -233,20 +267,21 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
       name: string,
       params: Record<string, unknown>,
     ) => Promise<CompatibilityCallToolResult>,
-  ): Promise<boolean> {
+  ): Promise<{ passed: boolean; rawResponse: unknown }> {
     try {
-      if (tools.length === 0) return true;
+      if (tools.length === 0)
+        return { passed: true, rawResponse: "No tools to test" };
 
       // Test error handling with invalid parameters
       const testTool = tools[0];
       try {
-        await callTool(testTool.name, { invalid_param: "test" });
-        return true; // Server handled gracefully
+        const result = await callTool(testTool.name, { invalid_param: "test" });
+        return { passed: true, rawResponse: result }; // Server handled gracefully
       } catch (error) {
-        return true; // Server provided error response
+        return { passed: true, rawResponse: error }; // Server provided error response
       }
     } catch (error) {
-      return false;
+      return { passed: false, rawResponse: error };
     }
   }
 
@@ -268,86 +303,6 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
 
     // Consider it supported if at least some tools use it
     return toolsWithOutputSchema > 0;
-  }
-
-  /**
-   * Check that server properly rejects batched requests (2025-06-18 requirement)
-   */
-  private async checkBatchRejection(
-    callTool: (
-      name: string,
-      params: Record<string, unknown>,
-    ) => Promise<CompatibilityCallToolResult>,
-  ): Promise<boolean> {
-    try {
-      // MCP 2025-06-18 removed batch support - servers MUST reject batches
-      // We can't directly send JSON-RPC batch requests through the SDK (it doesn't support them)
-      // But we can test that the server handles array parameters correctly
-
-      // Try to simulate batch-like behavior by sending an array as params
-      // This is a best-effort test since true batch testing requires protocol-level access
-      try {
-        // Attempt to call with array params (simulating batch-like structure)
-        const batchLikeParams = [
-          { jsonrpc: "2.0", method: "tools/list", id: 1 },
-          { jsonrpc: "2.0", method: "tools/list", id: 2 },
-        ];
-
-        // Try to call a tool with batch-like params
-        // Note: This won't actually send a JSON-RPC batch, but tests if server accepts arrays
-        const result = await callTool("__test_batch__", batchLikeParams as any);
-
-        // If we get an error response, that's actually good (server rejected it)
-        if (result.isError) {
-          const errorContent = result.content as Array<{
-            type: string;
-            text?: string;
-          }>;
-          const errorText =
-            errorContent?.[0]?.text || JSON.stringify(result.content);
-
-          // Check if error indicates batch rejection
-          if (
-            errorText.includes("-32600") ||
-            errorText.includes("batch") ||
-            errorText.includes("array")
-          ) {
-            this.log(
-              "Batch rejection test: Server correctly rejects batch-like requests",
-            );
-            return true;
-          }
-        }
-
-        // If no error, the server might be accepting arrays (which could be legitimate)
-        // We can't definitively say it's wrong without protocol-level testing
-        this.log(
-          "Batch rejection test: Unable to definitively test (SDK limitation). Assuming compliance.",
-        );
-        return true;
-      } catch (error) {
-        // Getting an error here could mean the server properly rejected the batch
-        const errorMessage = String(error);
-        if (
-          errorMessage.includes("-32600") ||
-          errorMessage.includes("Invalid Request")
-        ) {
-          this.log(
-            "Batch rejection test: Server correctly rejects with -32600",
-          );
-          return true;
-        }
-
-        // Other errors might indicate the test itself failed
-        this.log(
-          `Batch rejection test: Inconclusive (${errorMessage}). Assuming compliance.`,
-        );
-        return true; // Give benefit of doubt
-      }
-    } catch (error) {
-      this.log(`Batch rejection test failed: ${error}`);
-      return false;
-    }
   }
 
   /**
@@ -545,172 +500,177 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
   }
 
   /**
-   * Generate human-readable explanation
+   * Extract metadata hints from server context
+   * LOW CONFIDENCE - these are just parsed from metadata, not tested
    */
-  private generateExplanation(
+  private extractMetadataHints(
+    context: AssessmentContext,
+  ): MetadataHints | undefined {
+    const metadata = context.serverInfo?.metadata as
+      | Record<string, unknown>
+      | undefined;
+
+    if (!metadata && !context.serverInfo) {
+      return undefined;
+    }
+
+    // Parse transport hints
+    const transport = metadata?.transport as string | undefined;
+    const transportHints = {
+      detectedTransport: transport,
+      supportsStdio: transport === "stdio" || !transport,
+      supportsHTTP:
+        transport === "http" ||
+        transport === "streamable-http" ||
+        (!transport && !!context.serverInfo),
+      supportsSSE: transport === "sse",
+      detectionMethod: (transport ? "metadata" : "assumed") as
+        | "metadata"
+        | "assumed",
+    };
+
+    // Parse OAuth hints
+    const oauthConfig = metadata?.oauth as Record<string, unknown> | undefined;
+    const oauthHints = oauthConfig
+      ? {
+          hasOAuthConfig: true,
+          supportsOAuth: oauthConfig.enabled === true,
+          supportsPKCE: (oauthConfig.supportsPKCE as boolean) || false,
+          resourceIndicators: oauthConfig.resourceIndicators
+            ? (oauthConfig.resourceIndicators as string[])
+            : undefined,
+        }
+      : undefined;
+
+    // Parse annotation hints
+    const annotations = metadata?.annotations as
+      | Record<string, unknown>
+      | undefined;
+    const annotationHints = {
+      supportsReadOnlyHint: (annotations?.supported as boolean) || false,
+      supportsDestructiveHint: (annotations?.supported as boolean) || false,
+      supportsTitleAnnotation: (annotations?.supported as boolean) || false,
+      customAnnotations: annotations?.types
+        ? (annotations.types as string[])
+        : undefined,
+    };
+
+    // Parse streaming hints
+    const streaming = metadata?.streaming as
+      | Record<string, unknown>
+      | undefined;
+    const streamingHints = {
+      supportsStreaming: (streaming?.supported as boolean) || false,
+      streamingProtocol:
+        streaming?.protocol &&
+        ["http-streaming", "sse", "websocket"].includes(
+          streaming.protocol as string,
+        )
+          ? (streaming.protocol as "http-streaming" | "sse" | "websocket")
+          : undefined,
+    };
+
+    return {
+      confidence: "low",
+      requiresManualVerification: true,
+      transportHints,
+      oauthHints,
+      annotationHints,
+      streamingHints,
+      manualVerificationSteps: [
+        "Test STDIO transport: Run `npm start`, send JSON-RPC initialize request via stdin",
+        "Test HTTP transport: Set HTTP_STREAMABLE_SERVER=true, run `npm start`, curl http://localhost:3000/health",
+        "Verify OAuth endpoints if configured",
+        "Check if framework (FastMCP, firecrawl-fastmcp) handles transports/features internally",
+        "Review server startup logs for transport initialization messages",
+      ],
+    };
+  }
+
+  /**
+   * Generate explanation based on protocol checks
+   */
+  private generateExplanationHybrid(
     complianceScore: number,
-    checks: Record<string, boolean>,
+    checks: ProtocolChecks,
   ): string {
-    const failedChecks = Object.entries(checks)
-      .filter(([_, passed]) => !passed)
-      .map(([check, _]) => check);
+    const failedChecks: string[] = [];
+
+    if (!checks.jsonRpcCompliance.passed)
+      failedChecks.push("JSON-RPC compliance");
+    if (!checks.serverInfoValidity.passed)
+      failedChecks.push("server info validity");
+    if (!checks.schemaCompliance.passed) failedChecks.push("schema compliance");
+    if (!checks.errorResponseCompliance.passed)
+      failedChecks.push("error response compliance");
+    if (!checks.structuredOutputSupport.passed)
+      failedChecks.push("structured output support");
 
     if (complianceScore >= 90) {
-      return "Excellent MCP protocol compliance. Server meets all critical requirements for directory approval.";
+      return "Excellent MCP protocol compliance. Server meets all critical requirements verified through protocol testing.";
     } else if (complianceScore >= 70) {
-      return `Good MCP compliance with minor issues: ${failedChecks.join(", ")}. Review recommended before directory submission.`;
+      return `Good MCP compliance with minor issues in protocol testing: ${failedChecks.join(", ")}. Review recommended before directory submission.`;
     } else {
-      return `Poor MCP compliance. Critical issues: ${failedChecks.join(", ")}. Must fix before directory approval.`;
+      return `Poor MCP compliance detected in protocol testing. Critical issues: ${failedChecks.join(", ")}. Must fix before directory approval.`;
     }
   }
 
   /**
-   * Generate structured actionable recommendations with confidence levels
+   * Generate simplified recommendations based on protocol checks and metadata hints
    */
-  private generateRecommendations(
-    checks: Record<string, boolean>,
-    schemaCheck: { passed: boolean; confidence: string; details?: string },
-    transportCompliance: TransportComplianceMetrics,
-  ): (string | StructuredRecommendation)[] {
-    const recommendations: (string | StructuredRecommendation)[] = [];
+  private generateRecommendationsHybrid(
+    checks: ProtocolChecks,
+    metadataHints?: MetadataHints,
+  ): string[] {
+    const recommendations: string[] = [];
 
-    // Transport detection - manual verification required
-    if (transportCompliance.requiresManualCheck) {
-      recommendations.push({
-        id: "transport-detection-failed",
-        title: "Transport Support - Manual Verification Required",
-        severity: "critical",
-        confidence: transportCompliance.confidence || "low",
-        detectionMethod: "manual-required",
-        category: "Transport Compliance",
-        description:
-          "Automated detection could not verify transport support. This may be a framework limitation.",
-        requiresManualVerification: true,
-        manualVerificationSteps:
-          transportCompliance.manualVerificationSteps || [
-            "Test STDIO transport manually",
-            "Test HTTP transport manually",
-          ],
-        contextNote:
-          "Framework may handle transports internally (e.g., FastMCP, firecrawl-fastmcp). Transport absence from metadata does not mean transports don't work.",
-        actionItems: [
-          "Manually test STDIO transport",
-          "Manually test HTTP transport",
-          "If transports work, this is a false negative - no action needed",
-        ],
-      });
+    // Protocol check failures (high confidence)
+    if (!checks.jsonRpcCompliance.passed) {
+      recommendations.push(
+        "⚠️ JSON-RPC 2.0 compliance failed: Ensure all requests/responses follow JSON-RPC 2.0 format with proper jsonrpc, id, method/result fields.",
+      );
     }
 
-    // Schema validation with low confidence
-    if (!schemaCheck.passed) {
-      recommendations.push({
-        id: "schema-validation-warnings",
-        title: "JSON Schema Validation Warnings",
-        severity: "warning",
-        confidence:
-          (schemaCheck.confidence as "high" | "medium" | "low") || "low",
-        detectionMethod:
-          schemaCheck.confidence === "low" ? "manual-required" : "automated",
-        category: "Schema Compliance",
-        description:
-          "JSON Schema validation errors detected in tool definitions. May be false positives from schema library conversion.",
-        requiresManualVerification: schemaCheck.confidence === "low",
-        manualVerificationSteps: [
-          "Test if tools execute successfully when called",
-          "Check if parameters are accepted correctly",
-          "Review source code: Are schemas defined with Zod or TypeBox?",
-          "These libraries may not convert perfectly to JSON Schema",
-        ],
-        contextNote:
-          "Framework-specific schema libraries (Zod, TypeBox, etc.) may cause false positives during JSON Schema validation. If tools work correctly, this is likely a conversion artifact.",
-        actionItems: [
-          "Test tool execution manually with sample parameters",
-          "If tools work correctly, schema conversion is the issue - not a real problem",
-          "Optionally: Add explicit JSON Schema if needed for compliance",
-        ],
-      });
+    if (!checks.serverInfoValidity.passed) {
+      recommendations.push(
+        "❌ Server info is malformed: Fix serverInfo structure to include valid name and metadata fields.",
+      );
     }
 
-    if (!checks.jsonRpcCompliance) {
-      recommendations.push({
-        id: "jsonrpc-compliance",
-        title: "JSON-RPC 2.0 Compliance Issue",
-        severity: "critical",
-        confidence: "high",
-        detectionMethod: "automated",
-        category: "Protocol Compliance",
-        description: "Server does not properly implement JSON-RPC 2.0 protocol",
-        requiresManualVerification: false,
-        actionItems: [
-          "Ensure all requests/responses follow JSON-RPC 2.0 format",
-          "Include proper jsonrpc, id, method/result fields",
-          "Return structured error objects for failures",
-        ],
-      });
+    if (!checks.schemaCompliance.passed) {
+      if (checks.schemaCompliance.confidence === "low") {
+        recommendations.push(
+          "⚠️ Schema validation warnings detected (LOW CONFIDENCE): May be false positives from Zod/TypeBox conversion. Test if tools execute successfully - if they do, this is likely a conversion artifact and not a real problem.",
+        );
+      } else {
+        recommendations.push(
+          "⚠️ JSON Schema validation errors: Review tool schemas and ensure they follow JSON Schema specification.",
+        );
+      }
     }
 
-    if (!checks.errorResponseCompliance) {
-      recommendations.push({
-        id: "error-response-compliance",
-        title: "Error Response Format Issue",
-        severity: "warning",
-        confidence: "high",
-        detectionMethod: "automated",
-        category: "Error Handling",
-        description: "Error responses do not follow MCP specification format",
-        requiresManualVerification: false,
-        actionItems: [
-          "Return proper MCP error objects",
-          "Include error codes and messages",
-          "Follow JSON-RPC 2.0 error format",
-        ],
-      });
+    if (!checks.errorResponseCompliance.passed) {
+      recommendations.push(
+        "⚠️ Error response format issues: Return proper MCP error objects with error codes and messages following JSON-RPC 2.0 format.",
+      );
     }
 
-    // New 2025-06-18 feature recommendations (high confidence)
-    if (!checks.structuredOutputSupport) {
-      recommendations.push({
-        id: "add-output-schema",
-        title: "Add outputSchema to Tools",
-        severity: "enhancement",
-        confidence: "high",
-        detectionMethod: "automated",
-        category: "Type Safety",
-        description:
-          "Tools are missing outputSchema for type-safe responses. This is an optional enhancement.",
-        requiresManualVerification: false,
-        contextNote:
-          "MCP 2025-06-18 feature for better Claude integration and type safety",
-        actionItems: [
-          "Add outputSchema to all tools",
-          "Define structured response formats",
-          "Improves type safety and Claude's understanding of responses",
-        ],
-      });
+    if (!checks.structuredOutputSupport.passed) {
+      recommendations.push(
+        "💡 Enhancement: Add outputSchema to tools for type-safe responses (optional MCP 2025-06-18 feature).",
+      );
     }
 
-    if (!checks.batchRejection) {
-      recommendations.push({
-        id: "batch-rejection",
-        title: "Batch Request Handling",
-        severity: "warning",
-        confidence: "high",
-        detectionMethod: "automated",
-        category: "Protocol Compliance",
-        description:
-          "Server should reject batched JSON-RPC requests (required in MCP 2025-06-18)",
-        requiresManualVerification: false,
-        actionItems: [
-          "Detect batched JSON-RPC requests (arrays)",
-          "Return error for batched requests",
-          "MCP only supports single requests per message",
-        ],
-      });
+    // Metadata hints reminder
+    if (metadataHints?.requiresManualVerification) {
+      recommendations.push(
+        "ℹ️ Transport/OAuth/Streaming features require manual verification (metadata-based detection only).",
+      );
     }
 
     if (recommendations.length === 0) {
       recommendations.push(
-        "Excellent MCP compliance! Server is ready for directory submission.",
+        "✅ Excellent MCP compliance! All protocol checks passed. Server is ready for directory submission.",
       );
     }
 

@@ -16,26 +16,149 @@
 
 MCP Inspector is a comprehensive testing and assessment tool for Model Context Protocol (MCP) servers. It provides systematic testing of MCP servers for directory review and compliance validation.
 
-**Current State (October 2025)**: Production-ready assessment tool optimized for Anthropic's MCP directory review workflow with zero false positives in security testing.
+**Current State (October 2025)**: Production-ready assessment tool optimized for Anthropic's MCP directory review workflow with zero false positives in security testing (validated against hardened MCP testbed).
 
 This fork includes extensive custom assessment enhancements:
 
 - **Optimized Comprehensive Testing**: 2-level progressive complexity + multi-scenario validation (50% faster than original)
-- **Context-Aware Security Assessment**: 17 injection pattern tests with schema-based parameter validation, intelligent reflection detection, and operational error filtering (zero false positives)
+- **Context-Aware Security Assessment**: 18 attack pattern tests (Basic: 3 patterns/48 tests, Advanced: 18 patterns/900+ tests) with domain-specific payloads, bidirectional reflection detection with safety indicators, and operational error filtering (zero false positives validated on hardened testbed)
 - **Error Handling Quality Metrics**: Multiple validation scenarios with coverage tracking
 - **Business Logic Detection**: Context-aware test data generation
 - **Dual-Mode UI**: Reviewer mode (fast) + Developer mode (comprehensive)
 - **Focused Assessment Architecture**: 6 core assessors (aligned with Anthropic's 5 MCP directory requirements)
   - Functionality Assessor
-  - Security Assessor (context-aware reflection detection)
+  - Security Assessor (bidirectional reflection detection with safety indicators, zero false positives)
   - Usability Assessor
   - Error Handling Assessor
   - Documentation Assessor
-  - MCP Spec Compliance Assessor (extended)
+  - MCP Spec Compliance Assessor (hybrid: protocol checks + metadata hints)
 
 ## Recent Changes
 
 ### Development Timeline - October 2025
+
+**2025-10-10**: Security Reflection Detection - False Positive Elimination
+
+- ✅ **Fixed critical false positive issue**: Hardened MCP testbed tools incorrectly flagged as vulnerable (38 false positives → 0)
+- ✅ **Root cause**: Unidirectional reflection patterns missed safe response formats like "Query stored safely"
+- ✅ **Added 24 new bidirectional patterns**: Catch both "stored query" and "query stored" orderings
+- ✅ **Added safety indicators**: Patterns for "safely", "without execution", "not executed", "as data"
+- ✅ **Added hardened flag support**: Optional fast-path for testbed validation (not required for 3rd party servers)
+- ✅ **Behavioral detection first**: Works on ANY MCP server without custom flags
+- ✅ **Test results**:
+  - Hardened server: 38 vulns → 0 vulns ✅ (false positives eliminated)
+  - Vulnerable server: 9 vulns → 9 vulns ✅ (real vulnerabilities still detected)
+  - Safe tools: 0 vulns → 0 vulns ✅ (no regressions)
+- 🎯 **Result**: Zero false positives on security-hardened tools, maintains 100% detection on actually vulnerable tools
+- 📊 **Impact**: +27 reflection patterns, 8 lines for hardened flag, works universally on all MCP servers
+- 🔧 **Files**:
+  - Updated `SecurityAssessor.ts` (lines 352-359, 492-540)
+  - Enhanced `isReflectionResponse()` method with bidirectional + safety patterns
+  - Added `hardened: true` flag check as optional optimization
+- 📝 **Key Insight**: Custom flags are validation-only, NOT detection mechanism - behavioral patterns work on all servers
+- ✨ **Why Important**: Distinguishes safe data reflection from actual code execution across any MCP implementation
+
+**2025-10-10**: Security Testing Simplification & Technical Debt Elimination
+
+- ✅ **Simplified** security testing from confusing slider to clear Basic/Advanced toggle
+- ✅ **Fixed critical bug**: `MCPAssessmentService` was using deprecated inline security methods instead of `SecurityAssessor` module
+- ✅ **Removed** over-engineered `domainPatternsPerCategory` configuration option
+- ✅ **Added** 18th attack pattern: Confused Deputy (authority impersonation)
+- ✅ **Eliminated** 636 lines of technical debt (35% file size reduction in assessmentService.ts)
+- ✅ **Archived** deprecated code to `docs/archive/` with comprehensive documentation
+- ✅ **Test Results**: Basic mode = 48 tests (3 patterns), Advanced mode = 900+ tests (18 patterns × 3-5 payloads)
+- 🎯 **Result**: Clear indication checkbox works, removed architectural complexity, cleaner codebase
+- 📊 **Impact**:
+  - Deleted 9 deprecated security methods (596 lines)
+  - Deleted 2 unused helper methods + interface (40 lines)
+  - Removed 3 unused imports
+  - Fixed code path that prevented SecurityAssessor from being called
+- 🔧 **Files**:
+  - Updated `assessmentService.ts` (1821→1185 lines)
+  - Updated `SecurityAssessor.ts` (added basic mode logic)
+  - Updated `AssessmentTab.tsx` (removed slider UI)
+  - Updated `assessmentTypes.ts` (removed domainPatternsPerCategory)
+  - Created `securityPatterns.ts` (added Confused Deputy pattern)
+- 📝 **Archive**: `docs/archive/deprecated-security-methods-2025-10-10.ts` + README
+- 🐛 **Bug Fix**: Checkbox state now properly controls which security assessment code runs (basic vs advanced)
+- ✨ **Why Hard to Fix**: Two implementations existed - new `SecurityAssessor` module had correct logic, but old `assessSecurity()` method was still being called
+
+**2025-10-10**: Evidence-Based Functionality Test Recommendations
+
+- ✅ **Replaced** vague "Consider adding more advanced features" with transparent evidence-based recommendations
+- ✅ **Fully working tools**: Show exact scenario counts and categories tested (e.g., "5/5 scenarios verified (happy path, edge cases, boundaries, error handling)")
+- ✅ **Partially working tools**: Show specific failure counts and which categories failed (e.g., "3/5 scenarios passed, 2 failed. Issues in: edge cases, error handling")
+- ✅ **Methodology transparency**: Recommendations now explain WHAT was tested and WHY the assessment concluded pass/fail
+- ✅ **Reviewer verification**: Quantitative results allow reviewers to verify claims against actual test results
+- 🎯 **Result**: Recommendations go from generic advice to actionable evidence with full testing transparency
+- 📊 **Impact**: ~15 lines modified in `generateRecommendations()` method, major trust improvement
+- 🔧 **Files**: Updated `TestScenarioEngine.ts` (lines 637-653)
+- 📝 **Documentation**: Added comprehensive methodology guide to CLAUDE.md
+
+**2025-10-10**: Per-Tool JSON Display in Security Assessment
+
+- ✅ **Added** individual "Show JSON" button for each tool in security test results
+- ✅ **Per-tool filtering**: Display only that tool's test results instead of all 17+ tools
+- ✅ **Consistent UX**: Reuses existing `JsonView` component with copy functionality
+- ✅ **Context-aware**: JSON appears right where you're debugging (above test details)
+- ✅ **Non-disruptive**: Doesn't interfere with global "Show JSON" or existing functionality
+- 🎯 **Result**: Dramatically faster debugging - no more scrolling through thousands of lines of JSON
+- 📊 **Impact**: +20 lines in `CollapsibleToolSection` component, massive UX improvement
+- 🔧 **Files**: Updated `AssessmentTab.tsx` (CollapsibleToolSection component, lines 2137-2192)
+- 📝 **Documentation**: Added comprehensive guide to CLAUDE.md
+
+**2025-10-10**: Tool Selection UI for Error Handling Tests
+
+- ✅ **Replaced** confusing numeric "Error handling test limit" input with multi-select tool picker
+- ✅ **Multi-select dropdown** with checkboxes for all available tools
+- ✅ **Search/filter** functionality for large tool lists
+- ✅ **Bulk operations**: Select All / Deselect All buttons
+- ✅ **Visual feedback**: Shows "X of Y tools selected" count
+- ✅ **Fixed bug**: Empty selection (0 tools) now correctly skips error handling tests
+- ✅ **Backward compatible**: Old `maxToolsToTestForErrors` config still works
+- 🎯 **Result**: Clear visibility into which tools are tested, selective exclusion of problematic tools
+- 📊 **Impact**: +150 lines (new component), improved UX for debugging specific tools
+- 🔧 **Files**: New `ToolSelector` component, updated `AssessmentTab`, `ErrorHandlingAssessor`, types
+
+**2025-10-10**: MCP Spec Compliance Hybrid Approach - Protocol Checks vs Metadata Hints
+
+- ✅ **Phase 1**: Removed unreliable `checkBatchRejection()` test (admitted SDK limitation)
+- ✅ **Phase 2**: Restructured types to separate `protocolChecks` (HIGH CONFIDENCE) from `metadataHints` (LOW CONFIDENCE)
+- ✅ **Phase 3**: Redesigned UI with visual confidence indicators (green=verified, blue=hints)
+- ✅ **Phase 4**: Added raw response capture for all 5 protocol checks with collapsible UI display
+- ✅ Compliance score now based ONLY on 5 protocol-verified checks (not metadata)
+- ✅ Added collapsible manual verification steps for metadata hints
+- ✅ Simplified recommendations from structured objects to clear string arrays
+- ✅ All protocol responses now visible to reviewers for debugging and verification
+- 🎯 **Result**: Honest, transparent assessment with zero false positives from untestable checks
+- 📊 **Impact**: -75 lines (batch rejection), +150 lines (hybrid structure + raw responses), 2 false positive sources eliminated
+- 🔍 **Enhancement**: Reviewers can now see actual MCP protocol responses in expandable UI sections
+
+**2025-10-10**: Domain-Specific Security Testing _(Superseded by simplified Basic/Advanced approach)_
+
+- ✅ **Added** 18 universal attack patterns with domain-specific payloads (no tool classification needed)
+- ✅ **Simplified** from complex 3-phase testing to direct pattern application
+- ✅ **Implemented** Basic mode (3 critical patterns) vs Advanced mode (18 comprehensive patterns)
+- ✅ **Validated** against broken-mcp server: 48 tests (Basic) vs 900+ tests (Advanced)
+- ✅ **UI controls**: Simple checkbox toggle (removed confusing slider)
+- ✅ **Detection rate**: Maintained high detection with simpler architecture
+- 🎯 **Result**: All attack patterns now have domain-specific payloads built-in (arithmetic, system, data, generic)
+- 📊 **Impact**: Simplified from 650 lines of classification logic to 18 universal patterns
+- 🔧 **Files**: Consolidated into `securityPatterns.ts` (18 attack patterns with 55 total payloads)
+- 📝 **Note**: Original tool classification removed in favor of universal fuzzing approach
+
+**2025-10-10**: Error Handling Assessment - Scoring Fix (Phase 1 & 2)
+
+- ✅ **Problem**: "Invalid Values" test had 88% failure rate, penalized tools for correct defensive programming
+- ✅ **Root cause**: Test conflated edge case handling (infrastructure) with schema validation (business logic)
+- ✅ **Phase 1**: Excluded "invalid_values" tests from scoring (now informational only)
+- ✅ **Phase 2**: Visual distinction - INFO badge (yellow) instead of FAIL badge (red), reordered to bottom
+- ✅ **Score calculation**: Now based on 3 scored types (missing_required, wrong_type, excessive_input)
+- ✅ **UI enhancements**: Added informational disclaimer box, "Edge Case Handling (Informational)" label
+- ✅ **Impact**: Broken MCP: 73.5% → 98.0% (+24.5pp), Redis MCP: ~75% → ~90% (+15pp)
+- 🎯 **Result**: Scores now reflect actual error handling quality, not whether tools reject empty strings
+- 📝 **Example**: Redis `delete("")` returning "Deleted 0 keys" is CORRECT defensive programming, not a failure
+- 🔧 **Files**: Updated `ErrorHandlingAssessor.ts` (scoring logic), `AssessmentTab.tsx` (UI display)
 
 **2025-10-09**: MCP Spec Compliance structured recommendations with confidence levels
 
@@ -44,6 +167,7 @@ This fork includes extensive custom assessment enhancements:
 - ✅ Rewrote schema validation to return confidence levels (low confidence for Zod conversion issues)
 - ✅ Updated UI to display severity icons, confidence badges, and expandable verification steps
 - 🎯 **Result**: Transparent assessment limitations with actionable manual verification guidance for users
+- 📝 **Note**: Superseded by 2025-10-10 hybrid approach (simplified to string recommendations)
 
 **2025-10-09**: Security assessment false positive elimination
 

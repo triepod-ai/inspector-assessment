@@ -47,7 +47,35 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   }
 
   private selectToolsForTesting(tools: any[]): any[] {
-    // Use configuration to determine how many tools to test
+    // Prefer new selectedToolsForErrorTesting configuration
+    // Note: undefined/null means "test all" (default), empty array [] means "test none" (explicit)
+    if (this.config.selectedToolsForErrorTesting !== undefined) {
+      const selectedNames = new Set(this.config.selectedToolsForErrorTesting);
+      const selectedTools = tools.filter((tool) =>
+        selectedNames.has(tool.name),
+      );
+
+      // Empty array means user explicitly selected 0 tools
+      if (this.config.selectedToolsForErrorTesting.length === 0) {
+        this.log(`User selected 0 tools for error handling - skipping tests`);
+        return [];
+      }
+
+      // If no tools matched the names (config out of sync), log warning but respect selection
+      if (selectedTools.length === 0) {
+        this.log(
+          `Warning: No tools matched selection (${this.config.selectedToolsForErrorTesting.join(", ")})`,
+        );
+        return [];
+      }
+
+      this.log(
+        `Testing ${selectedTools.length} selected tools out of ${tools.length} for error handling`,
+      );
+      return selectedTools;
+    }
+
+    // Backward compatibility: use old maxToolsToTestForErrors configuration
     const configLimit = this.config.maxToolsToTestForErrors;
 
     // If -1, test all tools
@@ -70,17 +98,19 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   ): Promise<ErrorTestDetail[]> {
     const tests: ErrorTestDetail[] = [];
 
+    // Scored tests first (affect compliance score)
     // Test 1: Missing required parameters
     tests.push(await this.testMissingParameters(tool, callTool));
 
     // Test 2: Wrong parameter types
     tests.push(await this.testWrongTypes(tool, callTool));
 
-    // Test 3: Invalid parameter values
-    tests.push(await this.testInvalidValues(tool, callTool));
-
-    // Test 4: Excessive input size
+    // Test 3: Excessive input size
     tests.push(await this.testExcessiveInput(tool, callTool));
+
+    // Informational tests last (do not affect compliance score)
+    // Test 4: Invalid parameter values (edge case handling)
+    tests.push(await this.testInvalidValues(tool, callTool));
 
     return tests;
   }
@@ -543,6 +573,14 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     let maxPossibleScore = 0;
 
     tests.forEach((test) => {
+      // Phase 1: Exclude "invalid_values" tests from scoring (informational only)
+      // Reason: These tests penalize tools that handle edge cases gracefully (empty strings, etc.)
+      // Instead of rejecting them, which is often correct defensive programming.
+      // Real schema violations will be tested separately in Phase 2+.
+      if (test.testType === "invalid_values") {
+        return; // Skip scoring, but still included in testDetails
+      }
+
       maxPossibleScore += 100; // Base score for each test
 
       if (test.passed) {
@@ -625,14 +663,16 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   ): string {
     const parts: string[] = [];
 
-    const passedTests = tests.filter((t) => t.passed).length;
-    const totalTests = tests.length;
+    // Filter out invalid_values for scoring context
+    const scoredTests = tests.filter((t) => t.testType !== "invalid_values");
+    const passedScoredTests = scoredTests.filter((t) => t.passed).length;
+    const totalScoredTests = scoredTests.length;
 
     parts.push(
-      `Error handling compliance score: ${metrics.mcpComplianceScore.toFixed(1)}% (${passedTests}/${totalTests} tests passed).`,
+      `Error handling compliance score: ${metrics.mcpComplianceScore.toFixed(1)}% (${passedScoredTests}/${totalScoredTests} scored tests passed).`,
     );
 
-    // Count how many types of validation are working
+    // Count how many types of validation are working (only scored tests)
     const validationTypes: string[] = [];
     if (tests.some((t) => t.testType === "missing_required" && t.passed)) {
       validationTypes.push("missing parameter validation");
@@ -640,16 +680,29 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     if (tests.some((t) => t.testType === "wrong_type" && t.passed)) {
       validationTypes.push("type validation");
     }
-    if (tests.some((t) => t.testType === "invalid_values" && t.passed)) {
-      validationTypes.push("value validation");
-    }
     if (tests.some((t) => t.testType === "excessive_input" && t.passed)) {
       validationTypes.push("input size validation");
     }
 
+    // Add informational note about invalid_values tests
+    const invalidValuesTests = tests.filter(
+      (t) => t.testType === "invalid_values",
+    );
+    if (invalidValuesTests.length > 0) {
+      const passedInvalidValues = invalidValuesTests.filter(
+        (t) => t.passed,
+      ).length;
+      validationTypes.push(
+        `edge case handling (${passedInvalidValues}/${invalidValuesTests.length} - informational only)`,
+      );
+    }
+
     if (validationTypes.length > 0) {
+      const scoredValidationCount = validationTypes.filter(
+        (v) => !v.includes("informational only"),
+      ).length;
       parts.push(
-        `Implements ${validationTypes.length}/4 validation types: ${validationTypes.join(", ")}.`,
+        `Implements ${scoredValidationCount}/3 validation types (scored): ${validationTypes.join(", ")}.`,
       );
     } else {
       parts.push("No input validation detected.");
@@ -662,8 +715,9 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
     // Count tools tested
     const toolsTested = [...new Set(tests.map((t) => t.toolName))].length;
+    const totalTests = tests.length;
     parts.push(
-      `Tested ${toolsTested} tools with ${totalTests} validation scenarios.`,
+      `Tested ${toolsTested} tools with ${totalScoredTests} scored scenarios (${totalTests} total including informational).`,
     );
 
     return parts.join(" ");

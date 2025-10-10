@@ -634,14 +634,23 @@ export class TestScenarioEngine {
       );
     }
 
-    // Add positive feedback if appropriate
+    // Add evidence-based assessment summary
     if (result.overallStatus === "fully_working") {
       recommendations.push(
-        "✅ Tool is working well! Consider adding more advanced features.",
+        `✅ All test categories passed: ${result.scenariosPassed}/${result.totalScenarios} scenarios verified (happy path, edge cases, boundaries, error handling)`,
       );
     } else if (result.overallStatus === "partially_working") {
+      const failedCount = result.scenariosFailed;
+      const categories: string[] = [];
+      if (!result.summary.happyPathSuccess) categories.push("happy path");
+      if (result.summary.edgeCasesHandled < result.summary.edgeCasesTotal)
+        categories.push("edge cases");
+      if (result.summary.boundariesRespected < result.summary.boundariesTotal)
+        categories.push("boundaries");
+      if (!result.summary.errorHandlingWorks) categories.push("error handling");
+
       recommendations.push(
-        "Tool has basic functionality but needs improvements in edge cases and error handling",
+        `⚠️ Partial functionality: ${result.scenariosPassed}/${result.totalScenarios} scenarios passed, ${failedCount} failed. Issues in: ${categories.join(", ")}`,
       );
     }
 

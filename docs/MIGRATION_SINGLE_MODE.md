@@ -104,9 +104,11 @@ All comprehensive testing features remain available:
 
 This is expected behavior. Comprehensive testing is more thorough and takes longer. If you need faster results:
 
-1. Reduce `maxToolsToTestForErrors` to test fewer tools for error handling (default is -1 for all)
+1. Use the **tool selector dropdown** in Assessment Configuration to select specific tools for error handling tests (uncheck slow/problematic tools)
 2. Run assessments less frequently during development
 3. Use the CLI for quick tool testing during development, full assessment for validation
+
+**Note**: As of 2025-10-10, you can visually select which tools to test via a multi-select dropdown with checkboxes instead of using the old numeric `maxToolsToTestForErrors` config.
 
 ### "I preferred the quick smoke tests"
 
@@ -127,9 +129,14 @@ For quick smoke tests during development, consider:
 
 The simple testing mode has been permanently removed. However, if you need lightweight testing:
 
-1. You can modify `maxToolsToTestForErrors` to limit error handling tests
+1. Use the **tool selector dropdown** (Assessment Configuration → "Select tools for error handling tests:") to choose which tools to test
+   - Select specific tools by name with checkboxes
+   - Search/filter for large tool lists
+   - Use "Deselect All" to skip error handling entirely (fastest option)
 2. The core functionality testing is comprehensive but optimized (removed redundant scenarios)
 3. Future updates may include additional optimization while maintaining quality
+
+**Note**: The old numeric `maxToolsToTestForErrors` config is deprecated but still works for backward compatibility.
 
 ## Related Documentation
 

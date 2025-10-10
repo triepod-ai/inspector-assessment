@@ -274,26 +274,98 @@ export interface StructuredRecommendation {
   actionItems: string[];
 }
 
-// MCP Specification Compliance Assessment
+// MCP Specification Compliance Assessment - Hybrid Structure
+// Separates protocol-verified checks from metadata-based hints
+
+/**
+ * Individual protocol check result with evidence
+ */
+export interface ProtocolCheckResult {
+  passed: boolean;
+  confidence: "high" | "medium" | "low";
+  evidence?: string;
+  warnings?: string[];
+  rawResponse?: unknown;
+}
+
+/**
+ * Protocol checks that are actually tested via MCP calls
+ * HIGH CONFIDENCE - these are verified through actual protocol interaction
+ */
+export interface ProtocolChecks {
+  jsonRpcCompliance: ProtocolCheckResult;
+  serverInfoValidity: ProtocolCheckResult;
+  schemaCompliance: ProtocolCheckResult; // May have false positives from Zod/TypeBox
+  errorResponseCompliance: ProtocolCheckResult;
+  structuredOutputSupport: ProtocolCheckResult;
+}
+
+/**
+ * Metadata-based hints parsed from serverInfo
+ * LOW CONFIDENCE - these are NOT tested, just parsed from metadata
+ */
+export interface MetadataHints {
+  confidence: "low"; // Always low - these are just hints
+  requiresManualVerification: true;
+
+  transportHints?: {
+    detectedTransport?: string;
+    supportsStdio: boolean;
+    supportsHTTP: boolean;
+    supportsSSE: boolean;
+    detectionMethod: "metadata" | "assumed";
+  };
+
+  oauthHints?: {
+    hasOAuthConfig: boolean;
+    supportsOAuth: boolean;
+    supportsPKCE: boolean;
+    resourceIndicators?: string[];
+  };
+
+  annotationHints?: {
+    supportsReadOnlyHint: boolean;
+    supportsDestructiveHint: boolean;
+    supportsTitleAnnotation: boolean;
+    customAnnotations?: string[];
+  };
+
+  streamingHints?: {
+    supportsStreaming: boolean;
+    streamingProtocol?: "http-streaming" | "sse" | "websocket";
+  };
+
+  manualVerificationSteps: string[];
+}
+
+/**
+ * MCP Spec Compliance Assessment - Hybrid Structure
+ * Clearly separates verified protocol checks from unverified metadata hints
+ */
 export interface MCPSpecComplianceAssessment {
   protocolVersion: string;
-  complianceScore: number; // Added missing property that UI expects
-  transportCompliance: TransportComplianceMetrics;
-  oauthImplementation?: OAuthComplianceMetrics;
-  annotationSupport: AnnotationSupportMetrics;
-  streamingSupport: StreamingSupportMetrics;
-  status: AssessmentStatus;
-  explanation: string;
-  recommendations: (string | StructuredRecommendation)[]; // Support both legacy strings and structured
 
-  // Assessment metadata
-  assessmentMetadata?: {
-    automatedTestsRun: number;
-    manualVerificationRequired: boolean;
-    confidenceLevel: "high" | "medium" | "low";
-    frameworkDetected?: string;
-    detectionLimitations?: string[];
-  };
+  // HIGH CONFIDENCE: Actually tested via protocol
+  protocolChecks: ProtocolChecks;
+
+  // LOW CONFIDENCE: Parsed from metadata (not tested)
+  metadataHints?: MetadataHints;
+
+  // Overall assessment based on protocol checks only
+  status: AssessmentStatus;
+  complianceScore: number; // Based only on protocolChecks (0-100)
+  explanation: string;
+  recommendations: string[]; // Simplified - no structured recommendations
+
+  // Legacy fields - deprecated but kept for backward compatibility
+  /** @deprecated Use protocolChecks and metadataHints instead */
+  transportCompliance?: TransportComplianceMetrics;
+  /** @deprecated Use metadataHints.oauthHints instead */
+  oauthImplementation?: OAuthComplianceMetrics;
+  /** @deprecated Use metadataHints.annotationHints instead */
+  annotationSupport?: AnnotationSupportMetrics;
+  /** @deprecated Use metadataHints.streamingHints instead */
+  streamingSupport?: StreamingSupportMetrics;
 }
 
 export interface TransportComplianceMetrics {
@@ -589,8 +661,11 @@ export interface AssessmentConfiguration {
   maxParallelTests?: number;
   // Testing configuration (always uses comprehensive multi-scenario testing)
   scenariosPerTool?: number; // Max scenarios per tool (default 5-20 based on complexity)
-  maxToolsToTestForErrors?: number; // Max number of tools to test for error handling (default -1 for all, use positive number to limit)
+  maxToolsToTestForErrors?: number; // @deprecated Use selectedToolsForErrorTesting instead. Max number of tools to test for error handling (default -1 for all, use positive number to limit)
+  selectedToolsForErrorTesting?: string[]; // Array of tool names to test for error handling. Empty array or undefined = test all tools
   securityPatternsToTest?: number; // Number of security patterns to test (default all 17, reviewer mode uses 3)
+  // Security testing mode: Basic (3 patterns, ~48 tests) or Advanced (18 patterns)
+  enableDomainTesting?: boolean; // Enable advanced security testing with all 18 attack patterns (default true)
   mcpProtocolVersion?: string;
   assessmentCategories?: {
     functionality: boolean;
@@ -611,6 +686,7 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
   maxParallelTests: 5,
   maxToolsToTestForErrors: -1, // Default to test ALL tools for comprehensive compliance
   securityPatternsToTest: 17, // Test all security patterns by default
+  enableDomainTesting: true, // Enable advanced security testing by default (all 18 attack patterns)
   mcpProtocolVersion: "2025-06",
   assessmentCategories: {
     functionality: true,
@@ -634,6 +710,7 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
   scenariosPerTool: 1, // Single realistic test per tool
   maxToolsToTestForErrors: 3, // Test only first 3 tools for error handling
   securityPatternsToTest: 3, // Test only 3 critical security patterns
+  enableDomainTesting: false, // Use basic security testing for speed (3 patterns)
   mcpProtocolVersion: "2025-06",
   assessmentCategories: {
     functionality: true,
@@ -655,6 +732,7 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
   maxParallelTests: 5,
   maxToolsToTestForErrors: -1, // Test ALL tools
   securityPatternsToTest: 17, // Test all security patterns
+  enableDomainTesting: true, // Enable advanced security testing (all 18 patterns)
   mcpProtocolVersion: "2025-06",
   assessmentCategories: {
     functionality: true,

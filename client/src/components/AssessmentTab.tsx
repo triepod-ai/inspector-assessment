@@ -3,13 +3,13 @@
  * UI for running systematic MCP server assessments
  */
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Play,
   Download,
@@ -27,6 +27,7 @@ import {
   Code2,
   Check,
   X,
+  Info,
 } from "lucide-react";
 import {
   MCPDirectoryAssessment,
@@ -58,9 +59,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AssessmentSummary } from "./AssessmentSummary";
-import { AssessmentChecklist } from "./AssessmentChecklist";
 import { ReviewerAssessmentView } from "./ReviewerAssessmentView";
+import { UnifiedAssessmentHeader } from "./UnifiedAssessmentHeader";
+import { ToolSelector } from "./ui/tool-selector";
 
 interface AssessmentTabProps {
   tools: Tool[];
@@ -114,6 +115,16 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
     () => new MCPAssessmentService(config),
     [config],
   );
+
+  // Initialize selectedToolsForErrorTesting when tools change
+  useEffect(() => {
+    if (tools.length > 0 && !config.selectedToolsForErrorTesting) {
+      setConfig({
+        ...config,
+        selectedToolsForErrorTesting: tools.map((t) => t.name),
+      });
+    }
+  }, [tools, config, setConfig]);
 
   /**
    * Calculate the overall status based on filtered categories
@@ -316,55 +327,73 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Label
-                htmlFor="maxToolsToTest"
-                title="Limits how many tools receive intensive error handling tests. This is a subset of tool testing. Use -1 to test all tools."
-              >
-                Error handling test limit:
-              </Label>
-              <Input
-                id="maxToolsToTest"
-                type="number"
-                min="-1"
-                value={config.maxToolsToTestForErrors ?? 3}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value);
-                  if (!isNaN(value)) {
-                    setConfig({ ...config, maxToolsToTestForErrors: value });
-                  }
+            <Label htmlFor="tool-selector">
+              Select tools for error handling tests:
+            </Label>
+            {isLoadingTools ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading tools...
+              </div>
+            ) : tools.length === 0 ? (
+              <div className="text-sm text-muted-foreground">
+                Load tools first to select which tools to test
+              </div>
+            ) : (
+              <ToolSelector
+                availableTools={tools.map((t) => t.name)}
+                selectedTools={
+                  config.selectedToolsForErrorTesting ??
+                  tools.map((t) => t.name)
+                }
+                onChange={(selectedTools) => {
+                  setConfig({
+                    ...config,
+                    selectedToolsForErrorTesting: selectedTools,
+                  });
                 }}
                 disabled={isRunning}
-                className="w-20"
-                title="Limits error handling tests only. Set to -1 for all tools, or a smaller number for faster testing"
+                placeholder="Search tools..."
               />
-              <span className="text-sm text-muted-foreground">
-                {isLoadingTools ? (
-                  <span className="flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Loading tools...
-                  </span>
-                ) : tools.length > 0 ? (
-                  config.maxToolsToTestForErrors === -1 ? (
-                    `all ${tools.length} tools`
-                  ) : (
-                    `${config.maxToolsToTestForErrors} of ${tools.length} tools`
-                  )
-                ) : (
-                  "(tools not loaded)"
-                )}
-              </span>
-            </div>
-            {!isLoadingTools && tools.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                Load tools first to see available options
-              </p>
             )}
             {!isLoadingTools && tools.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Limits error handling tests only (the most intensive tests)
+                Select which tools to test for error handling (the most
+                intensive tests). All tools are selected by default.
               </p>
             )}
+          </div>
+
+          {/* Domain-specific Security Testing Toggle */}
+          <div className="space-y-2 border rounded-lg p-4 bg-blue-50 dark:bg-blue-950">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="domain-testing"
+                checked={config.enableDomainTesting ?? true}
+                onCheckedChange={(checked) =>
+                  setConfig({
+                    ...config,
+                    enableDomainTesting: checked as boolean,
+                  })
+                }
+                disabled={isRunning}
+              />
+              <Label htmlFor="domain-testing" className="cursor-pointer">
+                <span className="font-semibold">
+                  Enable Advanced Security Testing
+                </span>
+                <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">
+                  18 Attack Patterns
+                </span>
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground ml-6">
+              <strong>Basic:</strong> 3 critical patterns (~48 tests).{" "}
+              <strong>Advanced:</strong> All 18 patterns. Advanced mode tests
+              Direct Command Injection, Role Override, Data Exfiltration, System
+              Commands, Tool Shadowing, Context Escape, and 12+ other attack
+              vectors.
+            </p>
           </div>
 
           {/* Action Buttons */}
@@ -475,14 +504,12 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
             ) : (
               <>
                 {/* Developer Mode: Detailed View */}
-                {/* Summary Box - Ready for Submission Status */}
-                <AssessmentSummary
+                {/* Unified Assessment Header - combines summary, checklist, and overall assessment */}
+                <UnifiedAssessmentHeader
                   assessment={assessment}
                   isLoading={isRunning}
+                  onExportReport={downloadReport}
                 />
-
-                {/* Simple Checklist View */}
-                <AssessmentChecklist assessment={assessment} />
 
                 {/* Category Filter */}
                 <AssessmentCategoryFilter
@@ -515,33 +542,6 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                   }
                   isExtendedEnabled={config.enableExtendedAssessment || false}
                 />
-                <div className="bg-muted p-4 rounded-lg">
-                  <h3 className="text-lg font-semibold mb-2">
-                    Overall Assessment:{" "}
-                    {getStatusBadge(calculateFilteredOverallStatus(assessment))}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {assessment.summary}
-                  </p>
-                  {calculateFilteredOverallStatus(assessment) !==
-                    assessment.overallStatus && (
-                    <p className="text-xs text-muted-foreground italic">
-                      Note: Overall status recalculated based on selected
-                      categories (Original: {assessment.overallStatus})
-                    </p>
-                  )}
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>Server: {assessment.serverName}</div>
-                    <div>
-                      Date:{" "}
-                      {new Date(assessment.assessmentDate).toLocaleString()}
-                    </div>
-                    <div>Tests Run: {assessment.totalTestsRun}</div>
-                    <div>
-                      Time: {(assessment.executionTime / 1000).toFixed(2)}s
-                    </div>
-                  </div>
-                </div>
 
                 {/* Assessment Categories */}
                 {categoryFilter.functionality && (
@@ -2036,25 +2036,36 @@ const ErrorTestItem: React.FC<{
           ) : (
             <ChevronRight className="h-3 w-3 text-muted-foreground" />
           )}
-          {test.passed ? (
+          {/* Show INFO badge for informational tests */}
+          {test.testType === "invalid_values" ? (
+            <Info className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
+          ) : test.passed ? (
             <Check className="h-3 w-3 text-green-600 dark:text-green-400" />
           ) : (
             <X className="h-3 w-3 text-red-600 dark:text-red-400" />
           )}
           <span className="font-medium">
-            {test.testType
-              .replace(/_/g, " ")
-              .replace(/\b\w/g, (l: string) => l.toUpperCase())}
+            {test.testType === "invalid_values"
+              ? "Edge Case Handling (Informational)"
+              : test.testType
+                  .replace(/_/g, " ")
+                  .replace(/\b\w/g, (l: string) => l.toUpperCase())}
           </span>
         </div>
         <span
           className={`px-2 py-0.5 rounded text-xs ${
-            test.passed
-              ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100"
-              : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100"
+            test.testType === "invalid_values"
+              ? "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-100"
+              : test.passed
+                ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100"
+                : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100"
           }`}
         >
-          {test.passed ? "PASS" : "FAIL"}
+          {test.testType === "invalid_values"
+            ? "INFO"
+            : test.passed
+              ? "PASS"
+              : "FAIL"}
         </span>
       </div>
 
@@ -2076,6 +2087,17 @@ const ErrorTestItem: React.FC<{
             <div className="ml-2 mt-1 text-yellow-600 dark:text-yellow-400">
               {test.expectedError}
             </div>
+            {/* Informational disclaimer for invalid_values tests */}
+            {test.testType === "invalid_values" && (
+              <div className="mt-2 text-xs bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded p-2.5 flex items-start gap-2">
+                <Info className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                <div className="text-yellow-800 dark:text-yellow-200">
+                  <strong>Informational Only:</strong> This test does not affect
+                  the compliance score. Tools may accept or reject edge cases
+                  based on their implementation.
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Test Input */}
@@ -2116,8 +2138,16 @@ const ErrorTestItem: React.FC<{
                   )}
                 </div>
               ) : (
-                <div className="text-orange-600 dark:text-orange-400">
-                  No error returned (tool accepted invalid input)
+                <div
+                  className={
+                    test.testType === "invalid_values"
+                      ? "text-blue-600 dark:text-blue-400"
+                      : "text-orange-600 dark:text-orange-400"
+                  }
+                >
+                  {test.testType === "invalid_values"
+                    ? "Tool accepted edge case input gracefully (informational)"
+                    : "No error returned (tool accepted invalid input)"}
                 </div>
               )}
 
@@ -2168,6 +2198,8 @@ const CollapsibleToolSection: React.FC<{
   isCollapsed: boolean;
   onToggle: (toolName: string) => void;
 }> = ({ toolName, toolTests, isCollapsed, onToggle }) => {
+  const [showToolJson, setShowToolJson] = useState(false);
+
   // Calculate summary stats for the tool
   const totalTests = toolTests.length;
   const passedTests = toolTests.filter((t) => !t.vulnerable).length;
@@ -2200,11 +2232,28 @@ const CollapsibleToolSection: React.FC<{
               <span className="text-red-600">{failedTests} failed</span>
             </>
           )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowToolJson(!showToolJson);
+            }}
+            className="text-xs h-6 px-2"
+          >
+            <Code2 className="h-3 w-3 mr-1" />
+            {showToolJson ? "Hide" : "Show"} JSON
+          </Button>
         </div>
       </div>
 
       {!isCollapsed && (
         <div className="space-y-1 pl-2 mt-2">
+          {showToolJson && (
+            <div className="mb-3 p-3 bg-background border border-gray-200 rounded max-h-96 overflow-y-auto">
+              <JsonView data={toolTests} />
+            </div>
+          )}
           {toolTests.map((testResult, idx) => (
             <SecurityVulnerabilityItem
               key={`${toolName}-${testResult.testName}-${idx}`}
@@ -2511,7 +2560,7 @@ const generateTextReport = (
     "MCP DIRECTORY ASSESSMENT REPORT",
     "=".repeat(80),
     "",
-    `Server: ${assessment.serverName}`,
+    ...(assessment.serverName ? [`Server: ${assessment.serverName}`] : []),
     `Date: ${new Date(assessment.assessmentDate).toLocaleString()}`,
     `Assessor Version: ${assessment.assessorVersion}`,
     `Overall Status: ${effectiveStatus}${isFiltered ? ` (Filtered - Original: ${assessment.overallStatus})` : ""}`,

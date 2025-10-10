@@ -229,6 +229,7 @@ Our enhanced MCP Inspector includes a comprehensive assessment system that valid
    - Optimized progressive complexity testing (2 levels: minimal → simple)
    - Business logic validation to distinguish proper error handling from failures
    - Confidence scoring based on test coverage and consistency
+   - Evidence-based recommendations with transparent methodology (e.g., "5/5 scenarios verified (happy path, edge cases, boundaries, error handling)")
 
 2. **Error Handling**
    - Invalid input resilience testing
@@ -299,11 +300,19 @@ The assessment distinguishes between:
 
 Configure assessment behavior through the UI:
 
-| Setting                   | Description                                   | Default |
-| ------------------------- | --------------------------------------------- | ------- |
-| Error Handling Test Limit | Tools to test for error handling (-1 for all) | 3       |
+| Setting                           | Description                                                         | Default   |
+| --------------------------------- | ------------------------------------------------------------------- | --------- |
+| Tool Selection for Error Handling | Multi-select dropdown with checkboxes to choose which tools to test | All tools |
 
-**Note**: All functionality testing now uses comprehensive multi-scenario validation by default. Error handling tests can be limited to a subset of tools for faster testing.
+**Tool Selection** (as of 2025-10-10):
+
+- Visual multi-select dropdown with checkboxes for each tool
+- Search/filter functionality for large tool lists
+- "Select All" / "Deselect All" bulk operations
+- Shows "X of Y tools selected" count
+- Select 0 tools to skip error handling tests entirely (fastest option)
+
+**Note**: The old numeric "Error Handling Test Limit" has been replaced with the tool selector. The `maxToolsToTestForErrors` config field is deprecated but still works for backward compatibility.
 
 ### Viewing Assessment Results
 
@@ -317,6 +326,7 @@ The Assessment tab provides:
   - Actual responses received
   - Pass/fail status with confidence scores
   - Specific issues identified
+- **Per-Tool JSON Display** (New in 2025-10-10): Each tool in security assessment has its own "Show JSON" button to view only that tool's test results without scrolling through all tools
 - **Recommendations**: Actionable suggestions for improvement
 - **Test Coverage**: Visual indicators of testing completeness
 
