@@ -63,8 +63,7 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({
 
     const reportText = `MCP Directory Submission Report
 Generated: ${new Date().toLocaleString()}
-
-Server: ${report.serverName}
+${report.serverName ? `\nServer: ${report.serverName}` : ""}
 Overall Score: ${report.score}/100 (${report.classification})
 Status: ${report.readyForSubmission ? "✅ Ready for Submission" : "❌ Not Ready - Fix Issues First"}
 

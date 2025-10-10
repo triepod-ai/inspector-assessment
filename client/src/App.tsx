@@ -1158,7 +1158,9 @@ const App = () => {
                         const result = await callTool(name, params);
                         return result;
                       }}
-                      serverName={command || "MCP Server"}
+                      serverName={
+                        transportType === "stdio" ? command || "MCP Server" : ""
+                      }
                     />
                     <ConsoleTab />
                     <PingTab
