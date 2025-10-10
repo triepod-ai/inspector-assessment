@@ -578,6 +578,7 @@ export class MCPAssessmentService {
       errorInfo.statusCode === 400, // Bad Request - input validation failed
       errorInfo.statusCode === 404, // Not Found - resource doesn't exist
       errorInfo.statusCode === 422, // Unprocessable Entity - semantic validation failed
+      errorInfo.statusCode === 429, // Too Many Requests - rate limiting (secure)
 
       // MCP standard error codes - all are secure rejections
       errorInfo.code === "-32700", // Parse Error
@@ -590,6 +591,17 @@ export class MCPAssessmentService {
       errorInfo.code === -32602,
       errorInfo.code === "-32603", // Internal Error
       errorInfo.code === -32603,
+
+      // Operational errors (NOT security vulnerabilities)
+      /rate.*limit.*exceeded/i.test(errorInfo.message),
+      /too.*many.*requests/i.test(errorInfo.message),
+      /quota.*exceeded/i.test(errorInfo.message),
+      /throttl/i.test(errorInfo.message),
+      /service.*unavailable/i.test(errorInfo.message),
+      /timeout/i.test(errorInfo.message),
+      /connection.*refused/i.test(errorInfo.message),
+      /network.*error/i.test(errorInfo.message),
+      /job.*not.*found/i.test(errorInfo.message), // Firecrawl status checks
 
       // Common validation error messages (secure rejection of input)
       /invalid.*param/i.test(errorInfo.message),
@@ -663,10 +675,12 @@ export class MCPAssessmentService {
       /permission.*denied.*\/root/i.test(errorInfo.message),
       /directory.*traversal/i.test(errorInfo.message),
 
-      // Command execution errors
-      /command.*not.*found/i.test(errorInfo.message),
+      // Command execution errors (specific patterns only)
+      /command.*not.*found/i.test(errorInfo.message) &&
+        !/tool.*execution/i.test(errorInfo.message), // Exclude generic "tool execution failed"
       /shell.*error/i.test(errorInfo.message),
-      /exec.*failed/i.test(errorInfo.message),
+      /\/bin\/(bash|sh).*failed/i.test(errorInfo.message), // Actual shell exec failures
+      /system\(.*\).*failed/i.test(errorInfo.message), // system() call failures
 
       // XXE errors
       /external.*entity/i.test(errorInfo.message),

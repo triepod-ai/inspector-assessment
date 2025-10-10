@@ -45,7 +45,7 @@ export class SecurityAssessor extends BaseAssessor {
 
         try {
           const result = await this.testPromptInjection(
-            tool.name,
+            tool,
             testCase,
             context.callTool,
           );
@@ -110,7 +110,7 @@ export class SecurityAssessor extends BaseAssessor {
   }
 
   private async testPromptInjection(
-    toolName: string,
+    tool: any,
     testCase: Omit<SecurityTestResult, "vulnerable" | "evidence">,
     callTool: (
       name: string,
@@ -118,12 +118,22 @@ export class SecurityAssessor extends BaseAssessor {
     ) => Promise<CompatibilityCallToolResult>,
   ): Promise<SecurityTestResult> {
     try {
-      // Create test parameters with the injection payload
-      const params = this.createTestParameters(testCase.payload);
+      // Create test parameters with the injection payload using actual tool schema
+      const params = this.createTestParameters(testCase.payload, tool);
+
+      // Skip test if no valid parameters could be created
+      if (Object.keys(params).length === 0) {
+        return {
+          ...testCase,
+          toolName: tool.name,
+          vulnerable: false,
+          evidence: "Tool has no compatible parameters for testing",
+        };
+      }
 
       // Call the tool with injection payload
       const response = await this.executeWithTimeout(
-        callTool(toolName, params),
+        callTool(tool.name, params),
         5000, // 5 second timeout for security tests
       );
 
@@ -135,7 +145,7 @@ export class SecurityAssessor extends BaseAssessor {
 
       return {
         ...testCase,
-        toolName,
+        toolName: tool.name,
         vulnerable: isVulnerable,
         evidence,
         response: this.extractResponseContent(response),
@@ -144,7 +154,7 @@ export class SecurityAssessor extends BaseAssessor {
       // If tool errors out, it might be a good sign (input validation)
       return {
         ...testCase,
-        toolName,
+        toolName: tool.name,
         vulnerable: false,
         evidence: `Tool rejected input: ${this.extractErrorMessage(error)}`,
       };
@@ -246,6 +256,14 @@ export class SecurityAssessor extends BaseAssessor {
       /error.*collection/i, // Generic collection error messages
       /404.*not found/i, // HTTP 404 responses
       /doesn't exist/i, // Existence check failures
+      /invalid.*parameter/i, // "Invalid parameter value"
+      /unexpected.*parameter/i, // "Unexpected parameter"
+      /unknown.*parameter/i, // "Unknown parameter"
+      /parameter.*not.*found/i, // "Parameter not found"
+      /missing.*required/i, // "Missing required parameter"
+      /validation.*failed/i, // "Validation failed"
+      /bad request/i, // HTTP 400 responses
+      /invalid.*input/i, // "Invalid input"
     ];
 
     // Check if response contains reflection patterns
@@ -442,20 +460,56 @@ export class SecurityAssessor extends BaseAssessor {
     return schema?.properties && Object.keys(schema.properties).length > 0;
   }
 
-  private createTestParameters(payload: string): Record<string, unknown> {
-    // Create parameters based on common parameter names
-    return {
-      query: payload,
-      input: payload,
-      text: payload,
-      content: payload,
-      command: payload,
-      prompt: payload,
-      message: payload,
-      data: payload,
-      value: payload,
-      code: payload,
-    };
+  private createTestParameters(
+    payload: string,
+    tool: any,
+  ): Record<string, unknown> {
+    // Extract tool schema
+    const schema =
+      typeof tool.inputSchema === "string"
+        ? this.safeJsonParse(tool.inputSchema)
+        : tool.inputSchema;
+
+    if (!schema?.properties) {
+      return {};
+    }
+
+    const schemaParams = Object.keys(schema.properties);
+
+    // Common parameter names we test against
+    const genericNames = [
+      "query",
+      "input",
+      "text",
+      "content",
+      "command",
+      "prompt",
+      "message",
+      "data",
+      "value",
+      "code",
+    ];
+
+    const params: Record<string, unknown> = {};
+
+    // Only populate parameters that exist in the tool's schema
+    for (const paramName of schemaParams) {
+      if (genericNames.includes(paramName)) {
+        params[paramName] = payload;
+      }
+    }
+
+    // If no generic parameters matched, try the first available parameter
+    // This handles tools with specific parameter names like 'url', 'searchQuery', etc.
+    if (Object.keys(params).length === 0 && schemaParams.length > 0) {
+      const firstParam = schemaParams[0];
+      params[firstParam] = payload;
+      this.log(
+        `No generic parameter match for ${tool.name}, using first param: ${firstParam}`,
+      );
+    }
+
+    return params;
   }
 
   private extractResponseContent(
