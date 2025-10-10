@@ -259,6 +259,21 @@ export interface UsabilityAssessment {
   recommendations: string[];
 }
 
+// Structured recommendation with confidence metadata
+export interface StructuredRecommendation {
+  id: string;
+  title: string;
+  severity: "critical" | "warning" | "enhancement";
+  confidence: "high" | "medium" | "low";
+  detectionMethod: "automated" | "manual-required";
+  category: string;
+  description: string;
+  requiresManualVerification: boolean;
+  manualVerificationSteps?: string[];
+  contextNote?: string;
+  actionItems: string[];
+}
+
 // MCP Specification Compliance Assessment
 export interface MCPSpecComplianceAssessment {
   protocolVersion: string;
@@ -269,7 +284,16 @@ export interface MCPSpecComplianceAssessment {
   streamingSupport: StreamingSupportMetrics;
   status: AssessmentStatus;
   explanation: string;
-  recommendations: string[];
+  recommendations: (string | StructuredRecommendation)[]; // Support both legacy strings and structured
+
+  // Assessment metadata
+  assessmentMetadata?: {
+    automatedTestsRun: number;
+    manualVerificationRequired: boolean;
+    confidenceLevel: "high" | "medium" | "low";
+    frameworkDetected?: string;
+    detectionLimitations?: string[];
+  };
 }
 
 export interface TransportComplianceMetrics {
@@ -280,6 +304,12 @@ export interface TransportComplianceMetrics {
   // Added missing properties that UI expects
   supportsStdio?: boolean;
   supportsSSE?: boolean;
+
+  // Detection metadata
+  confidence?: "high" | "medium" | "low";
+  detectionMethod?: "automated" | "manual-required";
+  requiresManualCheck?: boolean;
+  manualVerificationSteps?: string[];
 }
 
 export interface OAuthComplianceMetrics {
@@ -576,7 +606,7 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
   testTimeout: 30000, // 30 seconds per tool
   skipBrokenTools: false,
   reviewerMode: false,
-  enableExtendedAssessment: false,
+  enableExtendedAssessment: true, // Enable MCP Spec Compliance assessment by default
   parallelTesting: false,
   maxParallelTests: 5,
   maxToolsToTestForErrors: -1, // Default to test ALL tools for comprehensive compliance

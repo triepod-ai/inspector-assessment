@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   MCPSpecComplianceAssessment,
   AssessmentStatus,
+  StructuredRecommendation,
 } from "@/lib/assessmentTypes";
 import JsonView from "./JsonView";
 
@@ -197,12 +198,114 @@ export const MCPSpecComplianceDisplay: React.FC<MCPSpecComplianceProps> = ({
         {assessment.recommendations &&
           assessment.recommendations.length > 0 && (
             <div>
-              <h5 className="text-sm font-semibold">Recommendations</h5>
-              <ul className="list-disc list-inside text-sm mt-1 space-y-1">
-                {assessment.recommendations.map((rec, idx) => (
-                  <li key={idx}>{rec}</li>
-                ))}
-              </ul>
+              <h5 className="text-sm font-semibold mb-2">Recommendations</h5>
+              <div className="space-y-3">
+                {assessment.recommendations.map((rec, idx) => {
+                  // Handle legacy string recommendations
+                  if (typeof rec === "string") {
+                    return (
+                      <div key={idx} className="text-sm">
+                        • {rec}
+                      </div>
+                    );
+                  }
+
+                  // Handle structured recommendations
+                  const structRec = rec as StructuredRecommendation;
+                  const getSeverityIcon = () => {
+                    switch (structRec.severity) {
+                      case "critical":
+                        return "🔴";
+                      case "warning":
+                        return "⚠️";
+                      case "enhancement":
+                        return "💡";
+                      default:
+                        return "ℹ️";
+                    }
+                  };
+
+                  const getConfidenceBadge = () => {
+                    switch (structRec.confidence) {
+                      case "high":
+                        return (
+                          <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                            🟢 HIGH
+                          </span>
+                        );
+                      case "medium":
+                        return (
+                          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
+                            🟡 MEDIUM
+                          </span>
+                        );
+                      case "low":
+                        return (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                            🔵 LOW - Needs Review
+                          </span>
+                        );
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={idx}
+                      className="border rounded p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span>{getSeverityIcon()}</span>
+                          <span className="font-semibold text-sm">
+                            {structRec.title}
+                          </span>
+                        </div>
+                        {getConfidenceBadge()}
+                      </div>
+
+                      <p className="text-sm text-gray-700 mt-1">
+                        {structRec.description}
+                      </p>
+
+                      {structRec.contextNote && (
+                        <div className="bg-blue-50 border-l-4 border-blue-400 p-2 rounded text-sm mt-2 text-gray-800">
+                          <span className="font-semibold text-blue-900">
+                            Context:
+                          </span>{" "}
+                          {structRec.contextNote}
+                        </div>
+                      )}
+
+                      {structRec.requiresManualVerification &&
+                        structRec.manualVerificationSteps && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer text-sm font-semibold text-blue-600 hover:text-blue-800">
+                              📋 Manual Verification Steps
+                            </summary>
+                            <ul className="list-disc list-inside text-sm mt-1 ml-4 text-gray-700">
+                              {structRec.manualVerificationSteps.map(
+                                (step, i) => (
+                                  <li key={i}>{step}</li>
+                                ),
+                              )}
+                            </ul>
+                          </details>
+                        )}
+
+                      <div className="mt-2">
+                        <p className="text-xs font-semibold text-gray-600">
+                          Action Items:
+                        </p>
+                        <ul className="list-disc list-inside text-xs ml-2 text-gray-600">
+                          {structRec.actionItems.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
       </div>

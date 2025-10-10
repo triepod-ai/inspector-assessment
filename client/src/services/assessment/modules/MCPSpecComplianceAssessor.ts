@@ -11,6 +11,7 @@ import {
   AnnotationSupportMetrics,
   StreamingSupportMetrics,
   AssessmentConfiguration,
+  StructuredRecommendation,
 } from "@/lib/assessmentTypes";
 import {
   Tool,
@@ -42,11 +43,13 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
     const tools = context.tools;
     const callTool = context.callTool;
 
-    // Run basic compliance checks
+    // Run basic compliance checks (some return detailed objects now)
+    const schemaCheck = this.checkSchemaCompliance(tools);
+
     const complianceChecks = {
       serverInfoValidity: this.checkServerInfoValidity(context.serverInfo),
       jsonRpcCompliance: await this.checkJsonRpcCompliance(callTool),
-      schemaCompliance: this.checkSchemaCompliance(tools),
+      schemaCompliance: schemaCheck.passed,
       protocolVersionHandling: true, // Assume working if we got this far
       errorResponseCompliance: await this.checkErrorResponses(tools, callTool),
       structuredOutputSupport: this.checkStructuredOutputSupport(tools), // NEW: 2025-06-18 feature
@@ -78,7 +81,11 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
       complianceScore,
       complianceChecks,
     );
-    const recommendations = this.generateRecommendations(complianceChecks);
+    const recommendations = this.generateRecommendations(
+      complianceChecks,
+      schemaCheck,
+      transportCompliance,
+    );
 
     // Add annotation and streaming support metrics
     const annotationSupport = this.assessAnnotationSupport(context);
@@ -176,25 +183,44 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
   /**
    * Check schema compliance for all tools
    */
-  private checkSchemaCompliance(tools: Tool[]): boolean {
+  private checkSchemaCompliance(tools: Tool[]): {
+    passed: boolean;
+    confidence: "high" | "medium" | "low";
+    details?: string;
+  } {
     try {
+      let hasErrors = false;
+      const errors: string[] = [];
+
       for (const tool of tools) {
         if (tool.inputSchema) {
           // Validate that the schema is valid JSON Schema
           const isValid = this.ajv.validateSchema(tool.inputSchema);
           if (!isValid) {
+            hasErrors = true;
+            const errorMsg = `${tool.name}: ${JSON.stringify(this.ajv.errors)}`;
+            errors.push(errorMsg);
             console.warn(
               `Invalid schema for tool ${tool.name}:`,
               this.ajv.errors,
             );
-            return false;
           }
         }
       }
-      return true;
+
+      // If errors found, mark as low confidence (likely Zod conversion issues)
+      return {
+        passed: !hasErrors,
+        confidence: hasErrors ? "low" : "high",
+        details: hasErrors ? errors.join("; ") : undefined,
+      };
     } catch (error) {
       console.error("Schema compliance check failed:", error);
-      return false;
+      return {
+        passed: false,
+        confidence: "low",
+        details: String(error),
+      };
     }
   }
 
@@ -338,6 +364,14 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
         transportValidation: "failed",
         supportsStdio: false,
         supportsSSE: false,
+        confidence: "low",
+        detectionMethod: "manual-required",
+        requiresManualCheck: true,
+        manualVerificationSteps: [
+          "Test STDIO: Run `npm start`, send JSON-RPC initialize request",
+          "Test HTTP: Set HTTP_STREAMABLE_SERVER=true, run `npm start`, test /health endpoint",
+          "Check if framework handles transports internally",
+        ],
       };
     }
 
@@ -346,6 +380,8 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
       | Record<string, unknown>
       | undefined;
     const transport = metadata?.transport as string | undefined;
+    const hasTransportMetadata = !!transport;
+
     const supportsStreamableHTTP =
       transport === "streamable-http" ||
       transport === "http" ||
@@ -380,6 +416,10 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
       );
     }
 
+    // Determine confidence based on detection method
+    const confidence = hasTransportMetadata ? "medium" : "low";
+    const requiresManualCheck = !hasTransportMetadata;
+
     return {
       supportsStreamableHTTP: supportsStreamableHTTP,
       deprecatedSSE: deprecatedSSE,
@@ -387,6 +427,18 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
       // Added missing properties that UI expects
       supportsStdio: transport === "stdio" || !transport,
       supportsSSE: deprecatedSSE,
+      // Detection metadata
+      confidence,
+      detectionMethod: hasTransportMetadata ? "automated" : "manual-required",
+      requiresManualCheck,
+      manualVerificationSteps: requiresManualCheck
+        ? [
+            "Test STDIO: Run `npm start`, send JSON-RPC initialize request via stdin",
+            "Test HTTP: Set HTTP_STREAMABLE_SERVER=true, run `npm start`, curl http://localhost:3000/health",
+            "Check if framework (e.g., FastMCP, firecrawl-fastmcp) handles transports internally",
+            "Review server startup logs for transport initialization messages",
+          ]
+        : undefined,
     };
   }
 
@@ -513,40 +565,147 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
   }
 
   /**
-   * Generate actionable recommendations
+   * Generate structured actionable recommendations with confidence levels
    */
-  private generateRecommendations(checks: Record<string, boolean>): string[] {
-    const recommendations: string[] = [];
+  private generateRecommendations(
+    checks: Record<string, boolean>,
+    schemaCheck: { passed: boolean; confidence: string; details?: string },
+    transportCompliance: TransportComplianceMetrics,
+  ): (string | StructuredRecommendation)[] {
+    const recommendations: (string | StructuredRecommendation)[] = [];
 
-    if (!checks.jsonRpcCompliance) {
-      recommendations.push(
-        "Ensure JSON-RPC 2.0 protocol compliance with proper request/response format",
-      );
+    // Transport detection - manual verification required
+    if (transportCompliance.requiresManualCheck) {
+      recommendations.push({
+        id: "transport-detection-failed",
+        title: "Transport Support - Manual Verification Required",
+        severity: "critical",
+        confidence: transportCompliance.confidence || "low",
+        detectionMethod: "manual-required",
+        category: "Transport Compliance",
+        description:
+          "Automated detection could not verify transport support. This may be a framework limitation.",
+        requiresManualVerification: true,
+        manualVerificationSteps:
+          transportCompliance.manualVerificationSteps || [
+            "Test STDIO transport manually",
+            "Test HTTP transport manually",
+          ],
+        contextNote:
+          "Framework may handle transports internally (e.g., FastMCP, firecrawl-fastmcp). Transport absence from metadata does not mean transports don't work.",
+        actionItems: [
+          "Manually test STDIO transport",
+          "Manually test HTTP transport",
+          "If transports work, this is a false negative - no action needed",
+        ],
+      });
     }
 
-    if (!checks.schemaCompliance) {
-      recommendations.push(
-        "Fix JSON Schema validation errors in tool definitions",
-      );
+    // Schema validation with low confidence
+    if (!schemaCheck.passed) {
+      recommendations.push({
+        id: "schema-validation-warnings",
+        title: "JSON Schema Validation Warnings",
+        severity: "warning",
+        confidence:
+          (schemaCheck.confidence as "high" | "medium" | "low") || "low",
+        detectionMethod:
+          schemaCheck.confidence === "low" ? "manual-required" : "automated",
+        category: "Schema Compliance",
+        description:
+          "JSON Schema validation errors detected in tool definitions. May be false positives from schema library conversion.",
+        requiresManualVerification: schemaCheck.confidence === "low",
+        manualVerificationSteps: [
+          "Test if tools execute successfully when called",
+          "Check if parameters are accepted correctly",
+          "Review source code: Are schemas defined with Zod or TypeBox?",
+          "These libraries may not convert perfectly to JSON Schema",
+        ],
+        contextNote:
+          "Framework-specific schema libraries (Zod, TypeBox, etc.) may cause false positives during JSON Schema validation. If tools work correctly, this is likely a conversion artifact.",
+        actionItems: [
+          "Test tool execution manually with sample parameters",
+          "If tools work correctly, schema conversion is the issue - not a real problem",
+          "Optionally: Add explicit JSON Schema if needed for compliance",
+        ],
+      });
+    }
+
+    if (!checks.jsonRpcCompliance) {
+      recommendations.push({
+        id: "jsonrpc-compliance",
+        title: "JSON-RPC 2.0 Compliance Issue",
+        severity: "critical",
+        confidence: "high",
+        detectionMethod: "automated",
+        category: "Protocol Compliance",
+        description: "Server does not properly implement JSON-RPC 2.0 protocol",
+        requiresManualVerification: false,
+        actionItems: [
+          "Ensure all requests/responses follow JSON-RPC 2.0 format",
+          "Include proper jsonrpc, id, method/result fields",
+          "Return structured error objects for failures",
+        ],
+      });
     }
 
     if (!checks.errorResponseCompliance) {
-      recommendations.push(
-        "Ensure error responses follow MCP specification format",
-      );
+      recommendations.push({
+        id: "error-response-compliance",
+        title: "Error Response Format Issue",
+        severity: "warning",
+        confidence: "high",
+        detectionMethod: "automated",
+        category: "Error Handling",
+        description: "Error responses do not follow MCP specification format",
+        requiresManualVerification: false,
+        actionItems: [
+          "Return proper MCP error objects",
+          "Include error codes and messages",
+          "Follow JSON-RPC 2.0 error format",
+        ],
+      });
     }
 
-    // New 2025-06-18 feature recommendations
+    // New 2025-06-18 feature recommendations (high confidence)
     if (!checks.structuredOutputSupport) {
-      recommendations.push(
-        "Consider adding outputSchema to tools for type-safe responses (MCP 2025-06-18 feature)",
-      );
+      recommendations.push({
+        id: "add-output-schema",
+        title: "Add outputSchema to Tools",
+        severity: "enhancement",
+        confidence: "high",
+        detectionMethod: "automated",
+        category: "Type Safety",
+        description:
+          "Tools are missing outputSchema for type-safe responses. This is an optional enhancement.",
+        requiresManualVerification: false,
+        contextNote:
+          "MCP 2025-06-18 feature for better Claude integration and type safety",
+        actionItems: [
+          "Add outputSchema to all tools",
+          "Define structured response formats",
+          "Improves type safety and Claude's understanding of responses",
+        ],
+      });
     }
 
     if (!checks.batchRejection) {
-      recommendations.push(
-        "Ensure server rejects batched JSON-RPC requests (required in MCP 2025-06-18)",
-      );
+      recommendations.push({
+        id: "batch-rejection",
+        title: "Batch Request Handling",
+        severity: "warning",
+        confidence: "high",
+        detectionMethod: "automated",
+        category: "Protocol Compliance",
+        description:
+          "Server should reject batched JSON-RPC requests (required in MCP 2025-06-18)",
+        requiresManualVerification: false,
+        actionItems: [
+          "Detect batched JSON-RPC requests (arrays)",
+          "Return error for batched requests",
+          "MCP only supports single requests per message",
+        ],
+      });
     }
 
     if (recommendations.length === 0) {
