@@ -45,6 +45,18 @@ bunx @bryan-thompson/inspector-assessment
 
 The web interface will open at http://localhost:6274
 
+## For MCP Directory Reviewers
+
+If you're reviewing MCP servers for the Anthropic MCP Directory, see our **[Reviewer Quick Start Guide](docs/REVIEWER_QUICK_START.md)** for:
+
+- **60-second fast screening** workflow for approve/reject decisions
+- **5-minute detailed review** process for borderline cases
+- **Common pitfalls** explanation (false positives in security, informational vs scored tests)
+- **Decision matrix** with clear approval criteria
+- **Fast CLI analysis** commands for troubleshooting
+
+The quick start guide is optimized for fast reviewer onboarding and provides clear guidance on interpreting assessment results.
+
 ## About This Fork
 
 This is an enhanced fork of [Anthropic's MCP Inspector](https://github.com/modelcontextprotocol/inspector) with significantly expanded assessment capabilities for MCP server validation and testing.
