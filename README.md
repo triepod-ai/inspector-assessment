@@ -1,8 +1,49 @@
-# MCP Inspector
+# MCP Inspector Assessment
+
+[![npm version](https://badge.fury.io/js/@bryan-thompson%2Finspector-assessment.svg)](https://www.npmjs.com/package/@bryan-thompson/inspector-assessment)
+[![npm downloads](https://img.shields.io/npm/dm/@bryan-thompson/inspector-assessment.svg)](https://www.npmjs.com/package/@bryan-thompson/inspector-assessment)
 
 The MCP inspector is a developer tool for testing and debugging MCP servers with comprehensive assessment capabilities for validating server functionality, security, documentation, and compliance.
 
 ![MCP Inspector Screenshot](./mcp-inspector.png)
+
+## Installation
+
+**npm (global installation):**
+
+```bash
+npm install -g @bryan-thompson/inspector-assessment
+```
+
+**Or use directly with bunx (no installation):**
+
+```bash
+bunx @bryan-thompson/inspector-assessment
+```
+
+**Local installation for development:**
+
+```bash
+git clone https://github.com/triepod-ai/inspector-assessment.git
+cd inspector-assessment
+npm install
+npm run build
+npm run dev
+```
+
+## Quick Start
+
+After installation, launch the inspector:
+
+```bash
+# Using global install
+mcp-inspector-assess
+
+# Using bunx
+bunx @bryan-thompson/inspector-assessment
+```
+
+The web interface will open at http://localhost:6274
 
 ## About This Fork
 
@@ -10,6 +51,8 @@ This is an enhanced fork of [Anthropic's MCP Inspector](https://github.com/model
 
 **Original Repository**: https://github.com/modelcontextprotocol/inspector
 **Our Enhanced Fork**: https://github.com/triepod-ai/inspector-assessment
+
+**⚠️ Important**: This is a published fork with assessment enhancements. If you want the official Anthropic inspector without assessment features, use `npx @modelcontextprotocol/inspector`.
 
 ### What We Added
 
@@ -27,13 +70,14 @@ We've built a comprehensive assessment framework on top of the original inspecto
 
 Our enhanced fork maintains high code quality standards with comprehensive testing and validation:
 
-- **Test Coverage**: ✅ 464 tests passing (100% pass rate)
+- **Test Coverage**: ✅ 582/582 tests passing (100% pass rate)
   - **Assessment Module Tests**: 208 tests specifically validating our assessment enhancements
     - Business logic error detection with confidence scoring
     - Progressive complexity testing (2 levels: minimal → simple)
     - Context-aware security testing with zero false positives
     - Realistic test data generation and boundary testing
-  - **Total Project Tests**: 464 tests including assessment modules, UI components, and core inspector functionality
+  - **Total Project Tests**: 582 tests including assessment modules, UI components, and core inspector functionality
+  - All tests updated to reflect comprehensive mode (18 security patterns × 3 payloads per tool)
   - Test files: `client/src/services/__tests__/` and `client/src/services/assessment/__tests__/`
 - **Code Quality**: ✅ Production code uses proper TypeScript types
   - 229 lint issues remaining (down 18% from 280 after recent cleanup)
@@ -50,7 +94,7 @@ Our enhanced fork maintains high code quality standards with comprehensive testi
 **Testing Commands**:
 
 ```bash
-npm test                         # Run all 464 tests
+npm test                         # Run all 582 tests
 npm test -- assessment           # Run all 208 assessment module tests
 npm test -- assessmentService    # Run assessment service integration tests (54 tests)
 npm test -- SecurityAssessor     # Run security assessment tests (16 tests)
@@ -379,7 +423,7 @@ Our assessment capabilities are backed by a comprehensive test suite that valida
 
 **Test Coverage Summary**:
 
-- **464 passing tests** across all project modules (100% pass rate)
+- **582 passing tests** across all project modules (100% pass rate)
 - **208 assessment module tests** specifically created for validation of our enhancements
 
 #### Assessment Module Test Breakdown
@@ -434,14 +478,15 @@ These 208 tests specifically validate:
 - **Optimization Tests**: Boundary scenario conditional generation, progressive complexity efficiency
 - **Test Files**: Located in `client/src/services/__tests__/` and `client/src/services/assessment/__tests__/`
 - **Recent Improvements**:
-  - Achieved 100% test pass rate (464 passing, 0 failing) - 2025-10-05
+  - Achieved 100% test pass rate (582 passing, 0 failing) - 2025-10-11
+  - Updated all tests for comprehensive mode (18 security patterns × 3 payloads) - 2025-10-11
   - Fixed all failing tests after upstream sync - 2025-10-04
   - Added boundary testing optimization validation - 2025-10-05
 
 **Running the Test Suite**:
 
 ```bash
-npm test                                 # Run all 464 tests
+npm test                                 # Run all 582 tests
 npm test -- assessmentService            # Run main assessment tests
 npm test -- FunctionalityAssessor        # Run specific assessor tests
 npm test -- SecurityAssessor             # Run security tests
@@ -465,13 +510,15 @@ Programmatically run assessments using the CLI:
 
 ```bash
 # Run full assessment
-npx @modelcontextprotocol/inspector --cli node build/index.js --assess
+mcp-inspector-assess-cli node build/index.js --assess
+# or with npx
+npx @bryan-thompson/inspector-assessment-cli node build/index.js --assess
 
 # Run specific category
-npx @modelcontextprotocol/inspector --cli node build/index.js --assess functionality
+mcp-inspector-assess-cli node build/index.js --assess functionality
 
 # Export assessment results
-npx @modelcontextprotocol/inspector --cli node build/index.js --assess --output assessment-report.json
+mcp-inspector-assess-cli node build/index.js --assess --output assessment-report.json
 ```
 
 ## Running the Inspector
@@ -485,14 +532,16 @@ npx @modelcontextprotocol/inspector --cli node build/index.js --assess --output 
 To get up and running right away with the UI, just execute the following:
 
 ```bash
-npx @modelcontextprotocol/inspector
+bunx @bryan-thompson/inspector-assessment
+# or with npx
+npx @bryan-thompson/inspector-assessment
 ```
 
 The server will start up and the UI will be accessible at `http://localhost:6274`.
 
 ### Docker Container
 
-You can also start it in a Docker container with the following command:
+**Note**: Docker container is not yet available for `@bryan-thompson/inspector-assessment`. The Docker image below is for the upstream inspector only (without assessment features):
 
 ```bash
 docker run --rm --network host -p 6274:6274 -p 6277:6277 ghcr.io/modelcontextprotocol/inspector:latest
@@ -500,32 +549,34 @@ docker run --rm --network host -p 6274:6274 -p 6277:6277 ghcr.io/modelcontextpro
 
 ### From an MCP server repository
 
-To inspect an MCP server implementation, there's no need to clone this repo. Instead, use `npx`. For example, if your server is built at `build/index.js`:
+To inspect an MCP server implementation, there's no need to clone this repo. Instead, use `bunx` or `npx`. For example, if your server is built at `build/index.js`:
 
 ```bash
-npx @modelcontextprotocol/inspector node build/index.js
+bunx @bryan-thompson/inspector-assessment node build/index.js
+# or with npx
+npx @bryan-thompson/inspector-assessment node build/index.js
 ```
 
 You can pass both arguments and environment variables to your MCP server. Arguments are passed directly to your server, while environment variables can be set using the `-e` flag:
 
 ```bash
 # Pass arguments only
-npx @modelcontextprotocol/inspector node build/index.js arg1 arg2
+bunx @bryan-thompson/inspector-assessment node build/index.js arg1 arg2
 
 # Pass environment variables only
-npx @modelcontextprotocol/inspector -e key=value -e key2=$VALUE2 node build/index.js
+bunx @bryan-thompson/inspector-assessment -e key=value -e key2=$VALUE2 node build/index.js
 
 # Pass both environment variables and arguments
-npx @modelcontextprotocol/inspector -e key=value -e key2=$VALUE2 node build/index.js arg1 arg2
+bunx @bryan-thompson/inspector-assessment -e key=value -e key2=$VALUE2 node build/index.js arg1 arg2
 
 # Use -- to separate inspector flags from server arguments
-npx @modelcontextprotocol/inspector -e key=$VALUE -- node build/index.js -e server-flag
+bunx @bryan-thompson/inspector-assessment -e key=$VALUE -- node build/index.js -e server-flag
 ```
 
 The inspector runs both an MCP Inspector (MCPI) client UI (default port 6274) and an MCP Proxy (MCPP) server (default port 6277). Open the MCPI client UI in your browser to use the inspector. (These ports are derived from the T9 dialpad mapping of MCPI and MCPP respectively, as a mnemonic). You can customize the ports if needed:
 
 ```bash
-CLIENT_PORT=8080 SERVER_PORT=9000 npx @modelcontextprotocol/inspector node build/index.js
+CLIENT_PORT=8080 SERVER_PORT=9000 bunx @bryan-thompson/inspector-assessment node build/index.js
 ```
 
 For more details on ways to use the inspector, see the [Inspector section of the MCP docs site](https://modelcontextprotocol.io/docs/tools/inspector). For help with debugging, see the [Debugging guide](https://modelcontextprotocol.io/docs/tools/debugging).
@@ -710,7 +761,7 @@ These settings can be adjusted in real-time through the UI and will persist acro
 The inspector also supports configuration files to store settings for different MCP servers. This is useful when working with multiple servers or complex configurations:
 
 ```bash
-npx @modelcontextprotocol/inspector --config path/to/config.json --server everything
+bunx @bryan-thompson/inspector-assessment --config path/to/config.json --server everything
 ```
 
 Example server configuration file:
@@ -789,7 +840,7 @@ You can launch the inspector without specifying a server name if your config has
 
 ```bash
 # Automatically uses "my-server" if it's the only one
-npx @modelcontextprotocol/inspector --config mcp.json
+bunx @bryan-thompson/inspector-assessment --config mcp.json
 ```
 
 2. **A server named "default-server"** - automatically selected:
@@ -862,47 +913,47 @@ npm start
 CLI mode enables programmatic interaction with MCP servers from the command line, ideal for scripting, automation, and integration with coding assistants. This creates an efficient feedback loop for MCP server development.
 
 ```bash
-npx @modelcontextprotocol/inspector --cli node build/index.js
+mcp-inspector-assess-cli node build/index.js
 ```
 
 The CLI mode supports most operations across tools, resources, and prompts. A few examples:
 
 ```bash
 # Basic usage
-npx @modelcontextprotocol/inspector --cli node build/index.js
+mcp-inspector-assess-cli node build/index.js
 
 # With config file
-npx @modelcontextprotocol/inspector --cli --config path/to/config.json --server myserver
+mcp-inspector-assess-cli --config path/to/config.json --server myserver
 
 # List available tools
-npx @modelcontextprotocol/inspector --cli node build/index.js --method tools/list
+mcp-inspector-assess-cli node build/index.js --method tools/list
 
 # Call a specific tool
-npx @modelcontextprotocol/inspector --cli node build/index.js --method tools/call --tool-name mytool --tool-arg key=value --tool-arg another=value2
+mcp-inspector-assess-cli node build/index.js --method tools/call --tool-name mytool --tool-arg key=value --tool-arg another=value2
 
 # Call a tool with JSON arguments
-npx @modelcontextprotocol/inspector --cli node build/index.js --method tools/call --tool-name mytool --tool-arg 'options={"format": "json", "max_tokens": 100}'
+mcp-inspector-assess-cli node build/index.js --method tools/call --tool-name mytool --tool-arg 'options={"format": "json", "max_tokens": 100}'
 
 # List available resources
-npx @modelcontextprotocol/inspector --cli node build/index.js --method resources/list
+mcp-inspector-assess-cli node build/index.js --method resources/list
 
 # List available prompts
-npx @modelcontextprotocol/inspector --cli node build/index.js --method prompts/list
+mcp-inspector-assess-cli node build/index.js --method prompts/list
 
 # Connect to a remote MCP server (default is SSE transport)
-npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com
+mcp-inspector-assess-cli https://my-mcp-server.example.com
 
 # Connect to a remote MCP server (with Streamable HTTP transport)
-npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com --transport http --method tools/list
+mcp-inspector-assess-cli https://my-mcp-server.example.com --transport http --method tools/list
 
 # Connect to a remote MCP server (with custom headers)
-npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com --transport http --method tools/list --header "X-API-Key: your-api-key"
+mcp-inspector-assess-cli https://my-mcp-server.example.com --transport http --method tools/list --header "X-API-Key: your-api-key"
 
 # Call a tool on a remote server
-npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com --method tools/call --tool-name remotetool --tool-arg param=value
+mcp-inspector-assess-cli https://my-mcp-server.example.com --method tools/call --tool-name remotetool --tool-arg param=value
 
 # List resources from a remote server
-npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com --method resources/list
+mcp-inspector-assess-cli https://my-mcp-server.example.com --method resources/list
 ```
 
 ### UI Mode vs CLI Mode: When to Use Each
@@ -998,6 +1049,16 @@ Please submit issues and pull requests to our repository: https://github.com/tri
 ### Acknowledgments
 
 This project builds upon the excellent foundation provided by Anthropic's MCP Inspector team. We're grateful for their work on the original inspector and the MCP protocol specification.
+
+## Links
+
+- **npm Package**: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
+- **GitHub Repository**: https://github.com/triepod-ai/inspector-assessment
+- **Original MCP Inspector**: https://github.com/modelcontextprotocol/inspector
+- **Issues & Bug Reports**: https://github.com/triepod-ai/inspector-assessment/issues
+- **MCP Documentation**: https://modelcontextprotocol.io
+- **Publishing Guide**: [PUBLISHING_GUIDE.md](PUBLISHING_GUIDE.md)
+- **Changelog**: [CHANGELOG.md](CHANGELOG.md)
 
 ## License
 
