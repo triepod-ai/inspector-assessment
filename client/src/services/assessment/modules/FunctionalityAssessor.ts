@@ -23,6 +23,11 @@ export class FunctionalityAssessor extends BaseAssessor {
       const result = await this.testTool(tool, context.callTool);
       toolResults.push(result);
 
+      // Add delay between tests to avoid rate limiting
+      if (this.config.delayBetweenTests && this.config.delayBetweenTests > 0) {
+        await this.sleep(this.config.delayBetweenTests);
+      }
+
       if (result.status === "working") {
         workingTools++;
       } else if (result.status === "broken") {

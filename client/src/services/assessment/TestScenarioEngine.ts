@@ -59,9 +59,18 @@ export interface ComprehensiveToolTestResult {
 
 export class TestScenarioEngine {
   private testTimeout: number;
+  private delayBetweenTests: number;
 
-  constructor(testTimeout: number = 5000) {
+  constructor(testTimeout: number = 5000, delayBetweenTests: number = 0) {
     this.testTimeout = testTimeout;
+    this.delayBetweenTests = delayBetweenTests;
+  }
+
+  /**
+   * Sleep for specified milliseconds (for rate limiting)
+   */
+  private async sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -268,6 +277,11 @@ export class TestScenarioEngine {
         callTool,
       );
       result.scenarioResults.push(scenarioResult);
+
+      // Add delay between tests to avoid rate limiting
+      if (this.delayBetweenTests > 0) {
+        await this.sleep(this.delayBetweenTests);
+      }
 
       if (scenarioResult.executed) {
         result.scenariosExecuted++;

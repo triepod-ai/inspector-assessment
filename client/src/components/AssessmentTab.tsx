@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Play,
   Download,
@@ -362,6 +363,34 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                 intensive tests). All tools are selected by default.
               </p>
             )}
+          </div>
+
+          {/* Rate Limiting Delay Configuration */}
+          <div className="space-y-2">
+            <Label htmlFor="delay-between-tests">
+              Delay between tests (milliseconds)
+            </Label>
+            <Input
+              id="delay-between-tests"
+              type="number"
+              min="0"
+              max="5000"
+              step="100"
+              value={config.delayBetweenTests ?? 0}
+              onChange={(e) => {
+                const value = parseInt(e.target.value, 10);
+                setConfig({
+                  ...config,
+                  delayBetweenTests: isNaN(value) ? 0 : value,
+                });
+              }}
+              disabled={isRunning}
+              placeholder="0"
+            />
+            <p className="text-xs text-muted-foreground">
+              Add a delay between tests to avoid rate limiting. Recommended:
+              500-1000ms for rate-limited APIs. Set to 0 for no delay (default).
+            </p>
           </div>
 
           {/* Domain-specific Security Testing Toggle */}
@@ -2023,7 +2052,12 @@ const ErrorTestItem: React.FC<{
     <div
       className="text-xs border-l-2 pl-3 py-1"
       style={{
-        borderColor: test.passed ? "rgb(34 197 94)" : "rgb(239 68 68)",
+        borderColor:
+          test.testType === "invalid_values"
+            ? "rgb(234 179 8)" // yellow-500 for INFO
+            : test.passed
+              ? "rgb(34 197 94)" // green-500 for PASS
+              : "rgb(239 68 68)", // red-500 for FAIL
       }}
     >
       <div

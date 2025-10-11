@@ -175,7 +175,10 @@ export class MCPAssessmentService {
       params: Record<string, unknown>,
     ) => Promise<CompatibilityCallToolResult>,
   ): Promise<FunctionalityAssessment> {
-    const engine = new TestScenarioEngine(this.config.testTimeout);
+    const engine = new TestScenarioEngine(
+      this.config.testTimeout,
+      this.config.delayBetweenTests ?? 0,
+    );
     const toolResults: ToolTestResult[] = [];
     const enhancedResults: EnhancedToolTestResult[] = [];
     let workingCount = 0;

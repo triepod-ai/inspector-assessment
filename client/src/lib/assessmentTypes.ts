@@ -652,6 +652,7 @@ export const PROMPT_INJECTION_TESTS: Omit<
 
 export interface AssessmentConfiguration {
   testTimeout: number; // milliseconds
+  delayBetweenTests?: number; // milliseconds to wait between tests to avoid rate limiting
   skipBrokenTools: boolean;
   // Reviewer mode: simplify testing for Anthropic review workflow
   reviewerMode?: boolean;
@@ -679,6 +680,7 @@ export interface AssessmentConfiguration {
 
 export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
   testTimeout: 30000, // 30 seconds per tool
+  delayBetweenTests: 0, // No delay by default
   skipBrokenTools: false,
   reviewerMode: false,
   enableExtendedAssessment: true, // Enable MCP Spec Compliance assessment by default
@@ -702,6 +704,7 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
 // Focuses on Anthropic's 5 core requirements only
 export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
   testTimeout: 10000, // 10 seconds per tool (faster)
+  delayBetweenTests: 100, // Small delay for rate limiting
   skipBrokenTools: true, // Skip broken tools to save time
   reviewerMode: true,
   enableExtendedAssessment: false, // Disable extended assessments (not required for directory approval)
@@ -725,6 +728,7 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
 // Developer mode configuration: comprehensive testing for debugging
 export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
   testTimeout: 30000, // 30 seconds per tool
+  delayBetweenTests: 500, // Moderate delay for thorough testing
   skipBrokenTools: false,
   reviewerMode: false,
   enableExtendedAssessment: true,

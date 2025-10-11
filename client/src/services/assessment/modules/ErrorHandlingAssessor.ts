@@ -29,6 +29,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       );
       testDetails.push(...toolTests);
       passedTests += toolTests.filter((t) => t.passed).length;
+
+      // Add delay between tests to avoid rate limiting
+      if (this.config.delayBetweenTests && this.config.delayBetweenTests > 0) {
+        await this.sleep(this.config.delayBetweenTests);
+      }
     }
 
     this.testCount = testDetails.length;
