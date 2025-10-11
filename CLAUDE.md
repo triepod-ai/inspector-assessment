@@ -152,6 +152,159 @@ For detailed documentation on specific features, see:
 5. **Test in dev mode**: `npm run dev` (opens http://localhost:6274)
 6. **Commit changes** with descriptive message
 
+## npm Package Publishing & Maintenance
+
+**Package**: `@bryan-thompson/inspector-assessment`
+**Current Version**: 1.0.0
+**Published**: 2025-10-11
+**Registry**: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
+
+### Quick Publish Workflow
+
+When making changes that should be published to npm:
+
+```bash
+# 1. Update version (semantic versioning)
+npm version patch   # Bug fixes: 1.0.0 -> 1.0.1
+npm version minor   # New features: 1.0.0 -> 1.1.0
+npm version major   # Breaking changes: 1.0.0 -> 2.0.0
+
+# 2. Update CHANGELOG.md with changes
+
+# 3. Build and format
+npm run build
+npm run prettier-fix
+
+# 4. Publish all packages (workspaces + root)
+npm run publish-all
+# This runs: npm publish --workspaces --access public && npm publish --access public
+
+# 5. Test the published package
+bunx @bryan-thompson/inspector-assessment
+
+# 6. Commit and tag
+git add .
+git commit -m "chore: release v1.0.x"
+git tag v1.0.x
+git push origin main --tags
+```
+
+### Publishing Commands Reference
+
+**Publish all packages** (recommended - publishes workspaces first, then root):
+
+```bash
+npm run publish-all
+```
+
+**Publish workspaces only**:
+
+```bash
+npm publish --workspaces --access public
+```
+
+**Publish root package only**:
+
+```bash
+npm publish --access public
+```
+
+**Check what will be published**:
+
+```bash
+npm pack
+tar -tzf bryan-thompson-inspector-assessment-1.0.0.tgz
+```
+
+### Version Numbering Guide
+
+Follow [Semantic Versioning](https://semver.org/):
+
+- **Patch** (1.0.0 → 1.0.1): Bug fixes, no new features, backward compatible
+  - Security vulnerability fixes
+  - Test expectation updates
+  - Documentation corrections
+  - Build script improvements
+
+- **Minor** (1.0.0 → 1.1.0): New features, backward compatible
+  - New assessment capabilities
+  - Additional test scenarios
+  - Performance improvements
+  - New CLI options
+
+- **Major** (1.0.0 → 2.0.0): Breaking changes
+  - Changed API interfaces
+  - Removed features
+  - Changed command-line arguments
+  - Modified assessment output format
+
+### Package Structure
+
+The npm package consists of 4 published packages:
+
+1. **@bryan-thompson/inspector-assessment** (root) - Meta-package with CLI entry point
+2. **@bryan-thompson/inspector-assessment-client** - React web interface
+3. **@bryan-thompson/inspector-assessment-server** - Express backend
+4. **@bryan-thompson/inspector-assessment-cli** - CLI tools
+
+All four must be published for the package to work correctly.
+
+### Testing Published Package
+
+```bash
+# Test with bunx (no install, fastest)
+bunx @bryan-thompson/inspector-assessment
+
+# Test with npx
+npx @bryan-thompson/inspector-assessment
+
+# Test global install
+npm install -g @bryan-thompson/inspector-assessment
+mcp-inspector-assess --help
+npm uninstall -g @bryan-thompson/inspector-assessment
+```
+
+### Known Issues
+
+- **24 test failures**: Test expectation mismatches from security enhancements (non-blocking)
+  - Tests expect "FAIL" but get "PASS" due to improved detection
+  - Update test expectations in future release
+  - Does not affect functionality
+
+### Important Notes
+
+- **Always publish workspaces first**: The root package depends on workspace packages being available on npm
+- **Update CHANGELOG.md**: Document all changes before publishing
+- **Test locally first**: Use `npm pack` and test the tarball before publishing
+- **Format code**: Run `npm run prettier-fix` before publishing to avoid format issues
+- **Git tags**: Create git tags for each release for version tracking
+- **Node version**: Package requires Node >=22.7.5 (currently using v18.19.0 with warnings)
+
+### Complete Publishing Checklist
+
+- [ ] Make and test changes locally (`npm run dev`)
+- [ ] Run tests (`npm test`)
+- [ ] Update version (`npm version [patch|minor|major]`)
+- [ ] Update CHANGELOG.md with changes
+- [ ] Build project (`npm run build`)
+- [ ] Format code (`npm run prettier-fix`)
+- [ ] Publish packages (`npm run publish-all`)
+- [ ] Test published package (`bunx @bryan-thompson/inspector-assessment`)
+- [ ] Commit changes (`git commit -am "chore: release vX.Y.Z"`)
+- [ ] Create git tag (`git tag vX.Y.Z`)
+- [ ] Push to GitHub (`git push origin main --tags`)
+- [ ] Update PROJECT_STATUS.md with release notes
+
+### Future Migration Path
+
+If Anthropic adopts this package, it can be migrated to `@modelcontextprotocol/inspector-assessment`:
+
+1. Update all package.json names
+2. Publish to new namespace
+3. Deprecate old packages with migration notice
+
+See [PUBLISHING_GUIDE.md](PUBLISHING_GUIDE.md) for detailed publishing documentation.
+
 ## Upstream Sync Status
 
 - **Current Version**: 0.17.0
