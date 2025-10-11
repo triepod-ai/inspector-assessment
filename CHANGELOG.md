@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-10-11
+
+### Added
+
+- **Confidence Scoring for Security Assessments**: Intelligent confidence levels reduce false positives from ambiguous pattern matches
+  - Three-tier confidence system: high, medium, low
+  - Automatic detection of structured data tools (search, lookup, retrieval)
+  - Manual review flags with context-specific guidance
+  - Visual UI indicators (color-coded badges and warning banners)
+  - Step-by-step review instructions for ambiguous cases
+
+### Improved
+
+- **False Positive Detection**: Dramatically reduced false positives in security testing
+  - Arithmetic patterns in numeric metadata (trust scores, counts, IDs) now flagged for manual review
+  - Admin/role keywords in search results properly distinguished from privilege escalation
+  - Pattern matches in returned data vs. executed code now differentiated
+
+### Changed
+
+- **Security Assessment UI**: Enhanced display of vulnerability results
+  - Added confidence badges (green/yellow/orange) to test results
+  - Added prominent amber warning banner for low-confidence detections
+  - Included detailed review guidance with step-by-step verification process
+
+### Technical Details
+
+- **Type System**: Added 4 new optional fields to `SecurityTestResult` interface
+- **Detection Logic**: New `calculateConfidence()` method with tool classification heuristics
+- **Tool Classification**: New `isStructuredDataTool()` helper for identifying data retrieval tools
+- **Backward Compatible**: All changes use optional fields, existing code unaffected
+- **Files Changed**: 3 files (222 insertions)
+  - `client/src/lib/assessmentTypes.ts` - Type definitions
+  - `client/src/services/assessment/modules/SecurityAssessor.ts` - Detection logic
+  - `client/src/components/AssessmentTab.tsx` - UI enhancements
+
 ## [1.1.0] - 2025-10-11
 
 ### Added
