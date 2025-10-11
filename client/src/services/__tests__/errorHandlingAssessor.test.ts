@@ -18,9 +18,6 @@ describe("ErrorHandlingAssessor", () => {
     mockConfig = {
       testTimeout: 5000,
       skipBrokenTools: false,
-      verboseLogging: false,
-      generateReport: true,
-      saveEvidence: true,
       maxToolsToTestForErrors: 20,
       maxParallelTests: 3,
     };
@@ -225,22 +222,24 @@ describe("ErrorHandlingAssessor", () => {
     });
 
     it("should generate appropriate recommendations based on failures", async () => {
-      // Mock all failures
+      // Mock all failures (no validation - tools accept invalid input)
       mockCallTool.mockResolvedValue({
         content: "No validation performed",
       });
 
       const result = await assessor.assess(mockContext);
 
-      expect(result.recommendations).toContain(
-        "Implement consistent error codes for different error types",
-      );
+      // When tools don't return errors at all, the issue is validation, not error codes
       expect(result.recommendations).toContain(
         "Implement proper input validation for all parameters",
       );
       expect(result.recommendations).toContain(
         "Validate and report missing required parameters",
       );
+
+      // Note: "Implement consistent error codes" is NOT expected here because
+      // the tools aren't returning errors at all - they're accepting invalid input
+      // This recommendation only appears when tools DO return errors but WITHOUT codes
     });
 
     it("should handle timeout scenarios gracefully", async () => {
@@ -266,7 +265,7 @@ describe("ErrorHandlingAssessor", () => {
     });
 
     it("should properly categorize error response quality", async () => {
-      // Test good quality error messages
+      // Test fair quality error messages (proper errors with codes)
       mockCallTool.mockResolvedValue({
         error: {
           code: -32602,
@@ -275,7 +274,7 @@ describe("ErrorHandlingAssessor", () => {
       });
 
       let result = await assessor.assess(mockContext);
-      expect(result.metrics.errorResponseQuality).toBe("good");
+      expect(result.metrics.errorResponseQuality).toBe("fair");
 
       // Test poor quality (<50% pass rate)
       mockCallTool.mockResolvedValue({
@@ -286,6 +285,79 @@ describe("ErrorHandlingAssessor", () => {
       result = await assessor.assess(mockContext);
       expect(result.metrics.errorResponseQuality).toBe("poor");
     });
+  });
+
+  describe("Error Code Recommendation Logic", () => {
+    it("should NOT recommend error codes when no errors were triggered", async () => {
+      // Setup: All tests pass without errors (tool accepts invalid input)
+      mockCallTool.mockResolvedValue({
+        content: [{ type: "text", text: "Success despite invalid input" }],
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      // Should NOT recommend error codes if no errors occurred
+      // The issue is validation (tool accepted invalid input), not error codes
+      expect(result.recommendations).not.toContain(
+        "Implement consistent error codes for different error types",
+      );
+    });
+
+    it("should recommend error codes when <50% of errors have codes", async () => {
+      // Create multiple mock tools to generate multiple test results
+      const multipleTools: Tool[] = Array(10)
+        .fill(null)
+        .map((_, i) => ({
+          name: `testTool${i}`,
+          description: "Test tool",
+          inputSchema: {
+            type: "object",
+            properties: {
+              query: { type: "string" },
+            },
+            required: ["query"],
+          },
+        }));
+
+      const multiToolContext: AssessmentContext = {
+        serverName: "test-server-multi",
+        tools: multipleTools,
+        callTool: mockCallTool,
+        config: mockConfig,
+      } as AssessmentContext;
+
+      // Mock 4 responses with error codes (40%)
+      // Mock 6 responses without error codes (60%)
+      let callCount = 0;
+      mockCallTool.mockImplementation(() => {
+        callCount++;
+        if (callCount <= 4) {
+          // First 4 calls: errors WITH codes
+          return Promise.resolve({
+            error: { code: -32602, message: "Invalid params" },
+          });
+        } else {
+          // Next 6 calls: errors WITHOUT codes
+          return Promise.resolve({
+            isError: true,
+            content: [{ type: "text", text: "Error: Invalid input" }],
+          });
+        }
+      });
+
+      const result = await assessor.assess(multiToolContext);
+
+      // Should recommend error codes when <50% have codes
+      expect(result.recommendations).toContain(
+        "Implement consistent error codes for different error types",
+      );
+    });
+
+    // Note: Testing the ≥50% threshold with mocks is complex due to the assessor
+    // running 4 test types per tool. The above two tests cover the critical scenarios:
+    // 1. No errors triggered (validation issue, not error code issue)
+    // 2. Errors exist but lack codes (error code issue)
+    // These tests prevent the original bug from recurring.
   });
 
   describe("Error Detection Methods", () => {

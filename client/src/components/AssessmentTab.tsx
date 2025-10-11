@@ -383,16 +383,16 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                   Enable Advanced Security Testing
                 </span>
                 <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">
-                  18 Attack Patterns
+                  18 Patterns
                 </span>
               </Label>
             </div>
             <p className="text-xs text-muted-foreground ml-6">
-              <strong>Basic:</strong> 3 critical patterns (~48 tests).{" "}
-              <strong>Advanced:</strong> All 18 patterns. Advanced mode tests
-              Direct Command Injection, Role Override, Data Exfiltration, System
-              Commands, Tool Shadowing, Context Escape, and 12+ other attack
-              vectors.
+              <strong>Basic:</strong> 3 common patterns (~48 checks).{" "}
+              <strong>Advanced:</strong> All 18 patterns. Designed to identify
+              potential issues like Direct Command Injection, Role Override,
+              Data Exfiltration, System Commands, Tool Shadowing, Context
+              Escape, and 12+ other common attack vectors.
             </p>
           </div>
 

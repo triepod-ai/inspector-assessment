@@ -186,8 +186,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       };
     } catch (error) {
       // Check if the error message is meaningful (not just a generic crash)
-      const errorMessage = this.extractErrorMessage(error);
-      const messageLower = errorMessage?.toLowerCase() ?? "";
+      const errorInfo = this.extractErrorInfo(error);
+      const messageLower = errorInfo.message?.toLowerCase() ?? "";
       const isMeaningfulError =
         messageLower.includes("required") ||
         messageLower.includes("missing") ||
@@ -195,7 +195,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         messageLower.includes("must") ||
         messageLower.includes("invalid") ||
         messageLower.includes("validation") ||
-        errorMessage?.length > 20; // Longer messages are likely intentional
+        (errorInfo.message?.length ?? 0) > 20; // Longer messages are likely intentional
 
       return {
         toolName: tool.name,
@@ -204,7 +204,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         expectedError: "Missing required parameters",
         actualResponse: {
           isError: true,
-          errorMessage: errorMessage,
+          errorCode: errorInfo.code,
+          errorMessage: errorInfo.message,
           rawResponse: error,
         },
         passed: isMeaningfulError,
@@ -267,8 +268,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       };
     } catch (error) {
       // Check if the error message is meaningful (not just a generic crash)
-      const errorMessage = this.extractErrorMessage(error);
-      const messageLower = errorMessage?.toLowerCase() ?? "";
+      const errorInfo = this.extractErrorInfo(error);
+      const messageLower = errorInfo.message?.toLowerCase() ?? "";
       const isMeaningfulError =
         messageLower.includes("type") ||
         messageLower.includes("invalid") ||
@@ -277,7 +278,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         messageLower.includes("validation") ||
         messageLower.includes("string") ||
         messageLower.includes("number") ||
-        errorMessage?.length > 20; // Longer messages are likely intentional
+        (errorInfo.message?.length ?? 0) > 20; // Longer messages are likely intentional
 
       return {
         toolName: tool.name,
@@ -286,7 +287,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         expectedError: "Type validation error",
         actualResponse: {
           isError: true,
-          errorMessage: errorMessage,
+          errorCode: errorInfo.code,
+          errorMessage: errorInfo.message,
           rawResponse: error,
         },
         passed: isMeaningfulError,
@@ -329,8 +331,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       };
     } catch (error) {
       // Check if the error message is meaningful (not just a generic crash)
-      const errorMessage = this.extractErrorMessage(error);
-      const messageLower = errorMessage?.toLowerCase() ?? "";
+      const errorInfo = this.extractErrorInfo(error);
+      const messageLower = errorInfo.message?.toLowerCase() ?? "";
       const isMeaningfulError =
         messageLower.includes("invalid") ||
         messageLower.includes("not allowed") ||
@@ -338,7 +340,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         messageLower.includes("cannot") ||
         messageLower.includes("validation") ||
         messageLower.includes("error") ||
-        errorMessage?.length > 15; // Even shorter messages OK for invalid values
+        (errorInfo.message?.length ?? 0) > 15; // Even shorter messages OK for invalid values
 
       return {
         toolName: tool.name,
@@ -347,7 +349,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         expectedError: "Invalid parameter values",
         actualResponse: {
           isError: true,
-          errorMessage: errorMessage,
+          errorCode: errorInfo.code,
+          errorMessage: errorInfo.message,
           rawResponse: error,
         },
         passed: isMeaningfulError,
@@ -389,8 +392,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       };
     } catch (error) {
       // Check if the error message is meaningful (not just a generic crash)
-      const errorMessage = this.extractErrorMessage(error);
-      const messageLower = errorMessage?.toLowerCase() ?? "";
+      const errorInfo = this.extractErrorInfo(error);
+      const messageLower = errorInfo.message?.toLowerCase() ?? "";
       const isMeaningfulError =
         messageLower.includes("size") ||
         messageLower.includes("large") ||
@@ -398,7 +401,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         messageLower.includes("exceed") ||
         messageLower.includes("too") ||
         messageLower.includes("maximum") ||
-        errorMessage?.length > 10; // Short messages OK for size limits
+        (errorInfo.message?.length ?? 0) > 10; // Short messages OK for size limits
 
       return {
         toolName: tool.name,
@@ -407,7 +410,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         expectedError: "Input size limit exceeded",
         actualResponse: {
           isError: true,
-          errorMessage: errorMessage,
+          errorCode: errorInfo.code,
+          errorMessage: errorInfo.message,
           rawResponse: "[error details omitted]",
         },
         passed: isMeaningfulError,
@@ -623,16 +627,28 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     else if (score >= 50) quality = "fair";
     else quality = "poor";
 
-    // Check for proper error codes and messages
-    const hasProperErrorCodes = tests.some(
+    // Check for proper error codes and messages (only among actual errors)
+    const actualErrors = tests.filter((t) => t.actualResponse.isError);
+    const errorsWithCodes = actualErrors.filter(
       (t) => t.actualResponse.errorCode !== undefined,
-    );
-
-    const hasDescriptiveMessages = tests.some(
+    ).length;
+    const errorsWithMessages = actualErrors.filter(
       (t) =>
         t.actualResponse.errorMessage &&
         t.actualResponse.errorMessage.length > 10,
-    );
+    ).length;
+
+    // Require at least 50% of errors to have proper codes/messages
+    // Rationale: We want consistency, not perfection. If most errors
+    // have codes, the pattern is established. Below 50% suggests
+    // inconsistent error handling across the tool set.
+    const hasProperErrorCodes =
+      actualErrors.length === 0 || // If no errors were triggered, we can't assess this
+      errorsWithCodes / actualErrors.length >= 0.5;
+
+    const hasDescriptiveMessages =
+      actualErrors.length === 0 || // If no errors were triggered, we can't assess this
+      errorsWithMessages / actualErrors.length >= 0.5;
 
     const validatesInputs = tests
       .filter((t) => ["missing_required", "wrong_type"].includes(t.testType))
