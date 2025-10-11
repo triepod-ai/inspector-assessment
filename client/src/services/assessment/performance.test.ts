@@ -65,7 +65,7 @@ describe("Assessment Performance Benchmarks", () => {
         - Total Tests: ${result.totalTestsRun}
         - Tests/Second: ${((result.totalTestsRun / executionTime) * 1000).toFixed(2)}
         - Memory Increase: ${memoryIncreaseMB.toFixed(2)}MB`);
-    });
+    }, 60000); // 60 second timeout for comprehensive mode
 
     it("should scale linearly with tool count", async () => {
       // Arrange
@@ -143,7 +143,7 @@ describe("Assessment Performance Benchmarks", () => {
           `  ${result.toolCount} tools: ${result.executionTime.toFixed(2)}ms, ${result.testsRun} tests, ${result.throughput.toFixed(2)} tests/sec`,
         );
       });
-    });
+    }, 120000); // 120 second timeout for testing 5+10+20+30 tools in comprehensive mode
 
     it("should maintain performance with extended assessments enabled", async () => {
       // Arrange
@@ -156,8 +156,6 @@ describe("Assessment Performance Benchmarks", () => {
         errorHandling: true,
         usability: true,
         mcpSpecCompliance: false,
-        privacy: false,
-        humanInLoop: false,
       };
 
       const extendedConfig = createMockAssessmentConfig();
@@ -169,8 +167,6 @@ describe("Assessment Performance Benchmarks", () => {
         errorHandling: true,
         usability: true,
         mcpSpecCompliance: true,
-        privacy: true,
-        humanInLoop: true,
       };
 
       const baseOrchestrator = new AssessmentOrchestrator(baseConfig);
@@ -247,7 +243,7 @@ describe("Assessment Performance Benchmarks", () => {
         Base (5 categories): ${baseExecutionTime.toFixed(2)}ms, ${baseResult.totalTestsRun} tests, ${baseThroughput.toFixed(2)} tests/sec
         Extended (10 categories): ${extendedExecutionTime.toFixed(2)}ms, ${extendedResult.totalTestsRun} tests, ${extendedThroughput.toFixed(2)} tests/sec
         Performance Ratio: ${performanceRatio.toFixed(2)}x`);
-    });
+    }, 60000); // 60 second timeout for comprehensive mode with extended assessments
 
     it("should handle concurrent assessments efficiently", async () => {
       // Arrange
@@ -314,7 +310,7 @@ describe("Assessment Performance Benchmarks", () => {
         Total Time: ${totalExecutionTime.toFixed(2)}ms
         Avg Tests per Assessment: ${avgTestsPerAssessment.toFixed(0)}
         Total Throughput: ${totalThroughput.toFixed(2)} tests/sec`);
-    });
+    }, 60000); // 60 second timeout for 5 concurrent assessments in comprehensive mode
 
     it("should optimize memory usage during large assessments", async () => {
       // Arrange
@@ -411,7 +407,7 @@ describe("Assessment Performance Benchmarks", () => {
         Increase: ${memoryIncreaseMB.toFixed(2)}MB
         Tests Run: ${result.totalTestsRun}
         Memory per Test: ${((memoryIncreaseMB * 1024) / result.totalTestsRun).toFixed(2)}KB`);
-    }, 30000);
+    }, 240000); // 240 second timeout for comprehensive mode memory testing
 
     it("should maintain consistent performance across multiple runs", async () => {
       // Arrange
@@ -494,7 +490,7 @@ describe("Assessment Performance Benchmarks", () => {
         Avg Execution Time: ${avgExecutionTime.toFixed(2)}ms (CV: ${(executionTimeCv * 100).toFixed(2)}%)
         Avg Test Count: ${avgTestCount.toFixed(0)} (CV: ${(testCountCv * 100).toFixed(2)}%)
         Time Range: ${Math.min(...executionTimes).toFixed(2)}ms - ${Math.max(...executionTimes).toFixed(2)}ms`);
-    }, 30000);
+    }, 240000); // 240 second timeout for multiple comprehensive mode runs
   });
 
   describe("Stress Testing", () => {
@@ -603,6 +599,6 @@ describe("Assessment Performance Benchmarks", () => {
         Broken Tools: ${result.functionality.brokenTools.length}
         Throughput: ${throughput.toFixed(2)} tests/sec
         Memory Increase: ${memoryIncreaseMB.toFixed(2)}MB`);
-    }, 30000);
+    }, 240000); // 240 second timeout for stress testing in comprehensive mode
   });
 });

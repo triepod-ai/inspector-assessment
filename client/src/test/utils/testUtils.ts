@@ -46,6 +46,7 @@ export function createMockAssessmentConfig(
     enableExtendedAssessment: false,
     parallelTesting: false,
     maxParallelTests: 3,
+    enableDomainTesting: true,
     ...overrides,
   };
 }

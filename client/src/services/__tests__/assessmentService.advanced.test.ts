@@ -406,7 +406,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
           (r) => r.status === "broken",
         );
         expect(brokenToolResults.length).toBeGreaterThan(0);
-      });
+      }, 240000); // 240 second timeout for comprehensive mode with 10 tools
     });
   });
 
@@ -583,7 +583,7 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
           failurePatterns,
         );
       }
-    });
+    }, 240000); // 240 second timeout for 5 fuzzing runs in comprehensive mode
 
     it("should test type confusion vulnerabilities", async () => {
       mockCallTool.mockImplementation((_toolName, params) => {

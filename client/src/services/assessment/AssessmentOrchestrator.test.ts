@@ -19,8 +19,6 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       errorHandling: true,
       usability: true,
       mcpSpecCompliance: true,
-      privacy: true,
-      humanInLoop: true,
     };
 
     orchestrator = new AssessmentOrchestrator(config);
@@ -28,7 +26,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
   });
 
   describe("Full Assessment Integration", () => {
-    it("should orchestrate complete assessment with all 10 categories", async () => {
+    it("should orchestrate complete assessment with all categories", async () => {
       // Arrange
       const mockTools: Tool[] = [
         createMockTool({
@@ -129,8 +127,6 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       // Extended assessments
       expect(result.mcpSpecCompliance).toBeDefined();
-      expect(result.privacy).toBeDefined();
-      expect(result.humanInLoop).toBeDefined();
 
       // Meta information
       expect(result.totalTestsRun).toBeGreaterThan(50); // Should run many tests across all categories

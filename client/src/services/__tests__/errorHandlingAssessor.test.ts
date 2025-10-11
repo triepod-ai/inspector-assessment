@@ -16,7 +16,6 @@ describe("ErrorHandlingAssessor", () => {
 
   beforeEach(() => {
     mockConfig = {
-      autoTest: true,
       testTimeout: 5000,
       skipBrokenTools: false,
       verboseLogging: false,
