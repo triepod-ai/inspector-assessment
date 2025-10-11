@@ -1,0 +1,55 @@
+# Development files
+*.test.ts
+*.test.tsx
+*.test.js
+__tests__/
+*.md.bak
+.vscode/
+.idea/
+.claude/
+
+# Build artifacts not needed
+logs/
+test-output/
+tool-test-output/
+playwright-report/
+test-results/
+e2e/test-results/
+client/playwright-report/
+client/test-results/
+client/e2e/test-results/
+
+# Config files
+.mcp.json
+mcp.json
+*.tsbuildinfo
+tsconfig.*.tsbuildinfo
+
+# Documentation source files (keep compiled docs)
+*.docx
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+
+# Editor config
+.editorconfig
+.prettierrc
+.eslintrc*
+
+# Package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Source maps (optional - remove if you want to include them)
+*.map
+
+# Unbuilt source directories
+client/src/
+server/src/
+cli/src/

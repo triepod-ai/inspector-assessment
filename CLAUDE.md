@@ -155,8 +155,8 @@ For detailed documentation on specific features, see:
 ## npm Package Publishing & Maintenance
 
 **Package**: `@bryan-thompson/inspector-assessment`
-**Current Version**: 1.0.0
-**Published**: 2025-10-11
+**Current Version**: 1.0.1
+**Published**: 2025-10-11 (v1.0.0), 2025-10-11 (v1.0.1)
 **Registry**: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
 
 ### Quick Publish Workflow

@@ -1,0 +1,14 @@
+# Development files
+*.test.ts
+*.test.js
+__tests__/
+.vscode/
+.idea/
+
+# Source files (keep build/)
+src/
+scripts/
+tsconfig.json
+
+# Build artifacts
+*.tsbuildinfo

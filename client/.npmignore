@@ -1,0 +1,27 @@
+# Development files
+*.test.ts
+*.test.tsx
+__tests__/
+.vscode/
+.idea/
+
+# Build artifacts
+test-results/
+playwright-report/
+e2e/test-results/
+*.tsbuildinfo
+
+# Source files (keep dist/ and bin/)
+src/
+public/
+index.html
+vite.config.ts
+tsconfig.json
+tsconfig.app.json
+tsconfig.node.json
+
+# Config files
+.eslintrc*
+jest.config.cjs
+tailwind.config.js
+postcss.config.js
