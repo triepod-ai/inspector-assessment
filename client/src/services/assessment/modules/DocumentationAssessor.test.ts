@@ -226,19 +226,21 @@ describe("DocumentationAssessor", () => {
     });
 
     it("should detect code examples in documentation", async () => {
-      // Arrange
+      // Arrange - Mix of code blocks and functional prompts
       mockContext.readmeContent = `
         # Project
-        
+
         ## Usage
-        
+
         \`\`\`javascript
         const tool = new Tool();
         tool.execute();
         \`\`\`
-        
+
         ## Examples
-        
+
+        Create a middleware to validate requests. use context7
+
         \`\`\`python
         tool = Tool()
         tool.run()
@@ -250,7 +252,9 @@ describe("DocumentationAssessor", () => {
 
       // Assert
       expect(result.metrics.hasUsageGuide).toBe(true);
+      // extractedExamples contains all code blocks (old behavior)
       expect(result.metrics.extractedExamples?.length).toBeGreaterThan(0);
+      // exampleCount only counts functional prompts (new behavior)
       expect(result.metrics.exampleCount).toBeGreaterThan(0);
     });
 
@@ -382,6 +386,232 @@ describe("DocumentationAssessor", () => {
         expect(result.metrics).toBeDefined();
         expect(result.status).toBeDefined();
       }
+    });
+
+    it("should detect functional example prompts and exclude configs", async () => {
+      // Arrange - README with mix of functional prompts and non-functional code
+      mockContext.readmeContent = `
+        # MCP Server
+
+        ## Examples
+
+        Create a Next.js middleware that checks for a valid JWT in cookies. use context7
+
+        Configure a Cloudflare Worker script to cache JSON API responses. use context7
+
+        \`\`\`json
+        {
+          "mcpServers": {
+            "server": {
+              "command": "node",
+              "args": ["server.js"]
+            }
+          }
+        }
+        \`\`\`
+
+        \`\`\`bash
+        npm install @modelcontextprotocol/server
+        \`\`\`
+
+        How do I use the new Next.js after function? use context7
+
+        ## Installation
+
+        \`\`\`bash
+        npx @modelcontextprotocol/create-server
+        \`\`\`
+      `;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should find 3 functional examples, not all code blocks
+      expect(result.metrics.exampleCount).toBeGreaterThanOrEqual(3);
+      expect(result.status).toBe("PASS");
+    });
+
+    it("should filter out installation commands from examples", async () => {
+      // Arrange
+      mockContext.readmeContent = `
+        # Project
+
+        \`\`\`bash
+        npm install package
+        \`\`\`
+
+        \`\`\`bash
+        npx create-app
+        \`\`\`
+
+        \`\`\`bash
+        docker run image
+        \`\`\`
+
+        ## Examples
+
+        Create a basic Next.js project. use context7
+      `;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should only count the functional prompt
+      expect(result.metrics.exampleCount).toBe(1);
+    });
+
+    it("should filter out JSON configuration from examples", async () => {
+      // Arrange
+      mockContext.readmeContent = `
+        # Configuration
+
+        \`\`\`json
+        {
+          "mcpServers": {
+            "server": {
+              "command": "node"
+            }
+          }
+        }
+        \`\`\`
+
+        \`\`\`json
+        {
+          "name": "package",
+          "version": "1.0.0"
+        }
+        \`\`\`
+
+        ## Usage
+
+        Configure a Cloudflare Worker to cache responses. use context7
+
+        Implement basic authentication with Supabase. use library @supabase/supabase
+      `;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should find 2 functional prompts, ignore configs
+      expect(result.metrics.exampleCount).toBe(2);
+    });
+
+    it("should detect functional prompts with various triggers", async () => {
+      // Arrange
+      mockContext.readmeContent = `
+        # Examples
+
+        Create a middleware with JWT validation. use context7
+
+        Configure caching for API endpoints. with Redis
+
+        Show me how to implement OAuth. use library next-auth
+
+        Generate a TypeScript interface. use context7
+      `;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should find all 4 functional prompts
+      expect(result.metrics.exampleCount).toBeGreaterThanOrEqual(3);
+      expect(result.status).toBe("PASS");
+    });
+
+    it("should filter out code implementation from examples", async () => {
+      // Arrange
+      mockContext.readmeContent = `
+        # Implementation
+
+        \`\`\`typescript
+        import { Server } from 'mcp';
+
+        const server = new Server();
+        server.start();
+        \`\`\`
+
+        \`\`\`javascript
+        function processRequest() {
+          return { success: true };
+        }
+        \`\`\`
+
+        ## Examples
+
+        Create a script to process CSV files. use context7
+      `;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should only count functional prompt
+      expect(result.metrics.exampleCount).toBe(1);
+    });
+
+    it("should handle Context7-style README with 8 examples", async () => {
+      // Arrange - Mimics Context7 README structure
+      mockContext.readmeContent = `
+        # Context7 MCP Server
+
+        ## Examples
+
+        Create a Next.js middleware that checks for a valid JWT. use context7
+
+        Configure a Cloudflare Worker to cache JSON responses. use context7
+
+        Create a basic Next.js project with app router. use context7
+
+        Create a script to delete rows where city is empty. use context7
+
+        How do I use the new Next.js after function? use context7
+
+        How do I invalidate a query in React Query? use context7
+
+        How do I protect a route with NextAuth? use context7
+
+        Implement basic authentication with Supabase. use library @supabase/supabase
+
+        \`\`\`json
+        {
+          "mcpServers": {
+            "context7": {
+              "command": "npx",
+              "args": ["-y", "@upstash/context-source"]
+            }
+          }
+        }
+        \`\`\`
+
+        \`\`\`bash
+        npm install -g @upstash/context-source
+        \`\`\`
+      `;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should find 8 functional examples, not configs/installs
+      expect(result.metrics.exampleCount).toBeGreaterThanOrEqual(8);
+      expect(result.status).toBe("PASS");
+    });
+
+    it("should deduplicate similar examples", async () => {
+      // Arrange - Three variations: 2 exact duplicates + 1 with different punctuation
+      mockContext.readmeContent = `
+        # Examples
+
+        Create a Next.js middleware. use context7
+
+        Create a Next.js middleware. use context7
+
+        Create a Nextjs middleware, use context7
+      `;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should count as 1 unique example (all normalize to same string)
+      expect(result.metrics.exampleCount).toBe(1);
     });
   });
 });

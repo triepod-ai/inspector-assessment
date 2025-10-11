@@ -793,8 +793,10 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                       </div>
                       <div>
                         Examples:{" "}
-                        {assessment.documentation.metrics.exampleCount}/
-                        {assessment.documentation.metrics.requiredExamples}
+                        {assessment.documentation.metrics.exampleCount >=
+                        assessment.documentation.metrics.requiredExamples
+                          ? `${assessment.documentation.metrics.exampleCount} found (${assessment.documentation.metrics.requiredExamples}+ required) ✓`
+                          : `${assessment.documentation.metrics.exampleCount}/${assessment.documentation.metrics.requiredExamples} (need more)`}
                       </div>
                       <div>
                         Install Guide:{" "}
@@ -2656,7 +2658,7 @@ const generateTextReport = (
     `Status: ${assessment.documentation.status}`,
     assessment.documentation.explanation,
     `- Has README: ${assessment.documentation.metrics.hasReadme ? "Yes" : "No"}`,
-    `- Examples: ${assessment.documentation.metrics.exampleCount}/${assessment.documentation.metrics.requiredExamples}`,
+    `- Examples: ${assessment.documentation.metrics.exampleCount} functional examples found (${assessment.documentation.metrics.requiredExamples}+ required)`,
     `- Installation Guide: ${assessment.documentation.metrics.hasInstallInstructions ? "Yes" : "No"}`,
     `- Usage Guide: ${assessment.documentation.metrics.hasUsageGuide ? "Yes" : "No"}`,
   );

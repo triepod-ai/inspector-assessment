@@ -152,7 +152,7 @@ export const ReviewerAssessmentView: React.FC<ReviewerAssessmentViewProps> = ({
     {
       id: "documentation",
       name: "3. Documentation Quality",
-      quickCheck: `${assessment.documentation.metrics.hasReadme ? "Has README" : "Missing README"}, ${assessment.documentation.metrics.exampleCount} examples`,
+      quickCheck: `${assessment.documentation.metrics.hasReadme ? "Has README" : "Missing README"}, ${assessment.documentation.metrics.exampleCount} functional examples found`,
       verdict:
         assessment.documentation.status === "PASS"
           ? "PASS"
@@ -161,7 +161,7 @@ export const ReviewerAssessmentView: React.FC<ReviewerAssessmentViewProps> = ({
             : "REVIEW_NEEDED",
       evidence: [
         `Has README: ${assessment.documentation.metrics.hasReadme ? "Yes" : "No"}`,
-        `Code examples: ${assessment.documentation.metrics.exampleCount} (need 3+)`,
+        `Functional examples: ${assessment.documentation.metrics.exampleCount} found (3+ required)`,
         `Has installation instructions: ${assessment.documentation.metrics.hasInstallInstructions ? "Yes" : "No"}`,
         `Has usage guide: ${assessment.documentation.metrics.hasUsageGuide ? "Yes" : "No"}`,
       ],

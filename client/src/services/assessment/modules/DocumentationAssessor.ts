@@ -36,7 +36,10 @@ export class DocumentationAssessor extends BaseAssessor {
     tools: any[],
   ): DocumentationMetrics {
     const hasReadme = content.length > 0;
-    const examples = this.extractCodeExamples(content);
+    // Use new functional examples method that filters out configs/installs
+    const functionalExamples = this.extractFunctionalExamples(content);
+    // Keep old method for backward compatibility (extractedExamples field)
+    const allCodeExamples = this.extractCodeExamples(content);
     const hasInstallInstructions = this.checkInstallInstructions(content);
     const hasUsageGuide = this.checkUsageGuide(content);
     const hasAPIReference = this.checkAPIReference(content);
@@ -71,29 +74,40 @@ export class DocumentationAssessor extends BaseAssessor {
       }
     } else {
       // Fallback to generic example checking if no tools provided
-      if (examples.length < 1) missingExamples.push("Basic usage example");
-      if (!examples.some((e) => e.description?.includes("error"))) {
+      if (functionalExamples.length < 1)
+        missingExamples.push("Basic usage example");
+      if (
+        !functionalExamples.some((e) => e.description?.includes("error")) &&
+        !allCodeExamples.some((e) => e.description?.includes("error"))
+      ) {
         missingExamples.push("Error handling example");
       }
-      if (!examples.some((e) => e.description?.includes("config"))) {
+      if (
+        !functionalExamples.some((e) => e.description?.includes("config")) &&
+        !allCodeExamples.some((e) => e.description?.includes("config"))
+      ) {
         missingExamples.push("Configuration example");
       }
     }
 
-    const requiredExamples = tools && tools.length > 0 ? tools.length : 3;
-    // Include both code examples and documented tools in count
-    const totalExampleCount =
-      examples.length + (tools && tools.length > 0 ? documentedToolsCount : 0);
+    // Required examples: 3 minimum (Anthropic's standard)
+    const requiredExamples = 3;
+
+    // Count functional examples only (not configs/installs)
+    // For servers with tools, also count documented tools
+    const functionalExampleCount =
+      functionalExamples.length +
+      (tools && tools.length > 0 ? documentedToolsCount : 0);
 
     return {
       hasReadme,
-      exampleCount: totalExampleCount,
+      exampleCount: functionalExampleCount, // Use functional examples instead of all code blocks
       requiredExamples,
       missingExamples,
       hasInstallInstructions,
       hasUsageGuide,
       hasAPIReference,
-      extractedExamples: examples,
+      extractedExamples: allCodeExamples, // Keep for backward compatibility
       installInstructions: hasInstallInstructions
         ? this.extractSection(content, "install")
         : undefined,
@@ -103,6 +117,175 @@ export class DocumentationAssessor extends BaseAssessor {
     };
   }
 
+  /**
+   * Extract functional example prompts from documentation.
+   * Only counts user-facing examples, not configuration or installation code.
+   */
+  private extractFunctionalExamples(content: string): CodeExample[] {
+    const functionalExamples: CodeExample[] = [];
+
+    // Pattern 1: Look for standalone lines with tool triggers (use context7, use library, with X)
+    const standalonePromptRegex =
+      /^[ \t]*([A-Z][^\n]{10,300}?(?:use (?:context7|library|@?[\w-]+\/[\w-]+)|with \S+)[^\n]*?)[ \t]*$/gim;
+    let standaloneMatch;
+
+    while ((standaloneMatch = standalonePromptRegex.exec(content)) !== null) {
+      const prompt = standaloneMatch[1].trim();
+
+      // Filter out non-functional examples
+      if (
+        !this.isNonFunctionalCodeBlock(prompt) &&
+        this.scoreFunctionalExample(prompt)
+      ) {
+        functionalExamples.push({
+          code: prompt,
+          language: "prompt",
+          description: "Functional example prompt",
+          lineNumber: this.getLineNumber(content, standaloneMatch.index),
+        });
+      }
+    }
+
+    // Pattern 2: Look for bulleted examples
+    const bulletedExampleRegex =
+      /^[ \t]*[-*][ \t]+([A-Z][^\n]{10,300}?)[ \t]*$/gim;
+    let bulletMatch;
+
+    while ((bulletMatch = bulletedExampleRegex.exec(content)) !== null) {
+      const prompt = bulletMatch[1].trim();
+
+      // Must have tool trigger or action verb + technical term
+      if (
+        !this.isNonFunctionalCodeBlock(prompt) &&
+        this.scoreFunctionalExample(prompt)
+      ) {
+        functionalExamples.push({
+          code: prompt,
+          language: "prompt",
+          description: "Bulleted example",
+          lineNumber: this.getLineNumber(content, bulletMatch.index),
+        });
+      }
+    }
+
+    // Pattern 3: Look for inline examples with labels
+    const inlineExampleRegex =
+      /(?:Try|Example|Usage):\s*["`']([^"`']{10,300}?)["`']/gi;
+    let inlineMatch;
+
+    while ((inlineMatch = inlineExampleRegex.exec(content)) !== null) {
+      const prompt = inlineMatch[1].trim();
+      if (
+        !this.isNonFunctionalCodeBlock(prompt) &&
+        this.scoreFunctionalExample(prompt)
+      ) {
+        functionalExamples.push({
+          code: prompt,
+          language: "prompt",
+          description: "Inline example",
+          lineNumber: this.getLineNumber(content, inlineMatch.index),
+        });
+      }
+    }
+
+    // Remove duplicates based on similar content
+    return this.deduplicateExamples(functionalExamples);
+  }
+
+  /**
+   * Check if a code block is non-functional (config, install, implementation).
+   */
+  private isNonFunctionalCodeBlock(text: string): boolean {
+    const excludePatterns = [
+      /^\s*{\s*["']mcpServers["']/i, // JSON config
+      /^\s*{\s*["']command["']/i, // MCP config
+      /^\s*(npx|npm|yarn|pnpm|docker|git)\s+/i, // Install commands
+      /^\s*FROM\s+\w+:/i, // Dockerfile
+      /^\s*import\s+.*\s+from/i, // Import statements
+      /^\s*\[.*\]\s*=\s*["']/i, // TOML/config assignments
+      /^\s*<\w+>/i, // HTML/XML tags
+      /^\s*(export|const|let|var|function)\s+/i, // Code declarations
+      /^\s*\/\//i, // Code comments
+      /^\s*#\s*\w+/i, // Shell comments or headers
+    ];
+
+    return excludePatterns.some((pattern) => pattern.test(text));
+  }
+
+  /**
+   * Score functional example quality (returns true if meets minimum threshold).
+   */
+  private scoreFunctionalExample(text: string): boolean {
+    let score = 0;
+
+    // Has clear action verb (create, configure, implement, show, etc.)
+    if (
+      /\b(create|configure|implement|show|generate|build|write|add|get|set|use|run|start)\b/i.test(
+        text,
+      )
+    ) {
+      score += 2;
+    }
+
+    // Includes tool trigger ("use context7", "with library", "use library")
+    if (/\b(?:use|with)\s+(?:context7|library|@?\w+\/\w+)\b/i.test(text)) {
+      score += 2;
+    }
+
+    // Is a complete sentence (starts with capital, ends with punctuation or is substantial)
+    if (/^[A-Z].{10,}/.test(text)) {
+      score += 1;
+    }
+
+    // Has technical context (mentions framework/library/technology)
+    if (
+      /\b(Next\.js|React|Vue|Angular|PostgreSQL|MySQL|MongoDB|Redis|AWS|Cloudflare|API|HTTP|REST|GraphQL|TypeScript|JavaScript|Python|Docker|Kubernetes|Supabase|Firebase|Auth|JWT|OAuth)\b/i.test(
+        text,
+      )
+    ) {
+      score += 1;
+    }
+
+    // Minimum score: 4 out of 6 points
+    return score >= 4;
+  }
+
+  /**
+   * Get line number for a position in content.
+   */
+  private getLineNumber(content: string, position: number): number {
+    const beforeMatch = content.substring(0, position);
+    return beforeMatch.split("\n").length;
+  }
+
+  /**
+   * Remove duplicate examples based on similarity.
+   */
+  private deduplicateExamples(examples: CodeExample[]): CodeExample[] {
+    const seen = new Set<string>();
+    const unique: CodeExample[] = [];
+
+    for (const example of examples) {
+      // Create a normalized version for comparison
+      const normalized = example.code
+        .toLowerCase()
+        .replace(/[^\w\s]/g, "") // Remove punctuation
+        .replace(/\s+/g, " ") // Normalize multiple spaces to single space
+        .trim();
+
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        unique.push(example);
+      }
+    }
+
+    return unique;
+  }
+
+  /**
+   * @deprecated Use extractFunctionalExamples() instead.
+   * This method counts ALL code blocks including configs and install commands.
+   */
   private extractCodeExamples(content: string): CodeExample[] {
     const examples: CodeExample[] = [];
     const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
