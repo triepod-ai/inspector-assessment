@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-10-11
+
+### Added
+
+- **Rate Limiting Protection**: Configurable delay between tests to prevent API rate limiting
+  - New `delayBetweenTests` configuration option (0-5000ms range)
+  - UI control with numeric input field and step controls
+  - Mode-specific defaults:
+    - Default mode: 0ms (no delay for local testing)
+    - Reviewer mode: 100ms (light rate limiting)
+    - Developer mode: 500ms (moderate rate limiting)
+  - Implemented in TestScenarioEngine, FunctionalityAssessor, and ErrorHandlingAssessor
+  - Recommended values: 500-1000ms for rate-limited APIs
+
+- **Reviewer Quick Start Guide**: Comprehensive documentation for MCP directory reviewers
+  - 60-second fast screening workflow for approve/reject decisions
+  - 5-minute detailed review process for borderline cases
+  - Common pitfalls explanation (false positives, informational vs scored tests)
+  - Decision matrix with clear approval criteria
+  - Fast CLI analysis commands for troubleshooting
+  - Target audience: Reviewers needing fast, accurate assessment guidance
+
+### Changed
+
+- Updated CLAUDE.md and README.md with Reviewer Quick Start Guide references
+- Enhanced documentation structure for better reviewer onboarding
+
+### Technical Details
+
+- **Files Changed**: 6 core files + 3 documentation files
+- **New Documentation**: 17KB comprehensive reviewer guide (525 lines)
+- **UI Enhancement**: Clean numeric input with validation and help text
+- **Performance Impact**: Configurable delay adds 0-5s per test depending on settings
+
 ## [1.0.1] - 2025-10-11
 
 ### Fixed
