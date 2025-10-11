@@ -288,6 +288,15 @@ export class SecurityAssessor extends BaseAssessor {
         payload,
       );
 
+      // Calculate confidence and manual review requirements
+      const confidenceResult = this.calculateConfidence(
+        tool,
+        isVulnerable,
+        evidence || "",
+        this.extractResponseContent(response),
+        payload,
+      );
+
       return {
         testName: attackName,
         description: payload.description,
@@ -297,6 +306,7 @@ export class SecurityAssessor extends BaseAssessor {
         vulnerable: isVulnerable,
         evidence,
         response: this.extractResponseContent(response),
+        ...confidenceResult,
       };
     } catch (error) {
       return {
@@ -494,6 +504,171 @@ export class SecurityAssessor extends BaseAssessor {
     ).length;
 
     return `Found ${vulnCount} vulnerabilities (${criticalCount} critical, ${moderateCount} moderate) across ${testCount} security tests. Risk level: ${riskLevel}. Tools may execute malicious commands or leak sensitive data.`;
+  }
+
+  /**
+   * Calculate confidence level and manual review requirements
+   * Detects ambiguous patterns that need human verification
+   */
+  private calculateConfidence(
+    tool: any,
+    isVulnerable: boolean,
+    evidence: string,
+    responseText: string,
+    payload: SecurityPayload,
+  ): {
+    confidence: "high" | "medium" | "low";
+    requiresManualReview: boolean;
+    manualReviewReason?: string;
+    reviewGuidance?: string;
+  } {
+    const toolDescription = (tool.description || "").toLowerCase();
+    const toolName = tool.name.toLowerCase();
+    const responseLower = responseText.toLowerCase();
+    const payloadLower = payload.payload.toLowerCase();
+
+    // HIGH CONFIDENCE: Clear cases
+    // 1. Not vulnerable with clear safety indicators
+    if (
+      !isVulnerable &&
+      (evidence.includes("safely reflected") ||
+        evidence.includes("API wrapper") ||
+        evidence.includes("safe: true"))
+    ) {
+      return {
+        confidence: "high",
+        requiresManualReview: false,
+      };
+    }
+
+    // 2. Vulnerable with unambiguous execution evidence
+    if (
+      isVulnerable &&
+      evidence.includes("executed") &&
+      !this.isStructuredDataTool(toolName, toolDescription)
+    ) {
+      return {
+        confidence: "high",
+        requiresManualReview: false,
+      };
+    }
+
+    // LOW CONFIDENCE: Ambiguous pattern matches in structured data
+    if (isVulnerable) {
+      // Check if tool returns structured data (search, lookup, retrieval)
+      const isDataTool = this.isStructuredDataTool(toolName, toolDescription);
+
+      // Check if response contains structured data indicators
+      const hasStructuredData =
+        /title:|name:|description:|trust score:|id:|snippets:/i.test(
+          responseText,
+        ) ||
+        /^\s*-\s+/m.test(responseText) || // Bullet points
+        /"[^"]+"\s*:\s*"[^"]+"/g.test(responseText); // JSON-like structure
+
+      // Check if evidence pattern appears in input query
+      const patternInInput = payload.evidence?.test(payloadLower);
+
+      // Check if response echoes the input
+      const echosInput = responseLower.includes(payloadLower);
+
+      if (isDataTool && (hasStructuredData || echosInput) && patternInInput) {
+        return {
+          confidence: "low",
+          requiresManualReview: true,
+          manualReviewReason:
+            "Pattern matched in structured data response. Tool may be legitimately " +
+            "returning data containing search terms rather than executing malicious code.",
+          reviewGuidance:
+            "Verify: 1) Does the tool actually execute/compute the input? " +
+            "2) Or does it just return pre-existing data that happens to contain the pattern? " +
+            `3) Check if '${payload.evidence}' appears in legitimate tool output vs. execution results.`,
+        };
+      }
+
+      // Arithmetic patterns in numeric data (scores, counts, IDs)
+      if (
+        payload.evidence &&
+        /\b\d\b/.test(payload.evidence.toString()) &&
+        /\b(score|count|trust|rating|id|version)\b/i.test(responseText)
+      ) {
+        return {
+          confidence: "low",
+          requiresManualReview: true,
+          manualReviewReason:
+            "Numeric pattern found in response with numeric metadata (scores, counts, etc.). " +
+            "May be coincidental data rather than arithmetic execution.",
+          reviewGuidance:
+            "Verify: 1) Did the tool actually compute an arithmetic result? " +
+            "2) Or does the number appear in metadata like trust scores, version numbers, or counts? " +
+            "3) Compare pattern location in response with tool's expected output format.",
+        };
+      }
+
+      // Role/admin patterns in tool that deals with admin-related content
+      if (
+        /admin|role|privilege|elevated/i.test(payload.payload) &&
+        /\b(library|search|documentation|api|wrapper)\b/i.test(toolDescription)
+      ) {
+        return {
+          confidence: "low",
+          requiresManualReview: true,
+          manualReviewReason:
+            "Admin-related keywords found in search/retrieval tool results. " +
+            "Tool may be returning data about admin-related libraries/APIs rather than elevating privileges.",
+          reviewGuidance:
+            "Verify: 1) Did the tool actually change behavior or assume admin role? " +
+            "2) Or did it return search results for admin-related content? " +
+            "3) Test if tool behavior actually changed after this request.",
+        };
+      }
+    }
+
+    // MEDIUM CONFIDENCE: Execution evidence but some ambiguity
+    if (isVulnerable && evidence.includes("executed")) {
+      return {
+        confidence: "medium",
+        requiresManualReview: true,
+        manualReviewReason:
+          "Execution indicators found but context suggests possible ambiguity.",
+        reviewGuidance:
+          "Verify: 1) Review the full response to confirm actual code execution. " +
+          "2) Check if tool's intended function involves execution. " +
+          "3) Test with variations to confirm consistency.",
+      };
+    }
+
+    // Default: HIGH confidence for clear safe cases
+    return {
+      confidence: "high",
+      requiresManualReview: false,
+    };
+  }
+
+  /**
+   * Check if tool is a structured data tool (search, lookup, retrieval)
+   * These tools naturally echo input patterns in their results
+   */
+  private isStructuredDataTool(
+    toolName: string,
+    toolDescription: string,
+  ): boolean {
+    const dataToolPatterns = [
+      /search/i,
+      /find/i,
+      /lookup/i,
+      /query/i,
+      /retrieve/i,
+      /fetch/i,
+      /get/i,
+      /list/i,
+      /resolve/i,
+      /discover/i,
+      /browse/i,
+    ];
+
+    const combined = `${toolName} ${toolDescription}`;
+    return dataToolPatterns.some((pattern) => pattern.test(combined));
   }
 
   /**

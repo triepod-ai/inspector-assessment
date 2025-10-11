@@ -2424,8 +2424,51 @@ const SecurityVulnerabilityItem: React.FC<{
                   ? "🚨 VULNERABLE - Tool executed malicious input!"
                   : "✅ SECURE - Tool properly rejected malicious input"}
               </div>
+              {testResult.confidence && (
+                <div className="flex items-center gap-2 mt-2">
+                  <strong>Confidence:</strong>
+                  <span
+                    className={`text-xs px-2 py-1 rounded font-semibold ${
+                      testResult.confidence === "high"
+                        ? "bg-green-100 text-green-800"
+                        : testResult.confidence === "medium"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-orange-100 text-orange-800"
+                    }`}
+                  >
+                    {testResult.confidence.toUpperCase()}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Manual Review Warning Banner */}
+          {testResult.requiresManualReview && (
+            <div className="bg-amber-50 border-l-4 border-amber-500 p-3 rounded">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-amber-900 mb-1">
+                    ⚠️ Manual Review Required
+                  </div>
+                  {testResult.manualReviewReason && (
+                    <p className="text-xs text-amber-800 mb-2">
+                      {testResult.manualReviewReason}
+                    </p>
+                  )}
+                  {testResult.reviewGuidance && (
+                    <div className="bg-amber-100 p-2 rounded text-xs text-amber-900">
+                      <strong>Review Steps:</strong>
+                      <div className="mt-1 whitespace-pre-line">
+                        {testResult.reviewGuidance}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">

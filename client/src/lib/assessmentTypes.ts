@@ -59,6 +59,10 @@ export interface SecurityTestResult {
   riskLevel: SecurityRiskLevel;
   toolName?: string; // Track which tool this test was run against
   response?: string; // Track the actual response from the tool
+  confidence?: "high" | "medium" | "low"; // Confidence in vulnerability detection
+  requiresManualReview?: boolean; // Flag for manual verification
+  manualReviewReason?: string; // Why manual review is needed
+  reviewGuidance?: string; // How to perform manual review
 }
 
 export interface CodeExample {
