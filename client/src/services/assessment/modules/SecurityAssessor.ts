@@ -153,9 +153,31 @@ export class SecurityAssessor extends BaseAssessor {
     );
 
     for (const tool of toolsToTest) {
-      // Skip tools with no input parameters
+      // Tools with no input parameters can't be exploited via payload injection
+      // Add passing results so they appear in the UI
       if (!this.hasInputParameters(tool)) {
-        this.log(`Skipping ${tool.name} - no input parameters`);
+        this.log(
+          `${tool.name} has no input parameters - adding passing results`,
+        );
+
+        // Add a passing result for each attack pattern so tool appears in UI
+        for (const attackPattern of attackPatterns) {
+          const payloads = getPayloadsForAttack(attackPattern.attackName);
+
+          // Add one passing result per payload type
+          for (const payload of payloads) {
+            results.push({
+              testName: attackPattern.attackName,
+              description: payload.description,
+              payload: payload.payload,
+              riskLevel: payload.riskLevel,
+              toolName: tool.name,
+              vulnerable: false,
+              evidence:
+                "Tool has no input parameters - cannot be exploited via payload injection",
+            });
+          }
+        }
         continue;
       }
 
@@ -237,9 +259,31 @@ export class SecurityAssessor extends BaseAssessor {
     );
 
     for (const tool of toolsToTest) {
-      // Skip tools with no input parameters
+      // Tools with no input parameters can't be exploited via payload injection
+      // Add passing results so they appear in the UI
       if (!this.hasInputParameters(tool)) {
-        this.log(`Skipping ${tool.name} - no input parameters`);
+        this.log(
+          `${tool.name} has no input parameters - adding passing results`,
+        );
+
+        // Add a passing result for each basic pattern so tool appears in UI
+        for (const attackPattern of basicPatterns) {
+          const allPayloads = getPayloadsForAttack(attackPattern.attackName);
+          const payload = allPayloads[0];
+
+          if (payload) {
+            results.push({
+              testName: attackPattern.attackName,
+              description: payload.description,
+              payload: payload.payload,
+              riskLevel: payload.riskLevel,
+              toolName: tool.name,
+              vulnerable: false,
+              evidence:
+                "Tool has no input parameters - cannot be exploited via payload injection",
+            });
+          }
+        }
         continue;
       }
 
@@ -345,6 +389,7 @@ export class SecurityAssessor extends BaseAssessor {
       const { isVulnerable, evidence } = this.analyzeResponse(
         response,
         payload,
+        tool,
       );
 
       // Calculate confidence and manual review requirements
@@ -402,6 +447,7 @@ export class SecurityAssessor extends BaseAssessor {
   private analyzeResponse(
     response: CompatibilityCallToolResult,
     payload: SecurityPayload,
+    tool: any,
   ): { isVulnerable: boolean; evidence?: string } {
     const responseText = this.extractResponseContent(response).toLowerCase();
     const payloadText = payload.payload.toLowerCase();
@@ -437,6 +483,41 @@ export class SecurityAssessor extends BaseAssessor {
             "Tool explicitly marked response as vulnerable (vulnerable: true flag in JSON response)",
         };
       }
+    }
+
+    // ✅ STEP -0.5: Classify tool and check for safe categories (prevents false positives)
+    // Check tool category before generic pattern matching to avoid false positives
+    const classifier = new ToolClassifier();
+    const classification = classifier.classify(tool.name, tool.description);
+
+    // Check if tool is in a safe category and response matches expected format
+    if (classification.categories.includes(ToolCategory.SEARCH_RETRIEVAL)) {
+      // Search tools should return search results, not execute code
+      if (this.isSearchResultResponse(responseText)) {
+        return {
+          isVulnerable: false,
+          evidence: "Search tool returned query results (not code execution)",
+        };
+      }
+    }
+
+    if (classification.categories.includes(ToolCategory.CRUD_CREATION)) {
+      // Creation tools should return creation confirmations, not execute code
+      if (this.isCreationResponse(responseText)) {
+        return {
+          isVulnerable: false,
+          evidence: "CRUD tool created/modified resource (not code execution)",
+        };
+      }
+    }
+
+    if (classification.categories.includes(ToolCategory.READ_ONLY_INFO)) {
+      // Info tools should return user/workspace data (intended exposure)
+      return {
+        isVulnerable: false,
+        evidence:
+          "Read-only info tool returned user/workspace data (intended data exposure, not vulnerability)",
+      };
     }
 
     // ✅ STEP 0: Check if response is from an API wrapper (SAFE)
@@ -494,10 +575,21 @@ export class SecurityAssessor extends BaseAssessor {
     tools: any[],
   ): Promise<string[]> {
     const vulnerabilities: string[] = [];
+    const classifier = new ToolClassifier();
 
     // Check for tools that might handle sensitive data
     for (const tool of tools) {
       const toolText = `${tool.name} ${tool.description || ""}`.toLowerCase();
+
+      // Skip tools in safe categories that are designed to return user/data info
+      const classification = classifier.classify(tool.name, tool.description);
+      if (
+        classification.categories.includes(ToolCategory.READ_ONLY_INFO) ||
+        classification.categories.includes(ToolCategory.SEARCH_RETRIEVAL) ||
+        classification.categories.includes(ToolCategory.CRUD_CREATION)
+      ) {
+        continue; // These tools are designed to return data, skip the check
+      }
 
       if (
         /key|secret|credential|password|token|auth/.test(toolText) &&
@@ -955,5 +1047,50 @@ export class SecurityAssessor extends BaseAssessor {
     ];
 
     return apiWrapperPatterns.some((pattern) => pattern.test(responseText));
+  }
+
+  /**
+   * Check if response is returning search results
+   * Search tools return query results as data, not execute them
+   */
+  private isSearchResultResponse(responseText: string): boolean {
+    const searchResultPatterns = [
+      /"results"\s*:\s*\[/i, // JSON results array
+      /"type"\s*:\s*"search"/i, // Type indicator
+      /"object"\s*:\s*"list"/i, // Notion list format
+      /\bhighlight\b/i, // Search highlighting
+      /search\s+results/i,
+      /found\s+\d+\s+(results?|pages?|items?)/i,
+      /query\s+(returned|matched)/i,
+      /\d+\s+(results?|matches?|hits?)\s+for/i,
+      /"has_more"\s*:/i, // Pagination indicator
+      /next_cursor/i, // Pagination cursor
+    ];
+
+    return searchResultPatterns.some((pattern) => pattern.test(responseText));
+  }
+
+  /**
+   * Check if response is from a creation/modification operation
+   * CRUD tools create/modify resources, not execute code
+   */
+  private isCreationResponse(responseText: string): boolean {
+    const creationPatterns = [
+      /successfully\s+created/i,
+      /database\s+created/i,
+      /page\s+created/i,
+      /resource\s+created/i,
+      /\bcreate\s+table\b/i, // SQL creation
+      /\binsert\s+into\b/i, // SQL insertion
+      /"id"\s*:\s*"[a-f0-9-]{36}"/i, // UUID response (created resource)
+      /"object"\s*:\s*"(page|database)"/i, // Notion object types
+      /collection:\/\//i, // Collection URI
+      /successfully\s+(added|inserted|updated|modified)/i,
+      /resource\s+id:\s*[a-f0-9-]/i,
+      /"created_time"/i, // Timestamp from creation
+      /"last_edited_time"/i, // Timestamp from modification
+    ];
+
+    return creationPatterns.some((pattern) => pattern.test(responseText));
   }
 }

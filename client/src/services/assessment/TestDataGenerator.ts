@@ -46,10 +46,10 @@ export class TestDataGenerator {
     ids: [
       "1", // Simple numeric ID that often exists
       "123", // Common test ID
-      "test", // String ID that might exist
+      "550e8400-e29b-41d4-a716-446655440000", // Valid UUID v4 (replaces "test")
       "default", // Common default ID
       "main", // Common main ID
-      "550e8400-e29b-41d4-a716-446655440000", // Valid UUID v4
+      "264051cd-48ab-80ff-864e-d1aa9bc41429", // Valid UUID from realistic data
       "00000000-0000-0000-0000-000000000000", // Nil UUID (often used as placeholder)
       "admin", // Common admin ID
       "user1", // Common user ID pattern
@@ -449,6 +449,30 @@ export class TestDataGenerator {
           lowerFieldName.includes("key") ||
           lowerFieldName.includes("identifier")
         ) {
+          // Check if this field requires UUID format based on common patterns
+          const requiresUuid =
+            lowerFieldName.includes("uuid") ||
+            lowerFieldName.includes("page_id") ||
+            lowerFieldName.includes("database_id") ||
+            lowerFieldName.includes("user_id") ||
+            lowerFieldName.includes("block_id") ||
+            lowerFieldName.includes("comment_id") ||
+            lowerFieldName.includes("workspace_id") ||
+            lowerFieldName.includes("notion") ||
+            // Check schema description for UUID hints
+            (schema.description &&
+              (schema.description.toLowerCase().includes("uuid") ||
+                schema.description
+                  .toLowerCase()
+                  .includes("universally unique")));
+
+          if (requiresUuid) {
+            // Always return a valid UUID for UUID-required fields
+            return variant === "empty"
+              ? "00000000-0000-0000-0000-000000000000" // Nil UUID
+              : "550e8400-e29b-41d4-a716-446655440000"; // Valid UUID v4
+          }
+
           return variant === "empty"
             ? "1" // Minimal non-empty ID to avoid creating invalid entities
             : variant === "maximum"

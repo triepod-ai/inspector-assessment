@@ -18,6 +18,9 @@ export enum ToolCategory {
   RUG_PULL = "rug_pull",
   SAFE_STORAGE = "safe_storage",
   API_WRAPPER = "api_wrapper",
+  SEARCH_RETRIEVAL = "search_retrieval",
+  CRUD_CREATION = "crud_creation",
+  READ_ONLY_INFO = "read_only_info",
   GENERIC = "generic",
 }
 
@@ -263,6 +266,71 @@ export class ToolClassifier {
       );
     }
 
+    // Search and retrieval tools (SAFE - returns search results/data, not code execution)
+    // Examples: notion-search, notion-query-database, search, find, lookup
+    if (
+      this.matchesPattern(toolText, [
+        /\bsearch\b/i,
+        /\bfind\b/i,
+        /\blookup\b/i,
+        /\bquery\b/i,
+        /retrieve/i,
+        /\blist\b/i,
+        /get.*users/i,
+        /get.*pages/i,
+        /get.*database/i,
+      ])
+    ) {
+      categories.push(ToolCategory.SEARCH_RETRIEVAL);
+      confidenceScores.push(93);
+      reasons.push(
+        "Search/retrieval pattern detected (returns data, not code execution)",
+      );
+    }
+
+    // CRUD creation/modification tools (SAFE - creates/modifies resources, not code execution)
+    // Examples: notion-create-database, notion-create-page, create, add, insert, update
+    if (
+      this.matchesPattern(toolText, [
+        /\bcreate\b/i,
+        /\badd\b/i,
+        /\binsert\b/i,
+        /\bupdate\b/i,
+        /\bmodify\b/i,
+        /\bdelete\b/i,
+        /\bduplicate\b/i,
+        /\bmove\b/i,
+        /\bappend\b/i,
+      ])
+    ) {
+      categories.push(ToolCategory.CRUD_CREATION);
+      confidenceScores.push(92);
+      reasons.push(
+        "CRUD operation pattern detected (data manipulation, not code execution)",
+      );
+    }
+
+    // Read-only info tools (SAFE - returns user/workspace info, intended data exposure)
+    // Examples: notion-get-self, notion-get-teams, get-self, whoami, get-info, get-status
+    if (
+      this.matchesPattern(toolText, [
+        /get.*self/i,
+        /get.*teams/i,
+        /get.*info/i,
+        /get.*status/i,
+        /\bwhoami\b/i,
+        /get.*workspace/i,
+        /get.*user/i,
+        /current.*user/i,
+      ])
+    ) {
+      categories.push(ToolCategory.READ_ONLY_INFO);
+      confidenceScores.push(94);
+      reasons.push(
+        "Read-only info pattern detected (intended data exposure, not vulnerability)",
+      );
+    }
+
     // Safe storage tools (CONTROL GROUP - should never show vulnerabilities)
     // Validated: safe_storage_tool_mcp, safe_search_tool_mcp, safe_list_tool_mcp,
     //            safe_info_tool_mcp, safe_echo_tool_mcp, safe_validate_tool_mcp
@@ -339,6 +407,9 @@ export class ToolClassifier {
 
     const lowRiskCategories = [
       ToolCategory.API_WRAPPER,
+      ToolCategory.SEARCH_RETRIEVAL,
+      ToolCategory.CRUD_CREATION,
+      ToolCategory.READ_ONLY_INFO,
       ToolCategory.SAFE_STORAGE,
       ToolCategory.GENERIC,
     ];

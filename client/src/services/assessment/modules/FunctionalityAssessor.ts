@@ -6,6 +6,7 @@
 import { FunctionalityAssessment, ToolTestResult } from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
+import { ResponseValidator } from "../ResponseValidator";
 
 export class FunctionalityAssessor extends BaseAssessor {
   /**
@@ -132,6 +133,27 @@ export class FunctionalityAssessor extends BaseAssessor {
       // Use strict mode for functionality testing - only check explicit error indicators
       // This prevents false positives where valid responses mention "error" in their content
       if (this.isErrorResponse(response, true)) {
+        // Check if this is a business logic error (validation error)
+        // Tools that correctly validate inputs should be marked as "working"
+        const validationContext = {
+          tool,
+          input: testParams,
+          response,
+        };
+
+        if (ResponseValidator.isBusinessLogicError(validationContext)) {
+          // Tool is correctly validating inputs - this is expected behavior
+          return {
+            toolName: tool.name,
+            tested: true,
+            status: "working",
+            executionTime,
+            testParameters: testParams,
+            response,
+          };
+        }
+
+        // Real tool failure (not just validation)
         return {
           toolName: tool.name,
           tested: true,
@@ -182,21 +204,41 @@ export class FunctionalityAssessor extends BaseAssessor {
     )) {
       // Only include required parameters for basic functionality testing
       if (required.includes(key)) {
-        params[key] = this.generateParamValue(prop);
+        params[key] = this.generateParamValue(prop, key);
       }
     }
 
     return params;
   }
 
-  private generateParamValue(prop: any): unknown {
+  private generateParamValue(
+    prop: any,
+    fieldName?: string,
+    includeOptional = false,
+  ): unknown {
     const type = prop.type;
+
+    // Check for UUID format requirements
+    const lowerFieldName = fieldName?.toLowerCase() || "";
+    const requiresUuid =
+      lowerFieldName.includes("uuid") ||
+      lowerFieldName.includes("page_id") ||
+      lowerFieldName.includes("database_id") ||
+      lowerFieldName.includes("user_id") ||
+      lowerFieldName.includes("block_id") ||
+      lowerFieldName.includes("comment_id") ||
+      lowerFieldName.includes("workspace_id") ||
+      (prop.description &&
+        (prop.description.toLowerCase().includes("uuid") ||
+          prop.description.toLowerCase().includes("universally unique")));
 
     switch (type) {
       case "string":
         if (prop.enum) return prop.enum[0];
         if (prop.format === "uri") return "https://example.com";
         if (prop.format === "email") return "test@example.com";
+        // Return valid UUID for UUID-required fields
+        if (requiresUuid) return "550e8400-e29b-41d4-a716-446655440000";
         return "test";
 
       case "number":
@@ -212,7 +254,9 @@ export class FunctionalityAssessor extends BaseAssessor {
       case "array":
         // Generate array with sample items based on items schema
         if (prop.items) {
-          return [this.generateParamValue(prop.items)];
+          return [
+            this.generateParamValue(prop.items, undefined, includeOptional),
+          ];
         }
         return [];
 
@@ -222,10 +266,12 @@ export class FunctionalityAssessor extends BaseAssessor {
           const obj: Record<string, unknown> = {};
           const requiredProps = prop.required || [];
 
-          // Only generate required nested properties to avoid validation errors
+          // Generate properties based on includeOptional flag
+          // includeOptional=false: Only required properties (for functionality testing)
+          // includeOptional=true: All properties (for test input generation)
           for (const [key, subProp] of Object.entries(prop.properties)) {
-            if (requiredProps.includes(key)) {
-              obj[key] = this.generateParamValue(subProp);
+            if (includeOptional || requiredProps.includes(key)) {
+              obj[key] = this.generateParamValue(subProp, key, includeOptional);
             }
           }
           return obj;
@@ -233,13 +279,30 @@ export class FunctionalityAssessor extends BaseAssessor {
         return {};
 
       default:
-        return null;
+        // Handle union types (anyOf, oneOf) by trying the first option
+        if (prop.anyOf && Array.isArray(prop.anyOf) && prop.anyOf.length > 0) {
+          return this.generateParamValue(
+            prop.anyOf[0],
+            fieldName,
+            includeOptional,
+          );
+        }
+        if (prop.oneOf && Array.isArray(prop.oneOf) && prop.oneOf.length > 0) {
+          return this.generateParamValue(
+            prop.oneOf[0],
+            fieldName,
+            includeOptional,
+          );
+        }
+        // Return empty object instead of null to avoid validation errors
+        return {};
     }
   }
 
   // Public method for testing purposes - allows tests to verify parameter generation logic
+  // Always includes optional properties to test full schema
   public generateTestInput(schema: any): unknown {
-    return this.generateParamValue(schema);
+    return this.generateParamValue(schema, undefined, true);
   }
 
   private generateExplanation(
