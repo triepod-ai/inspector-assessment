@@ -408,16 +408,17 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                   Enable Advanced Security Testing
                 </span>
                 <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">
-                  18 Patterns
+                  8 Patterns
                 </span>
               </Label>
             </div>
             <p className="text-xs text-muted-foreground ml-6">
-              <strong>Basic:</strong> 3 common patterns (~48 checks).{" "}
-              <strong>Advanced:</strong> All 18 patterns. Designed to identify
-              potential issues like Direct Command Injection, Role Override,
-              Data Exfiltration, System Commands, Tool Shadowing, Context
-              Escape, and 12+ other common attack vectors.
+              <strong>Basic:</strong> 3 critical injection patterns (~3-15
+              checks). <strong>Advanced:</strong> All 8 patterns (~8-24 checks
+              per tool). Tests for injection vulnerabilities (Command, SQL, Path
+              Traversal), input validation (Type Safety, Boundary, Required
+              Fields), and protocol compliance (MCP Error Format, Timeout
+              Handling).
             </p>
           </div>
 
@@ -2425,22 +2426,31 @@ const SecurityVulnerabilityItem: React.FC<{
   // Get specific security guidance for vulnerability types
   const getSecurityGuidance = (vulnerabilityType: string): string => {
     const guidelines: Record<string, string> = {
-      "Direct Command Injection":
-        "Validate and sanitize all string inputs. Never pass user input directly to system commands or eval().",
-      "Role Override":
-        "Implement strict role validation. Reject inputs that attempt to change system behavior or bypass restrictions.",
-      "Data Exfiltration":
-        "Add input validation to prevent information disclosure. Avoid reflecting user input in error messages.",
-      "Context Escape":
-        "Implement proper input boundaries. Reject attempts to break out of expected parameter formats.",
-      "Instruction Confusion":
-        "Add clear parameter validation. Reject ambiguous or conflicting instructions.",
-      "Unicode Bypass":
-        "Normalize and validate Unicode input. Use allowlist validation for special characters.",
-      "Nested Injection":
-        "Validate nested data structures. Implement depth limits and recursive validation.",
-      "System Command":
-        "Never execute system commands from user input. Use safe alternatives or sandboxed environments.",
+      // Critical Injection Patterns
+      "Command Injection":
+        "Validate and sanitize all string inputs. Never pass user input directly to system commands. Use parameterized APIs or allowlist validation.",
+      "SQL Injection":
+        "Use parameterized queries or prepared statements. Never concatenate user input into SQL commands. Implement strict input validation.",
+      "Path Traversal":
+        "Validate file paths against an allowlist. Use path normalization and reject inputs containing '../' or absolute paths. Implement proper access controls.",
+
+      // Input Validation Patterns
+      "Type Safety":
+        "Implement strict type checking on all inputs. Validate data types match the expected schema before processing. Use TypeScript or runtime type validation.",
+      "Boundary Testing":
+        "Validate input length, range, and format. Reject empty strings, oversized inputs, and out-of-range values. Implement proper boundary checks.",
+      "Required Fields":
+        "Enforce required field validation. Return clear error messages for missing parameters. Implement schema validation before processing.",
+
+      // Protocol Compliance Patterns
+      "MCP Error Format":
+        "Follow MCP protocol error formatting. Return structured error responses with proper error codes. Use JSON-RPC standard error codes.",
+      "Timeout Handling":
+        "Implement proper timeout mechanisms for long-running operations. Return timeout errors gracefully. Set reasonable time limits for all operations.",
+
+      // Legacy patterns (for backward compatibility)
+      "Direct Command Injection": "See 'Command Injection' guidance above.",
+      "System Command": "See 'Command Injection' guidance above.",
     };
 
     return (
