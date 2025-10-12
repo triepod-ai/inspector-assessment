@@ -77,6 +77,20 @@ export class AssessmentOrchestrator {
   }
 
   /**
+   * Reset test counts for all assessors
+   */
+  private resetAllTestCounts(): void {
+    this.functionalityAssessor.resetTestCount();
+    this.securityAssessor.resetTestCount();
+    this.documentationAssessor.resetTestCount();
+    this.errorHandlingAssessor.resetTestCount();
+    this.usabilityAssessor.resetTestCount();
+    if (this.mcpSpecAssessor) {
+      this.mcpSpecAssessor.resetTestCount();
+    }
+  }
+
+  /**
    * Run a complete assessment on an MCP server
    */
   async runFullAssessment(
@@ -84,6 +98,7 @@ export class AssessmentOrchestrator {
   ): Promise<MCPDirectoryAssessment> {
     this.startTime = Date.now();
     this.totalTestsRun = 0;
+    this.resetAllTestCounts();
 
     // Run assessments in parallel if enabled
     const assessmentPromises: Promise<any>[] = [];
@@ -138,7 +153,7 @@ export class AssessmentOrchestrator {
     }
 
     // Collect test counts from all assessors
-    this.totalTestsRun = this.collectTotalTestCount(assessmentResults);
+    this.totalTestsRun = this.collectTotalTestCount();
 
     // Determine overall status
     const overallStatus = this.determineOverallStatus(assessmentResults);
@@ -190,21 +205,35 @@ export class AssessmentOrchestrator {
     return this.runFullAssessment(context);
   }
 
-  private collectTotalTestCount(results: any): number {
+  private collectTotalTestCount(): number {
     let total = 0;
 
-    // Core assessments
-    if (results.functionality?.toolResults) {
-      total += results.functionality.toolResults.length;
-    }
-    if (results.security?.promptInjectionTests) {
-      total += results.security.promptInjectionTests.length;
-    }
-    if (results.errorHandling?.metrics?.testDetails) {
-      total += results.errorHandling.metrics.testDetails.length;
-    }
+    // Get actual test counts from assessors
+    const functionalityCount = this.functionalityAssessor.getTestCount();
+    const securityCount = this.securityAssessor.getTestCount();
+    const documentationCount = this.documentationAssessor.getTestCount();
+    const errorHandlingCount = this.errorHandlingAssessor.getTestCount();
+    const usabilityCount = this.usabilityAssessor.getTestCount();
+    const mcpSpecCount = this.mcpSpecAssessor?.getTestCount() || 0;
 
-    // Extended assessments
+    console.log("[AssessmentOrchestrator] Test counts by assessor:", {
+      functionality: functionalityCount,
+      security: securityCount,
+      documentation: documentationCount,
+      errorHandling: errorHandlingCount,
+      usability: usabilityCount,
+      mcpSpec: mcpSpecCount,
+    });
+
+    total =
+      functionalityCount +
+      securityCount +
+      documentationCount +
+      errorHandlingCount +
+      usabilityCount +
+      mcpSpecCount;
+
+    console.log("[AssessmentOrchestrator] Total test count:", total);
 
     return total;
   }

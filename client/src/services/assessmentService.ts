@@ -88,11 +88,12 @@ export class MCPAssessmentService {
 
     // Run extended assessment if enabled
     let mcpSpecCompliance: MCPSpecComplianceAssessment | undefined;
+    let mcpAssessor: MCPSpecComplianceAssessor | undefined;
     // let privacy: PrivacyComplianceAssessment | undefined; // Removed - out of scope
 
     if (this.config.enableExtendedAssessment) {
       // Run MCP Spec Compliance assessment
-      const mcpAssessor = new MCPSpecComplianceAssessor(this.config);
+      mcpAssessor = new MCPSpecComplianceAssessor(this.config);
       mcpSpecCompliance = await mcpAssessor.assess(context);
 
       // TODO: Fix SupplyChainAssessor to return proper types
@@ -130,6 +131,21 @@ export class MCPAssessmentService {
     );
 
     const executionTime = Date.now() - this.startTime;
+
+    // Collect test counts from all assessors
+    this.totalTestsRun =
+      functionalityAssessor.getTestCount() +
+      securityAssessor.getTestCount() +
+      errorHandlingAssessor.getTestCount() +
+      (mcpSpecCompliance ? mcpAssessor?.getTestCount() || 0 : 0);
+
+    console.log("[MCPAssessmentService] Test counts:", {
+      functionality: functionalityAssessor.getTestCount(),
+      security: securityAssessor.getTestCount(),
+      errorHandling: errorHandlingAssessor.getTestCount(),
+      mcpSpec: mcpSpecCompliance ? mcpAssessor?.getTestCount() || 0 : 0,
+      total: this.totalTestsRun,
+    });
 
     return {
       serverName,

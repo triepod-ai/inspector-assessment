@@ -39,6 +39,31 @@ This fork includes extensive custom assessment enhancements:
 
 ### Development Timeline - October 2025
 
+**2025-10-12**: Test Count Reporting Bug Fixed
+- ✅ **Problem Identified**: Assessment UI and exported reports always showed "Tests Run: 0" despite tests executing successfully
+- ✅ **Root Cause**: `MCPAssessmentService.runFullAssessment()` created assessor instances and ran tests but never collected test counts from them, always returning `totalTestsRun: 0`
+- ✅ **Investigation**:
+  - Each assessor tracks actual test invocations via `this.testCount++` (from BaseAssessor)
+  - `MCPAssessmentService` instantiated assessors but never called `.getTestCount()` on them
+  - Original `collectTotalTestCount()` in AssessmentOrchestrator had same issue but wasn't being used by UI
+- ✅ **Solution Implemented**:
+  - **MCPAssessmentService** (client/src/services/assessmentService.ts:91,134-147):
+    - Store `mcpAssessor` instance in properly scoped variable
+    - Collect test counts after assessments: `functionalityAssessor.getTestCount() + securityAssessor.getTestCount() + errorHandlingAssessor.getTestCount() + mcpAssessor.getTestCount()`
+    - Added debug logging to verify counts in browser console
+  - **AssessmentOrchestrator** (client/src/services/assessment/AssessmentOrchestrator.ts:82-91,101,208-239):
+    - Added `resetAllTestCounts()` method to reset all assessor counters before each assessment
+    - Modified `collectTotalTestCount()` to query assessors via `.getTestCount()` instead of counting result arrays
+    - Added debug logging for troubleshooting
+- 🎯 **Result**: Test count now accurately reports actual test invocations (e.g., "Total Tests Run: 8" for 1 functionality + 3 security + 4 error handling tests)
+- 📊 **Impact**:
+  - UI displays correct test count in assessment header
+  - Exported reports show accurate "Total Tests Run" metadata
+  - Both UI paths (MCPAssessmentService and AssessmentOrchestrator) now properly track test counts
+  - Users can verify assessment thoroughness via test count
+- ✅ **Build Status**: All packages compile successfully
+- ✅ **Validation**: Tested with Notion MCP server - correctly reported 8 tests (previously showed 0)
+
 **2025-10-12**: UI Simplification - Developer Mode Now Default
 - ✅ **Problem Identified**: Dual-mode UI (reviewer/developer) added unnecessary complexity - developer mode is comprehensive enough for all use cases
 - ✅ **Solution Implemented**: Made developer mode the permanent default, disabled mode toggle button
