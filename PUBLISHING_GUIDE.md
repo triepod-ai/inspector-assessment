@@ -1,4 +1,4 @@
-# Publishing Guide for @bryan-thompson/inspector-assessment
+# Publishing Guide for @bryan-thompson/inspector-assessment 
 
 This guide documents how to publish and maintain the `@bryan-thompson/inspector-assessment` npm package.
 
