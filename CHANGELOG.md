@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-10-12
+
+### Fixed
+
+- **Validation False Positives in Security Testing**: Tools properly validating input are no longer incorrectly flagged as vulnerable
+  - Added MCP error code detection (JSON-RPC -32602 Invalid params)
+  - Added execution evidence requirement for ambiguous patterns (distinguishes "type error in validation" from "type error during execution")
+  - Fixed 18 validation patterns including boundary validation ("cannot be empty", "required field")
+  - Implemented 3-layer validation approach: MCP codes → patterns → execution evidence
+  - Universal fix applies to ALL MCP servers, not just specific tools
+
+- **API Operational Error Detection**: Functionality assessment now correctly recognizes operational errors as working behavior
+  - Added 11 API operational error patterns (credits, billing, quotas, rate limits)
+  - Added 5 generic validation patterns (invalid input, invalid parameter)
+  - Expanded validation-expected tool types (scrape, crawl, map, extract, parse, analyze, process)
+  - Adjusted confidence weighting for better accuracy (20% threshold for operational errors, 30% for validation tools)
+
+### Changed
+
+- **UI Text Updates**: Updated security testing descriptions to reflect current 8-pattern architecture
+  - Changed badge from "18 Patterns" to "8 Patterns"
+  - Updated test descriptions to reflect 3 critical injection patterns (basic) and 8 total patterns (advanced)
+  - Updated security guidance mapping for all 8 current patterns (Command, SQL, Path Traversal, Type Safety, Boundary, Required Fields, MCP Error Format, Timeout)
+
+### Added
+
+- **Comprehensive Test Coverage**: 29 new tests validating false positive fixes (all passing)
+  - 12 SecurityAssessor validation tests (MCP error codes, execution evidence, boundary validation)
+  - 5 Firecrawl integration tests (real-world operational error scenarios)
+  - 12 ResponseValidator tests (API operational errors, rate limiting, input validation)
+
+### Technical Details
+
+- **Files Changed**: 6 files (1,878 insertions, 782 deletions)
+- **Universal Application**: Changes in `analyzeResponse()` method apply to all tools and all security patterns
+- **Detection Flow**: All tools → all patterns → `testPayload()` → `analyzeResponse()` (contains fixes)
+- **Backward Compatible**: No breaking changes to API or assessment interfaces
+
 ## [1.2.0] - 2025-10-11
 
 ### Added
