@@ -11,7 +11,7 @@
 - **Test Status**: ✅ 582/582 passing (100% pass rate) 🎉
 - **Lint Status**: ✅ 229 errors, 0 warnings (down from 280 errors, 3 warnings)
 - **Prettier Status**: ✅ All files formatted correctly
-- **Testing Mode**: 🎯 Single comprehensive mode (dual-mode removed 2025-10-06)
+- **Testing Mode**: 🎯 Developer mode (comprehensive testing for all users, mode toggle disabled 2025-10-12)
 - **Published**: 2025-10-11 (first public release)
 
 ## Overview
@@ -26,7 +26,7 @@ This fork includes extensive custom assessment enhancements:
 - **Context-Aware Security Assessment**: 18 attack pattern tests (Basic: 3 patterns/48 tests, Advanced: 18 patterns/900+ tests) with domain-specific payloads, bidirectional reflection detection with safety indicators, and operational error filtering (zero false positives validated on hardened testbed)
 - **Error Handling Quality Metrics**: Multiple validation scenarios with coverage tracking
 - **Business Logic Detection**: Context-aware test data generation
-- **Dual-Mode UI**: Reviewer mode (fast) + Developer mode (comprehensive)
+- **Simplified UI**: Developer mode as default with comprehensive testing for all users
 - **Focused Assessment Architecture**: 6 core assessors (aligned with Anthropic's 5 MCP directory requirements)
   - Functionality Assessor
   - Security Assessor (bidirectional reflection detection with safety indicators, zero false positives)
@@ -38,6 +38,21 @@ This fork includes extensive custom assessment enhancements:
 ## Recent Changes
 
 ### Development Timeline - October 2025
+
+**2025-10-12**: UI Simplification - Developer Mode Now Default
+- ✅ **Problem Identified**: Dual-mode UI (reviewer/developer) added unnecessary complexity - developer mode is comprehensive enough for all use cases
+- ✅ **Solution Implemented**: Made developer mode the permanent default, disabled mode toggle button
+- ✅ **Changes**:
+  - Changed initial `viewMode` state from `"reviewer"` to `"developer"` (AssessmentTab.tsx:112)
+  - Changed initial config from `DEFAULT_ASSESSMENT_CONFIG` to `DEVELOPER_MODE_CONFIG` (AssessmentTab.tsx:90)
+  - Disabled mode toggle button permanently (`disabled={true}`) (AssessmentTab.tsx:448)
+  - Removed unused `DEFAULT_ASSESSMENT_CONFIG` import
+- 🎯 **Result**: Simplified UI with comprehensive testing as default, toggle button preserved for future enhancements if needed
+- 📊 **Impact**:
+  - All users get comprehensive testing by default (all tools, all 17 security patterns, full MCP spec compliance)
+  - Eliminates confusion from dual modes
+  - Cleaner user experience focused on thorough assessment
+- ✅ **Build Status**: All packages compile successfully
 
 **2025-10-12**: Security Assessment Language - Confidence-Aware Terminology Throughout UI
 - ✅ **Problem Identified**: UI used apocalyptic language ("VULNERABLE", "Tool executed malicious input!", "Actual Vulnerabilities Found") for ALL detections regardless of confidence level, causing false panic for likely false positives

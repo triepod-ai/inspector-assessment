@@ -34,7 +34,6 @@ import {
   MCPDirectoryAssessment,
   AssessmentStatus,
   AssessmentConfiguration,
-  DEFAULT_ASSESSMENT_CONFIG,
   REVIEWER_MODE_CONFIG,
   DEVELOPER_MODE_CONFIG,
   SecurityTestResult,
@@ -87,7 +86,7 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
   const [currentTest, setCurrentTest] = useState("");
   const [readmeContent, setReadmeContent] = useState("");
   const [config, setConfig] = useState<AssessmentConfiguration>(
-    DEFAULT_ASSESSMENT_CONFIG,
+    DEVELOPER_MODE_CONFIG,
   );
   const [error, setError] = useState<string | null>(null);
   const [showJson, setShowJson] = useState(false);
@@ -109,7 +108,7 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
     ToolTestResult | EnhancedToolTestResult | null
   >(null);
   const [viewMode, setViewMode] = useState<"reviewer" | "developer">(
-    "reviewer",
+    "developer",
   );
 
   const assessmentService = useMemo(
@@ -445,7 +444,7 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
             <Button
               onClick={toggleViewMode}
               variant="outline"
-              disabled={isRunning}
+              disabled={true}
               className="flex items-center gap-2"
             >
               {viewMode === "reviewer" ? "Developer" : "Reviewer"} Mode
