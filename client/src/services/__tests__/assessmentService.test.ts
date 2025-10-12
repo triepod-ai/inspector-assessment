@@ -710,7 +710,7 @@ describe("MCPAssessmentService", () => {
           isError: false,
         });
 
-        const result = await service.runFullAssessment(
+        await service.runFullAssessment(
           "enum-server",
           [MOCK_TOOLS[3]], // enum_tool
           mockCallTool,
@@ -734,7 +734,7 @@ describe("MCPAssessmentService", () => {
           isError: false,
         });
 
-        const result = await service.runFullAssessment(
+        await service.runFullAssessment(
           "url-email-server",
           [MOCK_TOOLS[4]], // url_email_tool
           mockCallTool,

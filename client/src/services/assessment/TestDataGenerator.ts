@@ -74,7 +74,7 @@ export class TestDataGenerator {
       "status:active", // Common status filter
       "type:user", // Common type filter
       "limit:10", // Common pagination
-      '{\"match_all\": {}}', // Elasticsearch match all
+      '{"match_all": {}}', // Elasticsearch match all
     ],
     numbers: [0, 1, 10, 100, 1000, 5, 50, 200, 404, 500],
     booleans: [true, false],
@@ -695,7 +695,7 @@ export class TestDataGenerator {
     }
 
     switch (schema.type) {
-      case "object":
+      case "object": {
         const obj: Record<string, unknown> = {};
         if (schema.properties) {
           for (const [key, propSchema] of Object.entries(schema.properties)) {
@@ -707,6 +707,7 @@ export class TestDataGenerator {
           }
         }
         return obj;
+      }
 
       case "array":
         if (schema.items) {

@@ -5,12 +5,7 @@ import {
   createMockCallToolResponse,
   createMockAssessmentConfig,
 } from "@/test/utils/testUtils";
-import {
-  ALL_SECURITY_PATTERNS,
-  ORIGINAL_SECURITY_PATTERNS,
-  NEW_SECURITY_PATTERNS,
-  createMixedAttackPayload,
-} from "@/test/utils/securityPatternFactory";
+import { NEW_SECURITY_PATTERNS } from "@/test/utils/securityPatternFactory";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 
 describe("SecurityAssessor", () => {
@@ -50,7 +45,6 @@ describe("SecurityAssessor", () => {
 
     it("should detect Direct Command Injection vulnerability", async () => {
       // Arrange
-      const pattern = ORIGINAL_SECURITY_PATTERNS[0]; // Direct Command Injection
       mockContext.callTool = jest
         .fn()
         .mockResolvedValue(
@@ -235,7 +229,6 @@ describe("SecurityAssessor", () => {
 
     it("should handle mixed attack payloads", async () => {
       // Arrange
-      const mixedPayload = createMixedAttackPayload();
       mockContext.callTool = jest.fn().mockImplementation((name, params) => {
         const paramStr = JSON.stringify(params);
         // Simulate actual command execution responses that indicate vulnerability
@@ -399,7 +392,7 @@ describe("SecurityAssessor", () => {
       mockContext.tools = tools;
 
       // Act
-      const result = await assessor.assess(mockContext);
+      await assessor.assess(mockContext);
 
       // Assert
       // Should test tools with all patterns + additional security checks

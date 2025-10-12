@@ -45,7 +45,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       const mockCallTool = jest
         .fn()
-        .mockImplementation((name: string, params: any) => {
+        .mockImplementation((name: string, _params: any) => {
           // Simulate varied responses based on tool and parameters
           if (name === "getUserData") {
             return createMockCallToolResponse(

@@ -175,7 +175,7 @@ describe("FunctionalityAssessor", () => {
       mockContext.tools = tools;
 
       // Act
-      const result = await assessor.assess(mockContext);
+      await assessor.assess(mockContext);
 
       // Assert
       expect(mockContext.callTool).toHaveBeenCalledTimes(3);

@@ -1,7 +1,6 @@
 import { MCPSpecComplianceAssessor } from "./MCPSpecComplianceAssessor";
 import {
   createMockAssessmentContext,
-  createMockServerInfo,
   createMockCallToolResponse,
   createMockAssessmentConfig,
 } from "@/test/utils/testUtils";

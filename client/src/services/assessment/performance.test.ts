@@ -328,7 +328,7 @@ describe("Assessment Performance Benchmarks", () => {
         );
       }
 
-      const mockCallTool = jest.fn().mockImplementation((name: string) => {
+      const mockCallTool = jest.fn().mockImplementation((_name: string) => {
         // Return responses with varying sizes
         const responseSize = Math.floor(Math.random() * 1000) + 100;
         const response = "x".repeat(responseSize);
@@ -525,7 +525,7 @@ describe("Assessment Performance Benchmarks", () => {
 
       const stressCallTool = jest
         .fn()
-        .mockImplementation((name: string, params: any) => {
+        .mockImplementation((_name: string, _params: any) => {
           // Simulate varying load conditions
           const complexity = Math.random();
           let delay: number;

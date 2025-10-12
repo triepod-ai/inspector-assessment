@@ -2,7 +2,6 @@ import { UsabilityAssessor } from "./UsabilityAssessor";
 import {
   createMockAssessmentContext,
   createMockTool,
-  createMockCallToolResponse,
   createMockAssessmentConfig,
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";

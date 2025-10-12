@@ -21,54 +21,6 @@ const createRaceConditionTool = (name: string): Tool => ({
   },
 });
 
-// Fuzzing data generator (used in tests but referenced via inline generation)
-const fuzzValues = [
-  // Boundary values
-  -2147483648,
-  2147483647,
-  -1,
-  0,
-  1,
-  // Floating point edge cases
-  0.0,
-  -0.0,
-  Infinity,
-  -Infinity,
-  NaN,
-  // String edge cases
-  "",
-  " ",
-  "\0",
-  "\n",
-  "\r\n",
-  "\t",
-  // Unicode edge cases
-  "\u0000",
-  "\uFFFD",
-  "\uD800\uDC00",
-  // Control characters
-  String.fromCharCode(1, 2, 3, 4, 5),
-  // Large numbers as strings
-  "999999999999999999999999999999999999999999999",
-  // Boolean as strings
-  "true",
-  "false",
-  "True",
-  "False",
-  "TRUE",
-  "FALSE",
-  // Null/undefined as strings
-  "null",
-  "undefined",
-  "NULL",
-  "UNDEFINED",
-  // Array-like strings
-  "[1,2,3]",
-  '{"key": "value"}',
-  // Special characters
-  "!@#$%^&*()_+-=[]{}|;:'\",.<>?/~`",
-];
-
 describe("MCPAssessmentService - Advanced Test Generator", () => {
   let service: MCPAssessmentService;
   let mockCallTool: jest.Mock;
@@ -644,7 +596,6 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
   describe("Error State Exploration", () => {
     it("should test error recovery mechanisms", async () => {
       let errorCount = 0;
-      const maxErrors = 3;
 
       mockCallTool.mockImplementation(async (_toolName, _params) => {
         errorCount++;

@@ -121,18 +121,6 @@ describe("DocumentationAssessor", () => {
       const result = await assessor.assess(mockContext);
 
       // Assert
-      const expectedSections = [
-        "description",
-        "installation",
-        "usage",
-        "api",
-        "configuration",
-        "examples",
-        "security",
-        "contributing",
-        "license",
-      ];
-
       expect(result.metrics.hasInstallInstructions).toBe(true);
       expect(result.metrics.hasUsageGuide).toBe(true);
       expect(result.metrics.hasAPIReference).toBe(true);

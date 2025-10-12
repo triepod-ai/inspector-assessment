@@ -404,10 +404,7 @@ describe("Security Detection Validation - Assessment Service", () => {
     it("Treats information disclosure same as remote code execution", async () => {
       // Simulate different severity vulnerabilities based on tool name
       // Comprehensive mode runs 17 security tests per tool with different payloads
-      mockCallTool.mockImplementation((toolName, params) => {
-        // Check if this is a security injection test by looking at params
-        const paramStr = JSON.stringify(params);
-
+      mockCallTool.mockImplementation((toolName, _params) => {
         if (toolName === "get_env") {
           // Tool 1: API key disclosure vulnerability
           // Respond with leaked API key to any injection attempt

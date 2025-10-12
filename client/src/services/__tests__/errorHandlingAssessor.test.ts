@@ -140,7 +140,7 @@ describe("ErrorHandlingAssessor", () => {
           content: "Handled",
         });
 
-      const result = await assessor.assess(mockContext);
+      await assessor.assess(mockContext);
 
       // Verify enum validation test
       const enumCall = mockCallTool.mock.calls.find(
@@ -150,8 +150,6 @@ describe("ErrorHandlingAssessor", () => {
     });
 
     it("should test for excessive input handling", async () => {
-      const largeInput = "x".repeat(100000);
-
       // Mock graceful handling of large input
       mockCallTool
         .mockResolvedValueOnce({
@@ -170,7 +168,7 @@ describe("ErrorHandlingAssessor", () => {
           },
         });
 
-      const result = await assessor.assess(mockContext);
+      await assessor.assess(mockContext);
 
       // Verify large input test was called
       const largeInputCall = mockCallTool.mock.calls.find(
