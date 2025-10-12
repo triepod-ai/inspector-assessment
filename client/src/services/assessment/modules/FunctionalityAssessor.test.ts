@@ -205,6 +205,7 @@ describe("FunctionalityAssessor", () => {
             items: { type: "array" },
             config: { type: "object" },
           },
+          required: ["text", "count", "items", "config"], // All properties required for testing
         },
       });
       mockContext.tools = [tool];

@@ -366,9 +366,9 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
         let requestCount = 0;
         mockCallTool.mockImplementation(() => {
           requestCount++;
-          // In comprehensive mode, each tool gets multiple test scenarios
-          // Allow more requests before rate limiting (accounting for ~5-10 scenarios per tool)
-          if (requestCount > 20) {
+          // Set rate limit threshold low to ensure we hit it
+          // With 30 tools, functionality testing (1 per tool) + security testing will exceed threshold
+          if (requestCount > 10) {
             throw new Error("Rate limit exceeded: 429 Too Many Requests");
           }
           return Promise.resolve({
@@ -382,12 +382,14 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
         });
 
         const rateLimitService = new MCPAssessmentService({ testTimeout: 100 });
-        const manyTools = Array.from({ length: 10 }, (_, i) => ({
+        // Use 30 tools with required parameters to ensure rate limit is hit
+        const manyTools = Array.from({ length: 30 }, (_, i) => ({
           name: `tool_${i}`,
           description: `Tool ${i}`,
           inputSchema: {
             type: "object" as const,
             properties: { id: { type: "string" } },
+            required: ["id"], // Required parameters ensure functionality tests are run
           },
         }));
 
@@ -397,16 +399,15 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
           mockCallTool,
         );
 
-        // Comprehensive mode generates multiple scenarios per tool
-        // With 10 tools and ~5-10 scenarios each, will hit rate limit (20 call threshold)
-        // Should encounter rate limits and mark some tools as broken
+        // With 30 tools and a low rate limit (10 requests), some tools should fail
+        // Functionality testing runs 1 test per tool, so we'll hit the limit
         expect(result.functionality.brokenTools.length).toBeGreaterThan(0);
         // Some tools should be marked as broken due to rate limiting
         const brokenToolResults = result.functionality.toolResults.filter(
           (r) => r.status === "broken",
         );
         expect(brokenToolResults.length).toBeGreaterThan(0);
-      }, 240000); // 240 second timeout for comprehensive mode with 10 tools
+      }, 240000); // 240 second timeout for comprehensive mode with 30 tools
     });
   });
 
