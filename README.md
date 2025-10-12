@@ -89,7 +89,7 @@ Our enhanced fork maintains high code quality standards with comprehensive testi
     - Context-aware security testing with zero false positives
     - Realistic test data generation and boundary testing
   - **Total Project Tests**: 582 tests including assessment modules, UI components, and core inspector functionality
-  - All tests updated to reflect comprehensive mode (18 security patterns × 3 payloads per tool)
+- All tests updated to reflect focused backend testing (8 security patterns × 3 payloads per tool)
   - Test files: `client/src/services/__tests__/` and `client/src/services/assessment/__tests__/`
 - **Code Quality**: ✅ Production code uses proper TypeScript types
   - 229 lint issues remaining (down 18% from 280 after recent cleanup)
@@ -205,7 +205,7 @@ Response: "The answer is 4"
 
 ### 5. Streamlined Assessment Architecture
 
-**Based on Real-World Testing**: Our methodology has been validated through systematic testing using the taskmanager MCP server as a case study (11 tools tested with 17 security injection patterns, detailed in [ASSESSMENT_METHODOLOGY.md](docs/ASSESSMENT_METHODOLOGY.md)).
+**Based on Real-World Testing**: Our methodology has been validated through systematic testing using the taskmanager MCP server as a case study (11 tools tested with 8 backend security patterns, detailed in [ASSESSMENT_METHODOLOGY.md](docs/ASSESSMENT_METHODOLOGY.md)).
 
 **Six Core Assessors** aligned with Anthropic's MCP directory submission requirements:
 
@@ -480,7 +480,11 @@ These 208 tests specifically validate:
 **Test Categories**:
 
 - **Functionality Assessment**: Multi-scenario validation, progressive complexity (2 levels: minimal → simple), business logic error detection
-- **Security Assessment**: 8 injection patterns (direct command, role override, data exfiltration, SQL, XSS, path traversal, LDAP, nested)
+- **Security Assessment**: 8 backend-focused patterns
+  - **Critical Injection (3)**: Command Injection, SQL Injection, Path Traversal
+  - **Input Validation (3)**: Type Safety, Boundary Testing, Required Fields
+  - **Protocol Compliance (2)**: MCP Error Format, Timeout Handling
+  - **Scope**: Tests backend API security only (not LLM prompt injection)
 - **Documentation Analysis**: README structure validation, code example extraction, parameter documentation checks
 - **Error Handling**: MCP protocol compliance (error codes -32600 to -32603), validation quality scoring, timeout handling
 - **Usability Evaluation**: Naming convention analysis, parameter clarity assessment, schema completeness validation
@@ -491,7 +495,7 @@ These 208 tests specifically validate:
 - **Test Files**: Located in `client/src/services/__tests__/` and `client/src/services/assessment/__tests__/`
 - **Recent Improvements**:
   - Achieved 100% test pass rate (582 passing, 0 failing) - 2025-10-11
-  - Updated all tests for comprehensive mode (18 security patterns × 3 payloads) - 2025-10-11
+- Updated all tests for focused backend testing (8 security patterns × 3 payloads) - 2025-10-12
   - Fixed all failing tests after upstream sync - 2025-10-04
   - Added boundary testing optimization validation - 2025-10-05
 
@@ -992,7 +996,7 @@ All performance claims in this README are backed by implementation analysis and 
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | Progressive complexity testing (2 levels) | Implementation in [TestScenarioEngine.ts](client/src/services/assessment/TestScenarioEngine.ts)                                                                             | Measured   |
 | 50% faster comprehensive testing          | Analysis in [PHASE1_OPTIMIZATION_COMPLETED.md](docs/PHASE1_OPTIMIZATION_COMPLETED.md) and [COMPREHENSIVE_TESTING_ANALYSIS.md](docs/COMPREHENSIVE_TESTING_ANALYSIS.md)       | Measured   |
-| 17 security injection patterns            | Implementation in [ASSESSMENT_METHODOLOGY.md](docs/ASSESSMENT_METHODOLOGY.md#eight-security-test-patterns) and assessmentTypes.ts                                           | Measured   |
+| 8 backend security patterns               | Implementation in [securityPatterns.ts](client/src/lib/securityPatterns.ts) - focused on API security, not LLM behaviors                                                    | Measured   |
 | Zero false positives in security testing  | Context-aware reflection detection in [SecurityAssessor.ts](client/src/services/assessment/modules/SecurityAssessor.ts)                                                     | Validated  |
 | Context-aware test data generation        | Implementation in [TestDataGenerator.ts](client/src/services/assessment/TestDataGenerator.ts)                                                                               | Measured   |
 | MCP error code recognition                | Implementation in [ResponseValidator.ts](client/src/services/assessment/ResponseValidator.ts)                                                                               | Measured   |
