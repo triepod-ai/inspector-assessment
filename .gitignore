@@ -23,3 +23,9 @@ logs/
 .mcp.json
 docs/doc_MCP_INSPECTOR_5POINT_ASSESSMENT_WHITEPAPER.docx
 PROJECT_STATUS.md.bak
+SECURITY_VULNERABILITY_REPORT.md
+SECURITY_FIX_IMPLEMENTATION.md
+archive/
+inspector.code-workspace*
+bryan-thompson-inspector-assessment-1.0.0.tgz
+PROJECT_STATUS.md
