@@ -153,6 +153,120 @@ For detailed documentation on specific features, see:
 5. **Test in dev mode**: `npm run dev` (opens http://localhost:6274)
 6. **Commit changes** with descriptive message
 
+## PROJECT_STATUS.md Maintenance & Archival
+
+**Important**: When adding new timeline entries to PROJECT_STATUS.md, follow the archival procedure to keep the file manageable.
+
+### Timeline Entry Guidelines
+
+- **Format**: Reverse chronological order (newest entries at top)
+- **Date Format**: `**2025-10-12**: Title - Description`
+- **Location**: Add new entries at the top of "Development Timeline - October 2025" section
+- **Structure**: Use consistent emoji indicators (✅ for completed, 🎯 for result, 📊 for impact, etc.)
+
+### Archival Procedure (7-Day Rule)
+
+**When to Archive**: After adding entries for a new day, check if there are entries older than 7 days.
+
+**Steps**:
+
+1. **Identify entries to archive**: Timeline entries from 8+ days ago
+
+   ```bash
+   grep -n "^\*\*2025-" /home/bryan/inspector/PROJECT_STATUS.md | head -15
+   ```
+
+2. **Extract entries with full detail sections**:
+   - Find line boundaries: Summary entries end, detailed sections begin with `### 2025-`
+   - Example: Lines 254-1015 contained Oct 7-9 summary + detailed sections
+
+   ```bash
+   grep -n "^### 2025-" /home/bryan/inspector/PROJECT_STATUS.md
+   ```
+
+3. **Append to PROJECT_STATUS_ARCHIVE.md**:
+   - Extract entries: `sed -n 'START,ENDp' PROJECT_STATUS.md > /tmp/archived.txt`
+   - Append to archive: `cat /tmp/archived.txt >> PROJECT_STATUS_ARCHIVE.md`
+
+4. **Remove from PROJECT_STATUS.md**:
+
+   ```bash
+   sed -i 'START,ENDd' /home/bryan/inspector/PROJECT_STATUS.md
+   ```
+
+5. **Update archive note** (if first time archiving):
+   - Add section after last Oct 10+ entry:
+
+   ```markdown
+   ---
+   
+   ## 📁 Older Timeline Entries
+   
+   **Note**: Timeline entries older than 7 days have been moved to [PROJECT_STATUS_ARCHIVE.md](PROJECT_STATUS_ARCHIVE.md) to keep this file focused on recent development.
+   
+   **Archive Policy**: Entries are automatically archived after 7 days to maintain readability and performance.
+   
+   **How to View Archived Entries**: See [PROJECT_STATUS_ARCHIVE.md](PROJECT_STATUS_ARCHIVE.md) for detailed entries from [date range] and earlier development history.
+   
+   ---
+   ```
+
+### Example Archival Session
+
+```bash
+# 1. Find boundaries
+grep -n "^\*\*2025-10-09\|^\*\*2025-10-08\|^\*\*2025-10-07" PROJECT_STATUS.md
+# Output: 254:**2025-10-09, 263:**2025-10-09, etc.
+
+grep -n "^### 2025-10-09\|^### 2025-10-08\|^### 2025-10-07" PROJECT_STATUS.md
+# Output: 288:### 2025-10-09, 424:### 2025-10-09, etc.
+
+# 2. Extract (from first summary to last detailed section)
+sed -n '254,1015p' PROJECT_STATUS.md > /tmp/archived.txt
+
+# 3. Append to archive (add header first if new)
+cat /tmp/archived.txt >> PROJECT_STATUS_ARCHIVE.md
+
+# 4. Remove from main file
+sed -i '254,1015d' PROJECT_STATUS.md
+
+# 5. Verify
+wc -l PROJECT_STATUS.md PROJECT_STATUS_ARCHIVE.md
+```
+
+### Archive File Structure
+
+**PROJECT_STATUS_ARCHIVE.md** format:
+
+```markdown
+# Project Status Archive: MCP Inspector
+
+This file contains archived project timeline entries from earlier development phases.
+
+**Archive Policy**: Entries older than 7 days are moved here.
+
+**Archived Date**: 2025-10-12
+
+---
+
+## Development Timeline - October 2025 (Oct 7-9)
+
+[Summary entries]
+
+---
+
+[Detailed sections]
+```
+
+### Benefits
+
+- **Performance**: Keeps main file under 2000 lines (readable in Claude)
+- **Focus**: Recent entries remain visible and actionable
+- **History**: Complete development history preserved in archive
+- **Searchability**: Clear links between main and archive files
+
+**Note**: Always add new timeline entries BEFORE performing archival. Archival is a maintenance task, not a development task.
+
 ## npm Package Publishing & Maintenance
 
 **Package**: `@bryan-thompson/inspector-assessment`
