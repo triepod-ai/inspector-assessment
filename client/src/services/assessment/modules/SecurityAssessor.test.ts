@@ -20,7 +20,7 @@ describe("SecurityAssessor", () => {
   });
 
   describe("assess", () => {
-    it("should test all 17 security patterns", async () => {
+    it("should test all 8 security patterns", async () => {
       // Arrange
       const tool = createMockTool({ name: "test-tool" });
       mockContext.tools = [tool];
@@ -33,9 +33,9 @@ describe("SecurityAssessor", () => {
 
       // Assert
       expect(result).toBeDefined();
-      // In advanced mode, multiple payloads are tested per pattern (18 patterns × 3 payloads ≈ 54+ tests)
-      expect(result.promptInjectionTests.length).toBeGreaterThanOrEqual(17);
-      // Main 17 patterns + additional security checks (metadata, sandbox, shadowing)
+      // In advanced mode, multiple payloads are tested per pattern (8 patterns × 3 payloads ≈ 24+ tests)
+      expect(result.promptInjectionTests.length).toBeGreaterThanOrEqual(8);
+      // 8 backend API security patterns
       expect(mockContext.callTool).toHaveBeenCalled();
       expect(mockContext.callTool).toHaveBeenCalledWith(
         "test-tool",
@@ -43,7 +43,7 @@ describe("SecurityAssessor", () => {
       );
     });
 
-    it("should detect Direct Command Injection vulnerability", async () => {
+    it("should detect Command Injection vulnerability", async () => {
       // Arrange
       mockContext.callTool = jest
         .fn()
@@ -59,58 +59,41 @@ describe("SecurityAssessor", () => {
       expect(result.promptInjectionTests).toContainEqual(
         expect.objectContaining({
           riskLevel: "HIGH",
-          testName: expect.stringContaining("Direct Command Injection"),
+          testName: expect.stringContaining("Command Injection"),
         }),
       );
     });
 
-    it("should detect Role Override vulnerability", async () => {
+    it("should detect SQL Injection vulnerability", async () => {
       // Arrange
-      mockContext.callTool = jest.fn().mockImplementation((name, params) => {
-        if (JSON.stringify(params).includes("admin")) {
-          return createMockCallToolResponse("Role changed to admin", false);
-        }
-        return createMockCallToolResponse("success", false);
-      });
-
-      // Act
-      const result = await assessor.assess(mockContext);
-
-      // Assert
-      const roleOverrideFindings = result.promptInjectionTests.filter((f) =>
-        f.testName.includes("Role Override"),
-      );
-      expect(roleOverrideFindings.length).toBeGreaterThan(0);
-    });
-
-    it("should detect Data Exfiltration attempts", async () => {
-      // Arrange
-      mockContext.callTool = jest.fn().mockImplementation((name, params) => {
-        if (JSON.stringify(params).includes("external://")) {
-          return createMockCallToolResponse(
-            "Data sent to external source",
+      mockContext.callTool = jest
+        .fn()
+        .mockResolvedValue(
+          createMockCallToolResponse(
+            "SQL error: syntax error near DROP TABLE",
             false,
-          );
-        }
-        return createMockCallToolResponse("success", false);
-      });
+          ),
+        );
 
       // Act
       const result = await assessor.assess(mockContext);
 
       // Assert
-      const exfiltrationFindings = result.promptInjectionTests.filter((f) =>
-        f.testName.includes("Data Exfiltration"),
+      expect(result.vulnerabilities.length).toBeGreaterThan(0);
+      expect(result.promptInjectionTests).toContainEqual(
+        expect.objectContaining({
+          riskLevel: "HIGH",
+          testName: expect.stringContaining("SQL Injection"),
+        }),
       );
-      expect(exfiltrationFindings.length).toBeGreaterThan(0);
     });
 
-    it("should detect Context Escape attempts", async () => {
+    it("should detect Path Traversal vulnerability", async () => {
       // Arrange
       mockContext.callTool = jest.fn().mockImplementation((name, params) => {
         const paramStr = JSON.stringify(params);
-        if (paramStr.includes("]]>") || paramStr.includes("<script>")) {
-          return createMockCallToolResponse("Context boundary violated", false);
+        if (paramStr.includes("../../../")) {
+          return createMockCallToolResponse("File accessed: root:x:0:0", false);
         }
         return createMockCallToolResponse("success", false);
       });
@@ -119,96 +102,15 @@ describe("SecurityAssessor", () => {
       const result = await assessor.assess(mockContext);
 
       // Assert
-      const escapeFindings = result.promptInjectionTests.filter((f) =>
-        f.testName.includes("Context Escape"),
+      const traversalFindings = result.promptInjectionTests.filter((f) =>
+        f.testName.includes("Path Traversal"),
       );
-      expect(escapeFindings.length).toBeGreaterThan(0);
-    });
-
-    it("should detect Unicode Bypass attempts", async () => {
-      // Arrange
-      mockContext.callTool = jest.fn().mockImplementation((name, params) => {
-        if (JSON.stringify(params).includes("ＲＭ")) {
-          return createMockCallToolResponse("Unicode command detected", false);
-        }
-        return createMockCallToolResponse("success", false);
-      });
-
-      // Act
-      const result = await assessor.assess(mockContext);
-
-      // Assert
-      const unicodeFindings = result.promptInjectionTests.filter((f) =>
-        f.testName.includes("Unicode Bypass"),
-      );
-      expect(unicodeFindings.length).toBeGreaterThan(0);
-    });
-
-    it("should detect Tool Shadowing attempts", async () => {
-      // Arrange
-      mockContext.callTool = jest.fn().mockImplementation((name, params) => {
-        if (JSON.stringify(params).includes("shadow")) {
-          return createMockCallToolResponse("Tool shadowing detected", false);
-        }
-        return createMockCallToolResponse("success", false);
-      });
-
-      // Act
-      const result = await assessor.assess(mockContext);
-
-      // Assert
-      const shadowFindings = result.promptInjectionTests.filter((f) =>
-        f.testName.includes("Tool Shadowing"),
-      );
-      expect(shadowFindings.length).toBeGreaterThan(0);
-    });
-
-    it("should detect Package Squatting attempts", async () => {
-      // Arrange
-      mockContext.callTool = jest.fn().mockImplementation((name, params) => {
-        if (JSON.stringify(params).includes("expres")) {
-          // typo of express
-          return createMockCallToolResponse(
-            "Package typosquatting detected",
-            false,
-          );
-        }
-        return createMockCallToolResponse("success", false);
-      });
-
-      // Act
-      const result = await assessor.assess(mockContext);
-
-      // Assert
-      const squattingFindings = result.promptInjectionTests.filter((f) =>
-        f.testName.includes("Package Squatting"),
-      );
-      expect(squattingFindings.length).toBeGreaterThan(0);
-    });
-
-    it("should detect Sandbox Escape attempts", async () => {
-      // Arrange
-      mockContext.callTool = jest.fn().mockImplementation((name, params) => {
-        const paramStr = JSON.stringify(params);
-        if (paramStr.includes("../../../") || paramStr.includes("spawn_sync")) {
-          return createMockCallToolResponse("Sandbox escape attempted", false);
-        }
-        return createMockCallToolResponse("success", false);
-      });
-
-      // Act
-      const result = await assessor.assess(mockContext);
-
-      // Assert
-      const sandboxFindings = result.promptInjectionTests.filter((f) =>
-        f.testName.includes("Sandbox Escape"),
-      );
-      expect(sandboxFindings.length).toBeGreaterThan(0);
-      expect(sandboxFindings[0].riskLevel).toBe("HIGH");
+      expect(traversalFindings.length).toBeGreaterThan(0);
+      expect(traversalFindings[0].riskLevel).toBe("HIGH");
     });
 
     it("should calculate security score correctly", async () => {
-      // Arrange - simulate 3 vulnerabilities out of 17 tests
+      // Arrange - simulate 3 vulnerabilities out of 8 patterns
       let testCount = 0;
       mockContext.callTool = jest.fn().mockImplementation(() => {
         testCount++;
@@ -271,11 +173,11 @@ describe("SecurityAssessor", () => {
 
       // Assert
       expect(result).toBeDefined();
-      // In advanced mode, should test multiple payloads per pattern (54+ tests total)
-      expect(result.promptInjectionTests.length).toBeGreaterThanOrEqual(17);
+      // In advanced mode, should test multiple payloads per pattern (24+ tests total)
+      expect(result.promptInjectionTests.length).toBeGreaterThanOrEqual(8);
     });
 
-    it("should test all NEW security patterns", async () => {
+    it("should test all 8 backend security patterns", async () => {
       // Arrange
       mockContext.callTool = jest
         .fn()
@@ -285,49 +187,56 @@ describe("SecurityAssessor", () => {
       const result = await assessor.assess(mockContext);
 
       // Assert
-      // In advanced mode, verify comprehensive attack coverage across all pattern categories
-      // NEW patterns include: Tool Shadowing, Metadata Exfiltration, Package Squatting, etc.
+      // In advanced mode, verify comprehensive coverage across all 8 pattern categories
+      // Patterns: Command Injection, SQL Injection, Path Traversal, Type Safety, Boundary Testing, Required Fields, MCP Error Format, Timeout Handling
       const uniqueTestNames = new Set(
         result.promptInjectionTests.map((t) => t.testName),
       );
 
-      // Should test at least as many unique attack types as we have in NEW_SECURITY_PATTERNS
-      expect(uniqueTestNames.size).toBeGreaterThanOrEqual(
-        NEW_SECURITY_PATTERNS.length,
-      );
+      // Should test all 8 backend security patterns
+      expect(uniqueTestNames.size).toBeGreaterThanOrEqual(8);
 
-      // Verify key NEW patterns are covered (use partial matching for flexibility)
-      const keyNewPatterns = [
-        "Tool Shadowing",
-        "Package Squatting",
-        "Sandbox Escape",
+      // Verify key patterns are covered (use partial matching for flexibility)
+      const keyBackendPatterns = [
+        "Command Injection",
+        "SQL Injection",
+        "Path Traversal",
+        "Type Safety",
+        "Boundary Testing",
       ];
-      for (const pattern of keyNewPatterns) {
+      for (const pattern of keyBackendPatterns) {
         expect(
           result.promptInjectionTests.some((t) => t.testName.includes(pattern)),
         ).toBe(true);
       }
-    }, 240000); // 240 second timeout for comprehensive mode testing NEW patterns
+    }, 240000); // 240 second timeout for comprehensive mode testing all 8 backend patterns
 
     it("should properly categorize risk levels", async () => {
       // Arrange
       mockContext.callTool = jest.fn().mockImplementation((name, params) => {
         const paramStr = JSON.stringify(params);
 
-        // Critical risk for sandbox escape and system commands
+        // High risk for injection patterns
         if (
-          paramStr.includes("Sandbox Escape") ||
-          paramStr.includes("System Command")
+          paramStr.includes("Path Traversal") ||
+          paramStr.includes("SQL Injection") ||
+          paramStr.includes("Command Injection")
         ) {
-          return createMockCallToolResponse("Critical vulnerability", false);
-        }
-        // High risk for command injection
-        if (paramStr.includes("Direct Command")) {
           return createMockCallToolResponse("High risk detected", false);
         }
-        // Medium risk for unicode bypass
-        if (paramStr.includes("Unicode")) {
+        // Medium risk for validation patterns
+        if (
+          paramStr.includes("Type Safety") ||
+          paramStr.includes("Boundary Testing")
+        ) {
           return createMockCallToolResponse("Medium risk detected", false);
+        }
+        // Low risk for protocol patterns
+        if (
+          paramStr.includes("MCP Error Format") ||
+          paramStr.includes("Timeout Handling")
+        ) {
+          return createMockCallToolResponse("Low risk detected", false);
         }
 
         return createMockCallToolResponse("safe", false);
