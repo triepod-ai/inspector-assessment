@@ -8,6 +8,45 @@ import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 
 export class FunctionalityAssessor extends BaseAssessor {
+  /**
+   * Select tools for testing based on configuration
+   */
+  private selectToolsForTesting(tools: any[]): any[] {
+    // Prefer new selectedToolsForTesting configuration
+    // Note: undefined/null means "test all" (default), empty array [] means "test none" (explicit)
+    if (this.config.selectedToolsForTesting !== undefined) {
+      const selectedNames = new Set(this.config.selectedToolsForTesting);
+      const selectedTools = tools.filter((tool) =>
+        selectedNames.has(tool.name),
+      );
+
+      // Empty array means user explicitly selected 0 tools
+      if (this.config.selectedToolsForTesting.length === 0) {
+        this.log(
+          `User selected 0 tools for functionality testing - skipping tests`,
+        );
+        return [];
+      }
+
+      // If no tools matched the names (config out of sync), log warning but respect selection
+      if (selectedTools.length === 0) {
+        this.log(
+          `Warning: No tools matched selection (${this.config.selectedToolsForTesting.join(", ")})`,
+        );
+        return [];
+      }
+
+      this.log(
+        `Testing ${selectedTools.length} selected tools out of ${tools.length} for functionality`,
+      );
+      return selectedTools;
+    }
+
+    // Default: test all tools
+    this.log(`Testing all ${tools.length} tools for functionality`);
+    return tools;
+  }
+
   async assess(context: AssessmentContext): Promise<FunctionalityAssessment> {
     this.log(
       `Starting functionality assessment${this.config.reviewerMode ? " (reviewer mode - quick verification)" : ""}`,
@@ -17,7 +56,10 @@ export class FunctionalityAssessor extends BaseAssessor {
     const brokenTools: string[] = [];
     let workingTools = 0;
 
-    for (const tool of context.tools) {
+    // Select tools for testing
+    const toolsToTest = this.selectToolsForTesting(context.tools);
+
+    for (const tool of toolsToTest) {
       this.testCount++;
 
       const result = await this.testTool(tool, context.callTool);
@@ -39,7 +81,7 @@ export class FunctionalityAssessor extends BaseAssessor {
       }
     }
 
-    const totalTools = context.tools.length;
+    const totalTools = toolsToTest.length;
     const testedTools = toolResults.filter((r) => r.tested).length;
     const coveragePercentage =
       testedTools > 0 ? (workingTools / testedTools) * 100 : 0;
@@ -86,8 +128,10 @@ export class FunctionalityAssessor extends BaseAssessor {
 
       const executionTime = Date.now() - startTime;
 
-      // Check if response indicates an error
-      if (response?.isError) {
+      // Check if response indicates an error using base class method
+      // Use strict mode for functionality testing - only check explicit error indicators
+      // This prevents false positives where valid responses mention "error" in their content
+      if (this.isErrorResponse(response, true)) {
         return {
           toolName: tool.name,
           tested: true,
@@ -129,13 +173,17 @@ export class FunctionalityAssessor extends BaseAssessor {
     if (!schema?.properties) return {};
 
     const params: Record<string, unknown> = {};
-    // const required = schema.required || []; // Unused but kept for future validation
+    const required = schema.required || [];
 
-    // Generate minimal valid values for all fields
+    // For functionality testing, only generate REQUIRED parameters
+    // This avoids triggering validation errors on optional parameters with complex rules
     for (const [key, prop] of Object.entries(
       schema.properties as Record<string, any>,
     )) {
-      params[key] = this.generateParamValue(prop);
+      // Only include required parameters for basic functionality testing
+      if (required.includes(key)) {
+        params[key] = this.generateParamValue(prop);
+      }
     }
 
     return params;
@@ -154,8 +202,9 @@ export class FunctionalityAssessor extends BaseAssessor {
       case "number":
       case "integer":
         if (prop.minimum !== undefined) return prop.minimum;
-        if (prop.maximum !== undefined) return prop.maximum;
-        return 0;
+        if (prop.maximum !== undefined) return Math.min(prop.maximum, 10);
+        // Use 10 instead of 0 for better validity (page_size, limit, etc.)
+        return 10;
 
       case "boolean":
         return false;
@@ -171,8 +220,13 @@ export class FunctionalityAssessor extends BaseAssessor {
         // Generate object with properties based on schema
         if (prop.properties) {
           const obj: Record<string, unknown> = {};
+          const requiredProps = prop.required || [];
+
+          // Only generate required nested properties to avoid validation errors
           for (const [key, subProp] of Object.entries(prop.properties)) {
-            obj[key] = this.generateParamValue(subProp);
+            if (requiredProps.includes(key)) {
+              obj[key] = this.generateParamValue(subProp);
+            }
           }
           return obj;
         }
@@ -197,7 +251,7 @@ export class FunctionalityAssessor extends BaseAssessor {
     const parts: string[] = [];
 
     if (total === 0) {
-      return "No tools available to test.";
+      return "No tools selected for functionality testing. Select tools to run functionality assessments.";
     }
 
     parts.push(`Tested ${tested} out of ${total} tools.`);

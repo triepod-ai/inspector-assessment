@@ -39,7 +39,10 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     this.testCount = testDetails.length;
 
     const metrics = this.calculateMetrics(testDetails, passedTests);
-    const status = this.determineErrorHandlingStatus(metrics);
+    const status = this.determineErrorHandlingStatus(
+      metrics,
+      testDetails.length,
+    );
     const explanation = this.generateExplanation(metrics, testDetails);
     const recommendations = this.generateRecommendations(metrics, testDetails);
 
@@ -52,16 +55,16 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   }
 
   private selectToolsForTesting(tools: any[]): any[] {
-    // Prefer new selectedToolsForErrorTesting configuration
+    // Prefer new selectedToolsForTesting configuration
     // Note: undefined/null means "test all" (default), empty array [] means "test none" (explicit)
-    if (this.config.selectedToolsForErrorTesting !== undefined) {
-      const selectedNames = new Set(this.config.selectedToolsForErrorTesting);
+    if (this.config.selectedToolsForTesting !== undefined) {
+      const selectedNames = new Set(this.config.selectedToolsForTesting);
       const selectedTools = tools.filter((tool) =>
         selectedNames.has(tool.name),
       );
 
       // Empty array means user explicitly selected 0 tools
-      if (this.config.selectedToolsForErrorTesting.length === 0) {
+      if (this.config.selectedToolsForTesting.length === 0) {
         this.log(`User selected 0 tools for error handling - skipping tests`);
         return [];
       }
@@ -69,7 +72,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       // If no tools matched the names (config out of sync), log warning but respect selection
       if (selectedTools.length === 0) {
         this.log(
-          `Warning: No tools matched selection (${this.config.selectedToolsForErrorTesting.join(", ")})`,
+          `Warning: No tools matched selection (${this.config.selectedToolsForTesting.join(", ")})`,
         );
         return [];
       }
@@ -522,56 +525,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     return params;
   }
 
-  private isErrorResponse(response: any): boolean {
-    if (!response) return false;
-
-    // Check explicit error flag first
-    if (response.isError === true || response.error !== undefined) {
-      return true;
-    }
-
-    // Check if content contains error text
-    if (response.content) {
-      if (typeof response.content === "string") {
-        return response.content.toLowerCase().includes("error");
-      } else if (Array.isArray(response.content)) {
-        // Check if any text content contains "error"
-        return response.content.some(
-          (c: any) =>
-            c.type === "text" &&
-            c.text &&
-            c.text.toLowerCase().includes("error"),
-        );
-      }
-    }
-
-    return false;
-  }
-
-  private extractErrorInfo(response: any): {
-    code?: string | number;
-    message?: string;
-  } {
-    if (!response) return {};
-
-    // Extract text from content array if present
-    let contentText: string | undefined;
-    if (Array.isArray(response.content)) {
-      const textContent = response.content.find((c: any) => c.type === "text");
-      contentText = textContent?.text;
-    } else if (typeof response.content === "string") {
-      contentText = response.content;
-    }
-
-    return {
-      code: response.errorCode || response.code || response.error?.code,
-      message:
-        response.errorMessage ||
-        response.message ||
-        response.error?.message ||
-        contentText,
-    };
-  }
+  // isErrorResponse and extractErrorInfo moved to BaseAssessor for reuse across all assessors
 
   private calculateMetrics(
     tests: ErrorTestDetail[],
@@ -643,17 +597,21 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         t.actualResponse.errorMessage.length > 10,
     ).length;
 
-    // Require at least 50% of errors to have proper codes/messages
-    // Rationale: We want consistency, not perfection. If most errors
-    // have codes, the pattern is established. Below 50% suggests
-    // inconsistent error handling across the tool set.
+    // Handle case when no tests were run
+    // Don't claim "Yes" for error codes/messages when we didn't test anything
     const hasProperErrorCodes =
-      actualErrors.length === 0 || // If no errors were triggered, we can't assess this
-      errorsWithCodes / actualErrors.length >= 0.5;
+      tests.length === 0
+        ? false // No tests = can't assess
+        : actualErrors.length === 0
+          ? true // Tests run but no errors triggered = can't assess, assume OK
+          : errorsWithCodes / actualErrors.length >= 0.5;
 
     const hasDescriptiveMessages =
-      actualErrors.length === 0 || // If no errors were triggered, we can't assess this
-      errorsWithMessages / actualErrors.length >= 0.5;
+      tests.length === 0
+        ? false // No tests = can't assess
+        : actualErrors.length === 0
+          ? true // Tests run but no errors triggered = can't assess, assume OK
+          : errorsWithMessages / actualErrors.length >= 0.5;
 
     const validatesInputs = tests
       .filter((t) => ["missing_required", "wrong_type"].includes(t.testType))
@@ -671,7 +629,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
   private determineErrorHandlingStatus(
     metrics: ErrorHandlingMetrics,
+    testCount: number,
   ): AssessmentStatus {
+    // If no tests were run, we can't determine error handling status
+    if (testCount === 0) return "NEED_MORE_INFO";
+
     // More lenient thresholds that recognize good error handling
     if (metrics.mcpComplianceScore >= 70) return "PASS";
     if (metrics.mcpComplianceScore >= 40) return "NEED_MORE_INFO";
@@ -682,6 +644,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     metrics: ErrorHandlingMetrics,
     tests: ErrorTestDetail[],
   ): string {
+    // Handle case when no tools were tested
+    if (tests.length === 0) {
+      return "No tools selected for error handling testing. Select tools to run error handling assessments.";
+    }
+
     const parts: string[] = [];
 
     // Filter out invalid_values for scoring context

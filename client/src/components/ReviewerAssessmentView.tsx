@@ -193,7 +193,7 @@ export const ReviewerAssessmentView: React.FC<ReviewerAssessmentViewProps> = ({
       verdict:
         assessment.errorHandling.status === "PASS"
           ? "PASS"
-          : assessment.errorHandling.metrics.mcpComplianceScore < 70
+          : assessment.errorHandling.status === "FAIL"
             ? "FAIL"
             : "REVIEW_NEEDED",
       evidence: [

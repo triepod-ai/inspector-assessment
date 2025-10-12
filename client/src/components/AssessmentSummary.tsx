@@ -1,7 +1,9 @@
 import React from "react";
-import { MCPDirectoryAssessment } from "../lib/assessmentTypes";
+import {
+  MCPDirectoryAssessment,
+  AssessmentStatus,
+} from "../lib/assessmentTypes";
 import { CheckCircle, XCircle, AlertCircle, FileText } from "lucide-react";
-import { calculateAssessmentScores } from "../utils/assessmentScoring";
 
 interface AssessmentSummaryProps {
   assessment: MCPDirectoryAssessment | null;
@@ -27,54 +29,86 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({
     return null;
   }
 
-  const scores = calculateAssessmentScores(assessment);
-  const totalScore = scores.total;
-  const isReady = totalScore >= 75;
-  const classification = scores.classification;
+  // Count statuses
+  const statuses = [
+    assessment.functionality.status,
+    assessment.security.status,
+    assessment.documentation.status,
+    assessment.errorHandling.status,
+    assessment.usability.status,
+  ];
 
-  // Count issues that need fixing
+  const passedCount = statuses.filter((s) => s === "PASS").length;
+  const failedCount = statuses.filter((s) => s === "FAIL").length;
+  const needsReviewCount = statuses.filter(
+    (s) => s === "NEED_MORE_INFO",
+  ).length;
+
+  const isReady = passedCount === 5;
+  const classification = isReady
+    ? "PASS"
+    : failedCount > 0
+      ? "FAIL"
+      : "NEEDS REVIEW";
+
+  // Count critical vs minor issues
   const criticalIssues = [
-    scores.functionality.score < 15 ? 1 : 0,
-    scores.security.score < 15 ? 1 : 0,
-    scores.errorHandling.score < 10 ? 1 : 0,
+    assessment.functionality.status === "FAIL" ? 1 : 0,
+    assessment.security.status === "FAIL" ? 1 : 0,
+    assessment.errorHandling.status === "FAIL" ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const minorIssues = [
-    scores.documentation.score < scores.documentation.maxScore ? 1 : 0,
-    scores.usability.score < scores.usability.maxScore ? 1 : 0,
+    assessment.documentation.status !== "PASS" ? 1 : 0,
+    assessment.usability.status !== "PASS" ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
+
+  const getStatusLabel = (status: AssessmentStatus): string => {
+    switch (status) {
+      case "PASS":
+        return "✓ PASS";
+      case "FAIL":
+        return "✗ FAIL";
+      case "NEED_MORE_INFO":
+        return "⚠ NEEDS REVIEW";
+    }
+  };
 
   const generateSubmissionReport = () => {
     const report = {
       serverName: assessment.serverName,
-      score: totalScore,
       classification: classification,
       timestamp: new Date().toISOString(),
+      categoryCounts: {
+        passed: passedCount,
+        failed: failedCount,
+        needsReview: needsReviewCount,
+      },
       categories: {
-        functionality: `${scores.functionality.score}/${scores.functionality.maxScore}`,
-        security: `${scores.security.score}/${scores.security.maxScore}`,
-        documentation: `${scores.documentation.score}/${scores.documentation.maxScore}`,
-        errorHandling: `${scores.errorHandling.score}/${scores.errorHandling.maxScore}`,
-        usability: `${scores.usability.score}/${scores.usability.maxScore}`,
+        functionality: getStatusLabel(assessment.functionality.status),
+        security: getStatusLabel(assessment.security.status),
+        documentation: getStatusLabel(assessment.documentation.status),
+        errorHandling: getStatusLabel(assessment.errorHandling.status),
+        usability: getStatusLabel(assessment.usability.status),
       },
       readyForSubmission: isReady,
-      issuesRemaining: criticalIssues + minorIssues,
     };
 
     const reportText = `MCP Directory Submission Report
 Generated: ${new Date().toLocaleString()}
 ${report.serverName ? `\nServer: ${report.serverName}` : ""}
-Overall Score: ${report.score}/100 (${report.classification})
-Status: ${report.readyForSubmission ? "✅ Ready for Submission" : "❌ Not Ready - Fix Issues First"}
+Overall Status: ${report.classification}
+Categories: ${report.categoryCounts.passed}/5 passing${needsReviewCount > 0 ? `, ${needsReviewCount} need review` : ""}${failedCount > 0 ? `, ${failedCount} failing` : ""}
+Status: ${report.readyForSubmission ? "✅ Ready for Submission" : "❌ Not Ready - Address Issues First"}
 
-Category Scores:
+Category Status:
 - Functionality: ${report.categories.functionality}
 - Security: ${report.categories.security}
 - Documentation: ${report.categories.documentation}
 - Error Handling: ${report.categories.errorHandling}
 - Usability: ${report.categories.usability}
 
-${!report.readyForSubmission ? `Issues to Fix: ${report.issuesRemaining}` : "All requirements met!"}`;
+${!report.readyForSubmission ? `Action Required: Review and fix failing/needs-review categories above.` : "All requirements met!"}`;
 
     // Copy to clipboard
     navigator.clipboard.writeText(reportText);
@@ -119,34 +153,36 @@ ${!report.readyForSubmission ? `Issues to Fix: ${report.issuesRemaining}` : "All
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                Overall Score
+                Overall Status
               </span>
               <div className="text-2xl font-bold">
                 <span
                   className={
-                    totalScore >= 75
+                    classification === "PASS"
                       ? "text-green-600 dark:text-green-400"
-                      : totalScore >= 50
-                        ? "text-yellow-600 dark:text-yellow-400"
-                        : "text-red-600 dark:text-red-400"
+                      : classification === "FAIL"
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-yellow-600 dark:text-yellow-400"
                   }
                 >
-                  {totalScore}
+                  {passedCount}/5
                 </span>
                 <span className="text-gray-500 dark:text-gray-400 text-lg">
-                  /100
+                  {" "}
+                  passing
                 </span>
                 <span
                   className={`ml-2 text-sm px-2 py-1 rounded ${
                     classification === "PASS"
                       ? "bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200"
-                      : (classification as string) === "REVIEW" ||
-                          (classification as string) === "NEED_MORE_INFO"
-                        ? "bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200"
-                        : "bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200"
+                      : classification === "FAIL"
+                        ? "bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200"
+                        : "bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200"
                   }`}
                 >
-                  {classification}
+                  {classification === "NEEDS REVIEW"
+                    ? "NEEDS REVIEW"
+                    : classification}
                 </span>
               </div>
             </div>
@@ -182,26 +218,53 @@ ${!report.readyForSubmission ? `Issues to Fix: ${report.issuesRemaining}` : "All
             <div className="text-sm text-gray-700 dark:text-gray-300 mb-4">
               <p className="font-medium mb-1">To get approved:</p>
               <ul className="list-disc list-inside space-y-1">
-                {scores.functionality.score < 15 && (
-                  <li>
-                    Fix functionality issues (need 15+ points, have{" "}
-                    {scores.functionality.score})
+                {assessment.functionality.status === "FAIL" && (
+                  <li className="text-red-600 dark:text-red-400">
+                    Fix functionality issues (currently FAIL)
                   </li>
                 )}
-                {scores.security.score < 15 && (
-                  <li>
-                    Fix security vulnerabilities (need 15+ points, have{" "}
-                    {scores.security.score})
+                {assessment.functionality.status === "NEED_MORE_INFO" && (
+                  <li className="text-yellow-600 dark:text-yellow-400">
+                    Review functionality warnings
                   </li>
                 )}
-                {scores.errorHandling.score < 10 && (
-                  <li>
-                    Improve error handling (need 10+ points, have{" "}
-                    {scores.errorHandling.score})
+                {assessment.security.status === "FAIL" && (
+                  <li className="text-red-600 dark:text-red-400">
+                    Fix security vulnerabilities (currently FAIL)
                   </li>
                 )}
-                {totalScore < 75 && criticalIssues === 0 && (
-                  <li>Improve overall score to 75+ (currently {totalScore})</li>
+                {assessment.security.status === "NEED_MORE_INFO" && (
+                  <li className="text-yellow-600 dark:text-yellow-400">
+                    Review security warnings
+                  </li>
+                )}
+                {assessment.errorHandling.status === "FAIL" && (
+                  <li className="text-red-600 dark:text-red-400">
+                    Improve error handling (currently FAIL)
+                  </li>
+                )}
+                {assessment.errorHandling.status === "NEED_MORE_INFO" && (
+                  <li className="text-yellow-600 dark:text-yellow-400">
+                    Review error handling warnings
+                  </li>
+                )}
+                {assessment.documentation.status !== "PASS" && (
+                  <li className="text-yellow-600 dark:text-yellow-400">
+                    Improve documentation (currently{" "}
+                    {assessment.documentation.status === "FAIL"
+                      ? "FAIL"
+                      : "NEEDS REVIEW"}
+                    )
+                  </li>
+                )}
+                {assessment.usability.status !== "PASS" && (
+                  <li className="text-yellow-600 dark:text-yellow-400">
+                    Improve usability (currently{" "}
+                    {assessment.usability.status === "FAIL"
+                      ? "FAIL"
+                      : "NEEDS REVIEW"}
+                    )
+                  </li>
                 )}
               </ul>
             </div>

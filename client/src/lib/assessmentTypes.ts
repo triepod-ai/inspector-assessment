@@ -666,8 +666,8 @@ export interface AssessmentConfiguration {
   maxParallelTests?: number;
   // Testing configuration (always uses comprehensive multi-scenario testing)
   scenariosPerTool?: number; // Max scenarios per tool (default 5-20 based on complexity)
-  maxToolsToTestForErrors?: number; // @deprecated Use selectedToolsForErrorTesting instead. Max number of tools to test for error handling (default -1 for all, use positive number to limit)
-  selectedToolsForErrorTesting?: string[]; // Array of tool names to test for error handling. Empty array or undefined = test all tools
+  maxToolsToTestForErrors?: number; // @deprecated Use selectedToolsForTesting instead. Max number of tools to test for error handling (default -1 for all, use positive number to limit)
+  selectedToolsForTesting?: string[]; // Array of tool names to test for functionality, security, and error handling. Empty array = test none, undefined = test all tools
   securityPatternsToTest?: number; // Number of security patterns to test (default all 17, reviewer mode uses 3)
   // Security testing mode: Basic (3 patterns, ~48 tests) or Advanced (18 patterns)
   enableDomainTesting?: boolean; // Enable advanced security testing with all 18 attack patterns (default true)

@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { MCPDirectoryAssessment } from "../lib/assessmentTypes";
-import { Check, X, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
 import {
-  calculateAssessmentScores,
-  extractCategoryIssues,
-} from "../utils/assessmentScoring";
+  MCPDirectoryAssessment,
+  AssessmentStatus,
+} from "../lib/assessmentTypes";
+import { Check, X, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import { extractCategoryIssues } from "../utils/assessmentScoring";
 
 interface AssessmentChecklistProps {
   assessment: MCPDirectoryAssessment | null;
@@ -12,9 +12,7 @@ interface AssessmentChecklistProps {
 
 interface ChecklistItem {
   name: string;
-  score: number;
-  maxScore: number;
-  passed: boolean;
+  status: AssessmentStatus;
   issues: string[];
   category:
     | "functionality"
@@ -51,55 +49,35 @@ export const AssessmentChecklist: React.FC<AssessmentChecklistProps> = ({
     }
   };
 
-  const scores = calculateAssessmentScores(assessment);
-
-  // Define passing thresholds for each category
-  const passingThresholds = {
-    functionality: 15,
-    security: 15,
-    documentation: 12,
-    errorHandling: 10,
-    usability: 10,
-  };
-
+  // Build checklist items directly from assessment statuses
   const checklistItems: ChecklistItem[] = [
     {
       name: "Functionality",
-      score: scores.functionality.score,
-      maxScore: scores.functionality.maxScore,
-      passed: scores.functionality.score >= passingThresholds.functionality,
+      status: assessment.functionality.status,
       category: "functionality",
       issues: extractCategoryIssues(assessment.functionality),
     },
     {
       name: "Security",
-      score: scores.security.score,
-      maxScore: scores.security.maxScore,
-      passed: scores.security.score >= passingThresholds.security,
+      status: assessment.security.status,
       category: "security",
       issues: extractCategoryIssues(assessment.security),
     },
     {
       name: "Documentation",
-      score: scores.documentation.score,
-      maxScore: scores.documentation.maxScore,
-      passed: scores.documentation.score >= passingThresholds.documentation,
+      status: assessment.documentation.status,
       category: "documentation",
       issues: extractCategoryIssues(assessment.documentation),
     },
     {
       name: "Error Handling",
-      score: scores.errorHandling.score,
-      maxScore: scores.errorHandling.maxScore,
-      passed: scores.errorHandling.score >= passingThresholds.errorHandling,
+      status: assessment.errorHandling.status,
       category: "errorHandling",
       issues: extractCategoryIssues(assessment.errorHandling),
     },
     {
       name: "Usability",
-      score: scores.usability.score,
-      maxScore: scores.usability.maxScore,
-      passed: scores.usability.score >= passingThresholds.usability,
+      status: assessment.usability.status,
       category: "usability",
       issues: extractCategoryIssues(assessment.usability),
     },
@@ -129,13 +107,17 @@ export const AssessmentChecklist: React.FC<AssessmentChecklistProps> = ({
                   onClick={() => scrollToSection(item.category)}
                 >
                   <div className="flex-shrink-0">
-                    {item.passed ? (
+                    {item.status === "PASS" ? (
                       <div className="w-6 h-6 bg-green-100 dark:bg-green-900/30 rounded flex items-center justify-center">
                         <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
                       </div>
-                    ) : (
+                    ) : item.status === "FAIL" ? (
                       <div className="w-6 h-6 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center">
                         <X className="w-4 h-4 text-red-600 dark:text-red-400" />
+                      </div>
+                    ) : (
+                      <div className="w-6 h-6 bg-yellow-100 dark:bg-yellow-900/30 rounded flex items-center justify-center">
+                        <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                       </div>
                     )}
                   </div>
@@ -144,10 +126,16 @@ export const AssessmentChecklist: React.FC<AssessmentChecklistProps> = ({
                     <span className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                       {item.name}
                     </span>
-                    {hasIssues && !item.passed && (
-                      <span className="ml-2 text-xs text-red-600 dark:text-red-400">
+                    {hasIssues && item.status !== "PASS" && (
+                      <span
+                        className={`ml-2 text-xs ${
+                          item.status === "FAIL"
+                            ? "text-red-600 dark:text-red-400"
+                            : "text-yellow-600 dark:text-yellow-400"
+                        }`}
+                      >
                         ({item.issues.length} issue
-                        {item.issues.length !== 1 ? "s" : ""} to fix)
+                        {item.issues.length !== 1 ? "s" : ""})
                       </span>
                     )}
                   </div>
@@ -155,26 +143,19 @@ export const AssessmentChecklist: React.FC<AssessmentChecklistProps> = ({
 
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div
-                      className={`text-lg font-semibold ${
-                        item.passed
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-red-600 dark:text-red-400"
+                    <span
+                      className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                        item.status === "PASS"
+                          ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200"
+                          : item.status === "FAIL"
+                            ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"
+                            : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200"
                       }`}
                     >
-                      {item.score}/{item.maxScore}
-                    </div>
-                    {!item.passed && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        need{" "}
-                        {
-                          passingThresholds[
-                            item.category as keyof typeof passingThresholds
-                          ]
-                        }
-                        +
-                      </div>
-                    )}
+                      {item.status === "NEED_MORE_INFO"
+                        ? "NEEDS REVIEW"
+                        : item.status}
+                    </span>
                   </div>
 
                   {hasIssues && (

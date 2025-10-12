@@ -129,4 +129,88 @@ export abstract class BaseAssessor {
     }
     return JSON.stringify(error);
   }
+
+  /**
+   * Check if a response indicates an error
+   * Handles various MCP response formats
+   *
+   * @param response - The response to check
+   * @param strictMode - If true, only check explicit error indicators (default: false)
+   */
+  protected isErrorResponse(
+    response: any,
+    strictMode: boolean = false,
+  ): boolean {
+    if (!response) return false;
+
+    // Check explicit error flag first (always check these)
+    if (response.isError === true || response.error !== undefined) {
+      return true;
+    }
+
+    // In strict mode, only rely on explicit error indicators
+    // Used by FunctionalityAssessor where we expect valid responses
+    if (strictMode) {
+      return false;
+    }
+
+    // In non-strict mode, also check content for error patterns
+    // Used by ErrorHandlingAssessor where we're deliberately triggering errors
+    if (response.content) {
+      if (typeof response.content === "string") {
+        const lower = response.content.toLowerCase();
+        // Only flag if error appears at start or with strong indicators
+        return (
+          lower.startsWith("error:") ||
+          lower.startsWith("error ") ||
+          lower.includes("error occurred") ||
+          lower.includes("failed to") ||
+          lower.includes("exception:")
+        );
+      } else if (Array.isArray(response.content)) {
+        // Check if any text content starts with error indicators
+        return response.content.some((c: any) => {
+          if (c.type !== "text" || !c.text) return false;
+          const lower = c.text.toLowerCase();
+          return (
+            lower.startsWith("error:") ||
+            lower.startsWith("error ") ||
+            lower.includes("error occurred") ||
+            lower.includes("failed to") ||
+            lower.includes("exception:")
+          );
+        });
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Extract error information from a response
+   */
+  protected extractErrorInfo(response: any): {
+    code?: string | number;
+    message?: string;
+  } {
+    if (!response) return {};
+
+    // Extract text from content array if present
+    let contentText: string | undefined;
+    if (Array.isArray(response.content)) {
+      const textContent = response.content.find((c: any) => c.type === "text");
+      contentText = textContent?.text;
+    } else if (typeof response.content === "string") {
+      contentText = response.content;
+    }
+
+    return {
+      code: response.errorCode || response.code || response.error?.code,
+      message:
+        response.errorMessage ||
+        response.message ||
+        response.error?.message ||
+        contentText,
+    };
+  }
 }

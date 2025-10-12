@@ -27,9 +27,13 @@ export function calculateAssessmentScores(
   );
 
   // Security scoring (max 25 points)
+  // If no tests were run, give 0 points (not 25)
+  const securityTestsRun =
+    assessment.security.promptInjectionTests?.length || 0;
   const securityVulnerabilities =
     assessment.security.vulnerabilities?.length || 0;
-  const securityScore = Math.max(0, 25 - securityVulnerabilities * 5);
+  const securityScore =
+    securityTestsRun === 0 ? 0 : Math.max(0, 25 - securityVulnerabilities * 5);
 
   // Documentation scoring (max 20 points)
   const hasReadme = assessment.documentation.metrics.hasReadme ? 10 : 0;
@@ -41,12 +45,17 @@ export function calculateAssessmentScores(
   const documentationScore = hasReadme + hasExamples + hasInstallation;
 
   // Error Handling scoring (max 15 points)
+  // If no tests were run, give 0 points (not 10 for NEED_MORE_INFO)
+  const errorTestsRun =
+    assessment.errorHandling.metrics.validationCoverage?.totalTests || 0;
   const errorHandlingScore =
-    assessment.errorHandling.status === "PASS"
-      ? 15
-      : assessment.errorHandling.status === "NEED_MORE_INFO"
-        ? 10
-        : 5;
+    errorTestsRun === 0
+      ? 0
+      : assessment.errorHandling.status === "PASS"
+        ? 15
+        : assessment.errorHandling.status === "NEED_MORE_INFO"
+          ? 10
+          : 5;
 
   // Usability scoring (max 15 points)
   let usabilityScore = 15;
