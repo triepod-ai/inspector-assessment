@@ -179,6 +179,9 @@ export class ResponseValidator {
       "invalid format",
       "invalid value",
       "invalid type",
+      "invalid input",
+      "invalid parameter",
+      "invalid data",
       "type mismatch",
       "schema validation",
       "constraint violation",
@@ -188,6 +191,8 @@ export class ResponseValidator {
       "invalid length",
       "pattern mismatch",
       "regex failed",
+      "must have",
+      "must be",
 
       // Permission and authorization (tool is checking access rights)
       "unauthorized",
@@ -231,6 +236,19 @@ export class ResponseValidator {
       "throttled",
       "quota",
       "exceeded",
+
+      // API operational/billing errors (shows API integration is working)
+      "insufficient credits",
+      "credits",
+      "no credits",
+      "credit balance",
+      "billing",
+      "subscription",
+      "plan upgrade",
+      "payment required",
+      "account suspended",
+      "trial expired",
+      "usage limit",
 
       // Configuration validation
       "not configured",
@@ -318,7 +336,15 @@ export class ResponseValidator {
       toolName.includes("link") ||
       toolName.includes("associate") ||
       toolName.includes("connect") ||
-      toolName.includes("attach");
+      toolName.includes("attach") ||
+      // API/scraping operations
+      toolName.includes("scrape") ||
+      toolName.includes("crawl") ||
+      toolName.includes("map") ||
+      toolName.includes("extract") ||
+      toolName.includes("parse") ||
+      toolName.includes("analyze") ||
+      toolName.includes("process");
 
     // Calculate confidence that this is a business logic error
     let confidenceFactors = 0;
@@ -333,8 +359,8 @@ export class ResponseValidator {
     }
     totalFactors += 2;
 
-    if (hasBusinessErrorPattern) confidenceFactors++;
-    totalFactors++;
+    if (hasBusinessErrorPattern) confidenceFactors += 2; // Increased weight for business error patterns
+    totalFactors += 2;
 
     if (hasBusinessStatusCode) confidenceFactors++;
     totalFactors++;
@@ -345,16 +371,34 @@ export class ResponseValidator {
     if (validatesTestData) confidenceFactors++;
     totalFactors++;
 
-    if (isValidationExpected) confidenceFactors++;
-    totalFactors++;
+    if (isValidationExpected) confidenceFactors += 2; // Increased weight for validation-expected tools
+    totalFactors += 2;
 
     // Require at least 50% confidence that this is business logic validation
     const confidence = confidenceFactors / totalFactors;
 
-    // For tools that are expected to validate, be more lenient (30% confidence)
-    // For other tools, require higher confidence (50%)
-    // Lowered thresholds to better catch business logic errors that may not match all patterns
-    const confidenceThreshold = isValidationExpected ? 0.3 : 0.5;
+    // Special case: Strong operational error indicators (quota, rate limit, billing)
+    // These are almost always business logic errors, not tool failures
+    const hasStrongOperationalError =
+      hasBusinessErrorPattern &&
+      (errorText.includes("quota") ||
+        errorText.includes("credit") ||
+        errorText.includes("rate limit") ||
+        errorText.includes("throttle") ||
+        errorText.includes("billing") ||
+        errorText.includes("payment") ||
+        errorText.includes("subscription") ||
+        errorText.includes("trial"));
+
+    // Determine confidence threshold based on error type and tool type
+    // - Strong operational errors: 20% (very lenient, these are obvious)
+    // - Validation-expected tools: 30% (lenient)
+    // - Other tools: 50% (standard)
+    const confidenceThreshold = hasStrongOperationalError
+      ? 0.2
+      : isValidationExpected
+        ? 0.3
+        : 0.5;
 
     return confidence >= confidenceThreshold;
   }
