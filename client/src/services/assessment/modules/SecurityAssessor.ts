@@ -487,6 +487,17 @@ export class SecurityAssessor extends BaseAssessor {
       }
     }
 
+    // ✅ STEP -2: Check for MCP validation errors (HIGHEST PRIORITY)
+    // Tools that reject invalid input before processing are SECURE
+    const errorInfo = this.extractErrorInfo(response);
+    if (this.isMCPValidationError(errorInfo, responseText)) {
+      const errorCode = errorInfo.code ? ` (${errorInfo.code})` : "";
+      return {
+        isVulnerable: false,
+        evidence: `MCP validation error${errorCode}: Tool properly rejected invalid input before processing`,
+      };
+    }
+
     // ✅ STEP -0.5: Classify tool and check for safe categories (prevents false positives)
     // Check tool category before generic pattern matching to avoid false positives
     const classifier = new ToolClassifier();
@@ -559,6 +570,19 @@ export class SecurityAssessor extends BaseAssessor {
         };
       }
 
+      // NEW: For validation-type patterns, require execution evidence
+      // This prevents false positives from validation error messages
+      if (this.isValidationPattern(payload.evidence)) {
+        const hasExecutionEvidence = this.hasExecutionEvidence(responseText);
+        if (!hasExecutionEvidence) {
+          return {
+            isVulnerable: false,
+            evidence:
+              "Pattern matched in error message but no execution evidence - tool properly validated input",
+          };
+        }
+      }
+
       // Evidence doesn't match input OR response doesn't contain input - real execution
       return {
         isVulnerable: true,
@@ -568,6 +592,123 @@ export class SecurityAssessor extends BaseAssessor {
 
     // ✅ STEP 3: Fall back to existing detection logic for comprehensive analysis
     return this.analyzeInjectionResponse(response, payload.payload);
+  }
+
+  /**
+   * Check if response is an MCP validation error (safe rejection)
+   * Returns true if tool rejected input before processing (SECURE)
+   *
+   * Validation errors indicate proper input sanitization and are NOT vulnerabilities.
+   * Examples:
+   * - MCP error -32602 (JSON-RPC Invalid params standard)
+   * - "parameter validation failed: invalid url"
+   * - "schema validation error: must be a string"
+   */
+  private isMCPValidationError(
+    errorInfo: { code?: string | number; message?: string },
+    responseText: string,
+  ): boolean {
+    // Check for JSON-RPC -32602 (Invalid params)
+    // This is the standard error code for parameter validation failures
+    if (errorInfo.code === -32602 || errorInfo.code === "-32602") {
+      return true;
+    }
+
+    // Check for explicit validation rejection patterns
+    // These indicate the tool properly validated input BEFORE processing
+    const validationPatterns = [
+      /parameter validation failed/i,
+      /schema validation (error|failed)/i,
+      /invalid (url|email|format|parameter|input|data)/i,
+      /must be a valid/i,
+      /must have a valid/i,
+      /failed to validate/i,
+      /validation error/i,
+      /does not match (pattern|schema)/i,
+      /not a valid (url|email|number|string)/i,
+      /expected.*but (got|received)/i,
+      /type mismatch/i,
+      /\brequired\b.*\bmissing\b/i,
+      // Boundary validation patterns (empty strings, required fields)
+      /cannot.*be.*empty/i,
+      /must.*not.*be.*empty/i,
+      /empty.*not.*allowed/i,
+      /\brequired\b/i, // Generic required field validation
+      /missing.*required/i,
+      /field.*required/i,
+    ];
+
+    return validationPatterns.some((pattern) => pattern.test(responseText));
+  }
+
+  /**
+   * Check if evidence pattern is ambiguous (can match both validation and execution)
+   * These patterns appear in BOTH:
+   * - Secure validation errors: "parameter validation failed: invalid type"
+   * - Vulnerable execution errors: "SQL executed: type error in result"
+   */
+  private isValidationPattern(evidencePattern: RegExp): boolean {
+    const patternStr = evidencePattern.toString().toLowerCase();
+
+    // Patterns that are ambiguous - match both validation AND execution errors
+    const ambiguousPatterns = [
+      "type.*error",
+      "invalid.*type",
+      "error",
+      "invalid",
+      "failed",
+      "negative.*not.*allowed",
+      "must.*be.*positive",
+      "invalid.*value",
+      "overflow",
+      "out.*of.*range",
+    ];
+
+    return ambiguousPatterns.some((ambiguous) =>
+      patternStr.includes(ambiguous),
+    );
+  }
+
+  /**
+   * Check if response contains evidence of actual execution
+   * Returns true only if malicious input was actually PROCESSED/EXECUTED
+   *
+   * Distinguishes between:
+   * - SECURE: "Parameter validation failed: invalid type" (rejected BEFORE execution)
+   * - VULNERABLE: "SQL executed: syntax error" (error DURING execution)
+   */
+  private hasExecutionEvidence(responseText: string): boolean {
+    const executionIndicators = [
+      // Explicit execution verbs
+      /\bexecuted\b/i,
+      /\bprocessed\b/i,
+      /\bran\b.*command/i,
+      /\bcompleted\b/i,
+      /\bcomputed\b/i,
+      /\bcalculated\b/i,
+
+      // System-level errors (only occur during execution)
+      /NullPointerException/i,
+      /SegmentationFault/i,
+      /StackOverflow/i,
+      /OutOfMemory/i,
+      /syntax error in executed/i,
+      /error while executing/i,
+      /failed during execution/i,
+      /error in query execution/i,
+      /runtime error/i,
+
+      // Side effects (prove execution occurred)
+      /deleted \d+ (rows|files|records)/i,
+      /(file|resource) (opened|accessed|modified|deleted)/i,
+      /query returned \d+ results/i,
+      /modified \d+ records/i,
+      /\d+ rows affected/i,
+      /command output:/i,
+      /execution result:/i,
+    ];
+
+    return executionIndicators.some((pattern) => pattern.test(responseText));
   }
 
   /**
