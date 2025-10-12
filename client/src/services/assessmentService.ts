@@ -11,8 +11,6 @@ import {
   ErrorHandlingAssessment,
   UsabilityAssessment,
   UsabilityMetrics,
-  ToolTestResult,
-  EnhancedToolTestResult,
   AssessmentStatus,
   AssessmentConfiguration,
   DEFAULT_ASSESSMENT_CONFIG,
@@ -22,11 +20,11 @@ import {
 } from "@/lib/assessmentTypes";
 import { MCPSpecComplianceAssessor } from "./assessment/modules/MCPSpecComplianceAssessor";
 import { ErrorHandlingAssessor } from "./assessment/modules/ErrorHandlingAssessor";
+import { FunctionalityAssessor } from "./assessment/modules/FunctionalityAssessor";
 import { SecurityAssessor } from "./assessment/modules/SecurityAssessor";
 // import { SupplyChainAssessor } from "./assessment/modules/SupplyChainAssessor";
 // import { PrivacyComplianceAssessor } from "./assessment/modules/PrivacyComplianceAssessor";
 import { AssessmentContext } from "./assessment/AssessmentOrchestrator";
-import { TestScenarioEngine } from "./assessment/TestScenarioEngine";
 import {
   Tool,
   CompatibilityCallToolResult,
@@ -72,7 +70,9 @@ export class MCPAssessmentService {
     };
 
     // Run all assessment categories
-    const functionality = await this.assessFunctionality(tools, callTool);
+    // Use the new FunctionalityAssessor module for functionality assessment
+    const functionalityAssessor = new FunctionalityAssessor(this.config);
+    const functionality = await functionalityAssessor.assess(context);
 
     // Use the new SecurityAssessor module for security assessment
     const securityAssessor = new SecurityAssessor(this.config);
@@ -150,173 +150,7 @@ export class MCPAssessmentService {
     };
   }
 
-  /**
-   * Assess functionality by testing all tools
-   * Uses comprehensive multi-scenario testing with validation
-   */
-  private async assessFunctionality(
-    tools: Tool[],
-    callTool: (
-      name: string,
-      params: Record<string, unknown>,
-    ) => Promise<CompatibilityCallToolResult>,
-  ): Promise<FunctionalityAssessment> {
-    // Always use comprehensive multi-scenario testing
-    return this.assessFunctionalityEnhanced(tools, callTool);
-  }
-
-  /**
-   * Enhanced functionality assessment with multi-scenario testing
-   */
-  private async assessFunctionalityEnhanced(
-    tools: Tool[],
-    callTool: (
-      name: string,
-      params: Record<string, unknown>,
-    ) => Promise<CompatibilityCallToolResult>,
-  ): Promise<FunctionalityAssessment> {
-    const engine = new TestScenarioEngine(
-      this.config.testTimeout,
-      this.config.delayBetweenTests ?? 0,
-    );
-    const toolResults: ToolTestResult[] = [];
-    const enhancedResults: EnhancedToolTestResult[] = [];
-    let workingCount = 0;
-    let partiallyWorkingCount = 0;
-    const brokenTools: string[] = [];
-
-    for (const tool of tools) {
-      if (this.config.skipBrokenTools && brokenTools.length > 3) {
-        // Skip remaining if too many failures
-        toolResults.push({
-          toolName: tool.name,
-          tested: false,
-          status: "untested",
-        });
-        continue;
-      }
-
-      // Run comprehensive testing
-      const comprehensiveResult = await engine.testToolComprehensively(
-        tool,
-        callTool,
-      );
-      this.totalTestsRun += comprehensiveResult.scenariosExecuted;
-
-      // Convert to enhanced result for detailed reporting
-      const enhancedResult: EnhancedToolTestResult = {
-        toolName: comprehensiveResult.toolName,
-        tested: comprehensiveResult.tested,
-        status: comprehensiveResult.overallStatus,
-        confidence: comprehensiveResult.confidence,
-        scenariosExecuted: comprehensiveResult.scenariosExecuted,
-        scenariosPassed: comprehensiveResult.scenariosPassed,
-        scenariosFailed: comprehensiveResult.scenariosFailed,
-        executionTime: comprehensiveResult.executionTime,
-        validationSummary: comprehensiveResult.summary,
-        recommendations: comprehensiveResult.recommendations,
-        detailedResults: comprehensiveResult.scenarioResults.map((sr) => ({
-          scenarioName: sr.scenario.name,
-          category: sr.scenario.category,
-          passed: sr.validation.isValid,
-          confidence: sr.validation.confidence,
-          issues: sr.validation.issues,
-          evidence: sr.validation.evidence,
-        })),
-      };
-      enhancedResults.push(enhancedResult);
-
-      // Convert to simple result for backward compatibility
-      const simpleStatus =
-        comprehensiveResult.overallStatus === "fully_working" ||
-        comprehensiveResult.overallStatus === "partially_working"
-          ? "working"
-          : comprehensiveResult.overallStatus === "connectivity_only" ||
-              comprehensiveResult.overallStatus === "broken"
-            ? "broken"
-            : "untested";
-
-      toolResults.push({
-        toolName: tool.name,
-        tested: true,
-        status: simpleStatus,
-        executionTime: comprehensiveResult.executionTime,
-        // Include summary of scenarios as test parameters for visibility
-        testParameters: {
-          scenariosRun: comprehensiveResult.scenariosExecuted,
-          scenariosPassed: comprehensiveResult.scenariosPassed,
-          confidence: comprehensiveResult.confidence,
-        },
-        response: {
-          enhancedTestingSummary: {
-            status: comprehensiveResult.overallStatus,
-            confidence: comprehensiveResult.confidence,
-            recommendations: comprehensiveResult.recommendations,
-          },
-        },
-      });
-
-      // Count results
-      if (comprehensiveResult.overallStatus === "fully_working") {
-        workingCount++;
-      } else if (comprehensiveResult.overallStatus === "partially_working") {
-        workingCount++; // Count as working for backward compatibility
-        partiallyWorkingCount++;
-      } else if (
-        comprehensiveResult.overallStatus === "broken" ||
-        comprehensiveResult.overallStatus === "connectivity_only"
-      ) {
-        brokenTools.push(tool.name);
-      }
-    }
-
-    const testedTools = toolResults.filter((r) => r.tested).length;
-    const coveragePercentage = (testedTools / tools.length) * 100;
-
-    // Calculate overall confidence based on enhanced results
-    const avgConfidence =
-      enhancedResults.length > 0
-        ? enhancedResults.reduce((sum, r) => sum + r.confidence, 0) /
-          enhancedResults.length
-        : 0;
-
-    let status: AssessmentStatus = "PASS";
-    if (avgConfidence < 50 || coveragePercentage < 50) {
-      status = "FAIL";
-    } else if (
-      avgConfidence < 75 ||
-      coveragePercentage < 90 ||
-      brokenTools.length > 2
-    ) {
-      status = "NEED_MORE_INFO";
-    }
-
-    const explanation =
-      `Enhanced Testing: Tested ${testedTools}/${tools.length} tools (${coveragePercentage.toFixed(1)}% coverage). ` +
-      `${workingCount} fully/partially working (${partiallyWorkingCount} partial), ${brokenTools.length} broken. ` +
-      `Average confidence: ${avgConfidence.toFixed(1)}%.${
-        brokenTools.length > 0 ? ` Broken tools: ${brokenTools.join(", ")}` : ""
-      }`;
-
-    // Store enhanced results in the response for detailed reporting
-    const result: FunctionalityAssessment = {
-      totalTools: tools.length,
-      testedTools,
-      workingTools: workingCount,
-      brokenTools,
-      coveragePercentage,
-      status,
-      explanation,
-      toolResults,
-    };
-
-    // Add enhanced results as a property (not in type yet, but available for reporting)
-    (result as any).enhancedResults = enhancedResults;
-
-    return result;
-  }
-
-  // Removed deprecated methods that were only used by old security assessment:
+  // Removed deprecated methods:
   // - generateTestParameters() - replaced by TestDataGenerator
   // - generateInvalidTestParameters() - no longer needed
   // - generateMultipleInvalidTestCases() - no longer needed
@@ -406,7 +240,7 @@ export class MCPAssessmentService {
     } installation instructions, ${
       metrics.hasUsageGuide ? "has" : "missing"
     } usage guide.${
-      hasOutputSchemaDocumentation
+      hasOutputSchemaDocumentation && status !== "FAIL"
         ? " ✅ Includes structured output documentation (MCP 2025-06-18)."
         : ""
     }${bonusApplied ? " (Bonus applied for outputSchema documentation)" : ""}`;
