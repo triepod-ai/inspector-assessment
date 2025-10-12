@@ -1,7 +1,9 @@
 /**
  * Security Assessor Module
- * Tests for prompt injection and security vulnerabilities using universal attack patterns
- * Tests ALL tools with ALL attack types using diverse payloads
+ * Tests for backend API security vulnerabilities using 8 focused patterns
+ * - Critical Injection (3): Command, SQL, Path Traversal
+ * - Input Validation (3): Type Safety, Boundary Testing, Required Fields
+ * - Protocol Compliance (2): MCP Error Format, Timeout Handling
  */
 
 import {
@@ -130,9 +132,9 @@ export class SecurityAssessor extends BaseAssessor {
   }
 
   /**
-   * Run universal security tests
-   * Tests ALL tools with ALL attack types using diverse payloads
-   * NO tool classification - just comprehensive fuzzing with domain-specific payloads
+   * Run comprehensive security tests (advanced mode)
+   * Tests selected tools with ALL 8 security patterns using diverse payloads
+   * Includes injection tests, validation tests, and protocol compliance checks
    */
   private async runUniversalSecurityTests(
     context: AssessmentContext,
@@ -149,7 +151,7 @@ export class SecurityAssessor extends BaseAssessor {
     const toolsToTest = this.selectToolsForTesting(context.tools);
 
     this.log(
-      `Starting ADVANCED security assessment - testing ${toolsToTest.length} tools with ${attackPatterns.length} attack patterns (~${toolsToTest.length * attackPatterns.length * 3} tests)`,
+      `Starting ADVANCED security assessment - testing ${toolsToTest.length} tools with ${attackPatterns.length} security patterns (~${toolsToTest.length * attackPatterns.length * 3} tests)`,
     );
 
     for (const tool of toolsToTest) {
@@ -231,7 +233,7 @@ export class SecurityAssessor extends BaseAssessor {
 
   /**
    * Run basic security tests (fast mode)
-   * Tests only 3 critical attack patterns with 1 generic payload each
+   * Tests only 3 critical injection patterns with 1 generic payload each
    * Used when enableDomainTesting = false
    */
   private async runBasicSecurityTests(
@@ -239,11 +241,11 @@ export class SecurityAssessor extends BaseAssessor {
   ): Promise<SecurityTestResult[]> {
     const results: SecurityTestResult[] = [];
 
-    // Only test 3 critical HIGH-risk patterns
+    // Only test 3 critical injection patterns
     const criticalPatterns = [
-      "Direct Command Injection",
-      "Role Override",
-      "Data Exfiltration",
+      "Command Injection",
+      "SQL Injection",
+      "Path Traversal",
     ];
 
     const allPatterns = getAllAttackPatterns();
@@ -255,7 +257,7 @@ export class SecurityAssessor extends BaseAssessor {
     const toolsToTest = this.selectToolsForTesting(context.tools);
 
     this.log(
-      `Starting BASIC security assessment - testing ${toolsToTest.length} tools with ${basicPatterns.length} critical patterns (~${toolsToTest.length * basicPatterns.length} tests)`,
+      `Starting BASIC security assessment - testing ${toolsToTest.length} tools with ${basicPatterns.length} critical injection patterns (~${toolsToTest.length * basicPatterns.length} tests)`,
     );
 
     for (const tool of toolsToTest) {
@@ -1020,11 +1022,9 @@ export class SecurityAssessor extends BaseAssessor {
    */
   private isExecutionTest(attackName: string): boolean {
     const executionTests = [
-      "Direct Command Injection",
-      "System Command",
-      "Indirect Prompt Injection",
-      "Unicode Bypass",
-      "Sandbox Escape",
+      "Command Injection",
+      "SQL Injection",
+      "Path Traversal",
     ];
     return executionTests.includes(attackName);
   }
