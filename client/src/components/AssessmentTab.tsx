@@ -117,12 +117,12 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
     [config],
   );
 
-  // Initialize selectedToolsForErrorTesting when tools change
+  // Initialize selectedToolsForTesting when tools change
   useEffect(() => {
-    if (tools.length > 0 && !config.selectedToolsForErrorTesting) {
+    if (tools.length > 0 && !config.selectedToolsForTesting) {
       setConfig({
         ...config,
-        selectedToolsForErrorTesting: tools.map((t) => t.name),
+        selectedToolsForTesting: tools.map((t) => t.name),
       });
     }
   }, [tools, config, setConfig]);
@@ -328,9 +328,7 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tool-selector">
-              Select tools for error handling tests:
-            </Label>
+            <Label htmlFor="tool-selector">Select tools for testing:</Label>
             {isLoadingTools ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -344,13 +342,12 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
               <ToolSelector
                 availableTools={tools.map((t) => t.name)}
                 selectedTools={
-                  config.selectedToolsForErrorTesting ??
-                  tools.map((t) => t.name)
+                  config.selectedToolsForTesting ?? tools.map((t) => t.name)
                 }
                 onChange={(selectedTools) => {
                   setConfig({
                     ...config,
-                    selectedToolsForErrorTesting: selectedTools,
+                    selectedToolsForTesting: selectedTools,
                   });
                 }}
                 disabled={isRunning}
@@ -650,15 +647,55 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                     <p className="text-sm mb-2">
                       {assessment.security.explanation}
                     </p>
-                    <div className="text-sm">
-                      <div>
-                        Risk Level: {assessment.security.overallRiskLevel}
-                      </div>
-                      <div>
-                        Vulnerabilities Found:{" "}
-                        {assessment.security.vulnerabilities.length}
-                      </div>
-                    </div>
+                    {(() => {
+                      // Count vulnerabilities by confidence level
+                      const highConfidenceCount =
+                        assessment.security.promptInjectionTests?.filter(
+                          (t: SecurityTestResult) =>
+                            t.vulnerable &&
+                            (!t.confidence || t.confidence === "high"),
+                        ).length || 0;
+                      const mediumConfidenceCount =
+                        assessment.security.promptInjectionTests?.filter(
+                          (t: SecurityTestResult) =>
+                            t.vulnerable && t.confidence === "medium",
+                        ).length || 0;
+                      const lowConfidenceCount =
+                        assessment.security.promptInjectionTests?.filter(
+                          (t: SecurityTestResult) =>
+                            t.vulnerable && t.confidence === "low",
+                        ).length || 0;
+
+                      return (
+                        <div className="text-sm space-y-1">
+                          {highConfidenceCount > 0 && (
+                            <div className="text-red-700">
+                              <strong>Confirmed Issues:</strong>{" "}
+                              {highConfidenceCount}
+                            </div>
+                          )}
+                          {mediumConfidenceCount > 0 && (
+                            <div className="text-amber-700">
+                              <strong>Need Review:</strong>{" "}
+                              {mediumConfidenceCount}
+                            </div>
+                          )}
+                          {lowConfidenceCount > 0 && (
+                            <div className="text-blue-700">
+                              <strong>Uncertain (Verification Needed):</strong>{" "}
+                              {lowConfidenceCount}
+                            </div>
+                          )}
+                          {highConfidenceCount === 0 &&
+                            mediumConfidenceCount === 0 &&
+                            lowConfidenceCount === 0 && (
+                              <div className="text-green-700">
+                                <strong>All tests passed</strong>
+                              </div>
+                            )}
+                        </div>
+                      );
+                    })()}
                     <div className="mt-2">
                       <div className="flex items-center justify-between mb-2">
                         <strong className="text-sm">
@@ -757,18 +794,69 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                           );
                         })()}
                       </div>
-                      {assessment.security.vulnerabilities.length > 0 && (
-                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
-                          <div className="text-sm font-medium text-red-800 mb-1">
-                            ⚠️ Actual Vulnerabilities Found:{" "}
-                            {assessment.security.vulnerabilities.length}
-                          </div>
-                          <div className="text-xs text-red-600">
-                            The tools above failed security tests and may
-                            execute malicious inputs.
-                          </div>
-                        </div>
-                      )}
+                      {assessment.security.vulnerabilities.length > 0 &&
+                        (() => {
+                          // Count vulnerabilities by confidence level
+                          const highConfidenceCount =
+                            assessment.security.promptInjectionTests?.filter(
+                              (t: SecurityTestResult) =>
+                                t.vulnerable &&
+                                (!t.confidence || t.confidence === "high"),
+                            ).length || 0;
+                          const mediumConfidenceCount =
+                            assessment.security.promptInjectionTests?.filter(
+                              (t: SecurityTestResult) =>
+                                t.vulnerable && t.confidence === "medium",
+                            ).length || 0;
+                          const lowConfidenceCount =
+                            assessment.security.promptInjectionTests?.filter(
+                              (t: SecurityTestResult) =>
+                                t.vulnerable && t.confidence === "low",
+                            ).length || 0;
+
+                          // Show appropriate message based on confidence levels
+                          if (highConfidenceCount > 0) {
+                            return (
+                              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
+                                <div className="text-sm font-medium text-red-800 mb-1">
+                                  ⚠️ Confirmed Issues Found:{" "}
+                                  {highConfidenceCount}
+                                </div>
+                                <div className="text-xs text-red-600">
+                                  These tools failed security tests and may
+                                  execute malicious inputs.
+                                </div>
+                              </div>
+                            );
+                          } else if (mediumConfidenceCount > 0) {
+                            return (
+                              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded">
+                                <div className="text-sm font-medium text-amber-800 mb-1">
+                                  ⚠️ Potential Issues Requiring Review:{" "}
+                                  {mediumConfidenceCount}
+                                </div>
+                                <div className="text-xs text-amber-600">
+                                  These tools showed suspicious behavior that
+                                  needs manual verification.
+                                </div>
+                              </div>
+                            );
+                          } else if (lowConfidenceCount > 0) {
+                            return (
+                              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                                <div className="text-sm font-medium text-blue-800 mb-1">
+                                  ℹ️ Uncertain Detections Flagged:{" "}
+                                  {lowConfidenceCount}
+                                </div>
+                                <div className="text-xs text-blue-600">
+                                  These tools triggered detection patterns but
+                                  require verification to confirm.
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                     </div>
                   </AssessmentCategory>
                 )}
@@ -2236,11 +2324,20 @@ const CollapsibleToolSection: React.FC<{
 }> = ({ toolName, toolTests, isCollapsed, onToggle }) => {
   const [showToolJson, setShowToolJson] = useState(false);
 
-  // Calculate summary stats for the tool
+  // Calculate summary stats for the tool by confidence level
   const totalTests = toolTests.length;
   const passedTests = toolTests.filter((t) => !t.vulnerable).length;
-  const failedTests = totalTests - passedTests;
-  const allPassed = failedTests === 0;
+  const vulnerableTests = toolTests.filter((t) => t.vulnerable);
+  const highConfidenceCount = vulnerableTests.filter(
+    (t) => !t.confidence || t.confidence === "high",
+  ).length;
+  const mediumConfidenceCount = vulnerableTests.filter(
+    (t) => t.confidence === "medium",
+  ).length;
+  const lowConfidenceCount = vulnerableTests.filter(
+    (t) => t.confidence === "low",
+  ).length;
+  const allPassed = vulnerableTests.length === 0;
 
   return (
     <div className="border border-gray-200 rounded p-2 mb-2">
@@ -2265,7 +2362,21 @@ const CollapsibleToolSection: React.FC<{
           ) : (
             <>
               <span className="text-green-600">{passedTests} passed</span>
-              <span className="text-red-600">{failedTests} failed</span>
+              {highConfidenceCount > 0 && (
+                <span className="text-red-600">
+                  {highConfidenceCount} failed
+                </span>
+              )}
+              {mediumConfidenceCount > 0 && (
+                <span className="text-amber-600">
+                  {mediumConfidenceCount} need review
+                </span>
+              )}
+              {lowConfidenceCount > 0 && (
+                <span className="text-blue-600">
+                  {lowConfidenceCount} uncertain
+                </span>
+              )}
             </>
           )}
           <Button
@@ -2339,7 +2450,8 @@ const SecurityVulnerabilityItem: React.FC<{
     );
   };
 
-  // Determine styling based on vulnerability status and risk level
+  // Determine styling based on vulnerability status, confidence level, and risk level
+  // Priority: confidence level > risk level (to avoid misleading users with uncertain detections)
   const getTestResultStyle = (testResult?: SecurityTestResult) => {
     if (!testResult) {
       return "text-gray-600 bg-gray-50 border-gray-200";
@@ -2350,7 +2462,19 @@ const SecurityVulnerabilityItem: React.FC<{
       return "text-green-600 bg-green-50 border-green-200";
     }
 
-    // If actually vulnerable, use risk-based styling
+    // If vulnerable, prioritize confidence level over risk level
+    // Low confidence = uncertain detection, requires manual verification (blue/gray)
+    if (testResult.confidence === "low") {
+      return "text-blue-600 bg-blue-50 border-blue-200";
+    }
+
+    // Medium confidence = possible vulnerability, needs review (amber/yellow warning)
+    // Use amber regardless of risk level to avoid false sense of certainty
+    if (testResult.confidence === "medium") {
+      return "text-amber-600 bg-amber-50 border-amber-200";
+    }
+
+    // High confidence or no confidence specified = use risk-based styling
     switch (testResult.riskLevel) {
       case "HIGH":
         return "text-red-600 bg-red-50 border-red-200";
@@ -2381,16 +2505,19 @@ const SecurityVulnerabilityItem: React.FC<{
         </div>
         <div className="flex items-center space-x-2">
           {testResult && (
-            <>
-              <span
-                className={`text-xs px-2 py-1 rounded ${getTestResultStyle(testResult)}`}
-              >
-                {testResult.vulnerable ? "🚨 VULNERABLE" : "✅ SECURE"}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {testResult.riskLevel}
-              </span>
-            </>
+            <span
+              className={`text-xs px-2 py-1 rounded font-semibold ${getTestResultStyle(testResult)}`}
+            >
+              {testResult.vulnerable
+                ? // Vulnerable - show confidence-aware display
+                  testResult.confidence === "medium"
+                  ? "⚠️ NEEDS REVIEW MEDIUM"
+                  : testResult.confidence === "low"
+                    ? `ℹ️ UNCERTAIN ${testResult.riskLevel}`
+                    : // High confidence or no confidence specified
+                      `🔺 VULNERABLE ${testResult.riskLevel}`
+                : "✅ SECURE"}
+            </span>
           )}
           {isExpanded ? (
             <ChevronUp className="h-4 w-4" />
@@ -2417,11 +2544,15 @@ const SecurityVulnerabilityItem: React.FC<{
                 <strong>Risk Level:</strong> {testResult.riskLevel}
               </div>
               <div
-                className={`${testResult.vulnerable ? "text-red-700" : "text-green-700"}`}
+                className={`${testResult.vulnerable ? (testResult.confidence === "high" || !testResult.confidence ? "text-red-700" : testResult.confidence === "medium" ? "text-amber-700" : "text-blue-700") : "text-green-700"}`}
               >
                 <strong>Result:</strong>{" "}
                 {testResult.vulnerable
-                  ? "🚨 VULNERABLE - Tool executed malicious input!"
+                  ? testResult.confidence === "high" || !testResult.confidence
+                    ? "🚨 VULNERABLE - Tool executed malicious input!"
+                    : testResult.confidence === "medium"
+                      ? "⚠️ NEEDS REVIEW - Suspicious behavior detected"
+                      : "ℹ️ UNCERTAIN - Manual verification needed"
                   : "✅ SECURE - Tool properly rejected malicious input"}
               </div>
               {testResult.confidence && (
@@ -2482,13 +2613,21 @@ const SecurityVulnerabilityItem: React.FC<{
           <div>
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
               {testResult.vulnerable
-                ? "Evidence of Vulnerability"
+                ? testResult.confidence === "high" || !testResult.confidence
+                  ? "Evidence of Vulnerability"
+                  : testResult.confidence === "medium"
+                    ? "Detection Details"
+                    : "Analysis Results"
                 : "Security Validation Result"}
             </div>
             <div
               className={`p-2 rounded text-xs break-words ${
                 testResult.vulnerable
-                  ? "bg-red-100 text-red-800"
+                  ? testResult.confidence === "high" || !testResult.confidence
+                    ? "bg-red-100 text-red-800"
+                    : testResult.confidence === "medium"
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-blue-100 text-blue-800"
                   : "bg-green-100 text-green-800"
               }`}
             >
@@ -2509,14 +2648,32 @@ const SecurityVulnerabilityItem: React.FC<{
           <div>
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
               {testResult.vulnerable
-                ? "How to Fix This Vulnerability"
+                ? testResult.confidence === "high" || !testResult.confidence
+                  ? "Best Practices"
+                  : testResult.confidence === "medium"
+                    ? "Review Guidance"
+                    : "Verification Steps"
                 : "Security Assessment Summary"}
             </div>
             <div className="text-xs text-muted-foreground">
               <p className="mb-2">{testResult.description}</p>
               {testResult.vulnerable ? (
-                <div className="bg-red-50 text-red-800 p-2 rounded">
-                  <strong>🚨 Action Required:</strong>{" "}
+                <div
+                  className={`p-2 rounded ${
+                    testResult.confidence === "high" || !testResult.confidence
+                      ? "bg-red-50 text-red-800"
+                      : testResult.confidence === "medium"
+                        ? "bg-amber-50 text-amber-800"
+                        : "bg-blue-50 text-blue-800"
+                  }`}
+                >
+                  <strong>
+                    {testResult.confidence === "high" || !testResult.confidence
+                      ? "🚨 Action Required:"
+                      : testResult.confidence === "medium"
+                        ? "⚠️ Review Recommended:"
+                        : "ℹ️ Verification Guide:"}
+                  </strong>{" "}
                   {getSecurityGuidance(testResult.testName)}
                 </div>
               ) : (

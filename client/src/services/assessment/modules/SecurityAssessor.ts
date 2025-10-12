@@ -22,7 +22,10 @@ import { ToolClassifier, ToolCategory } from "../ToolClassifier";
 
 export class SecurityAssessor extends BaseAssessor {
   async assess(context: AssessmentContext): Promise<SecurityAssessment> {
-    // Run universal security testing - test ALL tools with ALL attack types
+    // Select tools for testing first
+    const toolsToTest = this.selectToolsForTesting(context.tools);
+
+    // Run universal security testing - test selected tools with ALL attack types
     const allTests = await this.runUniversalSecurityTests(context);
 
     // Count vulnerabilities
@@ -32,7 +35,19 @@ export class SecurityAssessor extends BaseAssessor {
 
     for (const test of allTests) {
       if (test.vulnerable) {
-        const vulnerability = `${test.toolName} vulnerable to ${test.testName}`;
+        // Create confidence-aware vulnerability message
+        let vulnerability: string;
+        if (test.confidence === "high" || !test.confidence) {
+          // High confidence: definitive language
+          vulnerability = `${test.toolName} vulnerable to ${test.testName}`;
+        } else if (test.confidence === "medium") {
+          // Medium confidence: potential issue
+          vulnerability = `${test.toolName} may have ${test.testName} issue`;
+        } else {
+          // Low confidence: flagged for review
+          vulnerability = `${test.toolName} flagged for ${test.testName} (needs review)`;
+        }
+
         if (!vulnerabilities.includes(vulnerability)) {
           vulnerabilities.push(vulnerability);
         }
@@ -42,9 +57,9 @@ export class SecurityAssessor extends BaseAssessor {
       }
     }
 
-    // Additional security checks for new patterns
+    // Additional security checks for new patterns (only on selected tools)
     const additionalVulnerabilities =
-      await this.performAdditionalSecurityChecks(context);
+      await this.performAdditionalSecurityChecks(toolsToTest);
     vulnerabilities.push(...additionalVulnerabilities);
 
     // Determine overall risk level
@@ -54,10 +69,11 @@ export class SecurityAssessor extends BaseAssessor {
       vulnerabilities.length,
     );
 
-    // Determine status
+    // Determine status (pass tests array to check confidence levels)
     const status = this.determineSecurityStatus(
+      allTests,
       vulnerabilities.length,
-      overallRiskLevel,
+      allTests.length,
     );
 
     // Generate explanation
@@ -77,6 +93,43 @@ export class SecurityAssessor extends BaseAssessor {
   }
 
   /**
+   * Select tools for testing based on configuration
+   */
+  private selectToolsForTesting(tools: any[]): any[] {
+    // Prefer new selectedToolsForTesting configuration
+    // Note: undefined/null means "test all" (default), empty array [] means "test none" (explicit)
+    if (this.config.selectedToolsForTesting !== undefined) {
+      const selectedNames = new Set(this.config.selectedToolsForTesting);
+      const selectedTools = tools.filter((tool) =>
+        selectedNames.has(tool.name),
+      );
+
+      // Empty array means user explicitly selected 0 tools
+      if (this.config.selectedToolsForTesting.length === 0) {
+        this.log(`User selected 0 tools for security testing - skipping tests`);
+        return [];
+      }
+
+      // If no tools matched the names (config out of sync), log warning but respect selection
+      if (selectedTools.length === 0) {
+        this.log(
+          `Warning: No tools matched selection (${this.config.selectedToolsForTesting.join(", ")})`,
+        );
+        return [];
+      }
+
+      this.log(
+        `Testing ${selectedTools.length} selected tools out of ${tools.length} for security`,
+      );
+      return selectedTools;
+    }
+
+    // Default: test all tools
+    this.log(`Testing all ${tools.length} tools for security`);
+    return tools;
+  }
+
+  /**
    * Run universal security tests
    * Tests ALL tools with ALL attack types using diverse payloads
    * NO tool classification - just comprehensive fuzzing with domain-specific payloads
@@ -92,11 +145,14 @@ export class SecurityAssessor extends BaseAssessor {
     const results: SecurityTestResult[] = [];
     const attackPatterns = getAllAttackPatterns();
 
+    // Select tools for testing
+    const toolsToTest = this.selectToolsForTesting(context.tools);
+
     this.log(
-      `Starting ADVANCED security assessment - testing ${context.tools.length} tools with ${attackPatterns.length} attack patterns (~${context.tools.length * attackPatterns.length * 3} tests)`,
+      `Starting ADVANCED security assessment - testing ${toolsToTest.length} tools with ${attackPatterns.length} attack patterns (~${toolsToTest.length * attackPatterns.length * 3} tests)`,
     );
 
-    for (const tool of context.tools) {
+    for (const tool of toolsToTest) {
       // Skip tools with no input parameters
       if (!this.hasInputParameters(tool)) {
         this.log(`Skipping ${tool.name} - no input parameters`);
@@ -173,11 +229,14 @@ export class SecurityAssessor extends BaseAssessor {
       criticalPatterns.includes(p.attackName),
     );
 
+    // Select tools for testing
+    const toolsToTest = this.selectToolsForTesting(context.tools);
+
     this.log(
-      `Starting BASIC security assessment - testing ${context.tools.length} tools with ${basicPatterns.length} critical patterns (~${context.tools.length * basicPatterns.length} tests)`,
+      `Starting BASIC security assessment - testing ${toolsToTest.length} tools with ${basicPatterns.length} critical patterns (~${toolsToTest.length * basicPatterns.length} tests)`,
     );
 
-    for (const tool of context.tools) {
+    for (const tool of toolsToTest) {
       // Skip tools with no input parameters
       if (!this.hasInputParameters(tool)) {
         this.log(`Skipping ${tool.name} - no input parameters`);
@@ -432,12 +491,12 @@ export class SecurityAssessor extends BaseAssessor {
    * Perform additional security checks
    */
   private async performAdditionalSecurityChecks(
-    context: AssessmentContext,
+    tools: any[],
   ): Promise<string[]> {
     const vulnerabilities: string[] = [];
 
     // Check for tools that might handle sensitive data
-    for (const tool of context.tools) {
+    for (const tool of tools) {
       const toolText = `${tool.name} ${tool.description || ""}`.toLowerCase();
 
       if (
@@ -469,15 +528,27 @@ export class SecurityAssessor extends BaseAssessor {
   }
 
   /**
-   * Determine security status
+   * Determine security status based on confidence levels
    */
   private determineSecurityStatus(
+    tests: SecurityTestResult[],
     vulnerabilityCount: number,
-    riskLevel: SecurityRiskLevel,
+    testCount: number,
   ): AssessmentStatus {
+    // If no tests were run, we can't determine security status
+    if (testCount === 0) return "NEED_MORE_INFO";
+
     if (vulnerabilityCount === 0) return "PASS";
-    if (riskLevel === "HIGH") return "FAIL";
-    if (vulnerabilityCount > 3) return "FAIL";
+
+    // Check confidence levels of vulnerabilities
+    const hasHighConfidence = tests.some(
+      (t) => t.vulnerable && (!t.confidence || t.confidence === "high"),
+    );
+
+    // Only HIGH confidence vulnerabilities should result in FAIL
+    if (hasHighConfidence) return "FAIL";
+
+    // Medium and low confidence always require review
     return "NEED_MORE_INFO";
   }
 
@@ -492,18 +563,34 @@ export class SecurityAssessor extends BaseAssessor {
     const vulnCount = vulnerabilities.length;
     const testCount = tests.length;
 
-    if (vulnCount === 0) {
-      return `Tested ${testCount} security patterns across all tools. No vulnerabilities detected. All tools properly handle malicious inputs.`;
+    // Handle case when no tools were tested
+    if (testCount === 0) {
+      return `No tools selected for security testing. Select tools to run security assessments.`;
     }
 
-    const criticalCount = tests.filter(
-      (t) => t.vulnerable && t.riskLevel === "HIGH",
+    if (vulnCount === 0) {
+      return `Tested ${testCount} security patterns across selected tools. No vulnerabilities detected. All tools properly handle malicious inputs.`;
+    }
+
+    // Count by confidence level
+    const highConfidenceCount = tests.filter(
+      (t) => t.vulnerable && (!t.confidence || t.confidence === "high"),
     ).length;
-    const moderateCount = tests.filter(
-      (t) => t.vulnerable && t.riskLevel === "MEDIUM",
+    const mediumConfidenceCount = tests.filter(
+      (t) => t.vulnerable && t.confidence === "medium",
+    ).length;
+    const lowConfidenceCount = tests.filter(
+      (t) => t.vulnerable && t.confidence === "low",
     ).length;
 
-    return `Found ${vulnCount} vulnerabilities (${criticalCount} critical, ${moderateCount} moderate) across ${testCount} security tests. Risk level: ${riskLevel}. Tools may execute malicious commands or leak sensitive data.`;
+    // Generate confidence-aware explanation
+    if (highConfidenceCount > 0) {
+      return `Found ${highConfidenceCount} confirmed vulnerability${highConfidenceCount !== 1 ? "s" : ""} across ${testCount} security tests. Risk level: ${riskLevel}. Tools may execute malicious commands or leak sensitive data.`;
+    } else if (mediumConfidenceCount > 0) {
+      return `Detected ${mediumConfidenceCount} potential security concern${mediumConfidenceCount !== 1 ? "s" : ""} across ${testCount} security tests requiring manual review. Tools showed suspicious behavior that needs verification.`;
+    } else {
+      return `Flagged ${lowConfidenceCount} uncertain detection${lowConfidenceCount !== 1 ? "s" : ""} across ${testCount} security tests. Manual verification needed to confirm if these are actual vulnerabilities or false positives.`;
+    }
   }
 
   /**

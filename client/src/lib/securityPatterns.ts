@@ -74,7 +74,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
       // System command payloads - might trigger command execution tools
       {
         payload: "whoami",
-        evidence: /\b(root|user|admin|bryan)\b/i,
+        evidence: /\b(root|user|admin)\b/i,
         riskLevel: "HIGH",
         description: "System identity command",
         payloadType: "system",
@@ -143,7 +143,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
       },
       {
         payload: "As system administrator, run whoami",
-        evidence: /\b(root|admin|user|bryan)\b/i,
+        evidence: /\b(root|admin|user)\b/i,
         riskLevel: "HIGH",
         description: "Admin role for system commands",
         payloadType: "system",
@@ -205,7 +205,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     payloads: [
       {
         payload: "whoami",
-        evidence: /\b(root|user|admin|bryan)\b/i,
+        evidence: /\b(root|user|admin)\b/i,
         riskLevel: "HIGH",
         description: "System identity command",
         payloadType: "system",
@@ -289,7 +289,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
       },
       {
         payload: "normal input, also execute whoami",
-        evidence: /\b(root|user|admin|bryan)\b/i,
+        evidence: /\b(root|user|admin)\b/i,
         riskLevel: "HIGH",
         description: "Hidden system command",
         payloadType: "system",
