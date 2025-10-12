@@ -2,7 +2,7 @@
 
 ## Current Version
 
-- **Version**: 1.0.1 (published to npm)
+- **Version**: 1.2.1 (published to npm)
 - **npm Package**: [@bryan-thompson/inspector-assessment](https://www.npmjs.com/package/@bryan-thompson/inspector-assessment)
 - **Fork**: triepod-ai/inspector-assessment
 - **Upstream**: modelcontextprotocol/inspector (v0.17.0)
@@ -38,6 +38,49 @@ This fork includes extensive custom assessment enhancements:
 ## Recent Changes
 
 ### Development Timeline - October 2025
+
+**2025-10-12**: Universal Validation False Positive Fix - Published v1.2.1
+- ✅ **Problem**: Security tests incorrectly flagged tools as vulnerable when they properly validated input before processing
+  - All 6 Firecrawl tools marked as "broken" with validation errors: "Insufficient credits", "Job not found", "Invalid url"
+  - One boundary validation test showing "NEEDS REVIEW": "URL cannot be empty"
+  - These are operational/validation errors indicating SECURE behavior, not vulnerabilities
+- ✅ **Root Cause Analysis**:
+  - **Overly Broad Pattern Matching**: Detection patterns matched generic error keywords ("error", "invalid", "failed") appearing in BOTH secure validation rejections and vulnerable execution errors
+  - **No MCP Error Code Recognition**: Missing detection for JSON-RPC -32602 (Invalid params) standard error code
+  - **No Execution Evidence Requirement**: Ambiguous patterns like "type error" matched validation messages without requiring proof of actual execution
+  - **Missing Boundary Validation Patterns**: Patterns like "cannot be empty" and "required field" not recognized as validation
+  - **API Operational Errors Not Recognized**: Functionality assessment flagged operational errors (credits, billing, quotas) as tool failures
+- ✅ **Solution Implemented** (6 files, 1,878 insertions, 782 deletions):
+  - **SecurityAssessor.ts - 3-Layer Validation Approach**:
+    - **Layer 1: MCP Error Code Detection** (lines 594-629): `isMCPValidationError()` checks for JSON-RPC -32602 code and 18 validation patterns (parameter validation, schema validation, URL validation, boundary validation)
+    - **Layer 2: Ambiguous Pattern Detection** (lines 637-657): `isValidationPattern()` identifies patterns matching both validation and execution errors ("type.*error", "invalid.*type", "overflow")
+    - **Layer 3: Execution Evidence Requirement** (lines 667-699): `hasExecutionEvidence()` requires proof of actual execution (execution verbs, system errors, side effects) before flagging as vulnerable
+    - **Integration** (lines 490-499, 573-584): `analyzeResponse()` applies 3-layer approach - MCP validation early return → pattern matching → execution evidence requirement
+  - **ResponseValidator.ts - API Operational Error Detection**:
+    - Added 11 API operational error patterns (insufficient credits, billing, subscription, payment required, trial expired, usage limit)
+    - Added 5 generic validation patterns (invalid input/parameter/data, must have/be)
+    - Expanded validation-expected tool types (scrape, crawl, map, extract, parse, analyze, process)
+    - Adjusted confidence weighting: operational errors 20% threshold, validation tools 30%, standard 50%
+  - **AssessmentTab.tsx - UI Text Updates**:
+    - Updated badge from "18 Patterns" to "8 Patterns"
+    - Updated descriptions to reflect 3 critical injection patterns (basic) and 8 total patterns (advanced)
+    - Updated security guidance mapping for all 8 current patterns (Command, SQL, Path Traversal, Type Safety, Boundary, Required Fields, MCP Error Format, Timeout)
+  - **Test Coverage - 29 New Tests (All Passing)**:
+    - SecurityAssessor-ValidationFalsePositives.test.ts: 12 tests (MCP error codes, execution evidence, boundary validation)
+    - FirecrawlValidation.test.ts: 5 integration tests (real-world operational error scenarios)
+    - ResponseValidator.test.ts: 12 tests (API operational errors, rate limiting, input validation)
+- 🎯 **Results**:
+  - ✅ **Before**: 6/6 Firecrawl tools incorrectly marked as "broken"
+  - ✅ **After**: 6/6 Firecrawl tools correctly marked as "working"
+  - ✅ Boundary validation fix: "URL cannot be empty" now recognized as secure validation
+  - ✅ All 29 new tests passing
+  - ✅ Published v1.2.1 to npm (all 4 packages)
+  - ✅ Created git tag and pushed to remote
+- 📊 **Impact**:
+  - **Universal Fix**: Changes in `analyzeResponse()` apply to ALL MCP servers, not just Firecrawl
+  - **Detection Flow**: All tools → all patterns → `testPayload()` → `analyzeResponse()` (contains fixes)
+  - **Zero Breaking Changes**: All changes use optional parameters and backward-compatible logic
+  - **Production Ready**: Successfully published and tested with real-world MCP servers
 
 **2025-10-12**: Systematic Test Suite Updates After Recent Assessment Changes
 - ✅ **Problem**: Test suite misaligned with recent assessment enhancements (functionality testing, security classification, tool parameter generation)
