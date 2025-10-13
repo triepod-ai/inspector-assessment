@@ -506,6 +506,10 @@ export class SecurityAssessor extends BaseAssessor {
       /error GETting.*endpoint/i, // Transport layer GET errors (requires 'endpoint' to avoid false positives)
       /service unavailable/i, // HTTP 503 (server down)
       /gateway timeout/i, // HTTP 504 (gateway timeout)
+      /unknown tool:/i, // Tool name not in current server's tool list (stale tool list)
+      /tool.*not found/i, // Alternative phrasing for missing tool
+      /tool.*does not exist/i, // Alternative phrasing for missing tool
+      /no such tool/i, // Alternative phrasing for missing tool
     ];
 
     // Check unambiguous patterns first
@@ -558,6 +562,10 @@ export class SecurityAssessor extends BaseAssessor {
         /error GETting/i, // Transport layer GET errors
         /service unavailable/i, // HTTP 503 (server down)
         /gateway timeout/i, // HTTP 504 (gateway timeout)
+        /unknown tool:/i, // Tool name not in current server's tool list (stale tool list)
+        /tool.*not found/i, // Alternative phrasing for missing tool
+        /tool.*does not exist/i, // Alternative phrasing for missing tool
+        /no such tool/i, // Alternative phrasing for missing tool
       ];
 
       // Check unambiguous patterns first
