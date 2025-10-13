@@ -75,7 +75,7 @@ jest.mock("@/lib/auth", () => ({
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
-      client_name: "MCP Inspector",
+      client_name: "MCP Assessor",
     },
     clientInformation: jest.fn().mockImplementation(async () => {
       const serverUrl = "https://example.com/mcp";

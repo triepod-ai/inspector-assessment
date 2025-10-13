@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-10-13
+
+### Added
+
+- **UI Enhancement**: Filter Errors button in Security and Error Handling sections for improved debugging workflow
+
+### Fixed
+
+- **Assessment Accuracy**: Count only scored tests in passed and total counts
+- **Security Detection**: Detect 'Unknown tool' as tool list sync error, not SECURE status
+- **Security Assessment**: Eliminate false positive on safe_info_tool_mcp reflection detection
+- **Security Status**: Overall Security status now FAIL when connection errors occur
+- **Test Scoring**: Mark connection errors as failed tests, not passed
+
+### Changed
+
+- **Branding**: Renamed application from "MCP Inspector" to "MCP Assessor" to better reflect comprehensive assessment capabilities
+
 ## [1.2.1] - 2025-10-12
 
 ### Fixed

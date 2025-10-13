@@ -37,7 +37,7 @@ export type ConnectionStatus =
 export const DEFAULT_MCP_PROXY_LISTEN_PORT = "6277";
 
 /**
- * Default configuration for the MCP Inspector, Currently persisted in local_storage in the Browser.
+ * Default configuration for the MCP Assessor, Currently persisted in local_storage in the Browser.
  * Future plans: Provide json config file + Browser local_storage to override default values
  **/
 export const DEFAULT_INSPECTOR_CONFIG: InspectorConfig = {

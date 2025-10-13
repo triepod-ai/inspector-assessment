@@ -6,7 +6,7 @@ export type ConfigItem = {
 };
 
 /**
- * Configuration interface for the MCP Inspector, including settings for the MCP Client,
+ * Configuration interface for the MCP Assessor, including settings for the MCP Client,
  * Proxy Server, and Inspector UI/UX.
  *
  * Note: Configuration related to which MCP Server to use or any other MCP Server

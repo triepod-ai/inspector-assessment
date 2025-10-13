@@ -228,7 +228,7 @@ const Sidebar = ({
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-border">
         <div className="flex items-center">
           <h1 className="ml-2 text-lg font-semibold">
-            MCP Inspector v{version}
+            MCP Assessor v{version}
           </h1>
         </div>
       </div>
@@ -812,7 +812,7 @@ const Sidebar = ({
               asChild
             >
               <a
-                href="https://github.com/modelcontextprotocol/inspector"
+                href="https://github.com/triepod-ai/inspector-assessment"
                 target="_blank"
                 rel="noopener noreferrer"
               >

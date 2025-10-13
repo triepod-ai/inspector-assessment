@@ -128,8 +128,8 @@ export class InspectorOAuthClientProvider implements OAuthClientProvider {
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
-      client_name: "MCP Inspector",
-      client_uri: "https://github.com/modelcontextprotocol/inspector",
+      client_name: "MCP Assessor",
+      client_uri: "https://github.com/triepod-ai/inspector-assessment",
       scope: this.scope ?? "",
     };
   }
