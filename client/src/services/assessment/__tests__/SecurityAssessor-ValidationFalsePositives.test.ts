@@ -585,4 +585,200 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
       expect(secureToolVulns.length).toBe(0);
     });
   });
+
+  describe("Explicit Validation Rejection Detection", () => {
+    it("should recognize valid=false as safe rejection (boundary testing)", async () => {
+      const tool: Tool = {
+        name: "validate_input_tool",
+        description: "Validates input with safe error handling",
+        inputSchema: {
+          type: "object",
+          properties: {
+            input_data: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation((toolName, params) => {
+          // Tool correctly rejects oversized input
+          return Promise.resolve({
+            isError: false,
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  result: "Validation failed",
+                  input: params.input_data,
+                  valid: false,
+                  errors: ["Input too long (max 1000 characters)"],
+                }),
+              },
+            ],
+          });
+        });
+
+      const result = await assessor.assess(mockContext);
+
+      // Should NOT be flagged as vulnerable (tool correctly rejected input)
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "validate_input_tool",
+      );
+      expect(vulnerableTests.length).toBe(0);
+      expect(result.status).toBe("PASS");
+    });
+
+    it("should recognize error=true as safe rejection", async () => {
+      const tool: Tool = {
+        name: "check_package_tool",
+        description: "Checks package validity",
+        inputSchema: {
+          type: "object",
+          properties: {
+            package: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation((toolName, params) => {
+          return Promise.resolve({
+            isError: false,
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  result: `Package '${params.package}' not in approved list`,
+                  error: true,
+                }),
+              },
+            ],
+          });
+        });
+
+      const result = await assessor.assess(mockContext);
+
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "check_package_tool",
+      );
+      expect(vulnerableTests.length).toBe(0);
+    });
+
+    it("should recognize errors array as safe rejection", async () => {
+      const tool: Tool = {
+        name: "validate_data_tool",
+        description: "Validates data with detailed error messages",
+        inputSchema: {
+          type: "object",
+          properties: {
+            data: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation((toolName, params) => {
+          return Promise.resolve({
+            isError: false,
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  result: "Validation failed",
+                  valid: false,
+                  errors: [
+                    "Input contains invalid characters",
+                    "Input too long",
+                  ],
+                }),
+              },
+            ],
+          });
+        });
+
+      const result = await assessor.assess(mockContext);
+
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "validate_data_tool",
+      );
+      expect(vulnerableTests.length).toBe(0);
+    });
+
+    it("should distinguish rejection from actual execution", async () => {
+      const tools: Tool[] = [
+        {
+          name: "safe_validator",
+          description: "Validates safely",
+          inputSchema: {
+            type: "object",
+            properties: { input: { type: "string" } },
+          },
+        },
+        {
+          name: "vulnerable_executor",
+          description: "Executes commands",
+          inputSchema: {
+            type: "object",
+            properties: { command: { type: "string" } },
+          },
+        },
+      ];
+
+      mockContext.tools = tools;
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation((toolName, params) => {
+          if (toolName === "safe_validator") {
+            // SAFE: Rejects with validation error
+            return Promise.resolve({
+              isError: false,
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    result: "Validation failed",
+                    valid: false,
+                    errors: ["Input too long"],
+                  }),
+                },
+              ],
+            });
+          } else {
+            // VULNERABLE: Actually executes
+            return Promise.resolve({
+              isError: false,
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    result: "Command executed",
+                    output: "root",
+                  }),
+                },
+              ],
+            });
+          }
+        });
+
+      const result = await assessor.assess(mockContext);
+
+      // Safe validator should not be flagged
+      const safeTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "safe_validator",
+      );
+      expect(safeTests.length).toBe(0);
+
+      // Vulnerable executor should be flagged
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "vulnerable_executor",
+      );
+      expect(vulnerableTests.length).toBeGreaterThan(0);
+    });
+  });
 });

@@ -505,9 +505,12 @@ export class SecurityAssessor extends BaseAssessor {
 
     // ✅ STEP 2: Check if response is just reflecting/echoing input (SAFE)
     // This prevents false positives from tools that echo malicious input as data
-    // IMPORTANT: Check reflection UNCONDITIONALLY (don't require exact payload match)
+    // IMPORTANT: Check reflection BEFORE execution evidence (priority order matters)
     // This handles escaping differences (e.g., single vs double backslashes)
-    const isJustReflection = this.isReflectionResponse(responseText);
+    const isJustReflection = this.isReflectionResponse(
+      responseText,
+      payloadText,
+    );
     if (isJustReflection) {
       return {
         isVulnerable: false,
@@ -517,6 +520,16 @@ export class SecurityAssessor extends BaseAssessor {
 
     // Response doesn't match reflection patterns - continue checking
     // Falls through - might be execution (with or without echo of input)
+
+    // ✅ STEP 2.5: Check if tool explicitly rejected the input (SAFE)
+    // CRITICAL: Check this BEFORE evidence matching to prevent false positives
+    // Tools that reject invalid input are secure, regardless of error message content
+    if (this.isValidationRejection(response)) {
+      return {
+        isVulnerable: false,
+        evidence: "Tool correctly rejected invalid input with validation error",
+      };
+    }
 
     // ✅ STEP 3: Check for expected evidence of execution
     // Only flag as vulnerable if we find execution evidence AND it's not just reflection
@@ -553,6 +566,79 @@ export class SecurityAssessor extends BaseAssessor {
 
     // ✅ STEP 4: Fall back to existing detection logic for comprehensive analysis
     return this.analyzeInjectionResponse(response, payload.payload);
+  }
+
+  /**
+   * Check if tool explicitly rejected input with validation error (SAFE)
+   * Returns true if tool properly rejected invalid input (SECURE)
+   *
+   * Distinguishes between:
+   * - SAFE: {"valid": false, "errors": ["Input too long"]} (rejection)
+   * - VULNERABLE: {"result": "deleted 5 rows"} (execution)
+   */
+  private isValidationRejection(
+    response: CompatibilityCallToolResult,
+  ): boolean {
+    const responseText = this.extractResponseContent(response);
+
+    try {
+      const parsed = JSON.parse(responseText);
+
+      // Explicit rejection indicators (highest priority)
+      if (
+        parsed.valid === false ||
+        parsed.error === true ||
+        parsed.error === "true" || // Handle string boolean
+        (parsed.error && parsed.error !== false) || // Any truthy error value
+        parsed.status === "rejected" ||
+        parsed.status === "invalid" ||
+        parsed.status === "failed"
+      ) {
+        return true;
+      }
+
+      // Has explicit error details (errors array, error field)
+      if (
+        parsed.errors &&
+        Array.isArray(parsed.errors) &&
+        parsed.errors.length > 0
+      ) {
+        return true;
+      }
+
+      if (parsed.error && typeof parsed.error === "string") {
+        return true;
+      }
+
+      // Result field indicates validation failure
+      if (typeof parsed.result === "string") {
+        const resultRejectionPatterns = [
+          /validation (failed|error)/i,
+          /rejected/i,
+          /not.*approved/i,
+          /not.*in.*list/i,
+          /invalid.*input/i,
+          /error:.*invalid/i,
+        ];
+        if (resultRejectionPatterns.some((p) => p.test(parsed.result))) {
+          return true;
+        }
+      }
+    } catch {
+      // Not JSON, check text patterns
+    }
+
+    // Text-based rejection patterns (fallback for non-JSON responses)
+    const rejectionPatterns = [
+      /validation failed/i,
+      /rejected/i,
+      /not.*approved/i,
+      /not.*in.*list/i,
+      /invalid.*input/i,
+      /error:.*invalid/i,
+    ];
+
+    return rejectionPatterns.some((pattern) => pattern.test(responseText));
   }
 
   /**
@@ -957,9 +1043,13 @@ export class SecurityAssessor extends BaseAssessor {
   /**
    * Check if response is just reflection (safe)
    * Expanded to catch more reflection patterns including echo, repeat, display
-   * IMPROVED: Bidirectional patterns and safety indicators for broader coverage
+   * IMPROVED: Bidirectional patterns, safety indicators, and payload-aware JSON analysis
+   *
+   * CRITICAL: This check distinguishes between:
+   * - SAFE: Tool stores/echoes malicious input as data (reflection)
+   * - VULNERABLE: Tool executes malicious input and returns results (execution)
    */
-  private isReflectionResponse(responseText: string): boolean {
+  private isReflectionResponse(responseText: string, payload: string): boolean {
     const reflectionPatterns = [
       // Original patterns (keep all existing)
       /stored.*query/i,
@@ -1013,9 +1103,85 @@ export class SecurityAssessor extends BaseAssessor {
       /saved.*to/i,
       /recorded\s+in/i,
       /added\s+to/i,
+
+      // NEW: Storage/logging confirmations (high confidence)
+      /logged successfully:/i,
+      /queued for processing:/i,
+      /saved (for|successfully)/i,
+      /stored for (admin review|configuration|processing)/i,
+
+      // NEW: Processing confirmations (high confidence)
+      /processed successfully/i,
+      /validated successfully/i,
+      /parsed successfully/i,
+      /(validation|processing) (passed|completed)/i,
+
+      // NEW: Error messages with input reflection (common safe pattern)
+      /error:.*not (found|in approved list|recognized)/i,
+      /error getting info for ['"].*['"]/i,
+      /invalid .* format.*stored as text/i,
+      /error:.*too (long|short|large)/i,
     ];
 
-    return reflectionPatterns.some((pattern) => pattern.test(responseText));
+    // Check text patterns first
+    if (reflectionPatterns.some((pattern) => pattern.test(responseText))) {
+      return true;
+    }
+
+    // NEW: JSON Structural Analysis
+    // Check if payload appears in SAFE data fields (not execution fields)
+    try {
+      const parsed = JSON.parse(responseText);
+      const safeFields = [
+        "command",
+        "query",
+        "text",
+        "data",
+        "action",
+        "instruction",
+        "setting",
+        "url",
+        "package",
+        "input",
+      ];
+      const executionFields = ["output", "stdout", "stderr", "contents"];
+
+      // Check if payload appears in execution context (VULNERABLE)
+      const hasPayloadInExecution = executionFields.some((execField) => {
+        const value = parsed[execField];
+        return value && typeof value === "string" && value.includes(payload);
+      });
+
+      // If payload in execution fields, not just reflection
+      if (hasPayloadInExecution) {
+        return false;
+      }
+
+      // Check if payload appears ONLY in safe storage fields (SAFE)
+      const isStoredOnly = safeFields.some((field) => {
+        const value = parsed[field];
+        return (
+          value === payload ||
+          (typeof value === "string" && value.includes(payload))
+        );
+      });
+
+      if (isStoredOnly) {
+        return true;
+      }
+
+      // Check for status indicators suggesting safe storage
+      if (
+        parsed.status &&
+        /(stored|logged|queued|pending|processed|validated)/.test(parsed.status)
+      ) {
+        return true;
+      }
+    } catch {
+      // Not JSON or parsing failed, continue with text-only analysis
+    }
+
+    return false;
   }
 
   /**
@@ -1023,7 +1189,7 @@ export class SecurityAssessor extends BaseAssessor {
    */
   private analyzeInjectionResponse(
     response: CompatibilityCallToolResult,
-    _payload: string,
+    payload: string,
   ): { isVulnerable: boolean; evidence?: string } {
     const responseText = this.extractResponseContent(response);
 
@@ -1040,7 +1206,8 @@ export class SecurityAssessor extends BaseAssessor {
       pattern.test(responseText),
     );
 
-    if (hasExecution && !this.isReflectionResponse(responseText)) {
+    // CRITICAL: Check reflection BEFORE flagging as vulnerable
+    if (hasExecution && !this.isReflectionResponse(responseText, payload)) {
       return {
         isVulnerable: true,
         evidence: "Tool executed instruction: found execution keywords",

@@ -403,6 +403,347 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
     });
   });
 
+  describe("New Reflection Patterns - Storage/Logging Confirmations", () => {
+    it('should recognize "Command logged successfully" as safe reflection', async () => {
+      const tool: Tool = {
+        name: "store_command_tool",
+        description: "Stores commands for audit logging",
+        inputSchema: {
+          type: "object",
+          properties: {
+            command: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation((toolName, params) => {
+          return Promise.resolve({
+            isError: false,
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  result: `Command logged successfully: ${params.command}`,
+                  command: params.command,
+                  status: "logged",
+                }),
+              },
+            ],
+          });
+        });
+
+      const result = await assessor.assess(mockContext);
+
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "store_command_tool",
+      );
+      expect(vulnerableTests.length).toBe(0);
+    });
+
+    it('should recognize "Queued for processing" as safe reflection', async () => {
+      const tool: Tool = {
+        name: "queue_tool",
+        description: "Queues data for processing",
+        inputSchema: {
+          type: "object",
+          properties: {
+            data: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation((toolName, params) => {
+          return Promise.resolve({
+            isError: false,
+            content: [
+              {
+                type: "text",
+                text: `Queued for processing: ${params.data}`,
+              },
+            ],
+          });
+        });
+
+      const result = await assessor.assess(mockContext);
+
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "queue_tool",
+      );
+      expect(vulnerableTests.length).toBe(0);
+    });
+  });
+
+  describe("New Reflection Patterns - Processing Confirmations", () => {
+    it('should recognize "Text processed successfully" as safe reflection', async () => {
+      const tool: Tool = {
+        name: "process_text_tool",
+        description: "Processes text data",
+        inputSchema: {
+          type: "object",
+          properties: {
+            text: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation((toolName, params) => {
+          return Promise.resolve({
+            isError: false,
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  result: "Text processed successfully",
+                  text: params.text,
+                  status: "processed",
+                }),
+              },
+            ],
+          });
+        });
+
+      const result = await assessor.assess(mockContext);
+
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "process_text_tool",
+      );
+      expect(vulnerableTests.length).toBe(0);
+    });
+
+    it('should recognize "Validation passed" as safe reflection', async () => {
+      const tool: Tool = {
+        name: "validate_package_tool",
+        description: "Validates package names",
+        inputSchema: {
+          type: "object",
+          properties: {
+            package: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation((toolName, params) => {
+          return Promise.resolve({
+            isError: false,
+            content: [
+              {
+                type: "text",
+                text: `Validation passed: ${params.package}`,
+              },
+            ],
+          });
+        });
+
+      const result = await assessor.assess(mockContext);
+
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "validate_package_tool",
+      );
+      expect(vulnerableTests.length).toBe(0);
+    });
+  });
+
+  describe("New Reflection Patterns - Error Message Reflection", () => {
+    it('should recognize "Error: not in approved list" as safe reflection', async () => {
+      const tool: Tool = {
+        name: "check_package_tool",
+        description: "Checks if package is approved",
+        inputSchema: {
+          type: "object",
+          properties: {
+            package: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation((toolName, params) => {
+          return Promise.resolve({
+            isError: false,
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  result: `Error: Package '${params.package}' not in approved list`,
+                  error: true,
+                }),
+              },
+            ],
+          });
+        });
+
+      const result = await assessor.assess(mockContext);
+
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "check_package_tool",
+      );
+      expect(vulnerableTests.length).toBe(0);
+    });
+
+    it('should recognize "Error getting info" as safe reflection', async () => {
+      const tool: Tool = {
+        name: "get_entity_info_tool",
+        description: "Gets entity information",
+        inputSchema: {
+          type: "object",
+          properties: {
+            entity_name: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation((toolName, params) => {
+          return Promise.resolve({
+            isError: false,
+            content: [
+              {
+                type: "text",
+                text: `Error getting info for '${params.entity_name}'`,
+              },
+            ],
+          });
+        });
+
+      const result = await assessor.assess(mockContext);
+
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "get_entity_info_tool",
+      );
+      expect(vulnerableTests.length).toBe(0);
+    });
+  });
+
+  describe("New Reflection Patterns - JSON Structural Analysis", () => {
+    it('should handle "executed successfully" with stored action (confusing but safe)', async () => {
+      const tool: Tool = {
+        name: "execute_action_tool",
+        description: "Executes business automation actions",
+        inputSchema: {
+          type: "object",
+          properties: {
+            action: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation((toolName, params) => {
+          // Confusing: says "executed" but just stored
+          return Promise.resolve({
+            isError: false,
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  result: "Action executed successfully",
+                  action: params.action, // Payload in safe data field
+                  invocation_count: 71,
+                  status: "completed",
+                }),
+              },
+            ],
+          });
+        });
+
+      const result = await assessor.assess(mockContext);
+
+      // Should NOT be flagged - payload in safe "action" field, not in execution output
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "execute_action_tool",
+      );
+      expect(vulnerableTests.length).toBe(0);
+    });
+
+    it("should distinguish safe data fields from execution fields", async () => {
+      const tools: Tool[] = [
+        {
+          name: "safe_storage_tool",
+          description: "Stores data safely",
+          inputSchema: {
+            type: "object",
+            properties: { data: { type: "string" } },
+          },
+        },
+        {
+          name: "vulnerable_execution_tool",
+          description: "Executes and returns output",
+          inputSchema: {
+            type: "object",
+            properties: { command: { type: "string" } },
+          },
+        },
+      ];
+
+      mockContext.tools = tools;
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation((toolName, params) => {
+          if (toolName === "safe_storage_tool") {
+            // SAFE: Payload in safe "data" field
+            return Promise.resolve({
+              isError: false,
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    result: "Stored successfully",
+                    data: params.data, // Safe field
+                  }),
+                },
+              ],
+            });
+          } else {
+            // VULNERABLE: Payload in execution "output" field
+            return Promise.resolve({
+              isError: false,
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    result: "Executed",
+                    output: "root", // Execution evidence field
+                  }),
+                },
+              ],
+            });
+          }
+        });
+
+      const result = await assessor.assess(mockContext);
+
+      // Safe tool should not be flagged
+      const safeTests = result.promptInjectionTests.filter(
+        (t) => t.toolName === "safe_storage_tool" && t.vulnerable,
+      );
+      expect(safeTests.length).toBe(0);
+
+      // Vulnerable tool should be flagged
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.toolName === "vulnerable_execution_tool" && t.vulnerable,
+      );
+      expect(vulnerableTests.length).toBeGreaterThan(0);
+    });
+  });
+
   describe("Real-World Broken MCP Server Test Cases", () => {
     it("should correctly assess all 6 safe control tools from broken MCP server", async () => {
       // These are the safe control tools from the broken MCP test server
