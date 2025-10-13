@@ -1154,6 +1154,10 @@ const App = () => {
                     <AssessmentTab
                       tools={tools}
                       isLoadingTools={isLoadingTools}
+                      listTools={() => {
+                        clearError("tools");
+                        listTools();
+                      }}
                       callTool={async (name, params) => {
                         const result = await callTool(name, params);
                         return result;

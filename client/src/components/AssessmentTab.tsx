@@ -66,6 +66,7 @@ import { ToolSelector } from "./ui/tool-selector";
 interface AssessmentTabProps {
   tools: Tool[];
   isLoadingTools?: boolean;
+  listTools?: () => void;
   callTool: (
     name: string,
     params: Record<string, unknown>,
@@ -76,6 +77,7 @@ interface AssessmentTabProps {
 const AssessmentTab: React.FC<AssessmentTabProps> = ({
   tools,
   isLoadingTools = false,
+  listTools,
   callTool,
   serverName = "MCP Server",
 }) => {
@@ -118,11 +120,38 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
 
   // Initialize selectedToolsForTesting when tools change
   useEffect(() => {
-    if (tools.length > 0 && !config.selectedToolsForTesting) {
+    if (tools.length === 0) {
+      return; // Don't do anything if no tools are loaded
+    }
+
+    const currentToolNames = tools.map((t) => t.name);
+
+    if (!config.selectedToolsForTesting) {
+      // First load: select all tools
       setConfig({
         ...config,
-        selectedToolsForTesting: tools.map((t) => t.name),
+        selectedToolsForTesting: currentToolNames,
       });
+    } else {
+      // Tool list updated: keep existing selections for tools that still exist,
+      // and add newly loaded tools to the selection
+      const existingSelections = config.selectedToolsForTesting.filter((name) =>
+        currentToolNames.includes(name),
+      );
+      const newTools = currentToolNames.filter(
+        (name) => !config.selectedToolsForTesting!.includes(name),
+      );
+
+      if (
+        newTools.length > 0 ||
+        existingSelections.length !== config.selectedToolsForTesting.length
+      ) {
+        // Only update if there are new tools or removed tools
+        setConfig({
+          ...config,
+          selectedToolsForTesting: [...existingSelections, ...newTools],
+        });
+      }
     }
   }, [tools, config, setConfig]);
 
@@ -327,7 +356,25 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tool-selector">Select tools for testing:</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="tool-selector">Select tools for testing:</Label>
+              {listTools && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => listTools()}
+                  disabled={isLoadingTools || isRunning}
+                  className="h-7 px-2"
+                >
+                  {isLoadingTools ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <RotateCcw className="w-4 h-4 mr-1" />
+                  )}
+                  Refresh
+                </Button>
+              )}
+            </div>
             {isLoadingTools ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin" />
