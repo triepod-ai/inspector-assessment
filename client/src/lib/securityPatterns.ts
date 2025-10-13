@@ -1,16 +1,18 @@
 /**
  * Backend API Security Patterns
- * Tests MCP server API security with 8 focused patterns
+ * Tests MCP server API security with 12 focused patterns
  *
  * Architecture: Attack-Type with Specific Payloads
  * - Critical Injection (3 patterns): SQL, Command, Path Traversal
  * - Input Validation (3 patterns): Type Safety, Boundary Testing, Required Fields
  * - Protocol Compliance (2 patterns): MCP Error Format, Timeout Handling
+ * - Tool-Specific Vulnerabilities (4 patterns): Indirect Injection, Unicode Bypass, Nested Injection, Package Squatting
  *
  * Scope: Backend API Security ONLY
  * - Tests structured data inputs to API endpoints
  * - Validates server-side security controls
  * - Tests MCP protocol compliance
+ * - Tests tool-specific vulnerability patterns with parameter-aware payloads
  *
  * Out of Scope: LLM Prompt Injection
  * - MCP servers are APIs that receive structured data, not prompts
@@ -26,6 +28,7 @@ export interface SecurityPayload {
   riskLevel: SecurityRiskLevel;
   description: string;
   payloadType: string; // e.g., "injection", "validation", "protocol"
+  parameterTypes?: string[]; // Optional: target specific parameter names (e.g., ["url", "uri"] for URL payloads)
 }
 
 export interface AttackPattern {
@@ -39,7 +42,7 @@ export interface AttackPattern {
  * BACKEND API SECURITY PATTERNS
  * ========================================
  *
- * 8 focused patterns for MCP server API security
+ * 12 focused patterns for MCP server API security
  */
 export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // ==========================================
@@ -276,6 +279,107 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
         riskLevel: "LOW",
         description: "Operation timeout handling",
         payloadType: "protocol",
+      },
+    ],
+  },
+
+  // ==========================================
+  // TOOL-SPECIFIC VULNERABILITY TESTS (4)
+  // ==========================================
+
+  // 9. INDIRECT PROMPT INJECTION (HTTP URL Fetching)
+  {
+    attackName: "Indirect Prompt Injection",
+    description: "Test if tool fetches and executes external content",
+    payloads: [
+      {
+        payload: "http://example.com",
+        evidence:
+          /(status_code.*200|status.*200.*content|<html|<!DOCTYPE|fetched.*http.*content)/i,
+        riskLevel: "HIGH",
+        description: "Benign URL fetch test",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint", "address"],
+      },
+      {
+        payload: "http://evil.com/inject.txt",
+        evidence: /(fetched|retrieved|evil\.com|malicious|injected)/i,
+        riskLevel: "HIGH",
+        description: "Malicious URL fetch test",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link"],
+      },
+    ],
+  },
+
+  // 10. UNICODE BYPASS
+  {
+    attackName: "Unicode Bypass",
+    description: "Test if tool decodes and executes unicode-encoded commands",
+    payloads: [
+      {
+        payload: "\\u0077\\u0068\\u006f\\u0061\\u006d\\u0069", // "whoami"
+        evidence: /(root|user|admin|decoded.*executed|unicode.*executed)/i,
+        riskLevel: "MEDIUM",
+        description: "Unicode-encoded system command",
+        payloadType: "injection",
+        parameterTypes: ["text", "content", "message", "input", "data"],
+      },
+      {
+        payload: "\\u0069\\u0067\\u006e\\u006f\\u0072\\u0065", // "ignore"
+        evidence: /(decoded|unicode|ignore.*previous|executed)/i,
+        riskLevel: "MEDIUM",
+        description: "Unicode-encoded instruction",
+        payloadType: "injection",
+        parameterTypes: ["text", "content", "message"],
+      },
+    ],
+  },
+
+  // 11. NESTED INJECTION
+  {
+    attackName: "Nested Injection",
+    description: "Test if tool executes hidden instructions in nested JSON",
+    payloads: [
+      {
+        payload: '{"query":"normal","hidden":"whoami"}',
+        evidence: /(executed.*hidden|nested.*instruction|root|user|admin)/i,
+        riskLevel: "MEDIUM",
+        description: "Hidden command in JSON field",
+        payloadType: "injection",
+        parameterTypes: ["data", "json", "payload", "body", "params"],
+      },
+      {
+        payload: '{"visible":"safe","_execute":"delete all"}',
+        evidence: /(executed|deleted|internal.*field|hidden)/i,
+        riskLevel: "HIGH",
+        description: "Hidden instruction in internal field",
+        payloadType: "injection",
+        parameterTypes: ["data", "json", "input"],
+      },
+    ],
+  },
+
+  // 12. PACKAGE SQUATTING
+  {
+    attackName: "Package Squatting",
+    description: "Test if tool downloads typosquatted packages",
+    payloads: [
+      {
+        payload: "install nmpy",
+        evidence: /(downloaded|installed|nmpy|typosquatted|pip.*output)/i,
+        riskLevel: "MEDIUM",
+        description: "Typosquatted package (nmpy instead of numpy)",
+        payloadType: "injection",
+        parameterTypes: ["package", "pkg", "module", "library", "dependency"],
+      },
+      {
+        payload: "requsts",
+        evidence: /(downloaded|installed|requsts|typosquatted)/i,
+        riskLevel: "MEDIUM",
+        description: "Typosquatted package (requsts instead of requests)",
+        payloadType: "injection",
+        parameterTypes: ["package", "pkg", "module"],
       },
     ],
   },

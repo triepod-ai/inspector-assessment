@@ -383,7 +383,7 @@ export class SecurityAssessor extends BaseAssessor {
 
     try {
       // Create parameters using payload
-      const params = this.createTestParameters(payload.payload, tool);
+      const params = this.createTestParameters(payload, tool);
 
       if (Object.keys(params).length === 0) {
         return {
@@ -728,16 +728,7 @@ export class SecurityAssessor extends BaseAssessor {
       };
     }
 
-    // ✅ STEP 0: Check if response is from an API wrapper (SAFE)
-    // API wrappers fetch external content and return it as data, not execute it
-    if (this.isApiWrapperResponse(responseText)) {
-      return {
-        isVulnerable: false,
-        evidence: "API wrapper response - returned external content as data",
-      };
-    }
-
-    // ✅ STEP 2: Check if response is just reflecting/echoing input (SAFE)
+    // ✅ STEP 1: Check if response is just reflecting/echoing input (SAFE)
     // This prevents false positives from tools that echo malicious input as data
     // IMPORTANT: Check reflection BEFORE execution evidence (priority order matters)
     // This handles escaping differences (e.g., single vs double backslashes)
@@ -755,7 +746,7 @@ export class SecurityAssessor extends BaseAssessor {
     // Response doesn't match reflection patterns - continue checking
     // Falls through - might be execution (with or without echo of input)
 
-    // ✅ STEP 2.5: Check if tool explicitly rejected the input (SAFE)
+    // ✅ STEP 2: Check if tool explicitly rejected the input (SAFE)
     // CRITICAL: Check this BEFORE evidence matching to prevent false positives
     // Tools that reject invalid input are secure, regardless of error message content
     if (this.isValidationRejection(response)) {
@@ -1508,7 +1499,7 @@ export class SecurityAssessor extends BaseAssessor {
   }
 
   private createTestParameters(
-    payload: string,
+    payload: SecurityPayload,
     tool: any,
   ): Record<string, unknown> {
     // Extract tool schema
@@ -1520,17 +1511,44 @@ export class SecurityAssessor extends BaseAssessor {
     }
 
     const params: Record<string, unknown> = {};
+    const targetParamTypes = payload.parameterTypes || [];
+    let payloadInjected = false;
 
-    // For each parameter in the schema, inject the test payload
+    // Try to match payload to appropriate parameter by name
+    if (targetParamTypes.length > 0) {
+      // Payload is parameter-specific (e.g., URLs only for "url" params)
+      for (const [key, prop] of Object.entries(schema.properties)) {
+        const propSchema = prop as any;
+        const paramNameLower = key.toLowerCase();
+
+        // Check if parameter name matches expected types
+        if (
+          propSchema.type === "string" &&
+          targetParamTypes.some((type) => paramNameLower.includes(type))
+        ) {
+          params[key] = payload.payload;
+          payloadInjected = true;
+          break;
+        }
+      }
+    } else {
+      // Generic payload - inject into first string parameter (original behavior)
+      for (const [key, prop] of Object.entries(schema.properties)) {
+        const propSchema = prop as any;
+
+        if (propSchema.type === "string" && !payloadInjected) {
+          params[key] = payload.payload;
+          payloadInjected = true;
+          break;
+        }
+      }
+    }
+
+    // Fill required parameters with safe defaults
     for (const [key, prop] of Object.entries(schema.properties)) {
       const propSchema = prop as any;
 
-      // Inject payload into first string parameter found
-      if (propSchema.type === "string" && Object.keys(params).length === 0) {
-        params[key] = payload;
-      }
-      // Fill required parameters with safe defaults
-      else if (schema.required?.includes(key)) {
+      if (schema.required?.includes(key) && !(key in params)) {
         if (propSchema.type === "string") {
           params[key] = "test";
         } else if (propSchema.type === "number") {
@@ -1571,26 +1589,6 @@ export class SecurityAssessor extends BaseAssessor {
       "Path Traversal",
     ];
     return executionTests.includes(attackName);
-  }
-
-  /**
-   * Check if response is from an API wrapper tool
-   * API wrappers return external content as data, not execute it
-   */
-  private isApiWrapperResponse(responseText: string): boolean {
-    const apiWrapperPatterns = [
-      /successfully\s+(scraped|fetched|crawled)/i,
-      /content\s+from\s+http/i,
-      /api\s+(request|response|call)\s+(completed|successful)/i,
-      /retrieved\s+\d+\s+(results|pages|urls)/i,
-      /markdown.*screenshot.*links/i, // Firecrawl format indicators
-      /scraping\s+(complete|finished|done)/i,
-      /\bfirecrawl\b/i,
-      /crawl.*job/i,
-      /extraction.*complete/i,
-    ];
-
-    return apiWrapperPatterns.some((pattern) => pattern.test(responseText));
   }
 
   /**
