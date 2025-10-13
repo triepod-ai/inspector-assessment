@@ -29,6 +29,7 @@ import {
   Check,
   X,
   Info,
+  Filter,
 } from "lucide-react";
 import {
   MCPDirectoryAssessment,
@@ -94,6 +95,7 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
   const [showJson, setShowJson] = useState(false);
   const [collapsedTools, setCollapsedTools] = useState<Set<string>>(new Set());
   const [allToolsCollapsed, setAllToolsCollapsed] = useState(false);
+  const [showOnlyErrors, setShowOnlyErrors] = useState(false);
   const [expandedToolDescriptions, setExpandedToolDescriptions] = useState<
     Set<string>
   >(new Set());
@@ -798,51 +800,62 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                         <strong className="text-sm">
                           Security Test Results:
                         </strong>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-6 px-2"
-                          onClick={() => {
-                            const toolGroups = new Map<
-                              string,
-                              typeof assessment.security.promptInjectionTests
-                            >();
-                            assessment.security.promptInjectionTests.forEach(
-                              (testResult) => {
-                                const toolName =
-                                  testResult.toolName || "Unknown Tool";
-                                if (!toolGroups.has(toolName)) {
-                                  toolGroups.set(toolName, []);
-                                }
-                              },
-                            );
-
-                            if (allToolsCollapsed) {
-                              // Expand all
-                              setCollapsedTools(new Set());
-                              setAllToolsCollapsed(false);
-                            } else {
-                              // Collapse all
-                              const allToolNames = Array.from(
-                                toolGroups.keys(),
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant={showOnlyErrors ? "default" : "outline"}
+                            size="sm"
+                            className="text-xs h-6 px-2"
+                            onClick={() => setShowOnlyErrors(!showOnlyErrors)}
+                          >
+                            <Filter className="h-3 w-3 mr-1" />
+                            {showOnlyErrors ? "Show All" : "Filter Errors"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-6 px-2"
+                            onClick={() => {
+                              const toolGroups = new Map<
+                                string,
+                                typeof assessment.security.promptInjectionTests
+                              >();
+                              assessment.security.promptInjectionTests.forEach(
+                                (testResult) => {
+                                  const toolName =
+                                    testResult.toolName || "Unknown Tool";
+                                  if (!toolGroups.has(toolName)) {
+                                    toolGroups.set(toolName, []);
+                                  }
+                                },
                               );
-                              setCollapsedTools(new Set(allToolNames));
-                              setAllToolsCollapsed(true);
-                            }
-                          }}
-                        >
-                          {allToolsCollapsed ? (
-                            <>
-                              <ChevronRight className="h-3 w-3 mr-1" />
-                              Expand All
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="h-3 w-3 mr-1" />
-                              Collapse All
-                            </>
-                          )}
-                        </Button>
+
+                              if (allToolsCollapsed) {
+                                // Expand all
+                                setCollapsedTools(new Set());
+                                setAllToolsCollapsed(false);
+                              } else {
+                                // Collapse all
+                                const allToolNames = Array.from(
+                                  toolGroups.keys(),
+                                );
+                                setCollapsedTools(new Set(allToolNames));
+                                setAllToolsCollapsed(true);
+                              }
+                            }}
+                          >
+                            {allToolsCollapsed ? (
+                              <>
+                                <ChevronRight className="h-3 w-3 mr-1" />
+                                Expand All
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-3 w-3 mr-1" />
+                                Collapse All
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
                       <div className="mt-2 space-y-1">
                         {/* Group test results by tool name using the toolName field from test results */}
@@ -878,17 +891,28 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                             );
                           };
 
-                          return Array.from(toolGroups.entries()).map(
-                            ([toolName, toolTests]) => (
-                              <CollapsibleToolSection
-                                key={toolName}
-                                toolName={toolName}
-                                toolTests={toolTests}
-                                isCollapsed={collapsedTools.has(toolName)}
-                                onToggle={handleToggleTool}
-                              />
-                            ),
-                          );
+                          // Filter tool groups if showOnlyErrors is active
+                          let filteredGroups = Array.from(toolGroups.entries());
+                          if (showOnlyErrors) {
+                            filteredGroups = filteredGroups.filter(
+                              ([, toolTests]) => {
+                                // Show only tools with at least one vulnerable test
+                                return toolTests.some(
+                                  (test) => test.vulnerable === true,
+                                );
+                              },
+                            );
+                          }
+
+                          return filteredGroups.map(([toolName, toolTests]) => (
+                            <CollapsibleToolSection
+                              key={toolName}
+                              toolName={toolName}
+                              toolTests={toolTests}
+                              isCollapsed={collapsedTools.has(toolName)}
+                              onToggle={handleToggleTool}
+                            />
+                          ));
                         })()}
                       </div>
                       {assessment.security.vulnerabilities.length > 0 &&
@@ -1288,51 +1312,64 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                             <strong className="text-sm">
                               Error Handling Test Results:
                             </strong>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-6 px-2"
-                              onClick={() => {
-                                const toolGroups = new Map<
-                                  string,
-                                  typeof assessment.errorHandling.metrics.testDetails
-                                >();
-                                assessment.errorHandling.metrics.testDetails?.forEach(
-                                  (testResult) => {
-                                    const toolName =
-                                      testResult.toolName || "Unknown Tool";
-                                    if (!toolGroups.has(toolName)) {
-                                      toolGroups.set(toolName, []);
-                                    }
-                                  },
-                                );
-
-                                if (allToolsCollapsed) {
-                                  // Expand all
-                                  setCollapsedTools(new Set());
-                                  setAllToolsCollapsed(false);
-                                } else {
-                                  // Collapse all
-                                  const allToolNames = Array.from(
-                                    toolGroups.keys(),
-                                  );
-                                  setCollapsedTools(new Set(allToolNames));
-                                  setAllToolsCollapsed(true);
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant={showOnlyErrors ? "default" : "outline"}
+                                size="sm"
+                                className="text-xs h-6 px-2"
+                                onClick={() =>
+                                  setShowOnlyErrors(!showOnlyErrors)
                                 }
-                              }}
-                            >
-                              {allToolsCollapsed ? (
-                                <>
-                                  <ChevronRight className="h-3 w-3 mr-1" />
-                                  Expand All
-                                </>
-                              ) : (
-                                <>
-                                  <ChevronDown className="h-3 w-3 mr-1" />
-                                  Collapse All
-                                </>
-                              )}
-                            </Button>
+                              >
+                                <Filter className="h-3 w-3 mr-1" />
+                                {showOnlyErrors ? "Show All" : "Filter Errors"}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-6 px-2"
+                                onClick={() => {
+                                  const toolGroups = new Map<
+                                    string,
+                                    typeof assessment.errorHandling.metrics.testDetails
+                                  >();
+                                  assessment.errorHandling.metrics.testDetails?.forEach(
+                                    (testResult) => {
+                                      const toolName =
+                                        testResult.toolName || "Unknown Tool";
+                                      if (!toolGroups.has(toolName)) {
+                                        toolGroups.set(toolName, []);
+                                      }
+                                    },
+                                  );
+
+                                  if (allToolsCollapsed) {
+                                    // Expand all
+                                    setCollapsedTools(new Set());
+                                    setAllToolsCollapsed(false);
+                                  } else {
+                                    // Collapse all
+                                    const allToolNames = Array.from(
+                                      toolGroups.keys(),
+                                    );
+                                    setCollapsedTools(new Set(allToolNames));
+                                    setAllToolsCollapsed(true);
+                                  }
+                                }}
+                              >
+                                {allToolsCollapsed ? (
+                                  <>
+                                    <ChevronRight className="h-3 w-3 mr-1" />
+                                    Expand All
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="h-3 w-3 mr-1" />
+                                    Collapse All
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                           </div>
                           <div className="mt-2 space-y-1">
                             {/* Group test results by tool name */}
@@ -1367,7 +1404,22 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                                 );
                               };
 
-                              return Array.from(toolGroups.entries()).map(
+                              // Filter tool groups if showOnlyErrors is active
+                              let filteredGroups = Array.from(
+                                toolGroups.entries(),
+                              );
+                              if (showOnlyErrors) {
+                                filteredGroups = filteredGroups.filter(
+                                  ([, toolTests]) => {
+                                    // Show only tools with at least one failed test
+                                    return toolTests.some(
+                                      (test) => test.passed === false,
+                                    );
+                                  },
+                                );
+                              }
+
+                              return filteredGroups.map(
                                 ([toolName, toolTests]) => {
                                   const passedCount = toolTests.filter(
                                     (t) => t.passed,

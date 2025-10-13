@@ -39,6 +39,39 @@ This fork includes extensive custom assessment enhancements:
 
 ### Development Timeline - October 2025
 
+**2025-10-13**: UI Enhancement - Filter Errors Button for Security and Error Handling Sections
+- ✅ **Feature Request**: Add "Filter Errors" button to show only tools with failed tests
+  - **User Request**: "to the left of the expand all / collapse all chevron, we should have a filter errors button that will only show us the tools that had errors"
+  - **Context**: User viewing Security test results with mix of passing/failing tools
+  - **Problem**: Hard to focus on problematic tools when many tools pass all tests
+- ✅ **Implementation** (AssessmentTab.tsx):
+  - **Icon Import** (Line 32): Added `Filter` icon from lucide-react
+  - **State Variable** (Line 98): Added `showOnlyErrors: boolean` state
+  - **Security Section** (Lines 803-917):
+    - Added Filter button left of Expand All button
+    - Button style changes: `variant="outline"` (inactive) → `variant="default"` (active)
+    - Filter logic: Show only tools where `toolTests.some(test => test.vulnerable === true)`
+  - **Error Handling Section** (Lines 1317-1422):
+    - Added Filter button left of Expand All button
+    - Filter logic: Show only tools where `toolTests.some(test => test.passed === false)`
+- 🎯 **UI Behavior**:
+  - **Button States**:
+    - Inactive: Outline style, text "Filter Errors"
+    - Active: Default/filled style, text "Show All"
+  - **Filtering**: Both sections share same `showOnlyErrors` state
+  - **Example**:
+    - Before: Tool A (22 passed), Tool B (19 passed/3 failed), Tool C (22 passed), Tool D (9 passed/13 failed)
+    - After Filter: Tool B (19 passed/3 failed), Tool D (9 passed/13 failed)
+- ✅ **Benefits**:
+  - Quickly identify problematic tools
+  - Focus review effort on failures
+  - Consistent UI across Security and Error Handling sections
+  - Simple toggle between filtered and full view
+- 📊 **Production Status**: Feature complete and tested
+  - **Complexity**: Simple (shared state, straightforward filter logic)
+  - **UX**: Intuitive (button left of Expand All, clear state indication)
+  - **Performance**: Efficient (client-side filtering, no re-fetching)
+
 **2025-10-13**: Connection Error Detection False Positive Fix - safe_info_tool_mcp
 - ✅ **Critical Bug**: Pattern `/error GETting/i` too broad, matching business logic errors
   - **User Report**: "I think I found a false positive 🔧 Tool: safe_info_tool_mcp"
