@@ -63,6 +63,9 @@ export interface SecurityTestResult {
   requiresManualReview?: boolean; // Flag for manual verification
   manualReviewReason?: string; // Why manual review is needed
   reviewGuidance?: string; // How to perform manual review
+  connectionError?: boolean; // True if test failed due to connection/server failure
+  errorType?: "connection" | "server" | "protocol"; // Classify error type
+  testReliability?: "completed" | "failed" | "retried"; // Test execution status
 }
 
 export interface CodeExample {

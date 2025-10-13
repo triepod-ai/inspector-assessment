@@ -30,12 +30,26 @@ export class SecurityAssessor extends BaseAssessor {
     // Run universal security testing - test selected tools with ALL attack types
     const allTests = await this.runUniversalSecurityTests(context);
 
-    // Count vulnerabilities
+    // Separate connection errors from valid tests
+    const connectionErrors = allTests.filter((t) => t.connectionError === true);
+    const validTests = allTests.filter((t) => !t.connectionError);
+
+    // Log connection error warning
+    if (connectionErrors.length > 0) {
+      this.log(
+        `⚠️ WARNING: ${connectionErrors.length} test${connectionErrors.length !== 1 ? "s" : ""} failed due to connection/server errors`,
+      );
+      this.log(
+        `Connection errors: ${connectionErrors.map((e) => `${e.toolName}:${e.testName} (${e.errorType})`).join(", ")}`,
+      );
+    }
+
+    // Count vulnerabilities from VALID tests only
     const vulnerabilities: string[] = [];
     let highRiskCount = 0;
     let mediumRiskCount = 0;
 
-    for (const test of allTests) {
+    for (const test of validTests) {
       if (test.vulnerable) {
         // Create confidence-aware vulnerability message
         let vulnerability: string;
@@ -71,16 +85,17 @@ export class SecurityAssessor extends BaseAssessor {
       vulnerabilities.length,
     );
 
-    // Determine status (pass tests array to check confidence levels)
+    // Determine status (pass validTests array to check confidence levels, not allTests)
     const status = this.determineSecurityStatus(
-      allTests,
+      validTests,
       vulnerabilities.length,
-      allTests.length,
+      validTests.length,
     );
 
-    // Generate explanation
+    // Generate explanation (pass both validTests and connectionErrors)
     const explanation = this.generateSecurityExplanation(
-      allTests,
+      validTests,
+      connectionErrors,
       vulnerabilities,
       overallRiskLevel,
     );
@@ -387,6 +402,25 @@ export class SecurityAssessor extends BaseAssessor {
         5000,
       );
 
+      // Check for connection errors FIRST (before vulnerability analysis)
+      if (this.isConnectionError(response)) {
+        return {
+          testName: attackName,
+          description: payload.description,
+          payload: payload.payload,
+          riskLevel: payload.riskLevel,
+          toolName: tool.name,
+          vulnerable: false,
+          evidence: `CONNECTION ERROR: Test could not complete due to server/network failure`,
+          response: this.extractResponseContent(response),
+          connectionError: true,
+          errorType: this.classifyError(response),
+          testReliability: "failed",
+          confidence: "high",
+          requiresManualReview: true,
+        };
+      }
+
       // Analyze with evidence-based detection
       const { isVulnerable, evidence } = this.analyzeResponse(
         response,
@@ -415,6 +449,25 @@ export class SecurityAssessor extends BaseAssessor {
         ...confidenceResult,
       };
     } catch (error) {
+      // Check if error is a connection/server failure
+      if (this.isConnectionErrorFromException(error)) {
+        return {
+          testName: attackName,
+          description: payload.description,
+          payload: payload.payload,
+          riskLevel: payload.riskLevel,
+          toolName: tool.name,
+          vulnerable: false,
+          evidence: `CONNECTION ERROR: Test could not complete due to server/network failure`,
+          response: this.extractErrorMessage(error),
+          connectionError: true,
+          errorType: this.classifyErrorFromException(error),
+          testReliability: "failed",
+          confidence: "high",
+          requiresManualReview: true,
+        };
+      }
+
       return {
         testName: attackName,
         description: payload.description,
@@ -425,6 +478,178 @@ export class SecurityAssessor extends BaseAssessor {
         evidence: `Tool rejected input: ${this.extractErrorMessage(error)}`,
       };
     }
+  }
+
+  /**
+   * Check if response indicates connection/server failure
+   * Returns true if test couldn't complete due to infrastructure issues
+   *
+   * CRITICAL: Only match transport/infrastructure errors, NOT tool business logic
+   */
+  private isConnectionError(response: CompatibilityCallToolResult): boolean {
+    const text = this.extractResponseContent(response).toLowerCase();
+
+    // UNAMBIGUOUS patterns - only match infrastructure failures
+    const unambiguousPatterns = [
+      /MCP error -32001/i, // MCP transport errors
+      /MCP error -32603/i, // MCP internal error
+      /MCP error -32000/i, // MCP server error
+      /MCP error -32700/i, // MCP parse error
+      /socket hang up/i, // Network socket errors
+      /ECONNREFUSED/i, // Connection refused
+      /ETIMEDOUT/i, // Network timeout
+      /ERR_CONNECTION/i, // Connection errors
+      /fetch failed/i, // HTTP fetch failures
+      /connection reset/i, // Connection reset
+      /error POSTing to endpoint/i, // Transport layer POST errors
+      /error GETting/i, // Transport layer GET errors
+      /service unavailable/i, // HTTP 503 (server down)
+      /gateway timeout/i, // HTTP 504 (gateway timeout)
+    ];
+
+    // Check unambiguous patterns first
+    if (unambiguousPatterns.some((pattern) => pattern.test(text))) {
+      return true;
+    }
+
+    // CONTEXTUAL patterns - only match if in MCP error context
+    // These words can appear in legitimate tool responses, so require MCP prefix
+    const mcpPrefix = /^mcp error -\d+:/i.test(text);
+    if (mcpPrefix) {
+      const contextualPatterns = [
+        /bad request/i, // HTTP 400 (only if in MCP error)
+        /unauthorized/i, // HTTP 401 (only if in MCP error)
+        /forbidden/i, // HTTP 403 (only if in MCP error)
+        /no valid session/i, // Session errors (only if in MCP error)
+        /session.*expired/i, // Session expiration (only if in MCP error)
+        /internal server error/i, // HTTP 500 (only if in MCP error)
+        /HTTP [45]\d\d/i, // HTTP status codes (only if in MCP error)
+      ];
+
+      return contextualPatterns.some((pattern) => pattern.test(text));
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if caught exception indicates connection/server failure
+   * CRITICAL: Only match transport/infrastructure errors, NOT tool business logic
+   */
+  private isConnectionErrorFromException(error: unknown): boolean {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+
+      // UNAMBIGUOUS patterns - only match infrastructure failures
+      const unambiguousPatterns = [
+        /MCP error -32001/i, // MCP transport errors
+        /MCP error -32603/i, // MCP internal error
+        /MCP error -32000/i, // MCP server error
+        /MCP error -32700/i, // MCP parse error
+        /socket hang up/i, // Network socket errors
+        /ECONNREFUSED/i, // Connection refused
+        /ETIMEDOUT/i, // Network timeout
+        /network error/i, // Generic network errors
+        /ERR_CONNECTION/i, // Connection errors
+        /fetch failed/i, // HTTP fetch failures
+        /connection reset/i, // Connection reset
+        /error POSTing to endpoint/i, // Transport layer POST errors
+        /error GETting/i, // Transport layer GET errors
+        /service unavailable/i, // HTTP 503 (server down)
+        /gateway timeout/i, // HTTP 504 (gateway timeout)
+      ];
+
+      // Check unambiguous patterns first
+      if (unambiguousPatterns.some((pattern) => pattern.test(message))) {
+        return true;
+      }
+
+      // CONTEXTUAL patterns - only match if in MCP error context
+      const mcpPrefix = /^mcp error -\d+:/i.test(message);
+      if (mcpPrefix) {
+        const contextualPatterns = [
+          /bad request/i,
+          /unauthorized/i,
+          /forbidden/i,
+          /no valid session/i,
+          /session.*expired/i,
+          /internal server error/i,
+          /HTTP [45]\d\d/i,
+        ];
+
+        return contextualPatterns.some((pattern) => pattern.test(message));
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Classify error type for reporting
+   */
+  private classifyError(
+    response: CompatibilityCallToolResult,
+  ): "connection" | "server" | "protocol" {
+    const text = this.extractResponseContent(response).toLowerCase();
+
+    // Connection-level errors (network, transport)
+    if (
+      /socket|ECONNREFUSED|ETIMEDOUT|network|fetch failed|connection reset/i.test(
+        text,
+      )
+    ) {
+      return "connection";
+    }
+
+    // Server-level errors (backend issues)
+    if (
+      /-32603|-32000|-32700|internal server error|service unavailable|gateway timeout|HTTP 5\d\d|error POSTing|error GETting|bad request|HTTP 400|unauthorized|forbidden|no valid session|session.*expired/i.test(
+        text,
+      )
+    ) {
+      return "server";
+    }
+
+    // Protocol errors (MCP-specific)
+    if (/-32001/i.test(text)) {
+      return "protocol";
+    }
+
+    return "protocol";
+  }
+
+  /**
+   * Classify error type from caught exception
+   */
+  private classifyErrorFromException(
+    error: unknown,
+  ): "connection" | "server" | "protocol" {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+
+      // Connection-level errors (network, transport)
+      if (
+        /socket|ECONNREFUSED|ETIMEDOUT|network|fetch failed|connection reset/i.test(
+          message,
+        )
+      ) {
+        return "connection";
+      }
+
+      // Server-level errors (backend issues)
+      if (
+        /-32603|-32000|-32700|internal server error|service unavailable|gateway timeout|HTTP 5\d\d|error POSTing|error GETting|bad request|HTTP 400|unauthorized|forbidden|no valid session|session.*expired/i.test(
+          message,
+        )
+      ) {
+        return "server";
+      }
+
+      // Protocol errors (MCP-specific)
+      if (/-32001/i.test(message)) {
+        return "protocol";
+      }
+    }
+    return "protocol";
   }
 
   /**
@@ -838,40 +1063,68 @@ export class SecurityAssessor extends BaseAssessor {
    * Generate security explanation
    */
   private generateSecurityExplanation(
-    tests: SecurityTestResult[],
+    validTests: SecurityTestResult[],
+    connectionErrors: SecurityTestResult[],
     vulnerabilities: string[],
     riskLevel: SecurityRiskLevel,
   ): string {
     const vulnCount = vulnerabilities.length;
-    const testCount = tests.length;
+    const testCount = validTests.length;
+    const errorCount = connectionErrors.length;
+
+    // Build explanation starting with connection error warning if present
+    let explanation = "";
+
+    if (errorCount > 0) {
+      explanation += `⚠️ ${errorCount} test${errorCount !== 1 ? "s" : ""} failed due to connection/server errors. `;
+    }
 
     // Handle case when no tools were tested
-    if (testCount === 0) {
+    if (testCount === 0 && errorCount > 0) {
+      return (
+        explanation +
+        `No valid tests completed. Check server connectivity and retry assessment.`
+      );
+    }
+
+    if (testCount === 0 && errorCount === 0) {
       return `No tools selected for security testing. Select tools to run security assessments.`;
     }
 
     if (vulnCount === 0) {
-      return `Tested ${testCount} security patterns across selected tools. No vulnerabilities detected. All tools properly handle malicious inputs.`;
+      return (
+        explanation +
+        `Tested ${testCount} security patterns across selected tools. No vulnerabilities detected. All tools properly handle malicious inputs.`
+      );
     }
 
-    // Count by confidence level
-    const highConfidenceCount = tests.filter(
+    // Count by confidence level (from valid tests only)
+    const highConfidenceCount = validTests.filter(
       (t) => t.vulnerable && (!t.confidence || t.confidence === "high"),
     ).length;
-    const mediumConfidenceCount = tests.filter(
+    const mediumConfidenceCount = validTests.filter(
       (t) => t.vulnerable && t.confidence === "medium",
     ).length;
-    const lowConfidenceCount = tests.filter(
+    const lowConfidenceCount = validTests.filter(
       (t) => t.vulnerable && t.confidence === "low",
     ).length;
 
     // Generate confidence-aware explanation
     if (highConfidenceCount > 0) {
-      return `Found ${highConfidenceCount} confirmed vulnerability${highConfidenceCount !== 1 ? "s" : ""} across ${testCount} security tests. Risk level: ${riskLevel}. Tools may execute malicious commands or leak sensitive data.`;
+      return (
+        explanation +
+        `Found ${highConfidenceCount} confirmed vulnerability${highConfidenceCount !== 1 ? "s" : ""} across ${testCount} security tests. Risk level: ${riskLevel}. Tools may execute malicious commands or leak sensitive data.`
+      );
     } else if (mediumConfidenceCount > 0) {
-      return `Detected ${mediumConfidenceCount} potential security concern${mediumConfidenceCount !== 1 ? "s" : ""} across ${testCount} security tests requiring manual review. Tools showed suspicious behavior that needs verification.`;
+      return (
+        explanation +
+        `Detected ${mediumConfidenceCount} potential security concern${mediumConfidenceCount !== 1 ? "s" : ""} across ${testCount} security tests requiring manual review. Tools showed suspicious behavior that needs verification.`
+      );
     } else {
-      return `Flagged ${lowConfidenceCount} uncertain detection${lowConfidenceCount !== 1 ? "s" : ""} across ${testCount} security tests. Manual verification needed to confirm if these are actual vulnerabilities or false positives.`;
+      return (
+        explanation +
+        `Flagged ${lowConfidenceCount} uncertain detection${lowConfidenceCount !== 1 ? "s" : ""} across ${testCount} security tests. Manual verification needed to confirm if these are actual vulnerabilities or false positives.`
+      );
     }
   }
 
