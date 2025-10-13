@@ -410,7 +410,7 @@ export class SecurityAssessor extends BaseAssessor {
           payload: payload.payload,
           riskLevel: payload.riskLevel,
           toolName: tool.name,
-          vulnerable: false,
+          vulnerable: true, // Mark as failed (test could not complete)
           evidence: `CONNECTION ERROR: Test could not complete due to server/network failure`,
           response: this.extractResponseContent(response),
           connectionError: true,
