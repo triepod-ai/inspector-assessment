@@ -1421,10 +1421,14 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
 
                               return filteredGroups.map(
                                 ([toolName, toolTests]) => {
-                                  const passedCount = toolTests.filter(
+                                  // Only count scored tests (exclude informational invalid_values tests)
+                                  const scoredTests = toolTests.filter(
+                                    (t) => t.testType !== "invalid_values",
+                                  );
+                                  const passedCount = scoredTests.filter(
                                     (t) => t.passed,
                                   ).length;
-                                  const totalCount = toolTests.length;
+                                  const totalCount = scoredTests.length;
                                   const allPassed = passedCount === totalCount;
 
                                   return (
