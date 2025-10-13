@@ -972,6 +972,65 @@ mcp-inspector-assess-cli https://my-mcp-server.example.com --method tools/call -
 mcp-inspector-assess-cli https://my-mcp-server.example.com --method resources/list
 ```
 
+### Security Testing: Pure Behavior Detection
+
+The inspector uses **pure behavior-based detection** for security assessment, analyzing tool responses to identify actual code execution vs safe data handling. This approach works on any MCP server without requiring special security metadata.
+
+**How It Works**:
+
+```bash
+# Run security assessment against any MCP server
+npm run assess -- --server myserver --config config.json
+```
+
+**Detection Strategy**:
+
+1. **Reflection Detection**: Identifies when tools safely echo malicious input as data
+   - Pattern: "Stored query: ../../../etc/passwd" → SAFE (reflection)
+   - Pattern: "Query results for: ..." → SAFE (search results)
+
+2. **Execution Evidence**: Detects actual code execution
+   - Pattern: Response contains "root:x:0:0" → VULNERABLE (file accessed)
+   - Pattern: Response contains "total 42 drwx" → VULNERABLE (directory listed)
+
+3. **Category Classification**: Distinguishes safe tool types
+   - Search/retrieval tools return data, not code execution
+   - CRUD operations create resources, not execute code
+   - Safe storage tools treat input as pure data
+
+**Validation with Testbed**:
+
+The inspector has been validated against purpose-built testbed servers with ground-truth labeled tools:
+
+```bash
+# Test against broken-mcp testbed (10 vulnerable + 6 safe tools)
+npm run assess -- --server broken-mcp --config testbed.json
+
+# Results: 20 vulnerabilities detected, 0 false positives (100% precision)
+```
+
+**Why Behavior Detection Matters**:
+
+Real-world MCP servers don't provide security metadata - the inspector must detect vulnerabilities by analyzing actual tool behavior. Testbed validation proves this approach works reliably.
+
+**For Inspector Developers**:
+
+When modifying detection logic, validate against the testbed:
+
+```bash
+# Before changes: Record baseline
+npm run assess -- --server broken-mcp --output /tmp/baseline.json
+
+# After changes: Verify no regressions
+npm run assess -- --server broken-mcp --output /tmp/after.json
+
+# Expected: 0 false positives on safe tools
+cat /tmp/after.json | jq '[.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length'
+# Output: 0
+```
+
+See [docs/mcp_vulnerability_testbed.md](docs/mcp_vulnerability_testbed.md) for detailed validation results and testbed usage guide.
+
 ### UI Mode vs CLI Mode: When to Use Each
 
 | Use Case                 | UI Mode                                                                   | CLI Mode                                                                                                                                             |

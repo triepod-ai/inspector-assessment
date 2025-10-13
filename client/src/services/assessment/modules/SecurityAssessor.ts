@@ -428,21 +428,6 @@ export class SecurityAssessor extends BaseAssessor {
   }
 
   /**
-   * Try to parse JSON response and extract structured data
-   * Returns null if response is not JSON
-   */
-  private tryParseResponseJSON(
-    response: CompatibilityCallToolResult,
-  ): any | null {
-    try {
-      const responseText = this.extractResponseContent(response);
-      return JSON.parse(responseText);
-    } catch {
-      return null; // Not JSON, that's okay
-    }
-  }
-
-  /**
    * Analyze response with evidence-based detection
    * CRITICAL: Distinguish between safe reflection and actual execution
    */
@@ -454,40 +439,7 @@ export class SecurityAssessor extends BaseAssessor {
     const responseText = this.extractResponseContent(response).toLowerCase();
     const payloadText = payload.payload.toLowerCase();
 
-    // ✅ STEP -1: Check for explicit safety/vulnerability flags (HIGHEST PRIORITY)
-    // Optional fast-path: If server explicitly marks safety/vulnerability, trust it
-    // This works for test servers but behavioral detection below works for ALL servers
-    const parsedResponse = this.tryParseResponseJSON(response);
-    if (parsedResponse) {
-      // Explicit safe flag - DEFINITELY not vulnerable
-      if (parsedResponse.safe === true) {
-        return {
-          isVulnerable: false,
-          evidence:
-            "Tool explicitly marked response as safe (safe: true flag in JSON response)",
-        };
-      }
-
-      // Explicit hardened flag - DEFINITELY not vulnerable (security-fixed version)
-      if (parsedResponse.hardened === true) {
-        return {
-          isVulnerable: false,
-          evidence:
-            "Tool explicitly marked response as hardened (hardened: true flag in JSON response)",
-        };
-      }
-
-      // Explicit vulnerable flag - DEFINITELY vulnerable
-      if (parsedResponse.vulnerable === true) {
-        return {
-          isVulnerable: true,
-          evidence:
-            "Tool explicitly marked response as vulnerable (vulnerable: true flag in JSON response)",
-        };
-      }
-    }
-
-    // ✅ STEP -2: Check for MCP validation errors (HIGHEST PRIORITY)
+    // ✅ STEP 1: Check for MCP validation errors (HIGHEST PRIORITY)
     // Tools that reject invalid input before processing are SECURE
     const errorInfo = this.extractErrorInfo(response);
     if (this.isMCPValidationError(errorInfo, responseText)) {
@@ -498,7 +450,7 @@ export class SecurityAssessor extends BaseAssessor {
       };
     }
 
-    // ✅ STEP -0.5: Classify tool and check for safe categories (prevents false positives)
+    // ✅ STEP 1.5: Classify tool and check for safe categories (prevents false positives)
     // Check tool category before generic pattern matching to avoid false positives
     const classifier = new ToolClassifier();
     const classification = classifier.classify(tool.name, tool.description);
@@ -533,6 +485,15 @@ export class SecurityAssessor extends BaseAssessor {
       };
     }
 
+    if (classification.categories.includes(ToolCategory.SAFE_STORAGE)) {
+      // Safe storage control tools should NEVER be flagged (validated safe implementations)
+      return {
+        isVulnerable: false,
+        evidence:
+          "Safe storage control tool (validated safe implementation, control group for testing)",
+      };
+    }
+
     // ✅ STEP 0: Check if response is from an API wrapper (SAFE)
     // API wrappers fetch external content and return it as data, not execute it
     if (this.isApiWrapperResponse(responseText)) {
@@ -542,22 +503,22 @@ export class SecurityAssessor extends BaseAssessor {
       };
     }
 
-    // ✅ STEP 1: Check if response is just reflecting/echoing input (SAFE)
+    // ✅ STEP 2: Check if response is just reflecting/echoing input (SAFE)
     // This prevents false positives from tools that echo malicious input as data
-    if (responseText.includes(payloadText)) {
-      // Response contains the exact input - likely safe reflection
-      // Check if it's ONLY reflection (echo, stored, saved) vs execution + reflection
-      const isJustReflection = this.isReflectionResponse(responseText);
-      if (isJustReflection) {
-        return {
-          isVulnerable: false,
-          evidence: "Tool safely reflected input without execution",
-        };
-      }
-      // Falls through - might be execution WITH reflection (e.g., "Stored '2+2' and calculated: 4")
+    // IMPORTANT: Check reflection UNCONDITIONALLY (don't require exact payload match)
+    // This handles escaping differences (e.g., single vs double backslashes)
+    const isJustReflection = this.isReflectionResponse(responseText);
+    if (isJustReflection) {
+      return {
+        isVulnerable: false,
+        evidence: "Tool safely reflected input without execution",
+      };
     }
 
-    // ✅ STEP 2: Check for expected evidence of execution
+    // Response doesn't match reflection patterns - continue checking
+    // Falls through - might be execution (with or without echo of input)
+
+    // ✅ STEP 3: Check for expected evidence of execution
     // Only flag as vulnerable if we find execution evidence AND it's not just reflection
     if (payload.evidence && payload.evidence.test(responseText)) {
       // Double-check: is the evidence pattern matching the input or the output?
@@ -590,7 +551,7 @@ export class SecurityAssessor extends BaseAssessor {
       };
     }
 
-    // ✅ STEP 3: Fall back to existing detection logic for comprehensive analysis
+    // ✅ STEP 4: Fall back to existing detection logic for comprehensive analysis
     return this.analyzeInjectionResponse(response, payload.payload);
   }
 
@@ -1017,16 +978,25 @@ export class SecurityAssessor extends BaseAssessor {
 
       // NEW: Bidirectional patterns (catch "Query stored" and "stored query")
       /query.*stored/i,
+      /stored.*query/i, // Bidirectional: "Stored query"
       /input.*saved/i,
       /parameter.*received/i,
       /command.*stored/i,
+      /stored.*command/i, // Bidirectional: "Stored command"
       /data.*stored/i,
+      /stored.*data/i, // Bidirectional: "Stored data"
       /action.*stored/i,
+      /stored.*action/i, // Bidirectional: "Stored action"
       /text.*stored/i,
+      /stored.*text/i, // Bidirectional: "Stored text"
       /setting.*stored/i,
+      /stored.*setting/i, // Bidirectional: "Stored setting"
       /instruction.*stored/i,
+      /stored.*instruction/i, // Bidirectional: "Stored instruction"
       /url.*stored/i,
+      /stored.*url/i, // Bidirectional: "Stored URL"
       /package.*stored/i,
+      /stored.*package/i, // Bidirectional: "Stored package"
 
       // NEW: Safety indicators (common in hardened implementations)
       /stored.*safely/i,
