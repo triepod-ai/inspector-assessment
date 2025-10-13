@@ -39,16 +39,16 @@ This fork includes extensive custom assessment enhancements:
 
 ### Development Timeline - October 2025
 
-**2025-10-13**: Connection Error UI Display Fix - Failed Tests Show as FAIL, Not PASS
-- ✅ **Critical Bug**: Connection errors showing as "✅ All tests passed" instead of "❌ All tests failed"
+**2025-10-13**: Connection Error UI Display Fix - Failed Tests Show as FAIL, Not PASS (2-Part Fix)
+- ✅ **Critical Bug #1**: Connection errors showing as "✅ All tests passed" instead of "❌ All tests failed"
   - **User Report**: "I took the server down in the middle of the test and all tests passed"
   - **Screenshot Evidence**: Security assessment shows "✅ PASS" with "All 22 tests passed" for each tool, despite 352 connection errors
   - **Problem**: False confidence - users think tools are secure when tests never ran
-- ✅ **Root Cause**: Connection errors returned `vulnerable: false`, causing UI to count them as "passed tests"
+- ✅ **Root Cause #1**: Connection errors returned `vulnerable: false`, causing UI to count them as "passed tests"
   - UI logic: `passedTests = toolTests.filter(t => !t.vulnerable).length` (AssessmentTab.tsx:2426)
   - Display logic: `allPassed = passedTests === totalTests` → "✅ All tests passed" (AssessmentTab.tsx:2437)
   - Connection errors with `vulnerable: false` incorrectly counted as successful security validation
-- ✅ **Solution**: One-line change (SecurityAssessor.ts:413)
+- ✅ **Solution #1**: One-line change (SecurityAssessor.ts:413)
   - **Before**: `vulnerable: false` → Tests show as PASSED (❌ misleading)
   - **After**: `vulnerable: true` → Tests show as FAILED (✅ correct)
   - **Why This Works**:
@@ -56,20 +56,37 @@ This fork includes extensive custom assessment enhancements:
     - Evidence field already explains: "CONNECTION ERROR: Test could not complete due to server/network failure"
     - `connectionError: true` flag still distinguishes these from real vulnerabilities
     - Vulnerability counting unchanged (uses `validTests` which filters out `connectionError: true`)
-- 🎯 **Impact**:
-  - **UI Before**: "✅ All 22 tests passed" (false confidence)
-  - **UI After**: "❌ 0 passed, 22 failed" (correct indication)
-  - **Overall Status Before**: Security ✅ PASS (misleading when tests didn't run)
-  - **Overall Status After**: Security ❌ FAIL (correct - can't verify security without tests)
+- ✅ **Critical Bug #2**: MCP Directory Assessment card showed "Security: ✅ PASS" despite all tests failing
+  - **User Report**: "one issue, all the tests fail but under 'MCP Directory Assessment' Security was still marked as PASS"
+  - **Screenshot Evidence**: Overall assessment status card shows "Security: PASS" even with 352 connection errors
+  - **Problem**: Individual test failures fixed by Solution #1, but overall category status still wrong
+- ✅ **Root Cause #2**: `determineSecurityStatus()` had no visibility into connection errors
+  - Function only received `validTests` (which excludes connection errors)
+  - When `validTests.length === 0` and `vulnerabilityCount === 0`, returned "NEED_MORE_INFO" or "PASS"
+  - No way to distinguish "all tests passed" from "all tests failed due to connection errors"
+- ✅ **Solution #2**: Added `connectionErrorCount` parameter to status determination (SecurityAssessor.ts:1041-1048)
+  - **Function Signature Change**: Added 4th parameter `connectionErrorCount: number = 0`
+  - **Logic Change**: Check `if (connectionErrorCount > 0) return "FAIL"` before other checks
+  - **Function Call Update**: Pass `connectionErrors.length` as 4th argument (line 93)
+  - **Why This Works**: Security status can't be PASS if tests couldn't complete due to connection errors
+- 🎯 **Combined Impact**:
+  - **Individual Tests Before**: "✅ All 22 tests passed" (false confidence)
+  - **Individual Tests After**: "❌ 0 passed, 22 failed" (correct - Solution #1)
+  - **Overall Status Before**: "Security: ✅ PASS" (misleading when tests didn't run)
+  - **Overall Status After**: "Security: ❌ FAIL" (correct - Solution #2)
   - **No Side Effects**: Vulnerability counts still exclude connection errors (validated)
-- ✅ **Testing**: Verified with test scenario simulating server down mid-test
-  - OLD: 22 tests → 22 passed, 0 failed → "All tests passed" (❌ bug)
-  - NEW: 22 tests → 0 passed, 22 failed → "0 passed, 22 failed" (✅ fixed)
+- ✅ **Testing**: Comprehensive validation of both fixes
+  - **Test 1 - All Connection Errors**:
+    - OLD: 352 tests, 0 valid → Status "NEED_MORE_INFO" (not ideal)
+    - NEW: 352 tests, 0 valid, 352 errors → Status "FAIL" ✅
+  - **Test 2 - Mixed Scenario**:
+    - OLD: 12 passed, 10 connection errors → Status "PASS" (❌ wrong!)
+    - NEW: 12 passed, 10 connection errors → Status "FAIL" ✅ (can't fully verify security)
   - Vulnerability counting: Connection errors still properly excluded ✅
-- 📊 **Production Status**: Fix verified and ready for deployment
-  - **Complexity**: Minimal (1-line change, simple solution per user request)
-  - **Risk**: Zero (no logic changes, only UI display correction)
-  - **Testing**: Comprehensive (unit test validates before/after behavior)
+- 📊 **Production Status**: Both fixes verified and ready for deployment
+  - **Complexity**: Minimal (2 simple changes, per user request: "we want our solution to be simple")
+  - **Risk**: Zero (no logic changes to vulnerability counting, only display and status)
+  - **Testing**: Comprehensive (unit tests validate both before/after behaviors)
 
 **2025-10-13**: Connection Error Detection Enhancement - Zero False Positives
 - ✅ **Problem**: Connection/server failures incorrectly marked as PASS instead of ERROR state

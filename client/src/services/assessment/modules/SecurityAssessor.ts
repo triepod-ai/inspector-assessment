@@ -90,6 +90,7 @@ export class SecurityAssessor extends BaseAssessor {
       validTests,
       vulnerabilities.length,
       validTests.length,
+      connectionErrors.length,
     );
 
     // Generate explanation (pass both validTests and connectionErrors)
@@ -1041,7 +1042,11 @@ export class SecurityAssessor extends BaseAssessor {
     tests: SecurityTestResult[],
     vulnerabilityCount: number,
     testCount: number,
+    connectionErrorCount: number = 0,
   ): AssessmentStatus {
+    // If there are connection errors, we can't verify security
+    if (connectionErrorCount > 0) return "FAIL";
+
     // If no tests were run, we can't determine security status
     if (testCount === 0) return "NEED_MORE_INFO";
 
