@@ -2,7 +2,7 @@
 
 ## Current Version
 
-- **Version**: 1.3.0 (published to npm as "MCP Assessor")
+- **Version**: 1.4.0 (published to npm as "MCP Assessor")
 - **npm Package**: [@bryan-thompson/inspector-assessment](https://www.npmjs.com/package/@bryan-thompson/inspector-assessment)
 - **Fork**: triepod-ai/inspector-assessment
 - **Upstream**: modelcontextprotocol/inspector (v0.17.0)
@@ -13,7 +13,7 @@
 - **Lint Status**: ✅ 229 errors, 0 warnings (down from 280 errors, 3 warnings)
 - **Prettier Status**: ✅ All files formatted correctly
 - **Testing Mode**: 🎯 Developer mode (comprehensive testing for all users, mode toggle disabled 2025-10-12)
-- **Published**: 2025-10-11 (v1.0.0), 2025-10-11 (v1.0.1), 2025-10-11 (v1.3.0 - renamed to "MCP Assessor")
+- **Published**: 2025-10-11 (v1.0.0), 2025-10-11 (v1.0.1), 2025-10-13 (v1.3.0 - renamed to "MCP Assessor"), 2025-10-14 (v1.4.0 - Calculator Injection detection)
 
 ## Overview
 
@@ -39,6 +39,21 @@ This fork includes extensive custom assessment enhancements:
 ## Recent Changes
 
 ### Development Timeline - October 2025
+
+**2025-10-14**: Release v1.4.0 - Calculator Injection Detection
+- ✅ **New Feature**: Calculator Injection detection pattern (13th security pattern)
+  - 7 test payloads: Simple arithmetic (2+2, 5*5), natural language queries (what is 10*10), code injection (**import**)
+  - Evidence patterns: `/The answer is \d+/i` (specific response format indicating eval() execution)
+  - Low false positive risk (doesn't match generic numeric responses)
+  - Added to Basic mode as 4th critical injection pattern
+- ✅ **Enhanced**: Parameter-aware payload injection for API wrapper tools
+- ✅ **Fixed**: API wrapper false negative detection
+- 🎯 **Pattern Count**: 12 → 13 total patterns
+- 📊 **Testing Coverage**:
+  - Basic mode: 3 → 4 critical patterns (~13 → ~20 checks per tool)
+  - Advanced mode: 8 → 13 patterns (~24 → ~37 checks per tool)
+- 📝 **UI Updates**: Badge "8 Patterns" → "13 Patterns", test descriptions updated
+- 🚀 **Published**: npm v1.4.0
 
 **2025-10-13**: Security False Positive Fix - Status Message Reflection Detection
 - ✅ **Critical Issue**: 17 false positives on fixed/hardened MCP servers

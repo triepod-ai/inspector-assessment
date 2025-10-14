@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2025-10-14
+
 ### Added
 
 - **Calculator Injection Detection**: New security pattern to detect eval() execution in calculator/math tools
@@ -23,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Advanced mode: 8 → 13 patterns (~24 → ~37 checks per tool)
 - UI badge updated: "8 Patterns" → "13 Patterns"
 - Test descriptions updated to include Calculator Injection and Tool-Specific Vulnerabilities
+
+### Fixed
+
+- **API Wrapper False Negative**: Parameter-aware payload injection now correctly detects vulnerabilities in API wrapper tools
 
 ### Technical Details
 
