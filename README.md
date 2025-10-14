@@ -180,12 +180,12 @@ Response: "Stored in collection: <script>alert(1)</script>"
 → Tool is just storing data, not executing it
 ```
 
-❌ **VULNERABLE - Command Execution**:
+❌ **VULNERABLE - Command Execution** (Calculator Injection):
 
 ```
-Payload: "What is 2+2?"
+Payload: "2+2"
 Response: "The answer is 4"
-→ Tool executed the calculation command!
+→ Tool executed the arithmetic expression via eval()!
 ```
 
 **Detection Approach**:
@@ -197,9 +197,17 @@ Response: "The answer is 4"
 **Impact**:
 
 - **Zero false positives** on data storage/retrieval tools (qdrant, databases, file systems)
-- **17 injection patterns tested** (8 original + 9 advanced patterns)
-- **Dual-mode testing**: Reviewer mode (3 critical patterns, fast) + Developer mode (all 17 patterns, comprehensive)
-- **Real vulnerabilities still detected**: 100% test pass rate on detecting actual command injection, role override, data exfiltration
+- **18 injection patterns tested** (9 original + 9 advanced patterns)
+- **Dual-mode testing**: Reviewer mode (3 critical patterns, fast) + Developer mode (all 13 patterns, comprehensive)
+- **Real vulnerabilities still detected**: 100% test pass rate on detecting actual command injection, calculator injection, role override, data exfiltration
+
+**Supported Injection Types**:
+
+- **Command Injection**: System commands (whoami, ls -la, pwd)
+- **Calculator Injection**: Arithmetic expressions and code injection via eval() (NEW - 7 payloads)
+- **SQL Injection**: Database command injection
+- **Path Traversal**: File system access outside intended directory
+- Plus 9 additional patterns (Unicode Bypass, Nested Injection, Package Squatting, etc.)
 
 **Validation**: See [VULNERABILITY_TESTING.md](VULNERABILITY_TESTING.md) for detailed testing guide and examples.
 
@@ -216,8 +224,8 @@ Response: "The answer is 4"
    - Performance measurement
 
 2. **SecurityAssessor** (443 lines)
-   - 17 distinct injection attack patterns with context-aware reflection detection
-   - Direct command injection, role override, data exfiltration detection
+   - 13 distinct injection attack patterns (including Calculator Injection) with context-aware reflection detection
+   - Direct command injection, calculator injection (eval detection), role override, data exfiltration detection
    - Vulnerability analysis with risk levels (HIGH/MEDIUM/LOW)
    - Zero false positives through intelligent distinction between data reflection and command execution
 

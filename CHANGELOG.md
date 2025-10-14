@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Calculator Injection Detection**: New security pattern to detect eval() execution in calculator/math tools
+  - 7 test payloads: Simple arithmetic (2+2, 5*5), natural language (what is 10*10), code injection (**import**)
+  - Evidence patterns match specific response format ("The answer is X")
+  - Low false positive risk (doesn't match generic numeric responses)
+  - Integrates with existing pattern system (13 patterns total, up from 12)
+  - Added to Basic mode as 4th critical injection pattern
+
+### Changed
+
+- Security pattern count increased from 12 to 13
+- Basic mode: 3 → 4 critical injection patterns (~13 → ~20 checks)
+- Advanced mode: 8 → 13 patterns (~24 → ~37 checks per tool)
+- UI badge updated: "8 Patterns" → "13 Patterns"
+- Test descriptions updated to include Calculator Injection and Tool-Specific Vulnerabilities
+
+### Technical Details
+
+- Pattern location: `client/src/lib/securityPatterns.ts`
+- Category: Critical Injection Tests (alongside Command, SQL, Path Traversal)
+- Evidence format: `/The answer is \d+/i` (specific to vulnerable calculator tools)
+- No changes to SecurityAssessor.ts needed (uses existing assessment flow)
+
 ## [1.3.0] - 2025-10-13
 
 ### Added
