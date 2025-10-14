@@ -1,9 +1,9 @@
 /**
  * Backend API Security Patterns
- * Tests MCP server API security with 12 focused patterns
+ * Tests MCP server API security with 13 focused patterns
  *
  * Architecture: Attack-Type with Specific Payloads
- * - Critical Injection (3 patterns): SQL, Command, Path Traversal
+ * - Critical Injection (4 patterns): Command, Calculator, SQL, Path Traversal
  * - Input Validation (3 patterns): Type Safety, Boundary Testing, Required Fields
  * - Protocol Compliance (2 patterns): MCP Error Format, Timeout Handling
  * - Tool-Specific Vulnerabilities (4 patterns): Indirect Injection, Unicode Bypass, Nested Injection, Package Squatting
@@ -42,11 +42,11 @@ export interface AttackPattern {
  * BACKEND API SECURITY PATTERNS
  * ========================================
  *
- * 12 focused patterns for MCP server API security
+ * 13 focused patterns for MCP server API security
  */
 export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // ==========================================
-  // CRITICAL INJECTION TESTS (3)
+  // CRITICAL INJECTION TESTS (4)
   // ==========================================
 
   // 1. COMMAND INJECTION
@@ -130,7 +130,68 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 3. PATH TRAVERSAL
+  // 3. CALCULATOR INJECTION
+  {
+    attackName: "Calculator Injection",
+    description:
+      "Test if calculator/math tools execute arbitrary expressions instead of safely storing them",
+    payloads: [
+      // Simple arithmetic - triggers eval() in vulnerable calculator tools
+      {
+        payload: "2+2",
+        evidence: /The answer is 4/i,
+        riskLevel: "HIGH",
+        description: "Simple arithmetic expression (common trigger)",
+        payloadType: "injection",
+      },
+      {
+        payload: "5*5",
+        evidence: /The answer is 25/i,
+        riskLevel: "HIGH",
+        description: "Multiplication expression",
+        payloadType: "injection",
+      },
+      {
+        payload: "100+200",
+        evidence: /The answer is 300/i,
+        riskLevel: "HIGH",
+        description: "Addition with larger numbers",
+        payloadType: "injection",
+      },
+      // Natural language triggers
+      {
+        payload: "what is 10*10",
+        evidence: /The answer is 100/i,
+        riskLevel: "HIGH",
+        description: "Natural language math query",
+        payloadType: "injection",
+      },
+      {
+        payload: "calculate 50+50",
+        evidence: /The answer is 100/i,
+        riskLevel: "HIGH",
+        description: "Calculate command",
+        payloadType: "injection",
+      },
+      // Code injection via eval()
+      {
+        payload: "__import__('os').system('whoami')",
+        evidence: /\b(root|user|admin|ubuntu)\b/i,
+        riskLevel: "HIGH",
+        description: "Python code injection via eval",
+        payloadType: "injection",
+      },
+      {
+        payload: "1+1; __import__('subprocess').run(['whoami'])",
+        evidence: /\b(root|user|admin|ubuntu)\b/i,
+        riskLevel: "HIGH",
+        description: "eval chain to system command",
+        payloadType: "injection",
+      },
+    ],
+  },
+
+  // 4. PATH TRAVERSAL
   {
     attackName: "Path Traversal",
     description:
@@ -171,7 +232,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // INPUT VALIDATION TESTS (3)
   // ==========================================
 
-  // 4. TYPE SAFETY
+  // 5. TYPE SAFETY
   {
     attackName: "Type Safety",
     description: "Test if tool validates parameter types correctly",
@@ -203,7 +264,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 5. BOUNDARY TESTING
+  // 6. BOUNDARY TESTING
   {
     attackName: "Boundary Testing",
     description: "Test edge cases and boundary conditions",
@@ -233,7 +294,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 6. REQUIRED FIELDS
+  // 7. REQUIRED FIELDS
   {
     attackName: "Required Fields",
     description: "Test if tool validates required parameters",
@@ -253,7 +314,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // PROTOCOL COMPLIANCE TESTS (2)
   // ==========================================
 
-  // 7. MCP ERROR FORMAT
+  // 8. MCP ERROR FORMAT
   {
     attackName: "MCP Error Format",
     description: "Verify errors follow MCP protocol specification",
@@ -268,7 +329,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 8. TIMEOUT HANDLING
+  // 9. TIMEOUT HANDLING
   {
     attackName: "Timeout Handling",
     description: "Test if tool handles long operations gracefully",
@@ -287,7 +348,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // TOOL-SPECIFIC VULNERABILITY TESTS (4)
   // ==========================================
 
-  // 9. INDIRECT PROMPT INJECTION (HTTP URL Fetching)
+  // 10. INDIRECT PROMPT INJECTION (HTTP URL Fetching)
   {
     attackName: "Indirect Prompt Injection",
     description: "Test if tool fetches and executes external content",
@@ -312,7 +373,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 10. UNICODE BYPASS
+  // 11. UNICODE BYPASS
   {
     attackName: "Unicode Bypass",
     description: "Test if tool decodes and executes unicode-encoded commands",
@@ -336,7 +397,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 11. NESTED INJECTION
+  // 12. NESTED INJECTION
   {
     attackName: "Nested Injection",
     description: "Test if tool executes hidden instructions in nested JSON",
@@ -360,7 +421,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 12. PACKAGE SQUATTING
+  // 13. PACKAGE SQUATTING
   {
     attackName: "Package Squatting",
     description: "Test if tool downloads typosquatted packages",

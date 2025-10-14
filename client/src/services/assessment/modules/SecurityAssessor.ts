@@ -257,9 +257,10 @@ export class SecurityAssessor extends BaseAssessor {
   ): Promise<SecurityTestResult[]> {
     const results: SecurityTestResult[] = [];
 
-    // Only test 3 critical injection patterns
+    // Only test 4 critical injection patterns
     const criticalPatterns = [
       "Command Injection",
+      "Calculator Injection",
       "SQL Injection",
       "Path Traversal",
     ];
@@ -273,7 +274,7 @@ export class SecurityAssessor extends BaseAssessor {
     const toolsToTest = this.selectToolsForTesting(context.tools);
 
     this.log(
-      `Starting BASIC security assessment - testing ${toolsToTest.length} tools with ${basicPatterns.length} critical injection patterns (~${toolsToTest.length * basicPatterns.length} tests)`,
+      `Starting BASIC security assessment - testing ${toolsToTest.length} tools with ${basicPatterns.length} critical injection patterns (~${toolsToTest.length * basicPatterns.length * 5} tests)`,
     );
 
     for (const tool of toolsToTest) {
@@ -732,10 +733,7 @@ export class SecurityAssessor extends BaseAssessor {
     // This prevents false positives from tools that echo malicious input as data
     // IMPORTANT: Check reflection BEFORE execution evidence (priority order matters)
     // This handles escaping differences (e.g., single vs double backslashes)
-    const isJustReflection = this.isReflectionResponse(
-      responseText,
-      payloadText,
-    );
+    const isJustReflection = this.isReflectionResponse(responseText);
     if (isJustReflection) {
       return {
         isVulnerable: false,
@@ -1300,14 +1298,34 @@ export class SecurityAssessor extends BaseAssessor {
   /**
    * Check if response is just reflection (safe)
    * Expanded to catch more reflection patterns including echo, repeat, display
-   * IMPROVED: Bidirectional patterns, safety indicators, and payload-aware JSON analysis
+   * IMPROVED: Bidirectional patterns, safety indicators, and two-layer defense
    *
    * CRITICAL: This check distinguishes between:
    * - SAFE: Tool stores/echoes malicious input as data (reflection)
    * - VULNERABLE: Tool executes malicious input and returns results (execution)
+   *
+   * Two-layer defense:
+   * Layer 1: Match reflection/status patterns
+   * Layer 2: Verify NO execution evidence (defense-in-depth)
    */
-  private isReflectionResponse(responseText: string, payload: string): boolean {
+  private isReflectionResponse(responseText: string): boolean {
+    console.log("[DIAG] isReflectionResponse called");
+    console.log("[DIAG] Response preview:", responseText.substring(0, 200));
+
+    // Status message patterns (NEW)
+    const statusPatterns = [
+      // "Action executed successfully: <anything>" (generic status message)
+      /action\s+executed\s+successfully:/i,
+      /command\s+executed\s+successfully:/i,
+      // "Action executed successfully" (generic status - in JSON or standalone)
+      /"result":\s*"action\s+executed\s+successfully"/i,
+      /result.*action\s+executed\s+successfully/i,
+      /successfully\s+(executed|completed|processed):/i,
+      /successfully\s+(executed|completed|processed)"/i,
+    ];
+
     const reflectionPatterns = [
+      ...statusPatterns,
       // Original patterns (keep all existing)
       /stored.*query/i,
       /saved.*input/i,
@@ -1380,73 +1398,172 @@ export class SecurityAssessor extends BaseAssessor {
       /error:.*too (long|short|large)/i,
     ];
 
-    // Check text patterns first
-    if (reflectionPatterns.some((pattern) => pattern.test(responseText))) {
-      return true;
+    // LAYER 1: Check for reflection/status patterns
+    const matchedPatterns: string[] = [];
+    const hasReflection = reflectionPatterns.some((pattern) => {
+      const matches = pattern.test(responseText);
+      if (matches) {
+        matchedPatterns.push(pattern.source.substring(0, 50));
+      }
+      return matches;
+    });
+
+    console.log("[DIAG] Has reflection:", hasReflection);
+    if (matchedPatterns.length > 0) {
+      console.log(
+        "[DIAG] Matched reflection patterns:",
+        matchedPatterns.join(", "),
+      );
     }
 
-    // NEW: JSON Structural Analysis
-    // Check if payload appears in SAFE data fields (not execution fields)
+    if (hasReflection) {
+      // LAYER 2: Defense-in-depth - verify NO execution evidence
+      // For JSON responses, check execution artifacts only in result/output fields
+      try {
+        const parsed = JSON.parse(responseText);
+        const resultText = String(parsed.result || "");
+        const outputFields = [
+          parsed.stdout,
+          parsed.stderr,
+          parsed.output,
+          parsed.contents,
+          parsed.execution_log,
+          parsed.command_output,
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        // Only check resultText for execution if it's NOT purely a status message
+        // Status messages like "Action executed successfully: X" just echo the payload
+        const resultIsStatusOnly = statusPatterns.some((pattern) =>
+          pattern.test(resultText),
+        );
+
+        const hasExecutionInOutput = resultIsStatusOnly
+          ? this.detectExecutionArtifacts(outputFields) // Skip result, check only output fields
+          : this.detectExecutionArtifacts(resultText) ||
+            this.detectExecutionArtifacts(outputFields);
+
+        console.log(
+          "[DIAG] JSON mode - checking execution in result/output fields only",
+        );
+        console.log("[DIAG] Has execution in output:", hasExecutionInOutput);
+
+        if (hasExecutionInOutput) {
+          console.log(
+            "[DIAG] RESULT: Reflection + Execution in output = VULNERABLE (false)",
+          );
+          return false;
+        }
+        console.log("[DIAG] RESULT: Reflection + clean output = SAFE (true)");
+        return true;
+      } catch {
+        // Not JSON, check entire response for execution
+        const hasExecution = this.detectExecutionArtifacts(responseText);
+        console.log(
+          "[DIAG] Text mode - Has execution artifacts:",
+          hasExecution,
+        );
+
+        if (hasExecution) {
+          console.log(
+            "[DIAG] RESULT: Reflection + Execution = VULNERABLE (false)",
+          );
+          return false;
+        }
+        console.log("[DIAG] RESULT: Reflection only = SAFE (true)");
+        return true;
+      }
+    }
+
+    // JSON Structural Analysis with execution verification
     try {
       const parsed = JSON.parse(responseText);
-      const safeFields = [
-        "command",
-        "query",
-        "text",
-        "data",
-        "action",
-        "instruction",
-        "setting",
-        "url",
-        "package",
-        "input",
-      ];
-      const executionFields = ["output", "stdout", "stderr", "contents"];
 
-      // Check if payload appears in execution context (VULNERABLE)
-      const hasPayloadInExecution = executionFields.some((execField) => {
-        const value = parsed[execField];
-        return value && typeof value === "string" && value.includes(payload);
-      });
-
-      // If payload in execution fields, not just reflection
-      if (hasPayloadInExecution) {
-        return false;
+      // Check placeholder action with safe result
+      if (parsed.action === "test" || parsed.action === "placeholder") {
+        const resultText = String(parsed.result || "");
+        if (!this.detectExecutionArtifacts(resultText)) {
+          return true; // Placeholder action with clean result
+        }
       }
 
-      // Check if payload appears ONLY in safe storage fields (SAFE)
-      const isStoredOnly = safeFields.some((field) => {
-        const value = parsed[field];
-        return (
-          value === payload ||
-          (typeof value === "string" && value.includes(payload))
-        );
-      });
-
-      if (isStoredOnly) {
-        return true;
-      }
-
-      // Check for status indicators suggesting safe storage
-      if (
-        parsed.status &&
-        /(stored|logged|queued|pending|processed|validated)/.test(parsed.status)
-      ) {
-        return true;
+      // Check generic status without execution
+      if (parsed.status && /(completed|success|ok|done)/.test(parsed.status)) {
+        if (!this.detectExecutionArtifacts(responseText)) {
+          return true; // Status indicator with no execution
+        }
       }
     } catch {
-      // Not JSON or parsing failed, continue with text-only analysis
+      // Not JSON, continue with text-only analysis
     }
 
     return false;
   }
 
   /**
+   * Detect execution artifacts in response
+   * Returns true if response contains evidence of actual code execution
+   *
+   * HIGH confidence: System files, commands, directory listings
+   * MEDIUM confidence: Contextual patterns (root alone, paths)
+   */
+  private detectExecutionArtifacts(responseText: string): boolean {
+    console.log("[DIAG] detectExecutionArtifacts called");
+
+    const executionIndicators = [
+      // HIGH CONFIDENCE - System files (requires format)
+      /[a-z]+:x:\d+:\d+:/i, // passwd: "root:x:0:0:"
+      /uid=\d+\([^)]+\)\s+gid=\d+/i, // id: "uid=0(root) gid=0(root)"
+
+      // HIGH CONFIDENCE - Directory listings (full format)
+      /[d-][rwx-]{9}\s+\d+\s+[a-z]+/i, // ls -la: "drwxr-xr-x 2 root"
+      /total\s+\d+\s*$/m, // ls total line
+
+      // HIGH CONFIDENCE - Command execution fields
+      /command_executed:\s*[^"\s]/i, // "command_executed: whoami"
+      /stdout:\s*["']?[^"'\s]/i, // "stdout: root"
+      /(execution|output)_log:/i, // Log fields
+
+      // HIGH CONFIDENCE - Shell paths
+      /\/bin\/(bash|sh|zsh|dash)/i, // Shell executables
+
+      // MEDIUM CONFIDENCE - System identity (contextual only)
+      /\b(root|administrator)\s*$/im, // "root" alone on line (whoami)
+      /\/root\//i, // Path: "/root/"
+      /\/etc\/passwd/i, // Sensitive file
+
+      // MEDIUM CONFIDENCE - Process info
+      /PID:\s*\d{3,}/i, // Process ID
+    ];
+
+    const matchedExecutionPatterns: string[] = [];
+    const found = executionIndicators.some((pattern) => {
+      const matches = pattern.test(responseText);
+      if (matches) {
+        matchedExecutionPatterns.push(pattern.source.substring(0, 50));
+      }
+      return matches;
+    });
+
+    if (matchedExecutionPatterns.length > 0) {
+      console.log(
+        "[DIAG] Matched execution patterns:",
+        matchedExecutionPatterns.join(", "),
+      );
+    }
+    console.log("[DIAG] Execution artifacts found:", found);
+
+    return found;
+  }
+
+  /**
    * Analyze injection response (existing logic)
+   * Note: payload parameter unused after refactoring to two-layer defense
    */
   private analyzeInjectionResponse(
     response: CompatibilityCallToolResult,
-    payload: string,
+    _payload: string,
   ): { isVulnerable: boolean; evidence?: string } {
     const responseText = this.extractResponseContent(response);
 
@@ -1464,7 +1581,7 @@ export class SecurityAssessor extends BaseAssessor {
     );
 
     // CRITICAL: Check reflection BEFORE flagging as vulnerable
-    if (hasExecution && !this.isReflectionResponse(responseText, payload)) {
+    if (hasExecution && !this.isReflectionResponse(responseText)) {
       return {
         isVulnerable: true,
         evidence: "Tool executed instruction: found execution keywords",
