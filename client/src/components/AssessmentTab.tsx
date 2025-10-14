@@ -457,17 +457,18 @@ const AssessmentTab: React.FC<AssessmentTabProps> = ({
                   Enable Advanced Security Testing
                 </span>
                 <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">
-                  8 Patterns
+                  13 Patterns
                 </span>
               </Label>
             </div>
             <p className="text-xs text-muted-foreground ml-6">
-              <strong>Basic:</strong> 3 critical injection patterns (~3-15
-              checks). <strong>Advanced:</strong> All 8 patterns (~8-24 checks
-              per tool). Tests for injection vulnerabilities (Command, SQL, Path
-              Traversal), input validation (Type Safety, Boundary, Required
-              Fields), and protocol compliance (MCP Error Format, Timeout
-              Handling).
+              <strong>Basic:</strong> 4 critical injection patterns (~20
+              checks). <strong>Advanced:</strong> All 13 patterns (~37 checks
+              per tool). Tests for injection vulnerabilities (Command,
+              Calculator, SQL, Path Traversal), input validation (Type Safety,
+              Boundary, Required Fields), protocol compliance (MCP Error Format,
+              Timeout Handling), and tool-specific vulnerabilities (Indirect
+              Injection, Unicode Bypass, Nested Injection, Package Squatting).
             </p>
           </div>
 
