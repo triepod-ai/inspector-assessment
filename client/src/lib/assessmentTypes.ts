@@ -534,6 +534,13 @@ export interface MCPDirectoryAssessment {
   // Extended assessment areas (MCP Spec Compliance)
   mcpSpecCompliance?: MCPSpecComplianceAssessment;
 
+  // New assessment areas (MCP Directory Compliance Gaps)
+  aupCompliance?: AUPComplianceAssessment;
+  toolAnnotations?: ToolAnnotationAssessment;
+  prohibitedLibraries?: ProhibitedLibrariesAssessment;
+  manifestValidation?: ManifestValidationAssessment;
+  portability?: PortabilityAssessment;
+
   // Overall assessment
   overallStatus: AssessmentStatus;
   summary: string;
@@ -545,6 +552,202 @@ export interface MCPDirectoryAssessment {
   evidenceFiles?: string[];
   mcpProtocolVersion?: string;
 }
+
+// ============================================================================
+// NEW ASSESSOR TYPES - MCP Directory Compliance Gaps
+// ============================================================================
+
+/**
+ * AUP (Acceptable Use Policy) Compliance Types
+ * Based on Anthropic's 14 AUP categories (A-N)
+ */
+export type AUPCategory =
+  | "A" // Child Sexual Abuse Material
+  | "B" // Weapons of Mass Destruction
+  | "C" // Malware & Cyberweapons
+  | "D" // Disinformation & Election Interference
+  | "E" // Fraud & Deception
+  | "F" // Harassment & Abuse
+  | "G" // Privacy Violations
+  | "H" // Unauthorized Practice
+  | "I" // Copyright Circumvention
+  | "J" // High-Risk Decisions
+  | "K" // Critical Infrastructure
+  | "L" // Adult Content
+  | "M" // Illegal Activities
+  | "N"; // Other Prohibited Uses
+
+export type AUPSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "FLAG";
+
+export interface AUPViolation {
+  category: AUPCategory;
+  categoryName: string;
+  severity: AUPSeverity;
+  pattern: string;
+  matchedText: string;
+  location: "tool_name" | "tool_description" | "readme" | "source_code";
+  filePath?: string;
+  lineNumber?: number;
+  confidence: "high" | "medium" | "low";
+  requiresHumanReview: boolean;
+  reviewGuidance?: string;
+}
+
+export interface AUPComplianceAssessment {
+  violations: AUPViolation[];
+  highRiskDomains: string[];
+  scannedLocations: {
+    toolNames: boolean;
+    toolDescriptions: boolean;
+    readme: boolean;
+    sourceCode: boolean;
+  };
+  status: AssessmentStatus;
+  explanation: string;
+  recommendations: string[];
+}
+
+/**
+ * Tool Annotation Types (Policy #17)
+ * Verifies readOnlyHint, destructiveHint presence
+ */
+export interface ToolAnnotationResult {
+  toolName: string;
+  hasAnnotations: boolean;
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    title?: string;
+    description?: string;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  };
+  inferredBehavior?: {
+    expectedReadOnly: boolean;
+    expectedDestructive: boolean;
+    reason: string;
+  };
+  issues: string[];
+  recommendations: string[];
+}
+
+export interface ToolAnnotationAssessment {
+  toolResults: ToolAnnotationResult[];
+  annotatedCount: number;
+  missingAnnotationsCount: number;
+  misalignedAnnotationsCount: number;
+  status: AssessmentStatus;
+  explanation: string;
+  recommendations: string[];
+}
+
+/**
+ * Prohibited Libraries Types (Policy #28-30)
+ * Detects financial and media processing libraries
+ */
+export type ProhibitedLibraryCategory =
+  | "financial"
+  | "media"
+  | "payments"
+  | "banking";
+
+export interface ProhibitedLibraryMatch {
+  name: string;
+  category: ProhibitedLibraryCategory;
+  location: "package.json" | "source_import" | "requirements.txt" | "cargo.toml";
+  filePath?: string;
+  lineNumber?: number;
+  severity: "BLOCKING" | "HIGH" | "MEDIUM";
+  reason: string;
+  policyReference: string;
+}
+
+export interface ProhibitedLibrariesAssessment {
+  matches: ProhibitedLibraryMatch[];
+  scannedFiles: string[];
+  hasFinancialLibraries: boolean;
+  hasMediaLibraries: boolean;
+  status: AssessmentStatus;
+  explanation: string;
+  recommendations: string[];
+}
+
+/**
+ * MCPB Manifest Validation Types
+ * Based on manifest_version 0.3 spec
+ */
+export interface ManifestJsonSchema {
+  manifest_version: string;
+  name: string;
+  version: string;
+  description?: string;
+  author?: string;
+  repository?: string;
+  license?: string;
+  mcp_config: {
+    command: string;
+    args?: string[];
+    env?: Record<string, string>;
+  };
+  icon?: string;
+  homepage?: string;
+  keywords?: string[];
+}
+
+export interface ManifestValidationResult {
+  field: string;
+  valid: boolean;
+  value?: unknown;
+  expectedType?: string;
+  issue?: string;
+  severity: "ERROR" | "WARNING" | "INFO";
+}
+
+export interface ManifestValidationAssessment {
+  hasManifest: boolean;
+  manifestVersion?: string;
+  validationResults: ManifestValidationResult[];
+  hasIcon: boolean;
+  hasRequiredFields: boolean;
+  missingFields: string[];
+  status: AssessmentStatus;
+  explanation: string;
+  recommendations: string[];
+}
+
+/**
+ * Portability Assessment Types
+ * Detects hardcoded paths, platform-specific code
+ */
+export interface PortabilityIssue {
+  type:
+    | "hardcoded_path"
+    | "platform_specific"
+    | "bundle_root_antipattern"
+    | "absolute_path"
+    | "user_home_path";
+  filePath: string;
+  lineNumber?: number;
+  matchedText: string;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  recommendation: string;
+}
+
+export interface PortabilityAssessment {
+  issues: PortabilityIssue[];
+  scannedFiles: number;
+  platformSpecificCount: number;
+  hardcodedPathCount: number;
+  usesDirname: boolean;
+  usesBundleRoot: boolean; // Anti-pattern
+  status: AssessmentStatus;
+  explanation: string;
+  recommendations: string[];
+}
+
+// ============================================================================
+// END NEW ASSESSOR TYPES
+// ============================================================================
 
 // Backend API security patterns (8 total) - tests API security, not LLM behaviors
 export const PROMPT_INJECTION_TESTS: Omit<
@@ -623,6 +826,8 @@ export interface AssessmentConfiguration {
   // Security testing mode: Basic (3 patterns) or Advanced (8 patterns)
   enableDomainTesting?: boolean; // Enable advanced security testing with all 8 backend patterns (default true)
   mcpProtocolVersion?: string;
+  // Enable source code analysis (requires sourceCodePath in context)
+  enableSourceCodeAnalysis?: boolean;
   assessmentCategories?: {
     functionality: boolean;
     security: boolean;
@@ -630,6 +835,12 @@ export interface AssessmentConfiguration {
     errorHandling: boolean;
     usability: boolean;
     mcpSpecCompliance?: boolean;
+    // New assessment categories for MCP Directory compliance gaps
+    aupCompliance?: boolean; // AUP 14 categories violation scanning
+    toolAnnotations?: boolean; // Policy #17 - readOnlyHint/destructiveHint
+    prohibitedLibraries?: boolean; // Policy #28-30 - Financial/Media libs
+    manifestValidation?: boolean; // MCPB manifest.json compliance
+    portability?: boolean; // Hardcoded paths, platform-specific code
   };
 }
 
@@ -645,6 +856,7 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
   securityPatternsToTest: 8, // Test all security patterns by default
   enableDomainTesting: true, // Enable advanced security testing by default (all 8 backend patterns)
   mcpProtocolVersion: "2025-06",
+  enableSourceCodeAnalysis: false, // Source code analysis disabled by default (requires sourceCodePath)
   assessmentCategories: {
     functionality: true,
     security: true,
@@ -652,6 +864,12 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
     errorHandling: true,
     usability: true,
     mcpSpecCompliance: false,
+    // New assessors - disabled by default, enable for MCP Directory compliance audits
+    aupCompliance: false,
+    toolAnnotations: false,
+    prohibitedLibraries: false,
+    manifestValidation: false,
+    portability: false,
   },
 };
 
@@ -670,6 +888,7 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
   securityPatternsToTest: 3, // Test only 3 critical security patterns
   enableDomainTesting: false, // Use basic security testing for speed (3 patterns)
   mcpProtocolVersion: "2025-06",
+  enableSourceCodeAnalysis: false,
   assessmentCategories: {
     functionality: true,
     security: true,
@@ -677,6 +896,12 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
     errorHandling: true,
     usability: true,
     mcpSpecCompliance: false, // Not part of Anthropic's 5 core requirements
+    // New assessors - disabled in reviewer mode for speed
+    aupCompliance: false,
+    toolAnnotations: false,
+    prohibitedLibraries: false,
+    manifestValidation: false,
+    portability: false,
   },
 };
 
@@ -693,6 +918,7 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
   securityPatternsToTest: 8, // Test all security patterns
   enableDomainTesting: true, // Enable advanced security testing (all 8 backend patterns)
   mcpProtocolVersion: "2025-06",
+  enableSourceCodeAnalysis: true, // Enable source code analysis if path provided
   assessmentCategories: {
     functionality: true,
     security: true,
@@ -700,5 +926,42 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
     errorHandling: true,
     usability: true,
     mcpSpecCompliance: true, // Include extended assessments
+    // New assessors - enabled in developer mode for comprehensive testing
+    aupCompliance: true,
+    toolAnnotations: true,
+    prohibitedLibraries: true,
+    manifestValidation: true,
+    portability: true,
+  },
+};
+
+// MCP Directory Audit mode: focuses on compliance gap assessors
+// Use for pre-submission validation to Anthropic MCP Directory
+export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
+  testTimeout: 30000,
+  delayBetweenTests: 100,
+  skipBrokenTools: false,
+  reviewerMode: false,
+  enableExtendedAssessment: true,
+  parallelTesting: true, // Parallel for faster audits
+  maxParallelTests: 5,
+  maxToolsToTestForErrors: -1,
+  securityPatternsToTest: 8,
+  enableDomainTesting: true,
+  mcpProtocolVersion: "2025-06",
+  enableSourceCodeAnalysis: true, // Deep analysis for audits
+  assessmentCategories: {
+    functionality: true,
+    security: true,
+    documentation: true,
+    errorHandling: true,
+    usability: true,
+    mcpSpecCompliance: true,
+    // All new assessors enabled for audit mode
+    aupCompliance: true,
+    toolAnnotations: true,
+    prohibitedLibraries: true,
+    manifestValidation: true,
+    portability: true,
   },
 };

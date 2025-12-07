@@ -8,6 +8,7 @@ import {
   AssessmentConfiguration,
   AssessmentStatus,
   DEFAULT_ASSESSMENT_CONFIG,
+  ManifestJsonSchema,
 } from "@/lib/assessmentTypes";
 import {
   Tool,
@@ -23,6 +24,13 @@ import { UsabilityAssessor } from "./modules/UsabilityAssessor";
 
 // Extended assessment modules
 import { MCPSpecComplianceAssessor } from "./modules/MCPSpecComplianceAssessor";
+
+// New MCP Directory Compliance Gap assessors
+import { AUPComplianceAssessor } from "./modules/AUPComplianceAssessor";
+import { ToolAnnotationAssessor } from "./modules/ToolAnnotationAssessor";
+import { ProhibitedLibrariesAssessor } from "./modules/ProhibitedLibrariesAssessor";
+import { ManifestValidationAssessor } from "./modules/ManifestValidationAssessor";
+import { PortabilityAssessor } from "./modules/PortabilityAssessor";
 
 export interface AssessmentContext {
   serverName: string;
@@ -41,6 +49,15 @@ export interface AssessmentContext {
     version?: string;
     metadata?: unknown;
   };
+
+  // Enhanced mode: Source code analysis (optional)
+  // When provided, enables deeper analysis for AUP, prohibited libraries, portability
+  sourceCodePath?: string;
+  sourceCodeFiles?: Map<string, string>; // filename -> content
+
+  // MCPB manifest validation (optional)
+  manifestJson?: ManifestJsonSchema;
+  manifestRaw?: string; // Raw manifest.json content for parsing validation
 }
 
 export class AssessmentOrchestrator {
@@ -58,6 +75,13 @@ export class AssessmentOrchestrator {
   // Extended assessors
   private mcpSpecAssessor?: MCPSpecComplianceAssessor;
 
+  // New MCP Directory Compliance Gap assessors
+  private aupComplianceAssessor?: AUPComplianceAssessor;
+  private toolAnnotationAssessor?: ToolAnnotationAssessor;
+  private prohibitedLibrariesAssessor?: ProhibitedLibrariesAssessor;
+  private manifestValidationAssessor?: ManifestValidationAssessor;
+  private portabilityAssessor?: PortabilityAssessor;
+
   constructor(config: Partial<AssessmentConfiguration> = {}) {
     this.config = { ...DEFAULT_ASSESSMENT_CONFIG, ...config };
 
@@ -73,6 +97,27 @@ export class AssessmentOrchestrator {
       if (this.config.assessmentCategories?.mcpSpecCompliance) {
         this.mcpSpecAssessor = new MCPSpecComplianceAssessor(this.config);
       }
+
+      // Initialize new MCP Directory Compliance Gap assessors
+      if (this.config.assessmentCategories?.aupCompliance) {
+        this.aupComplianceAssessor = new AUPComplianceAssessor(this.config);
+      }
+      if (this.config.assessmentCategories?.toolAnnotations) {
+        this.toolAnnotationAssessor = new ToolAnnotationAssessor(this.config);
+      }
+      if (this.config.assessmentCategories?.prohibitedLibraries) {
+        this.prohibitedLibrariesAssessor = new ProhibitedLibrariesAssessor(
+          this.config
+        );
+      }
+      if (this.config.assessmentCategories?.manifestValidation) {
+        this.manifestValidationAssessor = new ManifestValidationAssessor(
+          this.config
+        );
+      }
+      if (this.config.assessmentCategories?.portability) {
+        this.portabilityAssessor = new PortabilityAssessor(this.config);
+      }
     }
   }
 
@@ -87,6 +132,22 @@ export class AssessmentOrchestrator {
     this.usabilityAssessor.resetTestCount();
     if (this.mcpSpecAssessor) {
       this.mcpSpecAssessor.resetTestCount();
+    }
+    // Reset new assessors
+    if (this.aupComplianceAssessor) {
+      this.aupComplianceAssessor.resetTestCount();
+    }
+    if (this.toolAnnotationAssessor) {
+      this.toolAnnotationAssessor.resetTestCount();
+    }
+    if (this.prohibitedLibrariesAssessor) {
+      this.prohibitedLibrariesAssessor.resetTestCount();
+    }
+    if (this.manifestValidationAssessor) {
+      this.manifestValidationAssessor.resetTestCount();
+    }
+    if (this.portabilityAssessor) {
+      this.portabilityAssessor.resetTestCount();
     }
   }
 
@@ -133,6 +194,43 @@ export class AssessmentOrchestrator {
         );
       }
 
+      // New MCP Directory Compliance Gap assessments
+      if (this.aupComplianceAssessor) {
+        assessmentPromises.push(
+          this.aupComplianceAssessor
+            .assess(context)
+            .then((r) => (assessmentResults.aupCompliance = r)),
+        );
+      }
+      if (this.toolAnnotationAssessor) {
+        assessmentPromises.push(
+          this.toolAnnotationAssessor
+            .assess(context)
+            .then((r) => (assessmentResults.toolAnnotations = r)),
+        );
+      }
+      if (this.prohibitedLibrariesAssessor) {
+        assessmentPromises.push(
+          this.prohibitedLibrariesAssessor
+            .assess(context)
+            .then((r) => (assessmentResults.prohibitedLibraries = r)),
+        );
+      }
+      if (this.manifestValidationAssessor) {
+        assessmentPromises.push(
+          this.manifestValidationAssessor
+            .assess(context)
+            .then((r) => (assessmentResults.manifestValidation = r)),
+        );
+      }
+      if (this.portabilityAssessor) {
+        assessmentPromises.push(
+          this.portabilityAssessor
+            .assess(context)
+            .then((r) => (assessmentResults.portability = r)),
+        );
+      }
+
       await Promise.all(assessmentPromises);
     } else {
       // Sequential execution
@@ -149,6 +247,28 @@ export class AssessmentOrchestrator {
       if (this.mcpSpecAssessor) {
         assessmentResults.mcpSpecCompliance =
           await this.mcpSpecAssessor.assess(context);
+      }
+
+      // New MCP Directory Compliance Gap assessments (sequential)
+      if (this.aupComplianceAssessor) {
+        assessmentResults.aupCompliance =
+          await this.aupComplianceAssessor.assess(context);
+      }
+      if (this.toolAnnotationAssessor) {
+        assessmentResults.toolAnnotations =
+          await this.toolAnnotationAssessor.assess(context);
+      }
+      if (this.prohibitedLibrariesAssessor) {
+        assessmentResults.prohibitedLibraries =
+          await this.prohibitedLibrariesAssessor.assess(context);
+      }
+      if (this.manifestValidationAssessor) {
+        assessmentResults.manifestValidation =
+          await this.manifestValidationAssessor.assess(context);
+      }
+      if (this.portabilityAssessor) {
+        assessmentResults.portability =
+          await this.portabilityAssessor.assess(context);
       }
     }
 
@@ -216,6 +336,13 @@ export class AssessmentOrchestrator {
     const usabilityCount = this.usabilityAssessor.getTestCount();
     const mcpSpecCount = this.mcpSpecAssessor?.getTestCount() || 0;
 
+    // New assessor counts
+    const aupCount = this.aupComplianceAssessor?.getTestCount() || 0;
+    const annotationCount = this.toolAnnotationAssessor?.getTestCount() || 0;
+    const librariesCount = this.prohibitedLibrariesAssessor?.getTestCount() || 0;
+    const manifestCount = this.manifestValidationAssessor?.getTestCount() || 0;
+    const portabilityCount = this.portabilityAssessor?.getTestCount() || 0;
+
     console.log("[AssessmentOrchestrator] Test counts by assessor:", {
       functionality: functionalityCount,
       security: securityCount,
@@ -223,6 +350,11 @@ export class AssessmentOrchestrator {
       errorHandling: errorHandlingCount,
       usability: usabilityCount,
       mcpSpec: mcpSpecCount,
+      aupCompliance: aupCount,
+      toolAnnotations: annotationCount,
+      prohibitedLibraries: librariesCount,
+      manifestValidation: manifestCount,
+      portability: portabilityCount,
     });
 
     total =
@@ -231,7 +363,12 @@ export class AssessmentOrchestrator {
       documentationCount +
       errorHandlingCount +
       usabilityCount +
-      mcpSpecCount;
+      mcpSpecCount +
+      aupCount +
+      annotationCount +
+      librariesCount +
+      manifestCount +
+      portabilityCount;
 
     console.log("[AssessmentOrchestrator] Total test count:", total);
 
@@ -280,6 +417,41 @@ export class AssessmentOrchestrator {
       parts.push(
         `${results.functionality.brokenTools.length} tools are not functioning correctly.`,
       );
+    }
+
+    // New assessor findings
+    if (results.aupCompliance?.violations?.length > 0) {
+      const criticalCount = results.aupCompliance.violations.filter(
+        (v: any) => v.severity === "CRITICAL"
+      ).length;
+      if (criticalCount > 0) {
+        parts.push(`CRITICAL: ${criticalCount} AUP violation(s) detected.`);
+      } else {
+        parts.push(
+          `${results.aupCompliance.violations.length} AUP item(s) flagged for review.`
+        );
+      }
+    }
+
+    if (results.toolAnnotations?.missingAnnotationsCount > 0) {
+      parts.push(
+        `${results.toolAnnotations.missingAnnotationsCount} tools missing annotations.`
+      );
+    }
+
+    if (results.prohibitedLibraries?.matches?.length > 0) {
+      const blockingCount = results.prohibitedLibraries.matches.filter(
+        (m: any) => m.severity === "BLOCKING"
+      ).length;
+      if (blockingCount > 0) {
+        parts.push(
+          `BLOCKING: ${blockingCount} prohibited library/libraries detected.`
+        );
+      }
+    }
+
+    if (results.portability?.usesBundleRoot) {
+      parts.push("Uses ${BUNDLE_ROOT} anti-pattern.");
     }
 
     return parts.join(" ");
