@@ -498,8 +498,9 @@ See [PUBLISHING_GUIDE.md](PUBLISHING_GUIDE.md) for detailed publishing documenta
 
 ## Upstream Sync Status
 
-- **Current Version**: 0.17.0
-- **Last Sync**: 2025-10-04 (121 commits from v0.17.0)
+- **Current Version**: 0.17.5
+- **Last Sync**: 2025-12-07 (270+ commits from v0.17.0, synced to v0.17.5)
 - **Fork**: triepod-ai/inspector-assessment
 - **Upstream**: modelcontextprotocol/inspector
 - See [PROJECT_STATUS.md](PROJECT_STATUS.md) for sync history
+- **Note**: Upstream created [AGENTS.md](AGENTS.md) for basic development guide

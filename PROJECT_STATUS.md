@@ -5,8 +5,8 @@
 - **Version**: 1.4.0 (published to npm as "MCP Assessor")
 - **npm Package**: [@bryan-thompson/inspector-assessment](https://www.npmjs.com/package/@bryan-thompson/inspector-assessment)
 - **Fork**: triepod-ai/inspector-assessment
-- **Upstream**: modelcontextprotocol/inspector (v0.17.0)
-- **Last Upstream Sync**: 2025-10-04 (121 commits from v0.17.0)
+- **Upstream**: modelcontextprotocol/inspector (v0.17.5)
+- **Last Upstream Sync**: 2025-12-07 (270+ commits, v0.17.0 → v0.17.5)
 - **Build Status**: ✅ Passing (all production code compiles successfully)
 - **Test Status**: ✅ 582/582 passing (100% pass rate, includes 18 reflection false positive tests) 🎉
 - **Security Assessment**: ✅ 0 false positives on safe tools (validated 2025-10-13)
@@ -37,6 +37,43 @@ This fork includes extensive custom assessment enhancements:
   - MCP Spec Compliance Assessor (hybrid: protocol checks + metadata hints)
 
 ## Recent Changes
+
+### Development Timeline - December 2025
+
+**2025-12-07**: Upstream Sync - Merged v0.17.1 through v0.17.5
+- ✅ **Merged**: 270+ commits from upstream (5 releases: v0.17.1 → v0.17.5)
+- ✅ **Key Upstream Improvements**:
+  - Stream cleanup and transport close fixes (prevents memory leaks)
+  - ReadableStream controller double-close crash fix
+  - OAuth redirect URI deduplication (fixes issue #825)
+  - SDK upgrade to v1.23.0 (from v1.18.2)
+  - Zod4 compatibility fixes
+  - Prettier 3.7 updates
+  - npm audit security fixes
+- ✅ **New Upstream Features Integrated**:
+  - Meta properties support for tools (metadata passing)
+  - Tool search functionality in UI
+  - Custom headers support
+  - JSON validation enhancements
+  - Enum parameter dropdowns
+  - Nullable field support
+  - Tool input validation guidelines
+  - IconDisplay component
+  - MetadataTab component
+  - AGENTS.md development guide
+- ✅ **Fork Features Preserved**:
+  - All assessment capabilities intact
+  - CLI assessment runner functional
+  - Custom assessment modules untouched
+  - Assessment saving to /tmp preserved
+  - Package identity maintained (@bryan-thompson/inspector-assessment)
+- ✅ **Conflict Resolution**: 15 files with merge conflicts resolved
+  - Package.json files: Kept our identity, integrated upstream dependencies
+  - Core UI files: Integrated upstream improvements while preserving assessment tab
+  - Utility files: Merged both implementations
+  - Tests: Updated to match upstream component changes
+- ✅ **Build Status**: All packages compile successfully
+- 🎯 **Next Steps**: Consider version bump to v1.5.0 for upstream sync milestone
 
 ### Development Timeline - October 2025
 

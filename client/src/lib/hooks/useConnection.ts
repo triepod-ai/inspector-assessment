@@ -30,11 +30,15 @@ import {
   Progress,
   LoggingLevel,
   ElicitRequestSchema,
+  Implementation,
 } from "@modelcontextprotocol/sdk/types.js";
+import type {
+  AnySchema,
+  SchemaOutput,
+} from "@modelcontextprotocol/sdk/server/zod-compat.js";
 import { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { useEffect, useState } from "react";
 import { useToast } from "@/lib/hooks/useToast";
-import { z } from "zod";
 import { ConnectionStatus, CLIENT_IDENTITY } from "../constants";
 import { Notification } from "../notificationTypes";
 import {
@@ -45,6 +49,8 @@ import {
   clearClientInformationFromSessionStorage,
   InspectorOAuthClientProvider,
   saveClientInformationToSessionStorage,
+  saveScopeToSessionStorage,
+  clearScopeFromSessionStorage,
   discoverScopes,
 } from "../auth";
 import {
@@ -57,6 +63,7 @@ import { getMCPServerRequestTimeout } from "@/utils/configUtils";
 import { InspectorConfig } from "../configurationTypes";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { CustomHeaders } from "../types/customHeaders";
+import { resolveRefsInMessage } from "@/utils/schemaUtils";
 
 interface UseConnectionOptions {
   transportType: "stdio" | "sse" | "streamable-http";
@@ -67,6 +74,7 @@ interface UseConnectionOptions {
   // Custom headers support
   customHeaders?: CustomHeaders;
   oauthClientId?: string;
+  oauthClientSecret?: string;
   oauthScope?: string;
   config: InspectorConfig;
   connectionType?: "direct" | "proxy";
@@ -79,6 +87,8 @@ interface UseConnectionOptions {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getRoots?: () => any[];
   defaultLoggingLevel?: LoggingLevel;
+  serverImplementation?: Implementation;
+  metadata?: Record<string, string>;
 }
 
 export function useConnection({
@@ -89,6 +99,7 @@ export function useConnection({
   env,
   customHeaders,
   oauthClientId,
+  oauthClientSecret,
   oauthScope,
   config,
   connectionType = "proxy",
@@ -97,6 +108,7 @@ export function useConnection({
   onElicitationRequest,
   getRoots,
   defaultLoggingLevel,
+  metadata = {},
 }: UseConnectionOptions) {
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("disconnected");
@@ -115,6 +127,8 @@ export function useConnection({
   const [mcpProtocolVersion, setMcpProtocolVersion] = useState<string | null>(
     null,
   );
+  const [serverImplementation, setServerImplementation] =
+    useState<Implementation | null>(null);
 
   useEffect(() => {
     if (!oauthClientId) {
@@ -125,12 +139,29 @@ export function useConnection({
       return;
     }
 
+    const clientInformation: { client_id: string; client_secret?: string } = {
+      client_id: oauthClientId,
+    };
+
+    if (oauthClientSecret) {
+      clientInformation.client_secret = oauthClientSecret;
+    }
+
     saveClientInformationToSessionStorage({
       serverUrl: sseUrl,
-      clientInformation: { client_id: oauthClientId },
+      clientInformation,
       isPreregistered: true,
     });
-  }, [oauthClientId, sseUrl]);
+  }, [oauthClientId, oauthClientSecret, sseUrl]);
+
+  useEffect(() => {
+    if (!oauthScope) {
+      clearScopeFromSessionStorage(sseUrl);
+      return;
+    }
+
+    saveScopeToSessionStorage(sseUrl, oauthScope);
+  }, [oauthScope, sseUrl]);
 
   const pushHistory = (request: object, response?: object) => {
     setRequestHistory((prev) => [
@@ -142,16 +173,30 @@ export function useConnection({
     ]);
   };
 
-  const makeRequest = async <T extends z.ZodType>(
+  const makeRequest = async <T extends AnySchema>(
     request: ClientRequest,
     schema: T,
     options?: RequestOptions & { suppressToast?: boolean },
-  ): Promise<z.output<T>> => {
+  ): Promise<SchemaOutput<T>> => {
     if (!mcpClient) {
       throw new Error("MCP client not connected");
     }
     try {
       const abortController = new AbortController();
+
+      // Add metadata to the request if available, but skip for tool calls
+      // as they handle metadata merging separately
+      const shouldAddGeneralMetadata =
+        request.method !== "tools/call" && Object.keys(metadata).length > 0;
+      const requestWithMetadata = shouldAddGeneralMetadata
+        ? {
+            ...request,
+            params: {
+              ...request.params,
+              _meta: metadata,
+            },
+          }
+        : request;
 
       // prepare MCP Client request options
       const mcpRequestOptions: RequestOptions = {
@@ -181,13 +226,17 @@ export function useConnection({
 
       let response;
       try {
-        response = await mcpClient.request(request, schema, mcpRequestOptions);
+        response = await mcpClient.request(
+          requestWithMetadata,
+          schema,
+          mcpRequestOptions,
+        );
 
-        pushHistory(request, response);
+        pushHistory(requestWithMetadata, response);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        pushHistory(request, { error: errorMessage });
+        pushHistory(requestWithMetadata, { error: errorMessage });
         throw error;
       }
 
@@ -336,10 +385,9 @@ export function useConnection({
         }
         scope = await discoverScopes(sseUrl, resourceMetadata);
       }
-      const serverAuthProvider = new InspectorOAuthClientProvider(
-        sseUrl,
-        scope,
-      );
+
+      saveScopeToSessionStorage(sseUrl, scope);
+      const serverAuthProvider = new InspectorOAuthClientProvider(sseUrl);
 
       const result = await auth(serverAuthProvider, {
         serverUrl: sseUrl,
@@ -671,9 +719,19 @@ export function useConnection({
 
         await client.connect(transport as Transport);
 
+        const protocolOnMessage = transport.onmessage;
+        if (protocolOnMessage) {
+          transport.onmessage = (message) => {
+            const resolvedMessage = resolveRefsInMessage(message);
+            protocolOnMessage(resolvedMessage);
+          };
+        }
+
         setClientTransport(transport);
 
         capabilities = client.getServerCapabilities();
+        const serverInfo = client.getServerVersion();
+        setServerImplementation(serverInfo || null);
         const initializeRequest = {
           method: "initialize",
         };
@@ -791,11 +849,13 @@ export function useConnection({
 
   const clearRequestHistory = () => {
     setRequestHistory([]);
+    setServerImplementation(null);
   };
 
   return {
     connectionStatus,
     serverCapabilities,
+    serverImplementation,
     mcpClient,
     requestHistory,
     clearRequestHistory,

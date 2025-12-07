@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import * as fs from "fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { Command } from "commander";
 import {
@@ -42,8 +43,10 @@ type Args = {
   logLevel?: LogLevel;
   toolName?: string;
   toolArg?: Record<string, JsonValue>;
+  toolMeta?: Record<string, string>;
   transport?: "sse" | "stdio" | "http";
   headers?: Record<string, string>;
+  metadata?: Record<string, string>;
 };
 
 function createTransportOptions(
@@ -101,6 +104,15 @@ function createTransportOptions(
 }
 
 async function callMethod(args: Args): Promise<void> {
+  // Read package.json to get name and version for client identity
+  const pathA = "../package.json"; // We're in package @modelcontextprotocol/inspector-cli
+  const pathB = "../../package.json"; // We're in package @modelcontextprotocol/inspector
+  let packageJson: { name: string; version: string };
+  let packageJsonData = await import(fs.existsSync(pathA) ? pathA : pathB, {
+    with: { type: "json" },
+  });
+  packageJson = packageJsonData.default;
+
   const transportOptions = createTransportOptions(
     args.target,
     args.transport,
@@ -121,7 +133,7 @@ async function callMethod(args: Args): Promise<void> {
 
     // Tools methods
     if (args.method === "tools/list") {
-      result = await listTools(client);
+      result = await listTools(client, args.metadata);
     } else if (args.method === "tools/call") {
       if (!args.toolName) {
         throw new Error(
@@ -129,11 +141,17 @@ async function callMethod(args: Args): Promise<void> {
         );
       }
 
-      result = await callTool(client, args.toolName, args.toolArg || {});
+      result = await callTool(
+        client,
+        args.toolName,
+        args.toolArg || {},
+        args.metadata,
+        args.toolMeta,
+      );
     }
     // Resources methods
     else if (args.method === "resources/list") {
-      result = await listResources(client);
+      result = await listResources(client, args.metadata);
     } else if (args.method === "resources/read") {
       if (!args.uri) {
         throw new Error(
@@ -141,13 +159,13 @@ async function callMethod(args: Args): Promise<void> {
         );
       }
 
-      result = await readResource(client, args.uri);
+      result = await readResource(client, args.uri, args.metadata);
     } else if (args.method === "resources/templates/list") {
-      result = await listResourceTemplates(client);
+      result = await listResourceTemplates(client, args.metadata);
     }
     // Prompts methods
     else if (args.method === "prompts/list") {
-      result = await listPrompts(client);
+      result = await listPrompts(client, args.metadata);
     } else if (args.method === "prompts/get") {
       if (!args.promptName) {
         throw new Error(
@@ -155,7 +173,12 @@ async function callMethod(args: Args): Promise<void> {
         );
       }
 
-      result = await getPrompt(client, args.promptName, args.promptArgs || {});
+      result = await getPrompt(
+        client,
+        args.promptName,
+        args.promptArgs || {},
+        args.metadata,
+      );
     }
     // Logging methods
     else if (args.method === "logging/setLevel") {
@@ -320,6 +343,21 @@ function parseArgs(): Args {
       'HTTP headers as "HeaderName: Value" pairs (for HTTP/SSE transports)',
       parseHeaderPair,
       {},
+    )
+    //
+    // Metadata options
+    //
+    .option(
+      "--metadata <pairs...>",
+      "General metadata as key=value pairs (applied to all methods)",
+      parseKeyValuePair,
+      {},
+    )
+    .option(
+      "--tool-metadata <pairs...>",
+      "Tool-specific metadata as key=value pairs (for tools/call method only)",
+      parseKeyValuePair,
+      {},
     );
 
   // Parse only the arguments before --
@@ -327,6 +365,8 @@ function parseArgs(): Args {
 
   const options = program.opts() as Omit<Args, "target"> & {
     header?: Record<string, string>;
+    metadata?: Record<string, JsonValue>;
+    toolMetadata?: Record<string, JsonValue>;
   };
 
   let remainingArgs = program.args;
@@ -344,6 +384,22 @@ function parseArgs(): Args {
     target: finalArgs,
     ...options,
     headers: options.header, // commander.js uses 'header' field, map to 'headers'
+    metadata: options.metadata
+      ? Object.fromEntries(
+          Object.entries(options.metadata).map(([key, value]) => [
+            key,
+            String(value),
+          ]),
+        )
+      : undefined,
+    toolMeta: options.toolMetadata
+      ? Object.fromEntries(
+          Object.entries(options.toolMetadata).map(([key, value]) => [
+            key,
+            String(value),
+          ]),
+        )
+      : undefined,
   };
 }
 
