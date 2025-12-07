@@ -29,7 +29,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
    * Run manifest validation assessment
    */
   async assess(
-    context: AssessmentContext
+    context: AssessmentContext,
   ): Promise<ManifestValidationAssessment> {
     this.log("Starting manifest validation assessment");
     this.testCount = 0;
@@ -110,17 +110,17 @@ export class ManifestValidationAssessor extends BaseAssessor {
 
     const status = this.determineManifestStatus(
       validationResults,
-      hasRequiredFields
+      hasRequiredFields,
     );
     const explanation = this.generateExplanation(
       validationResults,
       hasRequiredFields,
-      hasIcon
+      hasIcon,
     );
     const recommendations = this.generateRecommendations(validationResults);
 
     this.log(
-      `Assessment complete: ${validationResults.filter((r) => r.valid).length}/${validationResults.length} checks passed`
+      `Assessment complete: ${validationResults.filter((r) => r.valid).length}/${validationResults.length} checks passed`,
     );
 
     return {
@@ -168,7 +168,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
    * Create result when manifest JSON is invalid
    */
   private createInvalidJsonResult(
-    validationResults: ManifestValidationResult[]
+    validationResults: ManifestValidationResult[],
   ): ManifestValidationAssessment {
     return {
       hasManifest: true,
@@ -190,7 +190,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
    * Validate manifest_version field
    */
   private validateManifestVersion(
-    manifest: ManifestJsonSchema
+    manifest: ManifestJsonSchema,
   ): ManifestValidationResult {
     if (!manifest.manifest_version) {
       return {
@@ -226,7 +226,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
    */
   private validateRequiredField(
     manifest: ManifestJsonSchema,
-    field: keyof ManifestJsonSchema
+    field: keyof ManifestJsonSchema,
   ): ManifestValidationResult {
     const value = manifest[field];
 
@@ -262,7 +262,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
    */
   private validateRecommendedField(
     manifest: ManifestJsonSchema,
-    field: keyof ManifestJsonSchema
+    field: keyof ManifestJsonSchema,
   ): ManifestValidationResult {
     const value = manifest[field];
 
@@ -297,7 +297,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
    * Validate mcp_config structure
    */
   private validateMcpConfig(
-    mcpConfig: ManifestJsonSchema["mcp_config"]
+    mcpConfig: ManifestJsonSchema["mcp_config"],
   ): ManifestValidationResult {
     if (!mcpConfig.command) {
       return {
@@ -329,7 +329,8 @@ export class ManifestValidationAssessor extends BaseAssessor {
         field: "mcp_config.command",
         valid: false,
         value: mcpConfig.command,
-        issue: "Command uses hardcoded absolute path - use relative or ${__dirname}",
+        issue:
+          "Command uses hardcoded absolute path - use relative or ${__dirname}",
         severity: "ERROR",
       };
     }
@@ -347,7 +348,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
    */
   private validateIcon(
     manifest: ManifestJsonSchema,
-    context: AssessmentContext
+    context: AssessmentContext,
   ): ManifestValidationResult {
     // Check manifest icon field
     if (manifest.icon) {
@@ -454,13 +455,13 @@ export class ManifestValidationAssessor extends BaseAssessor {
    */
   private determineManifestStatus(
     results: ManifestValidationResult[],
-    hasRequiredFields: boolean
+    hasRequiredFields: boolean,
   ): AssessmentStatus {
     const errors = results.filter(
-      (r) => !r.valid && r.severity === "ERROR"
+      (r) => !r.valid && r.severity === "ERROR",
     ).length;
     const warnings = results.filter(
-      (r) => !r.valid && r.severity === "WARNING"
+      (r) => !r.valid && r.severity === "WARNING",
     ).length;
 
     if (errors > 0 || !hasRequiredFields) {
@@ -480,7 +481,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
   private generateExplanation(
     results: ManifestValidationResult[],
     hasRequiredFields: boolean,
-    hasIcon: boolean
+    hasIcon: boolean,
   ): string {
     const parts: string[] = [];
 
@@ -497,9 +498,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
       parts.push("No icon found - recommended for MCPB bundles.");
     }
 
-    const errors = results.filter(
-      (r) => !r.valid && r.severity === "ERROR"
-    );
+    const errors = results.filter((r) => !r.valid && r.severity === "ERROR");
     if (errors.length > 0) {
       parts.push(`${errors.length} error(s) require attention.`);
     }
@@ -511,17 +510,13 @@ export class ManifestValidationAssessor extends BaseAssessor {
    * Generate recommendations
    */
   private generateRecommendations(
-    results: ManifestValidationResult[]
+    results: ManifestValidationResult[],
   ): string[] {
     const recommendations: string[] = [];
 
     // Group by severity
-    const errors = results.filter(
-      (r) => !r.valid && r.severity === "ERROR"
-    );
-    const warnings = results.filter(
-      (r) => r.severity === "WARNING" && r.issue
-    );
+    const errors = results.filter((r) => !r.valid && r.severity === "ERROR");
+    const warnings = results.filter((r) => r.severity === "WARNING" && r.issue);
 
     if (errors.length > 0) {
       recommendations.push("FIX REQUIRED - Manifest errors:");
@@ -539,7 +534,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
 
     if (recommendations.length === 0) {
       recommendations.push(
-        "Manifest validation passed. All required fields are present and valid."
+        "Manifest validation passed. All required fields are present and valid.",
       );
     }
 

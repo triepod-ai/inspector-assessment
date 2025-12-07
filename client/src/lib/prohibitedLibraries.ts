@@ -36,8 +36,7 @@ export const FINANCIAL_LIBRARIES: ProhibitedLibrary[] = [
     policyReference: "Policy #28",
     reason:
       "Stripe SDK enables payment processing which violates directory policy",
-    alternatives:
-      "Use Stripe's webhook-based approach outside of MCP context",
+    alternatives: "Use Stripe's webhook-based approach outside of MCP context",
   },
   {
     name: "paypal",
@@ -131,7 +130,8 @@ export const FINANCIAL_LIBRARIES: ProhibitedLibrary[] = [
     category: "financial",
     severity: "HIGH",
     policyReference: "Policy #28",
-    reason: "Ethers.js enables Ethereum transactions (review blockchain read-only use)",
+    reason:
+      "Ethers.js enables Ethereum transactions (review blockchain read-only use)",
     alternatives: "May be acceptable for read-only blockchain queries",
   },
   {
@@ -177,8 +177,10 @@ export const MEDIA_LIBRARIES: ProhibitedLibrary[] = [
     category: "media",
     severity: "HIGH",
     policyReference: "Policy #30",
-    reason: "Sharp enables image processing in Node.js - requires justification",
-    alternatives: "Consider if image transformation is core to MCP functionality",
+    reason:
+      "Sharp enables image processing in Node.js - requires justification",
+    alternatives:
+      "Consider if image transformation is core to MCP functionality",
   },
   {
     name: "jimp",
@@ -258,7 +260,8 @@ export const MEDIA_LIBRARIES: ProhibitedLibrary[] = [
     category: "media",
     severity: "MEDIUM",
     policyReference: "Policy #30",
-    reason: "PyPDF enables PDF manipulation - often legitimate for document tools",
+    reason:
+      "PyPDF enables PDF manipulation - often legitimate for document tools",
   },
 ];
 
@@ -287,9 +290,7 @@ export function checkDependency(depName: string): ProhibitedLibrary | null {
 /**
  * Check source code imports for prohibited libraries
  */
-export function checkSourceImports(
-  sourceCode: string
-): Array<{
+export function checkSourceImports(sourceCode: string): Array<{
   library: ProhibitedLibrary;
   matchedText: string;
   lineNumber?: number;
@@ -389,9 +390,7 @@ export function checkPackageJsonDependencies(packageJson: {
 /**
  * Check Python requirements.txt for prohibited libraries
  */
-export function checkRequirementsTxt(
-  content: string
-): Array<{
+export function checkRequirementsTxt(content: string): Array<{
   library: ProhibitedLibrary;
   matchedText: string;
   lineNumber: number;
@@ -433,7 +432,7 @@ export function checkRequirementsTxt(
  * Get libraries by severity level
  */
 export function getLibrariesBySeverity(
-  severity: "BLOCKING" | "HIGH" | "MEDIUM"
+  severity: "BLOCKING" | "HIGH" | "MEDIUM",
 ): ProhibitedLibrary[] {
   return ALL_PROHIBITED_LIBRARIES.filter((lib) => lib.severity === severity);
 }
@@ -442,7 +441,7 @@ export function getLibrariesBySeverity(
  * Get libraries by category
  */
 export function getLibrariesByCategory(
-  category: ProhibitedLibraryCategory
+  category: ProhibitedLibraryCategory,
 ): ProhibitedLibrary[] {
   return ALL_PROHIBITED_LIBRARIES.filter((lib) => lib.category === category);
 }

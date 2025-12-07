@@ -25,7 +25,8 @@ import type {
  */
 const ISSUE_PATTERNS = {
   // Absolute Unix paths (not ${__dirname})
-  absoluteUnixPath: /(?<!\$\{__dirname\}|['"])\/(?:usr|home|var|etc|opt|tmp|Users|Applications)\/[^\s'"]+/g,
+  absoluteUnixPath:
+    /(?<!\$\{__dirname\}|['"])\/(?:usr|home|var|etc|opt|tmp|Users|Applications)\/[^\s'"]+/g,
 
   // Absolute Windows paths
   absoluteWindowsPath: /[A-Z]:\\[^\s'"]+/gi,
@@ -79,7 +80,10 @@ export class PortabilityAssessor extends BaseAssessor {
     if (context.manifestRaw) {
       this.testCount++;
       scannedFiles++;
-      const manifestIssues = this.scanFile("manifest.json", context.manifestRaw);
+      const manifestIssues = this.scanFile(
+        "manifest.json",
+        context.manifestRaw,
+      );
       issues.push(...manifestIssues);
 
       // Check for ${__dirname} and ${BUNDLE_ROOT} in manifest
@@ -98,7 +102,10 @@ export class PortabilityAssessor extends BaseAssessor {
       const packageJson = context.packageJson as any;
       if (packageJson.scripts) {
         const scriptsStr = JSON.stringify(packageJson.scripts);
-        const scriptIssues = this.scanFile("package.json (scripts)", scriptsStr);
+        const scriptIssues = this.scanFile(
+          "package.json (scripts)",
+          scriptsStr,
+        );
         issues.push(...scriptIssues);
       }
     }
@@ -132,27 +139,27 @@ export class PortabilityAssessor extends BaseAssessor {
       (i) =>
         i.type === "hardcoded_path" ||
         i.type === "absolute_path" ||
-        i.type === "user_home_path"
+        i.type === "user_home_path",
     ).length;
     platformSpecificCount = issues.filter(
-      (i) => i.type === "platform_specific"
+      (i) => i.type === "platform_specific",
     ).length;
 
     const status = this.determinePortabilityStatus(
       issues,
       usesDirname,
-      usesBundleRoot
+      usesBundleRoot,
     );
     const explanation = this.generateExplanation(
       issues,
       usesDirname,
       usesBundleRoot,
-      scannedFiles
+      scannedFiles,
     );
     const recommendations = this.generateRecommendations(
       issues,
       usesDirname,
-      usesBundleRoot
+      usesBundleRoot,
     );
 
     this.log(`Assessment complete: ${issues.length} portability issues found`);
@@ -182,7 +189,9 @@ export class PortabilityAssessor extends BaseAssessor {
       const lineNumber = i + 1;
 
       // Check for ${BUNDLE_ROOT} anti-pattern
-      const bundleRootMatches = line.match(ISSUE_PATTERNS.bundleRootAntipattern);
+      const bundleRootMatches = line.match(
+        ISSUE_PATTERNS.bundleRootAntipattern,
+      );
       if (bundleRootMatches) {
         for (const match of bundleRootMatches) {
           issues.push({
@@ -203,7 +212,11 @@ export class PortabilityAssessor extends BaseAssessor {
       if (unixPathMatches) {
         for (const match of unixPathMatches) {
           // Skip if it looks like a URL or comment
-          if (match.includes("://") || line.trim().startsWith("//") || line.trim().startsWith("*")) {
+          if (
+            match.includes("://") ||
+            line.trim().startsWith("//") ||
+            line.trim().startsWith("*")
+          ) {
             continue;
           }
           issues.push({
@@ -212,7 +225,8 @@ export class PortabilityAssessor extends BaseAssessor {
             lineNumber,
             matchedText: match,
             severity: "HIGH",
-            recommendation: "Use relative paths or ${__dirname} for bundle portability",
+            recommendation:
+              "Use relative paths or ${__dirname} for bundle portability",
           });
         }
       }
@@ -227,7 +241,8 @@ export class PortabilityAssessor extends BaseAssessor {
             lineNumber,
             matchedText: match,
             severity: "HIGH",
-            recommendation: "Use relative paths or path.join() for cross-platform support",
+            recommendation:
+              "Use relative paths or path.join() for cross-platform support",
           });
         }
       }
@@ -237,7 +252,11 @@ export class PortabilityAssessor extends BaseAssessor {
       if (homePathMatches) {
         for (const match of homePathMatches) {
           // Skip if in a comment
-          if (line.trim().startsWith("//") || line.trim().startsWith("*") || line.trim().startsWith("#")) {
+          if (
+            line.trim().startsWith("//") ||
+            line.trim().startsWith("*") ||
+            line.trim().startsWith("#")
+          ) {
             continue;
           }
           issues.push({
@@ -263,8 +282,12 @@ export class PortabilityAssessor extends BaseAssessor {
         const matches = line.match(pattern);
         if (matches) {
           // Check if there's a fallback (else clause or default case)
-          const hasElse = content.substring(content.indexOf(line)).includes("else");
-          const hasDefault = content.substring(content.indexOf(line)).includes("default:");
+          const hasElse = content
+            .substring(content.indexOf(line))
+            .includes("else");
+          const hasDefault = content
+            .substring(content.indexOf(line))
+            .includes("default:");
 
           if (!hasElse && !hasDefault) {
             for (const match of matches) {
@@ -274,8 +297,7 @@ export class PortabilityAssessor extends BaseAssessor {
                 lineNumber,
                 matchedText: match,
                 severity: "LOW",
-                recommendation:
-                  "Consider adding fallback for other platforms",
+                recommendation: "Consider adding fallback for other platforms",
               });
             }
           }
@@ -313,7 +335,7 @@ export class PortabilityAssessor extends BaseAssessor {
   private determinePortabilityStatus(
     issues: PortabilityIssue[],
     usesDirname: boolean,
-    usesBundleRoot: boolean
+    usesBundleRoot: boolean,
   ): AssessmentStatus {
     // ${BUNDLE_ROOT} usage = automatic FAIL
     if (usesBundleRoot) {
@@ -352,13 +374,13 @@ export class PortabilityAssessor extends BaseAssessor {
     issues: PortabilityIssue[],
     usesDirname: boolean,
     usesBundleRoot: boolean,
-    scannedFiles: number
+    scannedFiles: number,
   ): string {
     const parts: string[] = [];
 
     if (usesBundleRoot) {
       parts.push(
-        "CRITICAL: Uses ${BUNDLE_ROOT} which is not supported in MCPB bundles."
+        "CRITICAL: Uses ${BUNDLE_ROOT} which is not supported in MCPB bundles.",
       );
     }
 
@@ -391,13 +413,13 @@ export class PortabilityAssessor extends BaseAssessor {
   private generateRecommendations(
     issues: PortabilityIssue[],
     usesDirname: boolean,
-    usesBundleRoot: boolean
+    usesBundleRoot: boolean,
   ): string[] {
     const recommendations: string[] = [];
 
     if (usesBundleRoot) {
       recommendations.push(
-        "CRITICAL: Replace all ${BUNDLE_ROOT} with ${__dirname} - BUNDLE_ROOT variable is not supported in MCPB bundles."
+        "CRITICAL: Replace all ${BUNDLE_ROOT} with ${__dirname} - BUNDLE_ROOT variable is not supported in MCPB bundles.",
       );
     }
 
@@ -416,11 +438,11 @@ export class PortabilityAssessor extends BaseAssessor {
       const first = typeIssues[0];
       if (typeIssues.length === 1) {
         recommendations.push(
-          `${first.filePath}:${first.lineNumber}: ${first.recommendation}`
+          `${first.filePath}:${first.lineNumber}: ${first.recommendation}`,
         );
       } else {
         recommendations.push(
-          `${typeIssues.length} ${type.replace(/_/g, " ")} issues: ${first.recommendation}`
+          `${typeIssues.length} ${type.replace(/_/g, " ")} issues: ${first.recommendation}`,
         );
       }
     }
@@ -428,11 +450,11 @@ export class PortabilityAssessor extends BaseAssessor {
     if (recommendations.length === 0) {
       if (usesDirname) {
         recommendations.push(
-          "Server uses proper relative paths with ${__dirname}. Good portability."
+          "Server uses proper relative paths with ${__dirname}. Good portability.",
         );
       } else {
         recommendations.push(
-          "Consider using ${__dirname} for paths in manifest.json for better portability."
+          "Consider using ${__dirname} for paths in manifest.json for better portability.",
         );
       }
     }

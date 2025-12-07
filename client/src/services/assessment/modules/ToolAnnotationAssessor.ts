@@ -121,18 +121,18 @@ export class ToolAnnotationAssessor extends BaseAssessor {
 
     const status = this.determineAnnotationStatus(
       toolResults,
-      context.tools.length
+      context.tools.length,
     );
     const explanation = this.generateExplanation(
       annotatedCount,
       missingAnnotationsCount,
       misalignedAnnotationsCount,
-      context.tools.length
+      context.tools.length,
     );
     const recommendations = this.generateRecommendations(toolResults);
 
     this.log(
-      `Assessment complete: ${annotatedCount}/${context.tools.length} tools annotated, ${misalignedAnnotationsCount} misaligned`
+      `Assessment complete: ${annotatedCount}/${context.tools.length} tools annotated, ${misalignedAnnotationsCount} misaligned`,
     );
 
     return {
@@ -166,7 +166,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     if (!hasAnnotations) {
       issues.push("Missing tool annotations (readOnlyHint, destructiveHint)");
       recommendations.push(
-        `Add annotations to ${tool.name}: readOnlyHint=${inferredBehavior.expectedReadOnly}, destructiveHint=${inferredBehavior.expectedDestructive}`
+        `Add annotations to ${tool.name}: readOnlyHint=${inferredBehavior.expectedReadOnly}, destructiveHint=${inferredBehavior.expectedDestructive}`,
       );
     } else {
       // Check for misaligned annotations
@@ -175,10 +175,10 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         annotations.readOnlyHint !== inferredBehavior.expectedReadOnly
       ) {
         issues.push(
-          `Potentially misaligned readOnlyHint: set to ${annotations.readOnlyHint}, expected ${inferredBehavior.expectedReadOnly} based on tool name pattern`
+          `Potentially misaligned readOnlyHint: set to ${annotations.readOnlyHint}, expected ${inferredBehavior.expectedReadOnly} based on tool name pattern`,
         );
         recommendations.push(
-          `Verify readOnlyHint for ${tool.name}: currently ${annotations.readOnlyHint}, tool name suggests ${inferredBehavior.expectedReadOnly}`
+          `Verify readOnlyHint for ${tool.name}: currently ${annotations.readOnlyHint}, tool name suggests ${inferredBehavior.expectedReadOnly}`,
         );
       }
 
@@ -187,10 +187,10 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         annotations.destructiveHint !== inferredBehavior.expectedDestructive
       ) {
         issues.push(
-          `Potentially misaligned destructiveHint: set to ${annotations.destructiveHint}, expected ${inferredBehavior.expectedDestructive} based on tool name pattern`
+          `Potentially misaligned destructiveHint: set to ${annotations.destructiveHint}, expected ${inferredBehavior.expectedDestructive} based on tool name pattern`,
         );
         recommendations.push(
-          `Verify destructiveHint for ${tool.name}: currently ${annotations.destructiveHint}, tool name suggests ${inferredBehavior.expectedDestructive}`
+          `Verify destructiveHint for ${tool.name}: currently ${annotations.destructiveHint}, tool name suggests ${inferredBehavior.expectedDestructive}`,
         );
       }
     }
@@ -201,10 +201,10 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       annotations.destructiveHint !== true
     ) {
       issues.push(
-        "Tool appears destructive but destructiveHint is not set to true"
+        "Tool appears destructive but destructiveHint is not set to true",
       );
       recommendations.push(
-        `Set destructiveHint=true for ${tool.name} - this tool appears to perform destructive operations`
+        `Set destructiveHint=true for ${tool.name} - this tool appears to perform destructive operations`,
       );
     }
 
@@ -268,7 +268,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
    */
   private inferBehavior(
     toolName: string,
-    description?: string
+    description?: string,
   ): {
     expectedReadOnly: boolean;
     expectedDestructive: boolean;
@@ -335,7 +335,8 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     return {
       expectedReadOnly: false,
       expectedDestructive: false,
-      reason: "Could not infer from name pattern - defaulting to write operation",
+      reason:
+        "Could not infer from name pattern - defaulting to write operation",
     };
   }
 
@@ -344,26 +345,26 @@ export class ToolAnnotationAssessor extends BaseAssessor {
    */
   private determineAnnotationStatus(
     results: ToolAnnotationResult[],
-    totalTools: number
+    totalTools: number,
   ): AssessmentStatus {
     if (totalTools === 0) return "PASS";
 
     const annotatedCount = results.filter((r) => r.hasAnnotations).length;
     const misalignedCount = results.filter((r) =>
-      r.issues.some((i) => i.includes("misaligned"))
+      r.issues.some((i) => i.includes("misaligned")),
     ).length;
     const destructiveWithoutHint = results.filter((r) =>
-      r.issues.some((i) => i.includes("destructive") && i.includes("not set"))
+      r.issues.some((i) => i.includes("destructive") && i.includes("not set")),
     ).length;
+
+    // Destructive tools without proper hints = FAIL (check this FIRST)
+    if (destructiveWithoutHint > 0) {
+      return "FAIL";
+    }
 
     // All tools annotated and no misalignments = PASS
     if (annotatedCount === totalTools && misalignedCount === 0) {
       return "PASS";
-    }
-
-    // Destructive tools without proper hints = FAIL
-    if (destructiveWithoutHint > 0) {
-      return "FAIL";
     }
 
     // Some annotations missing = NEED_MORE_INFO
@@ -387,7 +388,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     annotatedCount: number,
     missingCount: number,
     misalignedCount: number,
-    totalTools: number
+    totalTools: number,
   ): string {
     const parts: string[] = [];
 
@@ -396,18 +397,18 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     }
 
     parts.push(
-      `Tool annotation coverage: ${annotatedCount}/${totalTools} tools have annotations.`
+      `Tool annotation coverage: ${annotatedCount}/${totalTools} tools have annotations.`,
     );
 
     if (missingCount > 0) {
       parts.push(
-        `${missingCount} tool(s) are missing required annotations (readOnlyHint, destructiveHint).`
+        `${missingCount} tool(s) are missing required annotations (readOnlyHint, destructiveHint).`,
       );
     }
 
     if (misalignedCount > 0) {
       parts.push(
-        `${misalignedCount} tool(s) have potentially misaligned annotations based on naming patterns.`
+        `${misalignedCount} tool(s) have potentially misaligned annotations based on naming patterns.`,
       );
     }
 
@@ -421,9 +422,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
   /**
    * Generate recommendations
    */
-  private generateRecommendations(
-    results: ToolAnnotationResult[]
-  ): string[] {
+  private generateRecommendations(results: ToolAnnotationResult[]): string[] {
     const recommendations: string[] = [];
 
     // Collect unique recommendations from all tools
@@ -437,15 +436,15 @@ export class ToolAnnotationAssessor extends BaseAssessor {
 
     // Prioritize destructive tool warnings
     const destructiveRecs = Array.from(allRecs).filter((r) =>
-      r.includes("destructive")
+      r.includes("destructive"),
     );
     const otherRecs = Array.from(allRecs).filter(
-      (r) => !r.includes("destructive")
+      (r) => !r.includes("destructive"),
     );
 
     if (destructiveRecs.length > 0) {
       recommendations.push(
-        "PRIORITY: The following tools appear to perform destructive operations but lack proper destructiveHint annotation:"
+        "PRIORITY: The following tools appear to perform destructive operations but lack proper destructiveHint annotation:",
       );
       recommendations.push(...destructiveRecs.slice(0, 5));
     }
@@ -456,11 +455,11 @@ export class ToolAnnotationAssessor extends BaseAssessor {
 
     if (recommendations.length === 0) {
       recommendations.push(
-        "All tools have proper annotations. No action required."
+        "All tools have proper annotations. No action required.",
       );
     } else {
       recommendations.push(
-        "Reference: MCP Directory Policy #17 requires tools to have readOnlyHint and destructiveHint annotations."
+        "Reference: MCP Directory Policy #17 requires tools to have readOnlyHint and destructiveHint annotations.",
       );
     }
 

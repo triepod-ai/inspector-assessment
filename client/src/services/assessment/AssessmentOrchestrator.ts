@@ -107,12 +107,12 @@ export class AssessmentOrchestrator {
       }
       if (this.config.assessmentCategories?.prohibitedLibraries) {
         this.prohibitedLibrariesAssessor = new ProhibitedLibrariesAssessor(
-          this.config
+          this.config,
         );
       }
       if (this.config.assessmentCategories?.manifestValidation) {
         this.manifestValidationAssessor = new ManifestValidationAssessor(
-          this.config
+          this.config,
         );
       }
       if (this.config.assessmentCategories?.portability) {
@@ -339,7 +339,8 @@ export class AssessmentOrchestrator {
     // New assessor counts
     const aupCount = this.aupComplianceAssessor?.getTestCount() || 0;
     const annotationCount = this.toolAnnotationAssessor?.getTestCount() || 0;
-    const librariesCount = this.prohibitedLibrariesAssessor?.getTestCount() || 0;
+    const librariesCount =
+      this.prohibitedLibrariesAssessor?.getTestCount() || 0;
     const manifestCount = this.manifestValidationAssessor?.getTestCount() || 0;
     const portabilityCount = this.portabilityAssessor?.getTestCount() || 0;
 
@@ -422,30 +423,30 @@ export class AssessmentOrchestrator {
     // New assessor findings
     if (results.aupCompliance?.violations?.length > 0) {
       const criticalCount = results.aupCompliance.violations.filter(
-        (v: any) => v.severity === "CRITICAL"
+        (v: any) => v.severity === "CRITICAL",
       ).length;
       if (criticalCount > 0) {
         parts.push(`CRITICAL: ${criticalCount} AUP violation(s) detected.`);
       } else {
         parts.push(
-          `${results.aupCompliance.violations.length} AUP item(s) flagged for review.`
+          `${results.aupCompliance.violations.length} AUP item(s) flagged for review.`,
         );
       }
     }
 
     if (results.toolAnnotations?.missingAnnotationsCount > 0) {
       parts.push(
-        `${results.toolAnnotations.missingAnnotationsCount} tools missing annotations.`
+        `${results.toolAnnotations.missingAnnotationsCount} tools missing annotations.`,
       );
     }
 
     if (results.prohibitedLibraries?.matches?.length > 0) {
       const blockingCount = results.prohibitedLibraries.matches.filter(
-        (m: any) => m.severity === "BLOCKING"
+        (m: any) => m.severity === "BLOCKING",
       ).length;
       if (blockingCount > 0) {
         parts.push(
-          `BLOCKING: ${blockingCount} prohibited library/libraries detected.`
+          `BLOCKING: ${blockingCount} prohibited library/libraries detected.`,
         );
       }
     }

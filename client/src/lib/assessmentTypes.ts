@@ -654,7 +654,11 @@ export type ProhibitedLibraryCategory =
 export interface ProhibitedLibraryMatch {
   name: string;
   category: ProhibitedLibraryCategory;
-  location: "package.json" | "source_import" | "requirements.txt" | "cargo.toml";
+  location:
+    | "package.json"
+    | "source_import"
+    | "requirements.txt"
+    | "cargo.toml";
   filePath?: string;
   lineNumber?: number;
   severity: "BLOCKING" | "HIGH" | "MEDIUM";

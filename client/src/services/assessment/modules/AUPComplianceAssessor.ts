@@ -65,7 +65,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
         this.testCount++;
         const descViolations = this.scanToolDescription(
           tool.name,
-          tool.description
+          tool.description,
         );
         violations.push(...descViolations);
 
@@ -114,15 +114,15 @@ export class AUPComplianceAssessor extends BaseAssessor {
     const explanation = this.generateExplanation(
       violations,
       highRiskDomains,
-      scannedLocations
+      scannedLocations,
     );
     const recommendations = this.generateRecommendations(
       violations,
-      highRiskDomains
+      highRiskDomains,
     );
 
     this.log(
-      `Assessment complete: ${violations.length} violations found, ${highRiskDomains.length} high-risk domains`
+      `Assessment complete: ${violations.length} violations found, ${highRiskDomains.length} high-risk domains`,
     );
 
     return {
@@ -159,7 +159,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
    */
   private scanToolDescription(
     toolName: string,
-    description: string
+    description: string,
   ): AUPViolation[] {
     const matches = checkTextForAUPViolations(description);
 
@@ -249,7 +249,9 @@ export class AUPComplianceAssessor extends BaseAssessor {
    */
   private determineAUPStatus(violations: AUPViolation[]): AssessmentStatus {
     // CRITICAL violations = automatic FAIL
-    const criticalViolations = violations.filter((v) => v.severity === "CRITICAL");
+    const criticalViolations = violations.filter(
+      (v) => v.severity === "CRITICAL",
+    );
     if (criticalViolations.length > 0) {
       return "FAIL";
     }
@@ -257,7 +259,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
     // HIGH violations = FAIL unless all low confidence
     const highViolations = violations.filter((v) => v.severity === "HIGH");
     const highConfidenceHigh = highViolations.filter(
-      (v) => v.confidence === "high" || v.confidence === "medium"
+      (v) => v.confidence === "high" || v.confidence === "medium",
     );
     if (highConfidenceHigh.length > 0) {
       return "FAIL";
@@ -277,7 +279,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
   private generateExplanation(
     violations: AUPViolation[],
     highRiskDomains: string[],
-    scannedLocations: AUPComplianceAssessment["scannedLocations"]
+    scannedLocations: AUPComplianceAssessment["scannedLocations"],
   ): string {
     const parts: string[] = [];
 
@@ -286,16 +288,16 @@ export class AUPComplianceAssessor extends BaseAssessor {
       parts.push("No AUP violations detected.");
     } else {
       const criticalCount = violations.filter(
-        (v) => v.severity === "CRITICAL"
+        (v) => v.severity === "CRITICAL",
       ).length;
       const highCount = violations.filter((v) => v.severity === "HIGH").length;
       const mediumCount = violations.filter(
-        (v) => v.severity === "MEDIUM"
+        (v) => v.severity === "MEDIUM",
       ).length;
 
       if (criticalCount > 0) {
         parts.push(
-          `CRITICAL: ${criticalCount} critical AUP violation(s) detected that require immediate review.`
+          `CRITICAL: ${criticalCount} critical AUP violation(s) detected that require immediate review.`,
         );
       }
       if (highCount > 0) {
@@ -303,7 +305,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
       }
       if (mediumCount > 0) {
         parts.push(
-          `MEDIUM: ${mediumCount} medium-severity item(s) flagged for review.`
+          `MEDIUM: ${mediumCount} medium-severity item(s) flagged for review.`,
         );
       }
     }
@@ -311,7 +313,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
     // High-risk domains
     if (highRiskDomains.length > 0) {
       parts.push(
-        `High-risk domains detected: ${highRiskDomains.join(", ")}. Additional review recommended.`
+        `High-risk domains detected: ${highRiskDomains.join(", ")}. Additional review recommended.`,
       );
     }
 
@@ -329,19 +331,21 @@ export class AUPComplianceAssessor extends BaseAssessor {
    */
   private generateRecommendations(
     violations: AUPViolation[],
-    highRiskDomains: string[]
+    highRiskDomains: string[],
   ): string[] {
     const recommendations: string[] = [];
 
     // Critical violations
-    const criticalViolations = violations.filter((v) => v.severity === "CRITICAL");
+    const criticalViolations = violations.filter(
+      (v) => v.severity === "CRITICAL",
+    );
     if (criticalViolations.length > 0) {
       recommendations.push(
-        "CRITICAL: This MCP server contains content that violates Anthropic's Acceptable Use Policy and cannot be approved for the directory."
+        "CRITICAL: This MCP server contains content that violates Anthropic's Acceptable Use Policy and cannot be approved for the directory.",
       );
       for (const v of criticalViolations) {
         recommendations.push(
-          `- Category ${v.category} (${v.categoryName}): "${v.matchedText}" in ${v.location}`
+          `- Category ${v.category} (${v.categoryName}): "${v.matchedText}" in ${v.location}`,
         );
       }
     }
@@ -350,11 +354,11 @@ export class AUPComplianceAssessor extends BaseAssessor {
     const highViolations = violations.filter((v) => v.severity === "HIGH");
     if (highViolations.length > 0) {
       recommendations.push(
-        "HIGH: Review the following items for potential AUP violations:"
+        "HIGH: Review the following items for potential AUP violations:",
       );
       for (const v of highViolations) {
         recommendations.push(
-          `- Category ${v.category} (${v.categoryName}): "${v.matchedText}" in ${v.location}`
+          `- Category ${v.category} (${v.categoryName}): "${v.matchedText}" in ${v.location}`,
         );
       }
     }
@@ -362,14 +366,14 @@ export class AUPComplianceAssessor extends BaseAssessor {
     // High-risk domains
     if (highRiskDomains.length > 0) {
       recommendations.push(
-        `This server operates in high-risk domain(s): ${highRiskDomains.join(", ")}. Ensure appropriate safeguards and human oversight are in place.`
+        `This server operates in high-risk domain(s): ${highRiskDomains.join(", ")}. Ensure appropriate safeguards and human oversight are in place.`,
       );
     }
 
     // If no issues
     if (recommendations.length === 0) {
       recommendations.push(
-        "No AUP compliance issues detected. Server appears compliant with Anthropic's Acceptable Use Policy."
+        "No AUP compliance issues detected. Server appears compliant with Anthropic's Acceptable Use Policy.",
       );
     }
 

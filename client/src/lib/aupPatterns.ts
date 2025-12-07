@@ -169,8 +169,7 @@ export const AUP_PATTERNS: AUPPatternDefinition[] = [
       /\blegal\s*document\s*generator/i,
       /\btax\s*(advice|preparation)\s*bot/i,
     ],
-    description:
-      "Tools that may provide unauthorized professional advice",
+    description: "Tools that may provide unauthorized professional advice",
     requiresHumanReview: true,
     reviewGuidance:
       "Check for appropriate disclaimers and professional oversight requirements.",
@@ -224,8 +223,7 @@ export const AUP_PATTERNS: AUPPatternDefinition[] = [
     ],
     description: "Tools targeting critical infrastructure",
     requiresHumanReview: true,
-    reviewGuidance:
-      "Check if legitimate infrastructure security testing tool.",
+    reviewGuidance: "Check if legitimate infrastructure security testing tool.",
   },
 
   // =========================================================================
@@ -260,8 +258,7 @@ export const AUP_PATTERNS: AUPPatternDefinition[] = [
     ],
     description: "Tools potentially facilitating illegal activities",
     requiresHumanReview: true,
-    reviewGuidance:
-      "Verify not legitimate law enforcement or research tool.",
+    reviewGuidance: "Verify not legitimate law enforcement or research tool.",
   },
   {
     category: "N",
@@ -330,7 +327,7 @@ export const HIGH_RISK_DOMAINS: {
  * Get all patterns for a specific severity level
  */
 export function getPatternsBySeverity(
-  severity: AUPSeverity
+  severity: AUPSeverity,
 ): AUPPatternDefinition[] {
   return AUP_PATTERNS.filter((p) => p.severity === severity);
 }
@@ -339,7 +336,7 @@ export function getPatternsBySeverity(
  * Get pattern definition for a specific category
  */
 export function getPatternByCategory(
-  category: AUPCategory
+  category: AUPCategory,
 ): AUPPatternDefinition | undefined {
   return AUP_PATTERNS.find((p) => p.category === category);
 }
@@ -348,9 +345,7 @@ export function getPatternByCategory(
  * Check text against all AUP patterns
  * Returns array of matching patterns with details
  */
-export function checkTextForAUPViolations(
-  text: string
-): Array<{
+export function checkTextForAUPViolations(text: string): Array<{
   category: AUPCategory;
   categoryName: string;
   severity: AUPSeverity;
@@ -393,10 +388,13 @@ export function checkTextForAUPViolations(
  * Check text for high-risk domain keywords
  */
 export function checkTextForHighRiskDomains(
-  text: string
+  text: string,
 ): Array<{ domain: string; reason: string; matchedText: string }> {
-  const matches: Array<{ domain: string; reason: string; matchedText: string }> =
-    [];
+  const matches: Array<{
+    domain: string;
+    reason: string;
+    matchedText: string;
+  }> = [];
 
   for (const domainDef of HIGH_RISK_DOMAINS) {
     const match = text.match(domainDef.pattern);

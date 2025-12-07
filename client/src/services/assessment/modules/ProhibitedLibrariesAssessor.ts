@@ -30,7 +30,7 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
    * Run prohibited libraries assessment
    */
   async assess(
-    context: AssessmentContext
+    context: AssessmentContext,
   ): Promise<ProhibitedLibrariesAssessment> {
     this.log("Starting prohibited libraries assessment");
     this.testCount = 0;
@@ -147,17 +147,17 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
     // De-duplicate matches by library name
     const uniqueMatches = this.deduplicateMatches(matches);
 
-    const status = this.determineStatus(uniqueMatches);
+    const status = this.calculateStatusFromMatches(uniqueMatches);
     const explanation = this.generateExplanation(
       uniqueMatches,
       hasFinancialLibraries,
       hasMediaLibraries,
-      scannedFiles
+      scannedFiles,
     );
     const recommendations = this.generateRecommendations(uniqueMatches);
 
     this.log(
-      `Assessment complete: ${uniqueMatches.length} prohibited libraries found`
+      `Assessment complete: ${uniqueMatches.length} prohibited libraries found`,
     );
 
     return {
@@ -204,7 +204,7 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
    * De-duplicate matches, keeping the most severe
    */
   private deduplicateMatches(
-    matches: ProhibitedLibraryMatch[]
+    matches: ProhibitedLibraryMatch[],
   ): ProhibitedLibraryMatch[] {
     const byName = new Map<string, ProhibitedLibraryMatch>();
 
@@ -215,9 +215,7 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
       } else {
         // Keep the more severe match
         const severityOrder = { BLOCKING: 3, HIGH: 2, MEDIUM: 1 };
-        if (
-          severityOrder[match.severity] > severityOrder[existing.severity]
-        ) {
+        if (severityOrder[match.severity] > severityOrder[existing.severity]) {
           byName.set(match.name, match);
         }
       }
@@ -227,10 +225,10 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
   }
 
   /**
-   * Determine overall status
+   * Calculate overall status from matches
    */
-  private determineStatus(
-    matches: ProhibitedLibraryMatch[]
+  private calculateStatusFromMatches(
+    matches: ProhibitedLibraryMatch[],
   ): AssessmentStatus {
     // Any BLOCKING library = FAIL
     const blockingMatches = matches.filter((m) => m.severity === "BLOCKING");
@@ -259,45 +257,45 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
     matches: ProhibitedLibraryMatch[],
     hasFinancial: boolean,
     hasMedia: boolean,
-    scannedFiles: string[]
+    scannedFiles: string[],
   ): string {
     const parts: string[] = [];
 
     if (matches.length === 0) {
       parts.push(
-        "No prohibited libraries detected. Server appears compliant with Policy #28-30."
+        "No prohibited libraries detected. Server appears compliant with Policy #28-30.",
       );
     } else {
       const blockingCount = matches.filter(
-        (m) => m.severity === "BLOCKING"
+        (m) => m.severity === "BLOCKING",
       ).length;
       const highCount = matches.filter((m) => m.severity === "HIGH").length;
       const mediumCount = matches.filter((m) => m.severity === "MEDIUM").length;
 
       if (blockingCount > 0) {
         parts.push(
-          `BLOCKING: ${blockingCount} prohibited library/libraries detected that violate MCP Directory policy.`
+          `BLOCKING: ${blockingCount} prohibited library/libraries detected that violate MCP Directory policy.`,
         );
       }
       if (highCount > 0) {
         parts.push(
-          `HIGH: ${highCount} library/libraries detected that require justification for MCP server use.`
+          `HIGH: ${highCount} library/libraries detected that require justification for MCP server use.`,
         );
       }
       if (mediumCount > 0) {
         parts.push(
-          `MEDIUM: ${mediumCount} library/libraries flagged for review.`
+          `MEDIUM: ${mediumCount} library/libraries flagged for review.`,
         );
       }
 
       if (hasFinancial) {
         parts.push(
-          "Financial/payment processing libraries detected - violates Policy #28-29."
+          "Financial/payment processing libraries detected - violates Policy #28-29.",
         );
       }
       if (hasMedia) {
         parts.push(
-          "Media processing libraries detected - may require justification per Policy #30."
+          "Media processing libraries detected - may require justification per Policy #30.",
         );
       }
     }
@@ -310,9 +308,7 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
   /**
    * Generate recommendations
    */
-  private generateRecommendations(
-    matches: ProhibitedLibraryMatch[]
-  ): string[] {
+  private generateRecommendations(matches: ProhibitedLibraryMatch[]): string[] {
     const recommendations: string[] = [];
 
     // Group by severity
@@ -322,44 +318,44 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
 
     if (blocking.length > 0) {
       recommendations.push(
-        "BLOCKING - The following libraries must be removed for MCP Directory approval:"
+        "BLOCKING - The following libraries must be removed for MCP Directory approval:",
       );
       for (const match of blocking) {
         recommendations.push(
-          `- ${match.name} (${match.policyReference}): ${match.reason}`
+          `- ${match.name} (${match.policyReference}): ${match.reason}`,
         );
       }
     }
 
     if (high.length > 0) {
       recommendations.push(
-        "HIGH - The following libraries require strong justification:"
+        "HIGH - The following libraries require strong justification:",
       );
       for (const match of high) {
         recommendations.push(
-          `- ${match.name} (${match.policyReference}): ${match.reason}`
+          `- ${match.name} (${match.policyReference}): ${match.reason}`,
         );
       }
     }
 
     if (medium.length > 0) {
       recommendations.push(
-        "MEDIUM - Review the following libraries for necessity:"
+        "MEDIUM - Review the following libraries for necessity:",
       );
       for (const match of medium.slice(0, 3)) {
         recommendations.push(
-          `- ${match.name} (${match.policyReference}): ${match.reason}`
+          `- ${match.name} (${match.policyReference}): ${match.reason}`,
         );
       }
     }
 
     if (matches.length === 0) {
       recommendations.push(
-        "No prohibited libraries detected. Server is compliant with library restrictions."
+        "No prohibited libraries detected. Server is compliant with library restrictions.",
       );
     } else {
       recommendations.push(
-        "Reference: MCP Directory Policy #28-30 restricts financial transaction and media processing libraries."
+        "Reference: MCP Directory Policy #28-30 restricts financial transaction and media processing libraries.",
       );
     }
 
