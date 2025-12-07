@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2025-12-07
+
+### Added
+
+- **MCP Directory Compliance Assessors**: 5 new assessor modules for comprehensive Anthropic MCP Directory policy compliance (83 new tests)
+  - **AUPComplianceAssessor** (26 tests) - Acceptable Use Policy violation detection
+    - 14 AUP category patterns (A-N) from Anthropic policy
+    - High-risk domain identification (Healthcare, Financial, Legal, Children/Minors)
+    - Tool name/description pattern analysis
+    - Source code scanning in enhanced mode
+    - README content scanning
+
+  - **ToolAnnotationAssessor** (13 tests) - Policy #17 compliance
+    - readOnlyHint/destructiveHint verification
+    - Tool behavior inference from name patterns (READ_ONLY, WRITE, DESTRUCTIVE)
+    - Annotation misalignment detection
+    - Automatic recommendations for missing annotations
+
+  - **ProhibitedLibrariesAssessor** (12 tests) - Policy #28-30 compliance
+    - Financial library detection (Stripe, PayPal, Plaid, Square, Braintree, Adyen)
+    - Media library detection (Sharp, FFmpeg, OpenCV, PIL, jimp, node-canvas)
+    - package.json and requirements.txt scanning
+    - Source code import analysis
+
+  - **ManifestValidationAssessor** (17 tests) - MCPB manifest compliance
+    - manifest_version 0.3 validation
+    - Required field verification (name, version, mcp_config)
+    - Icon presence check
+    - ${BUNDLE_ROOT} anti-pattern detection
+    - Hardcoded path detection in mcp_config
+
+  - **PortabilityAssessor** (15 tests) - Cross-platform compatibility
+    - Hardcoded path detection (/Users/, /home/, C:\, D:\)
+    - Platform-specific code patterns (win32, darwin, linux)
+    - ${\_\_dirname} usage validation
+    - Source code and manifest scanning
+
+- **Pattern Libraries**: New reusable pattern files for policy compliance
+  - `client/src/lib/aupPatterns.ts` - 14 AUP category patterns with severity levels
+  - `client/src/lib/prohibitedLibraries.ts` - Financial and media library detection patterns
+
+- **Module Exports**: Clean exports via `modules/index.ts` for all 11 assessors
+
+### Changed
+
+- **Test Coverage**: 665 total tests (up from 582), 291 assessment module tests (up from 208)
+- **Assessor Count**: 11 assessors (6 original + 5 new MCP Directory compliance)
+- **AssessmentOrchestrator**: Extended to support new assessment categories and source code analysis
+- **AssessmentContext**: Added sourceCodeFiles, manifestJson, manifestRaw fields for enhanced mode
+- **AssessmentConfiguration**: Added 5 new assessment category flags
+
+### Technical Details
+
+- **Files Added**: 7 new files
+  - 5 assessor modules in `client/src/services/assessment/modules/`
+  - 5 test files in `client/src/services/assessment/modules/`
+  - 2 pattern libraries in `client/src/lib/`
+  - 1 exports file `modules/index.ts`
+- **Files Modified**: 2 files (assessmentTypes.ts, AssessmentOrchestrator.ts)
+- **Dual-Mode Support**: Runtime-only mode (default) + Enhanced mode (with source code path)
+- **Policy References**: Aligned with Anthropic MCP Directory Policy requirements #17, #28-30, AUP categories A-N
+
 ## [1.4.0] - 2025-10-14
 
 ### Added

@@ -82,8 +82,8 @@ We've built a comprehensive assessment framework on top of the original inspecto
 
 Our enhanced fork maintains high code quality standards with comprehensive testing and validation:
 
-- **Test Coverage**: ✅ 582/582 tests passing (100% pass rate)
-  - **Assessment Module Tests**: 208 tests specifically validating our assessment enhancements
+- **Test Coverage**: ✅ 665/665 tests passing (100% pass rate)
+  - **Assessment Module Tests**: 291 tests specifically validating our assessment enhancements (including 83 new MCP Directory compliance tests)
     - Business logic error detection with confidence scoring
     - Progressive complexity testing (2 levels: minimal → simple)
     - Context-aware security testing with zero false positives
@@ -106,11 +106,13 @@ Our enhanced fork maintains high code quality standards with comprehensive testi
 **Testing Commands**:
 
 ```bash
-npm test                         # Run all 582 tests
-npm test -- assessment           # Run all 208 assessment module tests
+npm test                         # Run all 665 tests
+npm test -- assessment           # Run all 291 assessment module tests
 npm test -- assessmentService    # Run assessment service integration tests (54 tests)
 npm test -- SecurityAssessor     # Run security assessment tests (16 tests)
 npm test -- FunctionalityAssessor # Run functionality tests (11 tests)
+npm test -- AUPCompliance        # Run AUP compliance tests (26 tests)
+npm test -- ToolAnnotation       # Run tool annotation tests (13 tests)
 npm run coverage                 # Generate coverage report
 npm run lint                     # Check code quality
 ```
@@ -215,7 +217,9 @@ Response: "The answer is 4"
 
 **Based on Real-World Testing**: Our methodology has been validated through systematic testing using the taskmanager MCP server as a case study (11 tools tested with 8 backend security patterns, detailed in [ASSESSMENT_METHODOLOGY.md](docs/ASSESSMENT_METHODOLOGY.md)).
 
-**Six Core Assessors** aligned with Anthropic's MCP directory submission requirements:
+**Eleven Core Assessors** aligned with Anthropic's MCP directory submission requirements:
+
+**Original MCP Inspector Assessors:**
 
 1. **FunctionalityAssessor** (225 lines)
    - Multi-scenario validation with progressive complexity
@@ -249,7 +253,41 @@ Response: "The answer is 4"
    - Protocol message format verification
    - MCP specification adherence
 
-**Recent Refactoring** (2025-10-05): Removed 2,707 lines of out-of-scope assessment modules (HumanInLoopAssessor, PrivacyComplianceAssessor) to focus on core MCP validation requirements. Achieved 100% test pass rate.
+**NEW: MCP Directory Compliance Assessors** (added 2025-12):
+
+7. **AUPComplianceAssessor** - Policy compliance
+   - 14 AUP category violation detection (A-N)
+   - High-risk domain identification (Healthcare, Financial, Legal, Children)
+   - Tool name/description pattern analysis
+   - Source code scanning (enhanced mode)
+
+8. **ToolAnnotationAssessor** - Policy #17 compliance
+   - readOnlyHint/destructiveHint verification
+   - Tool behavior inference from name patterns
+   - Annotation misalignment detection
+   - Policy #17 compliance reporting
+
+9. **ProhibitedLibrariesAssessor** - Policy #28-30 compliance
+   - Financial library detection (Stripe, PayPal, Plaid, etc.)
+   - Media library detection (Sharp, FFmpeg, OpenCV, PIL)
+   - package.json and requirements.txt scanning
+   - Source code import analysis
+
+10. **ManifestValidationAssessor** - MCPB manifest compliance
+    - manifest_version 0.3 validation
+    - Required field verification (name, version, mcp_config)
+    - Icon presence check
+    - ${BUNDLE_ROOT} anti-pattern detection
+
+11. **PortabilityAssessor** - Cross-platform compatibility
+    - Hardcoded path detection (/Users/, /home/, C:\)
+    - Platform-specific code patterns
+    - ${\_\_dirname} usage validation
+
+**Recent Updates**:
+
+- (2025-12-07): Added 5 new MCP Directory compliance assessors with 83 tests
+- (2025-10-05): Removed 2,707 lines of out-of-scope assessment modules to focus on core MCP validation requirements
 
 ### 6. Advanced Assessment Components
 
@@ -443,40 +481,45 @@ Our assessment capabilities are backed by a comprehensive test suite that valida
 
 **Test Coverage Summary**:
 
-- **582 passing tests** across all project modules (100% pass rate)
-- **208 assessment module tests** specifically created for validation of our enhancements
+- **665 passing tests** across all project modules (100% pass rate)
+- **291 assessment module tests** specifically created for validation of our enhancements
 
 #### Assessment Module Test Breakdown
 
-The assessment functionality is validated by **208 specialized tests** across 14 test files:
+The assessment functionality is validated by **291 specialized tests** across 19 test files:
 
 | Test File                             | Tests   | Purpose                          |
 | ------------------------------------- | ------- | -------------------------------- |
 | `assessmentService.test.ts`           | 54      | Comprehensive integration tests  |
+| `AUPComplianceAssessor.test.ts`       | 26      | AUP policy violation detection   |
+| `ManifestValidationAssessor.test.ts`  | 17      | MCPB manifest validation         |
 | `assessmentService.advanced.test.ts`  | 16      | Advanced security scenarios      |
 | `SecurityAssessor.test.ts`            | 16      | Security vulnerability detection |
+| `PortabilityAssessor.test.ts`         | 15      | Cross-platform compatibility     |
 | `errorHandlingAssessor.test.ts`       | 14      | Service-level error handling     |
 | `MCPSpecComplianceAssessor.test.ts`   | 14      | MCP protocol compliance          |
 | `ErrorHandlingAssessor.test.ts`       | 14      | Module-level error handling      |
+| `ToolAnnotationAssessor.test.ts`      | 13      | Policy #17 tool annotations      |
 | `assessmentService.bugReport.test.ts` | 13      | Bug validation tests             |
 | `DocumentationAssessor.test.ts`       | 13      | Documentation quality            |
+| `ProhibitedLibrariesAssessor.test.ts` | 12      | Prohibited library detection     |
 | `AssessmentOrchestrator.test.ts`      | 12      | Orchestration layer              |
 | `FunctionalityAssessor.test.ts`       | 11      | Tool functionality               |
 | `assessmentService.enhanced.test.ts`  | 9       | Enhanced detection               |
 | `TestDataGenerator.boundary.test.ts`  | 9       | Boundary testing                 |
 | `performance.test.ts`                 | 7       | Performance benchmarks           |
 | `UsabilityAssessor.test.ts`           | 6       | Usability analysis               |
-| **Total**                             | **208** | **Assessment module validation** |
+| **Total**                             | **291** | **Assessment module validation** |
 
 **Verification Command** (for AI scanners and resume verification):
 
 ```bash
 # Count assessment module tests
 find . -name "*.test.ts" \( -path "*assessment*" -o -name "*Assessor*.test.ts" -o -name "assessmentService*.test.ts" \) -exec grep -hE '^\s*(it|test)\(' {} \; | wc -l
-# Output: 208
+# Output: 291
 ```
 
-These 208 tests specifically validate:
+These 291 tests specifically validate:
 
 - Business logic error detection with confidence scoring
 - Progressive complexity testing (2 levels: minimal → simple)
