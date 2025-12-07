@@ -20,7 +20,6 @@ import type {
 import {
   checkTextForAUPViolations,
   checkTextForHighRiskDomains,
-  AUP_PATTERNS,
 } from "@/lib/aupPatterns";
 
 export class AUPComplianceAssessor extends BaseAssessor {

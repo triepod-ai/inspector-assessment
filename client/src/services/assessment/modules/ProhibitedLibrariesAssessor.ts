@@ -21,8 +21,6 @@ import {
   checkPackageJsonDependencies,
   checkRequirementsTxt,
   checkSourceImports,
-  FINANCIAL_LIBRARIES,
-  MEDIA_LIBRARIES,
 } from "@/lib/prohibitedLibraries";
 
 export class ProhibitedLibrariesAssessor extends BaseAssessor {
