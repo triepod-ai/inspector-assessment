@@ -812,6 +812,23 @@ export const PROMPT_INJECTION_TESTS: Omit<
   },
 ];
 
+/**
+ * Claude Code Bridge Configuration
+ * Enables integration with Claude Code CLI for intelligent analysis
+ */
+export interface ClaudeCodeConfig {
+  enabled: boolean;
+  features: {
+    intelligentTestGeneration: boolean; // Use Claude for test parameter generation
+    aupSemanticAnalysis: boolean; // Semantic analysis of AUP violations
+    annotationInference: boolean; // Infer tool behavior from descriptions
+    documentationQuality: boolean; // Assess documentation quality
+  };
+  timeout: number; // Per-call timeout in milliseconds
+  workingDir?: string; // Optional working directory for Claude
+  maxRetries?: number; // Max retries on failure (default 1)
+}
+
 export interface AssessmentConfiguration {
   testTimeout: number; // milliseconds
   delayBetweenTests?: number; // milliseconds to wait between tests to avoid rate limiting
@@ -832,6 +849,8 @@ export interface AssessmentConfiguration {
   mcpProtocolVersion?: string;
   // Enable source code analysis (requires sourceCodePath in context)
   enableSourceCodeAnalysis?: boolean;
+  // Claude Code integration for intelligent analysis
+  claudeCode?: ClaudeCodeConfig;
   assessmentCategories?: {
     functionality: boolean;
     security: boolean;
@@ -962,6 +981,48 @@ export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
     usability: true,
     mcpSpecCompliance: true,
     // All new assessors enabled for audit mode
+    aupCompliance: true,
+    toolAnnotations: true,
+    prohibitedLibraries: true,
+    manifestValidation: true,
+    portability: true,
+  },
+};
+
+// Claude-enhanced audit mode: uses Claude Code for intelligent analysis
+// Reduces false positives in AUP scanning and improves test quality
+export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
+  testTimeout: 30000,
+  delayBetweenTests: 100,
+  skipBrokenTools: false,
+  reviewerMode: false,
+  enableExtendedAssessment: true,
+  parallelTesting: false, // Sequential when using Claude to avoid rate limiting
+  maxParallelTests: 1,
+  maxToolsToTestForErrors: -1,
+  securityPatternsToTest: 8,
+  enableDomainTesting: true,
+  mcpProtocolVersion: "2025-06",
+  enableSourceCodeAnalysis: true,
+  // Claude Code integration enabled
+  claudeCode: {
+    enabled: true,
+    features: {
+      intelligentTestGeneration: true, // Generate semantically meaningful test params
+      aupSemanticAnalysis: true, // Reduce false positives in AUP scanning
+      annotationInference: true, // Detect annotation misalignments
+      documentationQuality: true, // Assess documentation quality semantically
+    },
+    timeout: 90000, // 90 seconds for Claude calls
+    maxRetries: 2,
+  },
+  assessmentCategories: {
+    functionality: true,
+    security: true,
+    documentation: true,
+    errorHandling: true,
+    usability: true,
+    mcpSpecCompliance: true,
     aupCompliance: true,
     toolAnnotations: true,
     prohibitedLibraries: true,
