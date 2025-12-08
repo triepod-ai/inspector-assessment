@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2025-12-08
+
+### Added
+
+- **New CLI Commands**: Two new standalone CLI commands for targeted assessment workflows
+  - `mcp-assess-full` - Comprehensive full assessment runner (690 lines)
+    - Orchestrates all assessment categories in a single command
+    - Progress reporting and detailed result output
+    - Suitable for CI/CD pipelines and automated testing
+  - `mcp-assess-security` - Focused security assessment runner (450 lines)
+    - Rapid security-focused evaluation
+    - Streamlined output for security reviews
+    - Ideal for security-first validation workflows
+
+- **Library Exports**: New modular exports for programmatic usage
+  - Direct access to AssessmentOrchestrator
+  - Individual assessment module imports
+  - Type definitions for external integration
+  - Enables embedding inspector functionality in other tools
+
+### Enhanced
+
+- **Client Package**: Enhanced build system with library output
+  - New `build:lib` script for creating importable modules
+  - `tsconfig.lib.json` for library-specific TypeScript configuration
+  - tsc-alias integration for path resolution
+  - Supports both CLI and library usage patterns
+
+- **CLI Package**: Improved bin configuration
+  - Three distinct entry points for different use cases
+  - Better command organization and discoverability
+  - Updated dependency references to support new commands
+
+### Infrastructure
+
+- **Build System**: Enhanced TypeScript configuration
+  - Separate lib and app builds for client package
+  - Better module resolution for library exports
+  - Maintained backward compatibility with existing workflows
+
 ## [1.6.0] - 2025-12-08
 
 ### Added

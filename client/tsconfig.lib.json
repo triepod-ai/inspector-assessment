@@ -22,9 +22,5 @@
     "src/lib/assessmentTypes.ts",
     "src/lib/aupPatterns.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "**/*.test.ts",
-    "**/__tests__/**"
-  ]
+  "exclude": ["node_modules", "**/*.test.ts", "**/__tests__/**"]
 }

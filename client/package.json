@@ -1,6 +1,6 @@
 {
   "name": "@bryan-thompson/inspector-assessment-client",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Client-side application for the Enhanced MCP Inspector with assessment capabilities",
   "license": "MIT",
   "author": "Bryan Thompson <bryan@triepod.ai>",
@@ -37,7 +37,7 @@
   "scripts": {
     "dev": "vite --port 6274",
     "build": "tsc -b && vite build && npm run build:lib",
-    "build:lib": "tsc -p tsconfig.lib.json && tsc-alias -p tsconfig.lib.json --resolve-full-paths",
+    "build:lib": "tsc -p tsconfig.lib.json && npx tsc-alias -p tsconfig.lib.json --resolve-full-paths",
     "lint": "eslint .",
     "preview": "vite preview --port 6274",
     "test": "jest --config jest.config.cjs",
