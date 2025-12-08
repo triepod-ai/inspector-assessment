@@ -32,6 +32,14 @@ import { ProhibitedLibrariesAssessor } from "./modules/ProhibitedLibrariesAssess
 import { ManifestValidationAssessor } from "./modules/ManifestValidationAssessor";
 import { PortabilityAssessor } from "./modules/PortabilityAssessor";
 
+// Claude Code integration for intelligent analysis
+import {
+  ClaudeCodeBridge,
+  ClaudeCodeBridgeConfig,
+  FULL_CLAUDE_CODE_CONFIG,
+} from "./lib/claudeCodeBridge";
+import { TestDataGenerator } from "./TestDataGenerator";
+
 export interface AssessmentContext {
   serverName: string;
   tools: Tool[];
@@ -65,6 +73,10 @@ export class AssessmentOrchestrator {
   private startTime: number = 0;
   private totalTestsRun: number = 0;
 
+  // Claude Code Bridge for intelligent analysis
+  private claudeBridge?: ClaudeCodeBridge;
+  private claudeEnabled: boolean = false;
+
   // Core assessors
   private functionalityAssessor: FunctionalityAssessor;
   private securityAssessor: SecurityAssessor;
@@ -85,6 +97,11 @@ export class AssessmentOrchestrator {
   constructor(config: Partial<AssessmentConfiguration> = {}) {
     this.config = { ...DEFAULT_ASSESSMENT_CONFIG, ...config };
 
+    // Initialize Claude Code Bridge if enabled in config
+    if (this.config.claudeCode?.enabled) {
+      this.initializeClaudeBridge(this.config.claudeCode);
+    }
+
     // Initialize core assessors
     this.functionalityAssessor = new FunctionalityAssessor(this.config);
     this.securityAssessor = new SecurityAssessor(this.config);
@@ -101,9 +118,17 @@ export class AssessmentOrchestrator {
       // Initialize new MCP Directory Compliance Gap assessors
       if (this.config.assessmentCategories?.aupCompliance) {
         this.aupComplianceAssessor = new AUPComplianceAssessor(this.config);
+        // Wire up Claude bridge for semantic analysis
+        if (this.claudeBridge) {
+          this.aupComplianceAssessor.setClaudeBridge(this.claudeBridge);
+        }
       }
       if (this.config.assessmentCategories?.toolAnnotations) {
         this.toolAnnotationAssessor = new ToolAnnotationAssessor(this.config);
+        // Wire up Claude bridge for behavior inference
+        if (this.claudeBridge) {
+          this.toolAnnotationAssessor.setClaudeBridge(this.claudeBridge);
+        }
       }
       if (this.config.assessmentCategories?.prohibitedLibraries) {
         this.prohibitedLibrariesAssessor = new ProhibitedLibrariesAssessor(
@@ -119,6 +144,71 @@ export class AssessmentOrchestrator {
         this.portabilityAssessor = new PortabilityAssessor(this.config);
       }
     }
+
+    // Wire up Claude bridge to TestDataGenerator for intelligent test generation
+    if (this.claudeBridge) {
+      TestDataGenerator.setClaudeBridge(this.claudeBridge);
+    }
+  }
+
+  /**
+   * Initialize Claude Code Bridge for intelligent analysis
+   * This enables semantic AUP violation analysis, behavior inference, and intelligent test generation
+   */
+  private initializeClaudeBridge(bridgeConfig: ClaudeCodeBridgeConfig): void {
+    try {
+      this.claudeBridge = new ClaudeCodeBridge(bridgeConfig);
+      this.claudeEnabled = true;
+      console.log(
+        "[AssessmentOrchestrator] Claude Code Bridge initialized with features:",
+        bridgeConfig.features,
+      );
+    } catch (error) {
+      console.warn(
+        "[AssessmentOrchestrator] Failed to initialize Claude Code Bridge:",
+        error,
+      );
+      this.claudeEnabled = false;
+    }
+  }
+
+  /**
+   * Enable Claude Code integration programmatically
+   * Call this method to enable Claude features after construction
+   */
+  enableClaudeCode(config?: Partial<ClaudeCodeBridgeConfig>): void {
+    const bridgeConfig: ClaudeCodeBridgeConfig = {
+      ...FULL_CLAUDE_CODE_CONFIG,
+      ...config,
+      enabled: true,
+    };
+
+    this.initializeClaudeBridge(bridgeConfig);
+
+    // Wire up to existing assessors
+    if (this.claudeBridge) {
+      if (this.aupComplianceAssessor) {
+        this.aupComplianceAssessor.setClaudeBridge(this.claudeBridge);
+      }
+      if (this.toolAnnotationAssessor) {
+        this.toolAnnotationAssessor.setClaudeBridge(this.claudeBridge);
+      }
+      TestDataGenerator.setClaudeBridge(this.claudeBridge);
+    }
+  }
+
+  /**
+   * Check if Claude Code integration is enabled and available
+   */
+  isClaudeEnabled(): boolean {
+    return this.claudeEnabled && this.claudeBridge !== undefined;
+  }
+
+  /**
+   * Get Claude Code Bridge for external access
+   */
+  getClaudeBridge(): ClaudeCodeBridge | undefined {
+    return this.claudeBridge;
   }
 
   /**

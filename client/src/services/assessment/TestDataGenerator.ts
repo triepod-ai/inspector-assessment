@@ -1,9 +1,13 @@
 /**
  * Smart Test Data Generator for MCP Tool Testing
  * Generates realistic, context-aware test data based on parameter schemas
+ *
+ * Supports optional Claude Code integration for intelligent test generation
+ * when ClaudeCodeBridge is provided.
  */
 
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import type { ClaudeCodeBridge } from "./lib/claudeCodeBridge";
 
 export interface TestScenario {
   name: string;
@@ -11,9 +15,30 @@ export interface TestScenario {
   params: Record<string, unknown>;
   expectedBehavior: string;
   category: "happy_path" | "edge_case" | "boundary" | "error_case";
+  source?: "schema-based" | "claude-generated"; // Track generation method
 }
 
 export class TestDataGenerator {
+  // Optional Claude Code bridge for intelligent test generation
+  private static claudeBridge: ClaudeCodeBridge | null = null;
+
+  /**
+   * Set the Claude Code bridge for intelligent test generation
+   * Call this once during initialization if Claude integration is enabled
+   */
+  static setClaudeBridge(bridge: ClaudeCodeBridge | null): void {
+    this.claudeBridge = bridge;
+  }
+
+  /**
+   * Check if Claude Code integration is available and enabled
+   */
+  static isClaudeEnabled(): boolean {
+    return (
+      this.claudeBridge !== null &&
+      this.claudeBridge.isFeatureEnabled("intelligentTestGeneration")
+    );
+  }
   // Realistic data pools for different types - using values that are more likely to exist
   private static readonly REALISTIC_DATA = {
     urls: [
@@ -110,6 +135,8 @@ export class TestDataGenerator {
 
   /**
    * Generate multiple test scenarios for a tool
+   * Uses Claude Code if available for intelligent generation,
+   * otherwise falls back to schema-based generation.
    */
   static generateTestScenarios(tool: Tool): TestScenario[] {
     const scenarios: TestScenario[] = [];
@@ -129,6 +156,88 @@ export class TestDataGenerator {
     scenarios.push(this.generateErrorScenario(tool));
 
     return scenarios;
+  }
+
+  /**
+   * Generate test scenarios with optional Claude enhancement
+   * This async version tries Claude first if enabled, then falls back to schema-based.
+   */
+  static async generateTestScenariosAsync(tool: Tool): Promise<TestScenario[]> {
+    // Try Claude-enhanced generation first
+    if (this.isClaudeEnabled() && this.claudeBridge) {
+      try {
+        const claudeParams =
+          await this.claudeBridge.generateTestParameters(tool);
+
+        if (claudeParams && claudeParams.length > 0) {
+          console.log(
+            `[TestDataGenerator] Using Claude-generated params for ${tool.name}`,
+          );
+
+          // Convert Claude params to TestScenario format
+          const claudeScenarios: TestScenario[] = claudeParams.map(
+            (params, index) => ({
+              name: this.getClaudeScenarioName(index),
+              description: `Claude-generated test case ${index + 1} for ${tool.name}`,
+              params,
+              expectedBehavior:
+                "Should execute successfully with valid response",
+              category: this.getClaudeScenarioCategory(index),
+              source: "claude-generated" as const,
+            }),
+          );
+
+          // Add one error scenario (Claude focuses on valid inputs)
+          claudeScenarios.push({
+            ...this.generateErrorScenario(tool),
+            source: "schema-based",
+          });
+
+          return claudeScenarios;
+        }
+      } catch (error) {
+        console.warn(
+          `[TestDataGenerator] Claude generation failed for ${tool.name}, falling back to schema-based:`,
+          error,
+        );
+      }
+    }
+
+    // Fall back to schema-based generation
+    return this.generateTestScenarios(tool).map((scenario) => ({
+      ...scenario,
+      source: "schema-based" as const,
+    }));
+  }
+
+  /**
+   * Get scenario name based on index for Claude-generated scenarios
+   */
+  private static getClaudeScenarioName(index: number): string {
+    const names = [
+      "Happy Path - Typical Usage",
+      "Edge Case - Boundary Values",
+      "Minimal Input - Required Fields Only",
+      "Comprehensive - All Fields Populated",
+      "Variant - Alternative Valid Input",
+    ];
+    return names[index] || `Test Case ${index + 1}`;
+  }
+
+  /**
+   * Get scenario category based on index for Claude-generated scenarios
+   */
+  private static getClaudeScenarioCategory(
+    index: number,
+  ): TestScenario["category"] {
+    const categories: TestScenario["category"][] = [
+      "happy_path",
+      "edge_case",
+      "boundary",
+      "happy_path",
+      "edge_case",
+    ];
+    return categories[index] || "happy_path";
   }
 
   /**

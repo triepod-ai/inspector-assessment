@@ -8,6 +8,9 @@
  * - Source code (if sourceCodePath provided)
  *
  * Based on Anthropic's 14 AUP categories (A-N)
+ *
+ * Supports optional Claude Code integration for semantic analysis
+ * to reduce false positives (e.g., security tools, disclaimers).
  */
 
 import { BaseAssessor } from "./BaseAssessor";
@@ -21,12 +24,57 @@ import {
   checkTextForAUPViolations,
   checkTextForHighRiskDomains,
 } from "@/lib/aupPatterns";
+import type { ClaudeCodeBridge } from "../lib/claudeCodeBridge";
+
+/**
+ * Extended AUP violation with semantic analysis results
+ */
+export interface EnhancedAUPViolation extends AUPViolation {
+  semanticAnalysis?: {
+    isConfirmedViolation: boolean;
+    confidence: number;
+    reasoning: string;
+    source: "claude-verified" | "pattern-only";
+  };
+}
+
+/**
+ * Extended AUP compliance assessment with semantic analysis
+ */
+export interface EnhancedAUPComplianceAssessment extends AUPComplianceAssessment {
+  confirmedViolations: EnhancedAUPViolation[];
+  flaggedForReview: EnhancedAUPViolation[];
+  semanticAnalysisEnabled: boolean;
+  falsePositivesFiltered: number;
+}
 
 export class AUPComplianceAssessor extends BaseAssessor {
+  // Optional Claude Code bridge for semantic analysis
+  private claudeBridge: ClaudeCodeBridge | null = null;
+
+  /**
+   * Set the Claude Code bridge for semantic violation analysis
+   */
+  setClaudeBridge(bridge: ClaudeCodeBridge | null): void {
+    this.claudeBridge = bridge;
+  }
+
+  /**
+   * Check if Claude semantic analysis is enabled
+   */
+  private isSemanticAnalysisEnabled(): boolean {
+    return (
+      this.claudeBridge !== null &&
+      this.claudeBridge.isFeatureEnabled("aupSemanticAnalysis")
+    );
+  }
   /**
    * Run AUP compliance assessment
+   * If Claude semantic analysis is enabled, violations are verified to reduce false positives.
    */
-  async assess(context: AssessmentContext): Promise<AUPComplianceAssessment> {
+  async assess(
+    context: AssessmentContext,
+  ): Promise<AUPComplianceAssessment | EnhancedAUPComplianceAssessment> {
     this.log("Starting AUP compliance assessment");
     this.testCount = 0;
 
@@ -38,6 +86,12 @@ export class AUPComplianceAssessor extends BaseAssessor {
       readme: false,
       sourceCode: false,
     };
+
+    // Build a map of tool descriptions for semantic analysis context
+    const toolDescriptionMap = new Map<string, string>();
+    for (const tool of context.tools) {
+      toolDescriptionMap.set(tool.name, tool.description || "");
+    }
 
     // Scan tool names
     this.log("Scanning tool names...");
@@ -108,7 +162,20 @@ export class AUPComplianceAssessor extends BaseAssessor {
       }
     }
 
-    // Determine status
+    // If Claude semantic analysis is enabled, verify violations to reduce false positives
+    if (this.isSemanticAnalysisEnabled() && violations.length > 0) {
+      this.log(
+        `Running semantic analysis on ${violations.length} potential violations...`,
+      );
+      return await this.runSemanticAnalysis(
+        violations,
+        highRiskDomains,
+        scannedLocations,
+        toolDescriptionMap,
+      );
+    }
+
+    // Standard assessment without semantic analysis
     const status = this.determineAUPStatus(violations);
     const explanation = this.generateExplanation(
       violations,
@@ -132,6 +199,255 @@ export class AUPComplianceAssessor extends BaseAssessor {
       explanation,
       recommendations,
     };
+  }
+
+  /**
+   * Run Claude semantic analysis on flagged violations
+   * Separates confirmed violations from likely false positives
+   */
+  private async runSemanticAnalysis(
+    violations: AUPViolation[],
+    highRiskDomains: string[],
+    scannedLocations: AUPComplianceAssessment["scannedLocations"],
+    toolDescriptionMap: Map<string, string>,
+  ): Promise<EnhancedAUPComplianceAssessment> {
+    const confirmedViolations: EnhancedAUPViolation[] = [];
+    const flaggedForReview: EnhancedAUPViolation[] = [];
+    let falsePositivesFiltered = 0;
+
+    // Analyze each violation with Claude
+    for (const violation of violations) {
+      try {
+        // Get tool description for context
+        const toolDescription =
+          violation.location === "tool_name" ||
+          violation.location === "tool_description"
+            ? toolDescriptionMap.get(violation.matchedText.split(" ")[0]) || ""
+            : "";
+
+        const analysis = await this.claudeBridge!.analyzeAUPViolation(
+          violation.matchedText,
+          {
+            toolName:
+              violation.location === "tool_name"
+                ? violation.matchedText
+                : "unknown",
+            toolDescription,
+            category: violation.category,
+            categoryName: violation.categoryName,
+            location: violation.location,
+          },
+        );
+
+        // Handle null result (Claude unavailable or error)
+        if (!analysis) {
+          flaggedForReview.push({
+            ...violation,
+            semanticAnalysis: {
+              isConfirmedViolation: true,
+              confidence: 50,
+              reasoning:
+                "Claude analysis unavailable. Flagged for manual review.",
+              source: "pattern-only",
+            },
+          });
+          continue;
+        }
+
+        const enhancedViolation: EnhancedAUPViolation = {
+          ...violation,
+          semanticAnalysis: {
+            isConfirmedViolation: analysis.isViolation,
+            confidence: analysis.confidence,
+            reasoning: analysis.reasoning,
+            source: "claude-verified",
+          },
+        };
+
+        // High confidence confirmed violations
+        if (analysis.isViolation && analysis.confidence >= 70) {
+          confirmedViolations.push(enhancedViolation);
+        }
+        // Uncertain - flag for human review
+        else if (analysis.isViolation || analysis.confidence >= 40) {
+          flaggedForReview.push(enhancedViolation);
+        }
+        // Low confidence - likely false positive
+        else {
+          falsePositivesFiltered++;
+          this.log(
+            `Filtered likely false positive: "${violation.matchedText}" - ${analysis.reasoning}`,
+          );
+        }
+      } catch (error) {
+        // On analysis error, conservatively add to flagged for review
+        flaggedForReview.push({
+          ...violation,
+          semanticAnalysis: {
+            isConfirmedViolation: true,
+            confidence: 50,
+            reasoning: `Analysis error: ${error}. Flagged for manual review.`,
+            source: "pattern-only",
+          },
+        });
+      }
+    }
+
+    // Determine status based on confirmed violations only
+    const status = this.determineAUPStatus(confirmedViolations);
+    const explanation = this.generateSemanticExplanation(
+      confirmedViolations,
+      flaggedForReview,
+      falsePositivesFiltered,
+      highRiskDomains,
+      scannedLocations,
+    );
+    const recommendations = this.generateSemanticRecommendations(
+      confirmedViolations,
+      flaggedForReview,
+      highRiskDomains,
+    );
+
+    this.log(
+      `Semantic analysis complete: ${confirmedViolations.length} confirmed, ${flaggedForReview.length} flagged, ${falsePositivesFiltered} filtered`,
+    );
+
+    return {
+      violations: [...confirmedViolations, ...flaggedForReview],
+      confirmedViolations,
+      flaggedForReview,
+      highRiskDomains,
+      scannedLocations,
+      status,
+      explanation,
+      recommendations,
+      semanticAnalysisEnabled: true,
+      falsePositivesFiltered,
+    };
+  }
+
+  /**
+   * Generate explanation for semantic analysis results
+   */
+  private generateSemanticExplanation(
+    confirmed: EnhancedAUPViolation[],
+    flagged: EnhancedAUPViolation[],
+    filtered: number,
+    highRiskDomains: string[],
+    scannedLocations: AUPComplianceAssessment["scannedLocations"],
+  ): string {
+    const parts: string[] = [];
+
+    parts.push(
+      `Semantic analysis enabled (Claude-verified). ${filtered} likely false positives filtered.`,
+    );
+
+    if (confirmed.length === 0 && flagged.length === 0) {
+      parts.push("No AUP violations confirmed after semantic analysis.");
+    } else {
+      if (confirmed.length > 0) {
+        const criticalCount = confirmed.filter(
+          (v) => v.severity === "CRITICAL",
+        ).length;
+        const highCount = confirmed.filter((v) => v.severity === "HIGH").length;
+
+        if (criticalCount > 0) {
+          parts.push(
+            `CRITICAL: ${criticalCount} confirmed critical violation(s).`,
+          );
+        }
+        if (highCount > 0) {
+          parts.push(
+            `HIGH: ${highCount} confirmed high-severity violation(s).`,
+          );
+        }
+      }
+
+      if (flagged.length > 0) {
+        parts.push(`${flagged.length} item(s) flagged for manual review.`);
+      }
+    }
+
+    if (highRiskDomains.length > 0) {
+      parts.push(
+        `High-risk domains: ${highRiskDomains.join(", ")}. Additional review recommended.`,
+      );
+    }
+
+    const scannedList = Object.entries(scannedLocations)
+      .filter(([, scanned]) => scanned)
+      .map(([location]) => location);
+    parts.push(`Scanned: ${scannedList.join(", ")}.`);
+
+    return parts.join(" ");
+  }
+
+  /**
+   * Generate recommendations for semantic analysis results
+   */
+  private generateSemanticRecommendations(
+    confirmed: EnhancedAUPViolation[],
+    flagged: EnhancedAUPViolation[],
+    highRiskDomains: string[],
+  ): string[] {
+    const recommendations: string[] = [];
+
+    // Confirmed violations
+    if (confirmed.length > 0) {
+      const criticalViolations = confirmed.filter(
+        (v) => v.severity === "CRITICAL",
+      );
+      if (criticalViolations.length > 0) {
+        recommendations.push(
+          "CRITICAL (Claude-verified): This MCP server contains content that violates Anthropic's Acceptable Use Policy:",
+        );
+        for (const v of criticalViolations) {
+          recommendations.push(
+            `- Category ${v.category} (${v.categoryName}): "${v.matchedText}" - ${v.semanticAnalysis?.reasoning || ""}`,
+          );
+        }
+      }
+
+      const highViolations = confirmed.filter((v) => v.severity === "HIGH");
+      if (highViolations.length > 0) {
+        recommendations.push(
+          "HIGH (Claude-verified): Confirmed AUP violations:",
+        );
+        for (const v of highViolations) {
+          recommendations.push(
+            `- Category ${v.category} (${v.categoryName}): "${v.matchedText}" - ${v.semanticAnalysis?.reasoning || ""}`,
+          );
+        }
+      }
+    }
+
+    // Flagged for review
+    if (flagged.length > 0) {
+      recommendations.push(
+        "MANUAL REVIEW REQUIRED: The following items need human verification:",
+      );
+      for (const v of flagged) {
+        recommendations.push(
+          `- Category ${v.category}: "${v.matchedText}" (${v.semanticAnalysis?.confidence || 50}% confidence) - ${v.semanticAnalysis?.reasoning || ""}`,
+        );
+      }
+    }
+
+    // High-risk domains
+    if (highRiskDomains.length > 0) {
+      recommendations.push(
+        `This server operates in high-risk domain(s): ${highRiskDomains.join(", ")}. Ensure appropriate safeguards.`,
+      );
+    }
+
+    // If no issues
+    if (recommendations.length === 0) {
+      recommendations.push(
+        "No AUP compliance issues confirmed after semantic analysis. Server appears compliant with Anthropic's Acceptable Use Policy.",
+      );
+    }
+
+    return recommendations;
   }
 
   /**

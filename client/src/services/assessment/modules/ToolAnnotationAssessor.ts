@@ -19,6 +19,36 @@ import type {
   AssessmentStatus,
 } from "@/lib/assessmentTypes";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import type { ClaudeCodeBridge } from "../lib/claudeCodeBridge";
+
+/**
+ * Enhanced tool annotation result with Claude inference
+ */
+export interface EnhancedToolAnnotationResult extends ToolAnnotationResult {
+  claudeInference?: {
+    expectedReadOnly: boolean;
+    expectedDestructive: boolean;
+    confidence: number;
+    reasoning: string;
+    suggestedAnnotations: {
+      readOnlyHint?: boolean;
+      destructiveHint?: boolean;
+      idempotentHint?: boolean;
+    };
+    misalignmentDetected: boolean;
+    misalignmentDetails?: string;
+    source: "claude-inferred" | "pattern-based";
+  };
+}
+
+/**
+ * Enhanced assessment with Claude integration
+ */
+export interface EnhancedToolAnnotationAssessment extends ToolAnnotationAssessment {
+  toolResults: EnhancedToolAnnotationResult[];
+  claudeEnhanced: boolean;
+  highConfidenceMisalignments: EnhancedToolAnnotationResult[];
+}
 
 /**
  * Patterns for inferring expected tool behavior from name
@@ -91,31 +121,103 @@ const WRITE_PATTERNS = [
 ];
 
 export class ToolAnnotationAssessor extends BaseAssessor {
+  private claudeBridge?: ClaudeCodeBridge;
+
+  /**
+   * Set Claude Code Bridge for enhanced behavior inference
+   */
+  setClaudeBridge(bridge: ClaudeCodeBridge): void {
+    this.claudeBridge = bridge;
+    this.log("Claude Code Bridge enabled for behavior inference");
+  }
+
+  /**
+   * Check if Claude enhancement is available
+   */
+  isClaudeEnabled(): boolean {
+    return (
+      this.claudeBridge !== undefined &&
+      this.claudeBridge.isFeatureEnabled("annotationInference")
+    );
+  }
+
   /**
    * Run tool annotation assessment
    */
-  async assess(context: AssessmentContext): Promise<ToolAnnotationAssessment> {
+  async assess(
+    context: AssessmentContext,
+  ): Promise<ToolAnnotationAssessment | EnhancedToolAnnotationAssessment> {
     this.log("Starting tool annotation assessment");
     this.testCount = 0;
 
-    const toolResults: ToolAnnotationResult[] = [];
+    const toolResults: EnhancedToolAnnotationResult[] = [];
     let annotatedCount = 0;
     let missingAnnotationsCount = 0;
     let misalignedAnnotationsCount = 0;
 
+    const useClaudeInference = this.isClaudeEnabled();
+    if (useClaudeInference) {
+      this.log(
+        "Claude Code integration enabled - using semantic behavior inference",
+      );
+    }
+
     for (const tool of context.tools) {
       this.testCount++;
       const result = this.assessTool(tool);
-      toolResults.push(result);
 
-      if (result.hasAnnotations) {
+      // Enhance with Claude inference if available
+      if (useClaudeInference) {
+        const enhancedResult = await this.enhanceWithClaudeInference(
+          tool,
+          result,
+        );
+        toolResults.push(enhancedResult);
+
+        // Count based on Claude analysis if high confidence
+        if (
+          enhancedResult.claudeInference &&
+          enhancedResult.claudeInference.confidence >= 70 &&
+          enhancedResult.claudeInference.misalignmentDetected
+        ) {
+          misalignedAnnotationsCount++;
+        } else if (result.issues.some((i) => i.includes("misaligned"))) {
+          misalignedAnnotationsCount++;
+        }
+      } else {
+        // Standard pattern-based result
+        const inferredBehavior = result.inferredBehavior ?? {
+          expectedReadOnly: false,
+          expectedDestructive: false,
+          reason: "No behavior inference available",
+        };
+        toolResults.push({
+          ...result,
+          claudeInference: {
+            expectedReadOnly: inferredBehavior.expectedReadOnly,
+            expectedDestructive: inferredBehavior.expectedDestructive,
+            confidence: 50, // Lower confidence for pattern-based
+            reasoning: inferredBehavior.reason,
+            suggestedAnnotations: {
+              readOnlyHint: inferredBehavior.expectedReadOnly,
+              destructiveHint: inferredBehavior.expectedDestructive,
+            },
+            misalignmentDetected: result.issues.some((i) =>
+              i.includes("misaligned"),
+            ),
+            source: "pattern-based",
+          },
+        });
+
+        if (result.issues.some((i) => i.includes("misaligned"))) {
+          misalignedAnnotationsCount++;
+        }
+      }
+
+      if (toolResults[toolResults.length - 1].hasAnnotations) {
         annotatedCount++;
       } else {
         missingAnnotationsCount++;
-      }
-
-      if (result.issues.some((i) => i.includes("misaligned"))) {
-        misalignedAnnotationsCount++;
       }
     }
 
@@ -135,6 +237,37 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       `Assessment complete: ${annotatedCount}/${context.tools.length} tools annotated, ${misalignedAnnotationsCount} misaligned`,
     );
 
+    // Return enhanced assessment if Claude was used
+    if (useClaudeInference) {
+      const highConfidenceMisalignments = toolResults.filter(
+        (r) =>
+          r.claudeInference &&
+          r.claudeInference.confidence >= 70 &&
+          r.claudeInference.misalignmentDetected,
+      );
+
+      this.log(
+        `Claude inference found ${highConfidenceMisalignments.length} high-confidence misalignments`,
+      );
+
+      return {
+        toolResults,
+        annotatedCount,
+        missingAnnotationsCount,
+        misalignedAnnotationsCount,
+        status,
+        explanation: this.generateEnhancedExplanation(
+          annotatedCount,
+          missingAnnotationsCount,
+          highConfidenceMisalignments.length,
+          context.tools.length,
+        ),
+        recommendations: this.generateEnhancedRecommendations(toolResults),
+        claudeEnhanced: true,
+        highConfidenceMisalignments,
+      };
+    }
+
     return {
       toolResults,
       annotatedCount,
@@ -144,6 +277,275 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       explanation,
       recommendations,
     };
+  }
+
+  /**
+   * Enhance tool assessment with Claude inference
+   */
+  private async enhanceWithClaudeInference(
+    tool: Tool,
+    baseResult: ToolAnnotationResult,
+  ): Promise<EnhancedToolAnnotationResult> {
+    const inferredBehavior = baseResult.inferredBehavior ?? {
+      expectedReadOnly: false,
+      expectedDestructive: false,
+      reason: "No behavior inference available",
+    };
+
+    if (!this.claudeBridge) {
+      return {
+        ...baseResult,
+        claudeInference: {
+          expectedReadOnly: inferredBehavior.expectedReadOnly,
+          expectedDestructive: inferredBehavior.expectedDestructive,
+          confidence: 50,
+          reasoning: inferredBehavior.reason,
+          suggestedAnnotations: {
+            readOnlyHint: inferredBehavior.expectedReadOnly,
+            destructiveHint: inferredBehavior.expectedDestructive,
+          },
+          misalignmentDetected: baseResult.issues.some((i) =>
+            i.includes("misaligned"),
+          ),
+          source: "pattern-based",
+        },
+      };
+    }
+
+    try {
+      const currentAnnotations = baseResult.annotations
+        ? {
+            readOnlyHint: baseResult.annotations.readOnlyHint,
+            destructiveHint: baseResult.annotations.destructiveHint,
+          }
+        : undefined;
+
+      const inference = await this.claudeBridge.inferToolBehavior(
+        tool,
+        currentAnnotations,
+      );
+
+      // Handle null result (Claude unavailable or error)
+      if (!inference) {
+        return {
+          ...baseResult,
+          claudeInference: {
+            expectedReadOnly: inferredBehavior.expectedReadOnly,
+            expectedDestructive: inferredBehavior.expectedDestructive,
+            confidence: 0,
+            reasoning:
+              "Claude inference unavailable. Using pattern-based analysis.",
+            suggestedAnnotations: {},
+            misalignmentDetected: false,
+            misalignmentDetails: undefined,
+            source: "pattern-based",
+          },
+        };
+      }
+
+      // Merge Claude inference with pattern-based findings
+      const updatedIssues = [...baseResult.issues];
+      const updatedRecommendations = [...baseResult.recommendations];
+
+      // Add Claude-detected misalignment if high confidence
+      if (inference.misalignmentDetected && inference.confidence >= 70) {
+        const misalignmentMsg = inference.misalignmentDetails
+          ? `Claude analysis (${inference.confidence}% confidence): ${inference.misalignmentDetails}`
+          : `Claude analysis detected annotation misalignment with ${inference.confidence}% confidence`;
+
+        if (!updatedIssues.some((i) => i.includes("Claude analysis"))) {
+          updatedIssues.push(misalignmentMsg);
+        }
+
+        // Add specific recommendations based on Claude inference
+        if (inference.suggestedAnnotations) {
+          const { readOnlyHint, destructiveHint, idempotentHint } =
+            inference.suggestedAnnotations;
+
+          if (
+            readOnlyHint !== undefined &&
+            readOnlyHint !== baseResult.annotations?.readOnlyHint
+          ) {
+            updatedRecommendations.push(
+              `Claude suggests: Set readOnlyHint=${readOnlyHint} for ${tool.name}`,
+            );
+          }
+          if (
+            destructiveHint !== undefined &&
+            destructiveHint !== baseResult.annotations?.destructiveHint
+          ) {
+            updatedRecommendations.push(
+              `Claude suggests: Set destructiveHint=${destructiveHint} for ${tool.name}`,
+            );
+          }
+          if (idempotentHint !== undefined) {
+            updatedRecommendations.push(
+              `Claude suggests: Consider adding idempotentHint=${idempotentHint} for ${tool.name}`,
+            );
+          }
+        }
+      }
+
+      return {
+        ...baseResult,
+        issues: updatedIssues,
+        recommendations: updatedRecommendations,
+        claudeInference: {
+          expectedReadOnly: inference.expectedReadOnly,
+          expectedDestructive: inference.expectedDestructive,
+          confidence: inference.confidence,
+          reasoning: inference.reasoning,
+          suggestedAnnotations: inference.suggestedAnnotations,
+          misalignmentDetected: inference.misalignmentDetected,
+          misalignmentDetails: inference.misalignmentDetails,
+          source: "claude-inferred",
+        },
+      };
+    } catch (error) {
+      this.logError(`Claude inference failed for ${tool.name}`, error);
+
+      // Fall back to pattern-based (use inferredBehavior from top of function)
+      return {
+        ...baseResult,
+        claudeInference: {
+          expectedReadOnly: inferredBehavior.expectedReadOnly,
+          expectedDestructive: inferredBehavior.expectedDestructive,
+          confidence: 50,
+          reasoning: `Claude inference failed, using pattern-based: ${inferredBehavior.reason}`,
+          suggestedAnnotations: {
+            readOnlyHint: inferredBehavior.expectedReadOnly,
+            destructiveHint: inferredBehavior.expectedDestructive,
+          },
+          misalignmentDetected: baseResult.issues.some((i) =>
+            i.includes("misaligned"),
+          ),
+          source: "pattern-based",
+        },
+      };
+    }
+  }
+
+  /**
+   * Generate enhanced explanation with Claude analysis
+   */
+  private generateEnhancedExplanation(
+    annotatedCount: number,
+    missingCount: number,
+    highConfidenceMisalignments: number,
+    totalTools: number,
+  ): string {
+    const parts: string[] = [];
+
+    if (totalTools === 0) {
+      return "No tools found to assess for annotations.";
+    }
+
+    parts.push(
+      `Tool annotation coverage: ${annotatedCount}/${totalTools} tools have annotations.`,
+    );
+
+    if (missingCount > 0) {
+      parts.push(
+        `${missingCount} tool(s) are missing required annotations (readOnlyHint, destructiveHint).`,
+      );
+    }
+
+    if (highConfidenceMisalignments > 0) {
+      parts.push(
+        `Claude analysis identified ${highConfidenceMisalignments} high-confidence annotation misalignment(s).`,
+      );
+    }
+
+    parts.push("Analysis enhanced with Claude semantic behavior inference.");
+
+    return parts.join(" ");
+  }
+
+  /**
+   * Generate enhanced recommendations with Claude analysis
+   */
+  private generateEnhancedRecommendations(
+    results: EnhancedToolAnnotationResult[],
+  ): string[] {
+    const recommendations: string[] = [];
+
+    // Prioritize Claude high-confidence misalignments
+    const claudeMisalignments = results.filter(
+      (r) =>
+        r.claudeInference &&
+        r.claudeInference.source === "claude-inferred" &&
+        r.claudeInference.confidence >= 70 &&
+        r.claudeInference.misalignmentDetected,
+    );
+
+    if (claudeMisalignments.length > 0) {
+      recommendations.push(
+        "HIGH CONFIDENCE: Claude analysis identified the following annotation issues:",
+      );
+      for (const result of claudeMisalignments.slice(0, 5)) {
+        if (result.claudeInference) {
+          recommendations.push(
+            `  - ${result.toolName}: ${result.claudeInference.reasoning}`,
+          );
+        }
+      }
+    }
+
+    // Collect Claude suggestions
+    const claudeSuggestions = results
+      .filter(
+        (r) =>
+          r.claudeInference &&
+          r.claudeInference.source === "claude-inferred" &&
+          r.claudeInference.confidence >= 60,
+      )
+      .flatMap((r) =>
+        r.recommendations.filter((rec) => rec.includes("Claude")),
+      );
+
+    if (claudeSuggestions.length > 0) {
+      recommendations.push(...claudeSuggestions.slice(0, 5));
+    }
+
+    // Add pattern-based recommendations for remaining tools
+    const patternRecs = new Set<string>();
+    for (const result of results) {
+      for (const rec of result.recommendations) {
+        if (!rec.includes("Claude")) {
+          patternRecs.add(rec);
+        }
+      }
+    }
+
+    const destructiveRecs = Array.from(patternRecs).filter((r) =>
+      r.includes("destructive"),
+    );
+    const otherRecs = Array.from(patternRecs).filter(
+      (r) => !r.includes("destructive"),
+    );
+
+    if (destructiveRecs.length > 0) {
+      recommendations.push(
+        "PRIORITY: Potential destructive tools without proper hints:",
+      );
+      recommendations.push(...destructiveRecs.slice(0, 3));
+    }
+
+    if (otherRecs.length > 0 && recommendations.length < 10) {
+      recommendations.push(...otherRecs.slice(0, 3));
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push(
+        "All tools have proper annotations. No action required.",
+      );
+    } else {
+      recommendations.push(
+        "Reference: MCP Directory Policy #17 requires tools to have readOnlyHint and destructiveHint annotations.",
+      );
+    }
+
+    return recommendations;
   }
 
   /**
