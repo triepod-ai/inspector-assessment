@@ -17,6 +17,7 @@ type Args = {
   transport?: "stdio" | "sse" | "streamable-http";
   serverUrl?: string;
   headers?: Record<string, string>;
+  claudeEnabled?: boolean;
 };
 
 type CliOptions = {
@@ -27,6 +28,7 @@ type CliOptions = {
   transport?: string;
   serverUrl?: string;
   header?: Record<string, string>;
+  claudeEnabled?: boolean;
 };
 
 type ServerConfig =
@@ -95,6 +97,11 @@ async function runWebClient(args: Args): Promise<void> {
   // Pass server URL if specified
   if (args.serverUrl) {
     startArgs.push("--server-url", args.serverUrl);
+  }
+
+  // Pass Claude Code flag if enabled
+  if (args.claudeEnabled) {
+    startArgs.push("--claude-enabled");
   }
 
   // Pass command and args (using -- to separate them)
@@ -274,6 +281,10 @@ function parseArgs(): Args {
       'HTTP headers as "HeaderName: Value" pairs (for HTTP/SSE transports)',
       parseHeaderPair,
       {},
+    )
+    .option(
+      "--claude-enabled",
+      "enable Claude Code integration for intelligent analysis (requires Claude CLI)",
     );
 
   // Parse only the arguments before --
@@ -328,6 +339,7 @@ function parseArgs(): Args {
         cli: options.cli || false,
         transport: "stdio",
         headers: options.header,
+        claudeEnabled: options.claudeEnabled || false,
       };
     } else if (config.type === "sse" || config.type === "streamable-http") {
       return {
@@ -338,6 +350,7 @@ function parseArgs(): Args {
         transport: config.type,
         serverUrl: config.url,
         headers: options.header,
+        claudeEnabled: options.claudeEnabled || false,
       };
     } else {
       // Backwards compatibility: if no type field, assume stdio
@@ -348,6 +361,7 @@ function parseArgs(): Args {
         cli: options.cli || false,
         transport: "stdio",
         headers: options.header,
+        claudeEnabled: options.claudeEnabled || false,
       };
     }
   }
@@ -370,6 +384,7 @@ function parseArgs(): Args {
     transport: transport as "stdio" | "sse" | "streamable-http" | undefined,
     serverUrl: options.serverUrl,
     headers: options.header,
+    claudeEnabled: options.claudeEnabled || false,
   };
 }
 
