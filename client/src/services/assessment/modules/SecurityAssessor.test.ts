@@ -5,7 +5,6 @@ import {
   createMockCallToolResponse,
   createMockAssessmentConfig,
 } from "@/test/utils/testUtils";
-import { NEW_SECURITY_PATTERNS } from "@/test/utils/securityPatternFactory";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 
 describe("SecurityAssessor", () => {

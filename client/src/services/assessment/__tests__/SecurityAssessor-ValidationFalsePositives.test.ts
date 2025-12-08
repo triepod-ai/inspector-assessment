@@ -17,7 +17,6 @@ import {
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getPayloadsForAttack } from "@/lib/securityPatterns";
 
 describe("SecurityAssessor - Validation False Positives Fix", () => {
   let assessor: SecurityAssessor;
@@ -207,7 +206,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
       // Mock responses for different test payloads
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           // All invalid inputs get the same validation error
           return Promise.resolve({
             isError: true,
@@ -271,7 +270,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           // This tool EXECUTES the SQL and then gets an error
           return Promise.resolve({
             isError: false,
@@ -362,7 +361,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
       mockContext.tools = tools;
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((toolName, _params) => {
           if (toolName === "secure_validated_tool") {
             // Validation error (SECURE)
             return Promise.resolve({
@@ -549,7 +548,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
       mockContext.tools = tools;
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((toolName, _params) => {
           if (toolName === "vulnerable_tool") {
             return Promise.resolve({
               isError: false,
@@ -602,7 +601,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, params) => {
           // Tool correctly rejects oversized input
           return Promise.resolve({
             isError: false,
@@ -645,7 +644,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, params) => {
           return Promise.resolve({
             isError: false,
             content: [
@@ -683,7 +682,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           return Promise.resolve({
             isError: false,
             content: [
@@ -733,7 +732,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
       mockContext.tools = tools;
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((toolName, _params) => {
           if (toolName === "safe_validator") {
             // SAFE: Rejects with validation error
             return Promise.resolve({

@@ -54,7 +54,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           // Tool explicitly marks response as not vulnerable
           return Promise.resolve({
             isError: false,
@@ -98,7 +98,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           // Tool stores path traversal input safely
           return Promise.resolve({
             isError: false,
@@ -141,7 +141,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           // Tool explicitly marks as vulnerable (actually executed)
           return Promise.resolve({
             isError: false,
@@ -183,7 +183,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           // Tool reflects input with "Stored query:" pattern
           return Promise.resolve({
             isError: false,
@@ -220,7 +220,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           // Tool reflects path with different escaping (single vs double backslashes)
           // This simulates Windows path: ..\\..\\..\\windows\\system32\\config\\sam
           // Payload may have single backslashes, response has double (JSON escaping)
@@ -274,7 +274,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
         mockContext.tools = [tool];
         mockContext.callTool = jest
           .fn()
-          .mockImplementation((toolName, params) => {
+          .mockImplementation((_toolName, _params) => {
             return Promise.resolve({
               isError: false,
               content: [
@@ -313,7 +313,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           // Tool actually reads the file and returns contents
           return Promise.resolve({
             isError: false,
@@ -361,7 +361,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = tools;
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           if (toolName === "safe_reflection_tool") {
             // Safe: just echoes input
             return Promise.resolve({
@@ -419,7 +419,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           return Promise.resolve({
             isError: false,
             content: [
@@ -458,7 +458,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           return Promise.resolve({
             isError: false,
             content: [
@@ -495,7 +495,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           return Promise.resolve({
             isError: false,
             content: [
@@ -534,7 +534,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           return Promise.resolve({
             isError: false,
             content: [
@@ -571,7 +571,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           return Promise.resolve({
             isError: false,
             content: [
@@ -609,7 +609,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           return Promise.resolve({
             isError: false,
             content: [
@@ -646,7 +646,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = [tool];
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           // Confusing: says "executed" but just stored
           return Promise.resolve({
             isError: false,
@@ -696,7 +696,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = tools;
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           if (toolName === "safe_storage_tool") {
             // SAFE: Payload in safe "data" field
             return Promise.resolve({
@@ -819,7 +819,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = safeTools;
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           // All safe tools return safe reflection patterns
           const paramValue = Object.values(params)[0];
           return Promise.resolve({
@@ -884,7 +884,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       mockContext.tools = tools;
       mockContext.callTool = jest
         .fn()
-        .mockImplementation((toolName, params) => {
+        .mockImplementation((_toolName, _params) => {
           if (toolName === "vulnerable_tool_1") {
             // Actually vulnerable - executes
             return Promise.resolve({
