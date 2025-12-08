@@ -29,6 +29,6 @@ SECURITY_VULNERABILITY_REPORT.md
 SECURITY_FIX_IMPLEMENTATION.md
 archive/
 inspector.code-workspace*
-bryan-thompson-inspector-assessment-1.0.0.tgz
+*.tgz
 PROJECT_STATUS.md
 PUBLISHING_GUIDE.md
