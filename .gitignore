@@ -5,6 +5,7 @@ node_modules/
 *-workspace/
 server/build
 client/dist
+client/lib
 client/tsconfig.app.tsbuildinfo
 client/tsconfig.node.tsbuildinfo
 cli/build

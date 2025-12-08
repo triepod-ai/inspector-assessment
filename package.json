@@ -24,11 +24,14 @@
   ],
   "type": "module",
   "bin": {
-    "mcp-inspector-assess": "cli/build/cli.js"
+    "mcp-inspector-assess": "cli/build/cli.js",
+    "mcp-assess-full": "cli/build/assess-full.js",
+    "mcp-assess-security": "cli/build/assess-security.js"
   },
   "files": [
     "client/bin",
     "client/dist",
+    "client/lib",
     "server/build",
     "cli/build"
   ],

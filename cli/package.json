@@ -16,7 +16,9 @@
   "main": "build/cli.js",
   "type": "module",
   "bin": {
-    "mcp-inspector-assess-cli": "build/cli.js"
+    "mcp-inspector-assess-cli": "build/cli.js",
+    "mcp-assess-full": "build/assess-full.js",
+    "mcp-assess-security": "build/assess-security.js"
   },
   "publishConfig": {
     "access": "public"
@@ -34,8 +36,10 @@
   },
   "devDependencies": {},
   "dependencies": {
+    "@bryan-thompson/inspector-assessment-client": "^1.5.0",
     "@modelcontextprotocol/sdk": "^1.23.0",
     "commander": "^13.1.0",
-    "spawn-rx": "^5.1.2"
+    "spawn-rx": "^5.1.2",
+    "zod": "^3.25.76"
   }
 }

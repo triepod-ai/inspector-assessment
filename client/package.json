@@ -17,16 +17,27 @@
   "bin": {
     "mcp-inspector-assess-client": "./bin/start.js"
   },
+  "exports": {
+    ".": "./bin/start.js",
+    "./assessment": "./lib/services/assessment/AssessmentOrchestrator.js",
+    "./assessment/*": "./lib/services/assessment/*.js",
+    "./assessment/modules": "./lib/services/assessment/modules/index.js",
+    "./assessment/modules/*": "./lib/services/assessment/modules/*.js",
+    "./assessment/lib/*": "./lib/services/assessment/lib/*.js",
+    "./types": "./lib/lib/assessmentTypes.js"
+  },
   "publishConfig": {
     "access": "public"
   },
   "files": [
     "bin",
-    "dist"
+    "dist",
+    "lib"
   ],
   "scripts": {
     "dev": "vite --port 6274",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run build:lib",
+    "build:lib": "tsc -p tsconfig.lib.json && tsc-alias -p tsconfig.lib.json --resolve-full-paths",
     "lint": "eslint .",
     "preview": "vite preview --port 6274",
     "test": "jest --config jest.config.cjs",
@@ -87,6 +98,7 @@
     "tailwindcss": "^3.4.13",
     "tailwindcss-animate": "^1.0.7",
     "ts-jest": "^29.4.0",
+    "tsc-alias": "^1.8.16",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.38.0",
     "vite": "^7.1.11"
