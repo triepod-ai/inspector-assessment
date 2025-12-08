@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2025-12-08
+
+### Fixed
+
+- **CLI Executable Permissions**: Updated `make-executable.js` script to properly set executable permissions for all three CLI entry points
+  - `cli.js`, `assess-full.js`, and `assess-security.js` now correctly flagged as executable
+  - Fixes issue where new CLI commands couldn't be invoked directly
+  - Improves Unix/Linux compatibility for CLI usage
+
 ## [1.7.0] - 2025-12-08
 
 ### Added
