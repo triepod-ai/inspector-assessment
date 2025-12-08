@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2025-12-08
+
+### Added
+
+- **Claude Code Integration Bridge**: New `claudeCodeBridge.ts` module for seamless integration with Claude Code workflows
+  - Direct assessment execution from Claude Code environment
+  - Standardized result formatting for AI consumption
+  - 469 lines of comprehensive test coverage
+
+- **Full Assessment Runner**: New `run-full-assessment.ts` script for comprehensive server evaluation
+  - Orchestrates all assessment categories in single run
+  - Enhanced CLI support with progress reporting
+  - 708 lines of assessment orchestration logic
+
+- **Claude Integration Test Plan**: New `CLAUDE_INTEGRATION_TEST_PLAN.md` documentation
+  - Structured testing approach for Claude Code integration
+  - Usage patterns and best practices
+  - Integration examples
+
+### Enhanced
+
+- **AUPComplianceAssessor**: Major enhancements (+320 lines)
+  - Improved pattern matching and detection accuracy
+  - Enhanced reporting and recommendation engine
+  - Better integration with Claude Code workflows
+
+- **ToolAnnotationAssessor**: Major enhancements (+418 lines)
+  - Advanced annotation validation logic
+  - Improved behavior inference from tool patterns
+  - Enhanced misalignment detection
+
+- **AssessmentOrchestrator**: Enhanced orchestration capabilities
+  - Better coordination across assessment modules
+  - Improved error handling and recovery
+  - Support for full assessment workflows
+
+- **TestDataGenerator**: Enhanced test data generation
+  - More comprehensive test scenarios
+  - Better context-aware data generation
+  - Support for new assessment patterns
+
+### Maintenance
+
+- **PROJECT_STATUS Archive**: Moved older entries to `PROJECT_STATUS_ARCHIVE.md` (2340 lines)
+  - Improved documentation maintainability
+  - Faster file loading and navigation
+  - Preserved complete development history
+
+- **Dependencies**: Updated package-lock.json with new dependencies for enhanced functionality
+
 ## [1.5.0] - 2025-12-07
 
 ### Added
