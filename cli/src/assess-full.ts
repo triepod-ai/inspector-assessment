@@ -216,9 +216,9 @@ async function connectToServer(config: ServerConfig): Promise<Client> {
         command: config.command,
         args: config.args,
         env: {
-          ...Object.fromEntries(
-            Object.entries(process.env).filter(([, v]) => v !== undefined)
-          ) as Record<string, string>,
+          ...(Object.fromEntries(
+            Object.entries(process.env).filter(([, v]) => v !== undefined),
+          ) as Record<string, string>),
           ...config.env,
         },
         stderr: "pipe",
@@ -511,9 +511,7 @@ function displaySummary(results: MCPDirectoryAssessment) {
       `   Annotated: ${annotationsModule.annotatedCount || 0}/${funcModule?.workingTools || 0}`,
     );
     if (annotationsModule.missingAnnotationsCount > 0) {
-      console.log(
-        `   Missing: ${annotationsModule.missingAnnotationsCount}`,
-      );
+      console.log(`   Missing: ${annotationsModule.missingAnnotationsCount}`);
     }
     if (annotationsModule.misalignedAnnotationsCount > 0) {
       console.log(

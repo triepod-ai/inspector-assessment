@@ -18,7 +18,10 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { Tool, CompatibilityCallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import {
+  Tool,
+  CompatibilityCallToolResult,
+} from "@modelcontextprotocol/sdk/types.js";
 
 // Import from local client lib (will use package exports when published)
 import { SecurityAssessor } from "../../client/lib/services/assessment/modules/SecurityAssessor.js";
@@ -130,9 +133,9 @@ async function connectToServer(config: ServerConfig): Promise<Client> {
         command: config.command,
         args: config.args,
         env: {
-          ...Object.fromEntries(
-            Object.entries(process.env).filter(([, v]) => v !== undefined)
-          ) as Record<string, string>,
+          ...(Object.fromEntries(
+            Object.entries(process.env).filter(([, v]) => v !== undefined),
+          ) as Record<string, string>),
           ...config.env,
         },
         stderr: "pipe",
