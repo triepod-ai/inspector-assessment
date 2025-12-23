@@ -1,6 +1,6 @@
 {
   "name": "@bryan-thompson/inspector-assessment",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "Enhanced MCP Inspector with comprehensive assessment capabilities for server validation",
   "license": "MIT",
   "author": "Bryan Thompson <bryan@triepod.ai>",
@@ -81,6 +81,7 @@
     "concurrently": "^9.2.0",
     "node-fetch": "^3.3.2",
     "open": "^10.2.0",
+    "p-limit": "^7.2.0",
     "shell-quote": "^1.8.3",
     "spawn-rx": "^5.1.2",
     "ts-node": "^10.9.2",

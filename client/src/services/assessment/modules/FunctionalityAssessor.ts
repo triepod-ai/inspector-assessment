@@ -7,6 +7,7 @@ import { FunctionalityAssessment, ToolTestResult } from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { ResponseValidator } from "../ResponseValidator";
+import { createConcurrencyLimit } from "../lib/concurrencyLimit";
 
 export class FunctionalityAssessor extends BaseAssessor {
   /**
@@ -60,24 +61,46 @@ export class FunctionalityAssessor extends BaseAssessor {
     // Select tools for testing
     const toolsToTest = this.selectToolsForTesting(context.tools);
 
-    for (const tool of toolsToTest) {
-      this.testCount++;
+    // Parallel tool testing with concurrency limit
+    const concurrency = this.config.maxParallelTests ?? 5;
+    const limit = createConcurrencyLimit(concurrency);
 
-      const result = await this.testTool(tool, context.callTool);
+    this.log(
+      `Testing ${toolsToTest.length} tools with concurrency limit of ${concurrency}`,
+    );
+
+    const results = await Promise.all(
+      toolsToTest.map((tool) =>
+        limit(async () => {
+          this.testCount++;
+          const result = await this.testTool(tool, context.callTool);
+
+          // Add delay between tests to avoid rate limiting
+          if (
+            this.config.delayBetweenTests &&
+            this.config.delayBetweenTests > 0
+          ) {
+            await this.sleep(this.config.delayBetweenTests);
+          }
+
+          return result;
+        }),
+      ),
+    );
+
+    // Post-process results after parallel execution
+    for (const result of results) {
       toolResults.push(result);
-
-      // Add delay between tests to avoid rate limiting
-      if (this.config.delayBetweenTests && this.config.delayBetweenTests > 0) {
-        await this.sleep(this.config.delayBetweenTests);
-      }
 
       if (result.status === "working") {
         workingTools++;
       } else if (result.status === "broken") {
-        brokenTools.push(tool.name);
+        brokenTools.push(result.toolName);
 
         if (this.config.skipBrokenTools) {
-          this.log(`Skipping further tests for broken tool: ${tool.name}`);
+          this.log(
+            `Skipping further tests for broken tool: ${result.toolName}`,
+          );
         }
       }
     }

@@ -21,6 +21,7 @@ import {
   SecurityPayload,
 } from "@/lib/securityPatterns";
 import { ToolClassifier, ToolCategory } from "../ToolClassifier";
+import { createConcurrencyLimit } from "../lib/concurrencyLimit";
 
 export class SecurityAssessor extends BaseAssessor {
   async assess(context: AssessmentContext): Promise<SecurityAssessment> {
@@ -166,78 +167,95 @@ export class SecurityAssessor extends BaseAssessor {
     // Select tools for testing
     const toolsToTest = this.selectToolsForTesting(context.tools);
 
+    // Parallel tool testing with concurrency limit
+    const concurrency = this.config.maxParallelTests ?? 5;
+    const limit = createConcurrencyLimit(concurrency);
+
     this.log(
-      `Starting ADVANCED security assessment - testing ${toolsToTest.length} tools with ${attackPatterns.length} security patterns (~${toolsToTest.length * attackPatterns.length * 3} tests)`,
+      `Starting ADVANCED security assessment - testing ${toolsToTest.length} tools with ${attackPatterns.length} security patterns (~${toolsToTest.length * attackPatterns.length * 3} tests) [concurrency: ${concurrency}]`,
     );
 
-    for (const tool of toolsToTest) {
-      // Tools with no input parameters can't be exploited via payload injection
-      // Add passing results so they appear in the UI
-      if (!this.hasInputParameters(tool)) {
-        this.log(
-          `${tool.name} has no input parameters - adding passing results`,
-        );
+    const allToolResults = await Promise.all(
+      toolsToTest.map((tool) =>
+        limit(async () => {
+          const toolResults: SecurityTestResult[] = [];
 
-        // Add a passing result for each attack pattern so tool appears in UI
-        for (const attackPattern of attackPatterns) {
-          const payloads = getPayloadsForAttack(attackPattern.attackName);
-
-          // Add one passing result per payload type
-          for (const payload of payloads) {
-            results.push({
-              testName: attackPattern.attackName,
-              description: payload.description,
-              payload: payload.payload,
-              riskLevel: payload.riskLevel,
-              toolName: tool.name,
-              vulnerable: false,
-              evidence:
-                "Tool has no input parameters - cannot be exploited via payload injection",
-            });
-          }
-        }
-        continue;
-      }
-
-      this.log(`Testing ${tool.name} with all attack patterns`);
-
-      // Test with each attack type (all patterns in advanced mode)
-      for (const attackPattern of attackPatterns) {
-        // Get ALL payloads for this attack pattern
-        const payloads = getPayloadsForAttack(attackPattern.attackName);
-
-        // Test tool with each payload variation
-        for (const payload of payloads) {
-          this.testCount++;
-
-          try {
-            const result = await this.testPayload(
-              tool,
-              attackPattern.attackName,
-              payload,
-              context.callTool,
+          // Tools with no input parameters can't be exploited via payload injection
+          // Add passing results so they appear in the UI
+          if (!this.hasInputParameters(tool)) {
+            this.log(
+              `${tool.name} has no input parameters - adding passing results`,
             );
 
-            results.push(result);
+            // Add a passing result for each attack pattern so tool appears in UI
+            for (const attackPattern of attackPatterns) {
+              const payloads = getPayloadsForAttack(attackPattern.attackName);
 
-            if (result.vulnerable) {
-              this.log(
-                `🚨 VULNERABILITY: ${tool.name} - ${attackPattern.attackName} (${payload.payloadType}: ${payload.description})`,
-              );
+              // Add one passing result per payload type
+              for (const payload of payloads) {
+                toolResults.push({
+                  testName: attackPattern.attackName,
+                  description: payload.description,
+                  payload: payload.payload,
+                  riskLevel: payload.riskLevel,
+                  toolName: tool.name,
+                  vulnerable: false,
+                  evidence:
+                    "Tool has no input parameters - cannot be exploited via payload injection",
+                });
+              }
             }
-          } catch (error) {
-            this.logError(
-              `Error testing ${tool.name} with ${attackPattern.attackName}`,
-              error,
-            );
+            return toolResults;
           }
 
-          // Rate limiting
-          if (this.testCount % 5 === 0) {
-            await this.sleep(100);
+          this.log(`Testing ${tool.name} with all attack patterns`);
+
+          // Test with each attack type (all patterns in advanced mode)
+          for (const attackPattern of attackPatterns) {
+            // Get ALL payloads for this attack pattern
+            const payloads = getPayloadsForAttack(attackPattern.attackName);
+
+            // Test tool with each payload variation
+            for (const payload of payloads) {
+              this.testCount++;
+
+              try {
+                const result = await this.testPayload(
+                  tool,
+                  attackPattern.attackName,
+                  payload,
+                  context.callTool,
+                );
+
+                toolResults.push(result);
+
+                if (result.vulnerable) {
+                  this.log(
+                    `🚨 VULNERABILITY: ${tool.name} - ${attackPattern.attackName} (${payload.payloadType}: ${payload.description})`,
+                  );
+                }
+              } catch (error) {
+                this.logError(
+                  `Error testing ${tool.name} with ${attackPattern.attackName}`,
+                  error,
+                );
+              }
+
+              // Rate limiting
+              if (this.testCount % 5 === 0) {
+                await this.sleep(100);
+              }
+            }
           }
-        }
-      }
+
+          return toolResults;
+        }),
+      ),
+    );
+
+    // Flatten all tool results into the main results array
+    for (const toolResults of allToolResults) {
+      results.push(...toolResults);
     }
 
     this.log(

@@ -11,6 +11,7 @@ import {
 } from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
+import { createConcurrencyLimit } from "../lib/concurrencyLimit";
 
 export class ErrorHandlingAssessor extends BaseAssessor {
   async assess(context: AssessmentContext): Promise<ErrorHandlingAssessment> {
@@ -22,18 +23,39 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     // Test a sample of tools for error handling
     const toolsToTest = this.selectToolsForTesting(context.tools);
 
-    for (const tool of toolsToTest) {
-      const toolTests = await this.testToolErrorHandling(
-        tool,
-        context.callTool,
-      );
+    // Parallel tool testing with concurrency limit
+    const concurrency = this.config.maxParallelTests ?? 5;
+    const limit = createConcurrencyLimit(concurrency);
+
+    this.log(
+      `Testing ${toolsToTest.length} tools for error handling with concurrency limit of ${concurrency}`,
+    );
+
+    const allToolTests = await Promise.all(
+      toolsToTest.map((tool) =>
+        limit(async () => {
+          const toolTests = await this.testToolErrorHandling(
+            tool,
+            context.callTool,
+          );
+
+          // Add delay between tests to avoid rate limiting
+          if (
+            this.config.delayBetweenTests &&
+            this.config.delayBetweenTests > 0
+          ) {
+            await this.sleep(this.config.delayBetweenTests);
+          }
+
+          return toolTests;
+        }),
+      ),
+    );
+
+    // Post-process results after parallel execution
+    for (const toolTests of allToolTests) {
       testDetails.push(...toolTests);
       passedTests += toolTests.filter((t) => t.passed).length;
-
-      // Add delay between tests to avoid rate limiting
-      if (this.config.delayBetweenTests && this.config.delayBetweenTests > 0) {
-        await this.sleep(this.config.delayBetweenTests);
-      }
     }
 
     this.testCount = testDetails.length;
