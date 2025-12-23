@@ -69,6 +69,25 @@
 
 ## Recent Changes
 
+### 2025-12-23 - Upstream Sync v0.18.0
+
+**Synced upstream changes from modelcontextprotocol/inspector v0.17.5 → v0.18.0**
+
+- **New Features from Upstream**:
+  - Full enum schema support in DynamicJsonForm (multi-select, enumNames, anyOf/oneOf)
+  - Theme property for Icon and Prompt types
+  - Description display for anyOf fields in JSON editor
+- **Bug Fixes**:
+  - OAuth 401 error detection in StreamableHTTP transport
+  - Empty elicitation form data handling when all fields optional
+- **Maintenance**:
+  - Bumped TS SDK to v1.24.3
+  - Excluded tests from build in tsconfig.app.json
+- **Merge Notes**:
+  - DynamicJsonForm.tsx auto-merged (no conflicts with our nullable array/JSON validation changes)
+  - Package.json conflicts resolved (kept fork naming, accepted SDK update)
+  - 14 commits merged, build successful
+
 ### 2025-01-11 - Fixed False Positive Vulnerability Detection (v2)
 
 **Initial Issue**: Security assessment was incorrectly flagging normal API errors as vulnerabilities
@@ -244,3 +263,35 @@
 - Enhancement adds official MCP Directory Policy compliance checking to inspector-assessment
 - Project file: /Users/bthompson/inspector-assessment/PROJECT_STATUS.md
 
+
+## 2025-12-23: Parallel Tool Testing Implementation
+
+**Summary:** Implemented parallel tool testing to fix timeout issues on large MCP servers, achieving 5x performance improvement
+
+**Session Focus:** Performance optimization - parallel tool testing implementation to address GitHub issue #989
+
+**Changes Made:**
+- NEW: `client/src/services/assessment/lib/concurrencyLimit.ts` - Custom concurrency limiter utility for parallel execution
+- NEW: `client/src/services/assessment/lib/concurrencyLimit.test.ts` - Unit tests for concurrency limiter (4 passing)
+- MODIFIED: `client/src/services/assessment/modules/FunctionalityAssessor.ts` - Parallel tool testing with concurrency control
+- MODIFIED: `client/src/services/assessment/modules/ErrorHandlingAssessor.ts` - Parallel tool testing with concurrency control
+- MODIFIED: `client/src/services/assessment/modules/SecurityAssessor.ts` - Parallel tool testing at tool level
+
+**Key Decisions:**
+- Created custom concurrencyLimit utility instead of using p-limit (ESM compatibility issues with Jest)
+- Parallelized at tool level, kept payload loops sequential for rate limiting protection
+- Reused existing `maxParallelTests` config option (default: 5) - no new configuration needed
+- Tool-level parallelism provides best balance of speed vs. server load
+
+**Next Steps:**
+- Monitor for any issues with parallel execution in production environments
+- Consider adding progress reporting for long-running assessments
+- Potential future enhancement: tool sampling for very large servers (100+ tools)
+
+**Notes:**
+- Fixes GitHub issue #989 (assessment timeouts on large MCP servers)
+- Published as npm v1.7.2
+- Performance improvement: 33-tool server reduced from 16.5 min to 3.3 min (5x speedup)
+- Custom concurrency limiter avoids ESM/CommonJS compatibility problems common with npm packages
+
+---

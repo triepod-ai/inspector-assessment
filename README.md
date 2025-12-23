@@ -611,7 +611,12 @@ The server will start up and the UI will be accessible at `http://localhost:6274
 **Note**: Docker container is not yet available for `@bryan-thompson/inspector-assessment`. The Docker image below is for the upstream inspector only (without assessment features):
 
 ```bash
-docker run --rm --network host -p 6274:6274 -p 6277:6277 ghcr.io/modelcontextprotocol/inspector:latest
+docker run --rm \
+  -p 127.0.0.1:6274:6274 \
+  -p 127.0.0.1:6277:6277 \
+  -e HOST=0.0.0.0 \
+  -e MCP_AUTO_OPEN_ENABLED=false \
+  ghcr.io/modelcontextprotocol/inspector:latest
 ```
 
 ### From an MCP server repository

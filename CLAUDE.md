@@ -14,7 +14,7 @@
 - Development mode: `npm run dev` (use `npm run dev:windows` on Windows)
 - Format code: `npm run prettier-fix`
 - Client lint: `cd client && npm run lint`
-- Run tests: `npm test` (464 passing, 100% pass rate)
+- Run tests: `npm test` (646 tests, 622 passing)
 - Run assessment tests: `npm test -- assessment` (208 assessment module tests)
 
 ## Code Style Guidelines
@@ -498,8 +498,8 @@ See [PUBLISHING_GUIDE.md](PUBLISHING_GUIDE.md) for detailed publishing documenta
 
 ## Upstream Sync Status
 
-- **Current Version**: 0.17.5
-- **Last Sync**: 2025-12-07 (270+ commits from v0.17.0, synced to v0.17.5)
+- **Current Version**: 0.18.0
+- **Last Sync**: 2025-12-23 (synced from v0.17.5 to v0.18.0)
 - **Fork**: triepod-ai/inspector-assessment
 - **Upstream**: modelcontextprotocol/inspector
 - See [PROJECT_STATUS.md](PROJECT_STATUS.md) for sync history

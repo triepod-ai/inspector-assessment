@@ -77,7 +77,7 @@
     "@bryan-thompson/inspector-assessment-cli": "^1.7.1",
     "@bryan-thompson/inspector-assessment-client": "^1.7.1",
     "@bryan-thompson/inspector-assessment-server": "^1.7.1",
-    "@modelcontextprotocol/sdk": "^1.23.0",
+    "@modelcontextprotocol/sdk": "^1.24.3",
     "concurrently": "^9.2.0",
     "node-fetch": "^3.3.2",
     "open": "^10.2.0",
