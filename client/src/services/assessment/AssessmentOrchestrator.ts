@@ -40,6 +40,49 @@ import {
 } from "./lib/claudeCodeBridge";
 import { TestDataGenerator } from "./TestDataGenerator";
 
+/**
+ * Emit module progress to stderr for real-time monitoring by external tools.
+ * Format: <emoji> <ModuleName>: <STATUS> (<score>%)
+ * Example: ✅ Functionality: PASS (95%)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function emitModuleProgress(
+  moduleName: string,
+  status: string,
+  result: any,
+): void {
+  const emoji = status === "PASS" ? "✅" : status === "FAIL" ? "❌" : "⚠️";
+
+  // Compute score based on module type
+  let score = 0;
+  const metrics = result?.metrics;
+
+  if (metrics?.mcpComplianceScore !== undefined) {
+    // ErrorHandling module
+    score = Math.round(metrics.mcpComplianceScore);
+  } else if (result?.complianceScore !== undefined) {
+    // MCPSpecCompliance module
+    score = Math.round(result.complianceScore);
+  } else if (result?.workingPercentage !== undefined) {
+    // Functionality module
+    score = Math.round(result.workingPercentage);
+  } else if (Array.isArray(result?.vulnerabilities)) {
+    // Security module: 100% if no vulns, lower based on vuln count
+    const vulnCount = result.vulnerabilities.length;
+    score = vulnCount === 0 ? 100 : Math.max(0, 100 - vulnCount * 10);
+  } else if (Array.isArray(result?.violations)) {
+    // AUP module: 100% if no violations, lower based on violation count
+    const violationCount = result.violations.length;
+    score = violationCount === 0 ? 100 : Math.max(0, 100 - violationCount * 10);
+  } else {
+    // Derive from status: PASS=100, FAIL=0, other=50
+    score = status === "PASS" ? 100 : status === "FAIL" ? 0 : 50;
+  }
+
+  // Emit to stderr (not stdout) so it doesn't interfere with JSON output
+  console.error(`${emoji} ${moduleName}: ${status} (${score}%)`);
+}
+
 export interface AssessmentContext {
   serverName: string;
   tools: Tool[];
@@ -258,66 +301,77 @@ export class AssessmentOrchestrator {
     if (this.config.parallelTesting) {
       // Core assessments
       assessmentPromises.push(
-        this.functionalityAssessor
-          .assess(context)
-          .then((r) => (assessmentResults.functionality = r)),
-        this.securityAssessor
-          .assess(context)
-          .then((r) => (assessmentResults.security = r)),
-        this.documentationAssessor
-          .assess(context)
-          .then((r) => (assessmentResults.documentation = r)),
-        this.errorHandlingAssessor
-          .assess(context)
-          .then((r) => (assessmentResults.errorHandling = r)),
-        this.usabilityAssessor
-          .assess(context)
-          .then((r) => (assessmentResults.usability = r)),
+        this.functionalityAssessor.assess(context).then((r) => {
+          emitModuleProgress("Functionality", r.status, r);
+          return (assessmentResults.functionality = r);
+        }),
+        this.securityAssessor.assess(context).then((r) => {
+          emitModuleProgress("Security", r.status, r);
+          return (assessmentResults.security = r);
+        }),
+        this.documentationAssessor.assess(context).then((r) => {
+          emitModuleProgress("Documentation", r.status, r);
+          return (assessmentResults.documentation = r);
+        }),
+        this.errorHandlingAssessor.assess(context).then((r) => {
+          emitModuleProgress("Error Handling", r.status, r);
+          return (assessmentResults.errorHandling = r);
+        }),
+        this.usabilityAssessor.assess(context).then((r) => {
+          emitModuleProgress("Usability", r.status, r);
+          return (assessmentResults.usability = r);
+        }),
       );
 
       // Extended assessments
       if (this.mcpSpecAssessor) {
         assessmentPromises.push(
-          this.mcpSpecAssessor
-            .assess(context)
-            .then((r) => (assessmentResults.mcpSpecCompliance = r)),
+          this.mcpSpecAssessor.assess(context).then((r) => {
+            emitModuleProgress("MCP Spec", r.status, r);
+            return (assessmentResults.mcpSpecCompliance = r);
+          }),
         );
       }
 
       // New MCP Directory Compliance Gap assessments
       if (this.aupComplianceAssessor) {
         assessmentPromises.push(
-          this.aupComplianceAssessor
-            .assess(context)
-            .then((r) => (assessmentResults.aupCompliance = r)),
+          this.aupComplianceAssessor.assess(context).then((r) => {
+            emitModuleProgress("AUP", r.status, r);
+            return (assessmentResults.aupCompliance = r);
+          }),
         );
       }
       if (this.toolAnnotationAssessor) {
         assessmentPromises.push(
-          this.toolAnnotationAssessor
-            .assess(context)
-            .then((r) => (assessmentResults.toolAnnotations = r)),
+          this.toolAnnotationAssessor.assess(context).then((r) => {
+            emitModuleProgress("Annotations", r.status, r);
+            return (assessmentResults.toolAnnotations = r);
+          }),
         );
       }
       if (this.prohibitedLibrariesAssessor) {
         assessmentPromises.push(
-          this.prohibitedLibrariesAssessor
-            .assess(context)
-            .then((r) => (assessmentResults.prohibitedLibraries = r)),
+          this.prohibitedLibrariesAssessor.assess(context).then((r) => {
+            emitModuleProgress("Libraries", r.status, r);
+            return (assessmentResults.prohibitedLibraries = r);
+          }),
         );
       }
       if (this.manifestValidationAssessor) {
         assessmentPromises.push(
-          this.manifestValidationAssessor
-            .assess(context)
-            .then((r) => (assessmentResults.manifestValidation = r)),
+          this.manifestValidationAssessor.assess(context).then((r) => {
+            emitModuleProgress("Manifest", r.status, r);
+            return (assessmentResults.manifestValidation = r);
+          }),
         );
       }
       if (this.portabilityAssessor) {
         assessmentPromises.push(
-          this.portabilityAssessor
-            .assess(context)
-            .then((r) => (assessmentResults.portability = r)),
+          this.portabilityAssessor.assess(context).then((r) => {
+            emitModuleProgress("Portability", r.status, r);
+            return (assessmentResults.portability = r);
+          }),
         );
       }
 
@@ -326,39 +380,98 @@ export class AssessmentOrchestrator {
       // Sequential execution
       assessmentResults.functionality =
         await this.functionalityAssessor.assess(context);
+      emitModuleProgress(
+        "Functionality",
+        assessmentResults.functionality.status,
+        assessmentResults.functionality,
+      );
+
       assessmentResults.security = await this.securityAssessor.assess(context);
+      emitModuleProgress(
+        "Security",
+        assessmentResults.security.status,
+        assessmentResults.security,
+      );
+
       assessmentResults.documentation =
         await this.documentationAssessor.assess(context);
+      emitModuleProgress(
+        "Documentation",
+        assessmentResults.documentation.status,
+        assessmentResults.documentation,
+      );
+
       assessmentResults.errorHandling =
         await this.errorHandlingAssessor.assess(context);
+      emitModuleProgress(
+        "Error Handling",
+        assessmentResults.errorHandling.status,
+        assessmentResults.errorHandling,
+      );
+
       assessmentResults.usability =
         await this.usabilityAssessor.assess(context);
+      emitModuleProgress(
+        "Usability",
+        assessmentResults.usability.status,
+        assessmentResults.usability,
+      );
 
       if (this.mcpSpecAssessor) {
         assessmentResults.mcpSpecCompliance =
           await this.mcpSpecAssessor.assess(context);
+        emitModuleProgress(
+          "MCP Spec",
+          assessmentResults.mcpSpecCompliance.status,
+          assessmentResults.mcpSpecCompliance,
+        );
       }
 
       // New MCP Directory Compliance Gap assessments (sequential)
       if (this.aupComplianceAssessor) {
         assessmentResults.aupCompliance =
           await this.aupComplianceAssessor.assess(context);
+        emitModuleProgress(
+          "AUP",
+          assessmentResults.aupCompliance.status,
+          assessmentResults.aupCompliance,
+        );
       }
       if (this.toolAnnotationAssessor) {
         assessmentResults.toolAnnotations =
           await this.toolAnnotationAssessor.assess(context);
+        emitModuleProgress(
+          "Annotations",
+          assessmentResults.toolAnnotations.status,
+          assessmentResults.toolAnnotations,
+        );
       }
       if (this.prohibitedLibrariesAssessor) {
         assessmentResults.prohibitedLibraries =
           await this.prohibitedLibrariesAssessor.assess(context);
+        emitModuleProgress(
+          "Libraries",
+          assessmentResults.prohibitedLibraries.status,
+          assessmentResults.prohibitedLibraries,
+        );
       }
       if (this.manifestValidationAssessor) {
         assessmentResults.manifestValidation =
           await this.manifestValidationAssessor.assess(context);
+        emitModuleProgress(
+          "Manifest",
+          assessmentResults.manifestValidation.status,
+          assessmentResults.manifestValidation,
+        );
       }
       if (this.portabilityAssessor) {
         assessmentResults.portability =
           await this.portabilityAssessor.assess(context);
+        emitModuleProgress(
+          "Portability",
+          assessmentResults.portability.status,
+          assessmentResults.portability,
+        );
       }
     }
 
