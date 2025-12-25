@@ -1,8 +1,9 @@
 /**
- * Regression tests for emitModuleProgress function (v1.8.1)
+ * Regression tests for emitModuleProgress function (v1.8.1 -> v1.9.0)
  *
  * Tests the real-time progress output feature that emits module completion
- * status to stderr in the format: <emoji> <ModuleName>: <STATUS> (<score>%)
+ * status to stderr in JSONL format:
+ * {"event":"module_complete","module":"<name>","status":"<STATUS>","score":<0-100>}
  */
 
 import { AssessmentOrchestrator } from "../AssessmentOrchestrator";
@@ -12,7 +13,29 @@ import {
   createMockTool,
 } from "@/test/utils/testUtils";
 
-describe("emitModuleProgress - Real-time Progress Output", () => {
+interface ModuleCompleteEvent {
+  event: "module_complete";
+  module: string;
+  status: "PASS" | "FAIL" | "NEED_MORE_INFO";
+  score: number;
+}
+
+/**
+ * Parse a JSONL line into a ModuleCompleteEvent, or return null if not matching.
+ */
+function parseModuleCompleteEvent(line: string): ModuleCompleteEvent | null {
+  try {
+    const parsed = JSON.parse(line);
+    if (parsed.event === "module_complete") {
+      return parsed as ModuleCompleteEvent;
+    }
+  } catch {
+    // Not valid JSON
+  }
+  return null;
+}
+
+describe("emitModuleProgress - JSONL Progress Output", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let consoleErrorSpy: any;
   let orchestrator: AssessmentOrchestrator;
@@ -26,8 +49,8 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
     consoleErrorSpy.mockRestore();
   });
 
-  describe("Output Format", () => {
-    it("should emit progress in correct format: <emoji> <ModuleName>: <STATUS> (<score>%)", async () => {
+  describe("JSONL Output Format", () => {
+    it("should emit progress in JSONL format with event, module, status, and score", async () => {
       const config = createMockAssessmentConfig({
         enableExtendedAssessment: true,
         parallelTesting: false, // Sequential for predictable order
@@ -43,19 +66,29 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
       // Verify at least one progress line was emitted
       expect(consoleErrorSpy).toHaveBeenCalled();
 
-      // Check format pattern: emoji + space + name + colon + space + status + space + (score%)
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
-      // Status can include underscores (e.g., NEED_MORE_INFO)
-      const progressPattern = /^[✅❌⚠️] [A-Za-z ]+: [A-Z][A-Z_]* \(\d+%\)$/;
+      // Parse JSONL events
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
 
-      const progressCalls = calls.filter(
-        (call: string) =>
-          typeof call === "string" && progressPattern.test(call),
-      );
-      expect(progressCalls.length).toBeGreaterThan(0);
+      expect(moduleEvents.length).toBeGreaterThan(0);
+
+      // Verify structure of each event
+      for (const event of moduleEvents) {
+        expect(event.event).toBe("module_complete");
+        expect(typeof event.module).toBe("string");
+        expect(["PASS", "FAIL", "NEED_MORE_INFO"]).toContain(event.status);
+        expect(typeof event.score).toBe("number");
+        expect(event.score).toBeGreaterThanOrEqual(0);
+        expect(event.score).toBeLessThanOrEqual(100);
+      }
     });
 
-    it("should emit ✅ emoji for PASS status", async () => {
+    it("should emit PASS status for working modules", async () => {
       const config = createMockAssessmentConfig({
         enableExtendedAssessment: false,
         parallelTesting: false,
@@ -68,14 +101,19 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
 
       await orchestrator.runFullAssessment(context);
 
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
-      const passEmoji = calls.some(
-        (call: string) => typeof call === "string" && call.includes("✅"),
-      );
-      expect(passEmoji).toBe(true);
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
+
+      const hasPass = moduleEvents.some((e) => e.status === "PASS");
+      expect(hasPass).toBe(true);
     });
 
-    it("should emit ❌ emoji for FAIL status", async () => {
+    it("should emit FAIL status when modules fail", async () => {
       const config = createMockAssessmentConfig({
         enableExtendedAssessment: true,
         parallelTesting: false,
@@ -90,14 +128,19 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
 
       await orchestrator.runFullAssessment(context);
 
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
-      const failEmoji = calls.some(
-        (call: string) => typeof call === "string" && call.includes("❌"),
-      );
-      expect(failEmoji).toBe(true);
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
+
+      const hasFail = moduleEvents.some((e) => e.status === "FAIL");
+      expect(hasFail).toBe(true);
     });
 
-    it("should emit ⚠️ emoji for NEED_MORE_INFO status", async () => {
+    it("should emit NEED_MORE_INFO status when appropriate", async () => {
       const config = createMockAssessmentConfig({
         enableExtendedAssessment: true,
         parallelTesting: false,
@@ -110,17 +153,21 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
 
       await orchestrator.runFullAssessment(context);
 
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
-      const warnEmoji = calls.some(
-        (call: string) => typeof call === "string" && call.includes("⚠️"),
-      );
-      // May or may not have warning emoji depending on results
-      expect(typeof warnEmoji).toBe("boolean");
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
+
+      // May or may not have NEED_MORE_INFO depending on results
+      expect(moduleEvents.length).toBeGreaterThan(0);
     });
   });
 
   describe("Score Calculation", () => {
-    it("should include percentage score in output", async () => {
+    it("should include percentage score in JSONL output", async () => {
       const config = createMockAssessmentConfig({
         enableExtendedAssessment: false,
         parallelTesting: false,
@@ -133,11 +180,18 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
 
       await orchestrator.runFullAssessment(context);
 
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
-      const hasPercentage = calls.some(
-        (call: string) => typeof call === "string" && /\(\d+%\)/.test(call),
-      );
-      expect(hasPercentage).toBe(true);
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
+
+      expect(moduleEvents.length).toBeGreaterThan(0);
+      for (const event of moduleEvents) {
+        expect(typeof event.score).toBe("number");
+      }
     });
 
     it("should calculate score between 0 and 100", async () => {
@@ -153,41 +207,40 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
 
       await orchestrator.runFullAssessment(context);
 
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
-      const scorePattern = /\((\d+)%\)/;
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
 
-      calls.forEach((call: string) => {
-        if (typeof call === "string") {
-          const match = call.match(scorePattern);
-          if (match) {
-            const score = parseInt(match[1], 10);
-            expect(score).toBeGreaterThanOrEqual(0);
-            expect(score).toBeLessThanOrEqual(100);
-          }
-        }
-      });
+      for (const event of moduleEvents) {
+        expect(event.score).toBeGreaterThanOrEqual(0);
+        expect(event.score).toBeLessThanOrEqual(100);
+      }
     });
   });
 
-  describe("Module Names", () => {
-    const expectedModuleNames = [
-      "Functionality",
-      "Security",
-      "Documentation",
-      "Error Handling",
-      "Usability",
+  describe("Module Names (snake_case)", () => {
+    const expectedCoreModules = [
+      "functionality",
+      "security",
+      "documentation",
+      "error_handling",
+      "usability",
     ];
 
-    const extendedModuleNames = [
-      "MCP Spec",
-      "AUP",
-      "Annotations",
-      "Libraries",
-      "Manifest",
-      "Portability",
+    const extendedModules = [
+      "mcp_spec",
+      "aup",
+      "annotations",
+      "libraries",
+      "manifest",
+      "portability",
     ];
 
-    it("should emit progress for core modules", async () => {
+    it("should emit progress for core modules in snake_case", async () => {
       const config = createMockAssessmentConfig({
         enableExtendedAssessment: false,
         parallelTesting: false,
@@ -200,14 +253,18 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
 
       await orchestrator.runFullAssessment(context);
 
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
-
-      for (const moduleName of expectedModuleNames) {
-        const found = calls.some(
-          (call: string) =>
-            typeof call === "string" && call.includes(moduleName),
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
         );
-        expect(found).toBe(true);
+
+      const foundModules = new Set(moduleEvents.map((e) => e.module));
+
+      for (const moduleName of expectedCoreModules) {
+        expect(foundModules.has(moduleName)).toBe(true);
       }
     });
 
@@ -237,17 +294,20 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
 
       await orchestrator.runFullAssessment(context);
 
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
+
+      const foundModules = new Set(moduleEvents.map((e) => e.module));
 
       // Check that at least some extended modules emit progress
-      // (not all may run depending on mock context data)
       let foundExtendedModules = 0;
-      for (const moduleName of extendedModuleNames) {
-        const found = calls.some(
-          (call: string) =>
-            typeof call === "string" && call.includes(moduleName),
-        );
-        if (found) foundExtendedModules++;
+      for (const moduleName of extendedModules) {
+        if (foundModules.has(moduleName)) foundExtendedModules++;
       }
       // At least 3 of the 6 extended modules should emit progress
       expect(foundExtendedModules).toBeGreaterThanOrEqual(3);
@@ -268,16 +328,15 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
 
       await orchestrator.runFullAssessment(context);
 
-      // Should have multiple progress emissions
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
-      const progressPattern = /^[✅❌⚠️] [A-Za-z ]+: [A-Z][A-Z_]* \(\d+%\)$/;
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
 
-      const progressCalls = calls.filter(
-        (call: string) =>
-          typeof call === "string" && progressPattern.test(call),
-      );
-      // Should have progress for multiple modules (exact count varies based on mocking)
-      expect(progressCalls.length).toBeGreaterThan(0);
+      expect(moduleEvents.length).toBeGreaterThan(0);
     });
 
     it("should emit progress for modules in sequential mode", async () => {
@@ -293,16 +352,15 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
 
       await orchestrator.runFullAssessment(context);
 
-      // Should have multiple progress emissions
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
-      const progressPattern = /^[✅❌⚠️] [A-Za-z ]+: [A-Z][A-Z_]* \(\d+%\)$/;
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
 
-      const progressCalls = calls.filter(
-        (call: string) =>
-          typeof call === "string" && progressPattern.test(call),
-      );
-      // Should have progress for multiple modules (exact count varies based on mocking)
-      expect(progressCalls.length).toBeGreaterThan(0);
+      expect(moduleEvents.length).toBeGreaterThan(0);
     });
 
     it("should emit core modules when extended assessment is disabled", async () => {
@@ -318,25 +376,20 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
 
       await orchestrator.runFullAssessment(context);
 
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
-      const progressPattern = /^[✅❌⚠️] [A-Za-z ]+: [A-Z][A-Z_]* \(\d+%\)$/;
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
 
-      const progressCalls = calls.filter(
-        (call: string) =>
-          typeof call === "string" && progressPattern.test(call),
-      );
-      // Should have at least some core modules emitting progress
-      // Note: exact count may vary based on test mocking and module behavior
-      expect(progressCalls.length).toBeGreaterThan(0);
+      expect(moduleEvents.length).toBeGreaterThan(0);
 
-      // Verify key core module names are present in the calls
-      // At least Functionality and Documentation should be present
-      const foundFunctionality = progressCalls.some((call: string) =>
-        call.includes("Functionality"),
-      );
-      const foundDocumentation = progressCalls.some((call: string) =>
-        call.includes("Documentation"),
-      );
+      // Verify key core module names are present
+      const foundModules = new Set(moduleEvents.map((e) => e.module));
+      const foundFunctionality = foundModules.has("functionality");
+      const foundDocumentation = foundModules.has("documentation");
       expect(foundFunctionality || foundDocumentation).toBe(true);
     });
   });
@@ -355,17 +408,19 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
 
       await orchestrator.runFullAssessment(context);
 
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
+
       const validStatuses = ["PASS", "FAIL", "NEED_MORE_INFO"];
 
-      calls.forEach((call: string) => {
-        if (typeof call === "string" && call.match(/^[✅❌⚠️]/)) {
-          const hasValidStatus = validStatuses.some((status) =>
-            call.includes(status),
-          );
-          expect(hasValidStatus).toBe(true);
-        }
-      });
+      for (const event of moduleEvents) {
+        expect(validStatuses).toContain(event.status);
+      }
     });
   });
 
@@ -384,15 +439,15 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
       await orchestrator.runFullAssessment(context);
 
       // Should still emit progress (modules still run even with no tools)
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
-      const progressPattern = /^[✅❌⚠️] [A-Za-z ]+: [A-Z][A-Z_]* \(\d+%\)$/;
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
 
-      const progressCalls = calls.filter(
-        (call: string) =>
-          typeof call === "string" && progressPattern.test(call),
-      );
-      // At least some modules should emit progress
-      expect(progressCalls.length).toBeGreaterThan(0);
+      expect(moduleEvents.length).toBeGreaterThan(0);
     });
 
     it("should handle assessment with many tools", async () => {
@@ -413,15 +468,40 @@ describe("emitModuleProgress - Real-time Progress Output", () => {
       await orchestrator.runFullAssessment(context);
 
       // Should emit progress for core modules (4-5 when extended is disabled)
-      const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
-      const progressPattern = /^[✅❌⚠️] [A-Za-z ]+: [A-Z][A-Z_]* \(\d+%\)$/;
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
 
-      const progressCalls = calls.filter(
-        (call: string) =>
-          typeof call === "string" && progressPattern.test(call),
-      );
-      // Should have progress for most core modules
-      expect(progressCalls.length).toBeGreaterThanOrEqual(4);
+      expect(moduleEvents.length).toBeGreaterThanOrEqual(4);
     }, 30000); // Longer timeout for testing 20 tools
+  });
+
+  describe("Valid JSON Output", () => {
+    it("should emit valid JSON that can be parsed", async () => {
+      const config = createMockAssessmentConfig({
+        enableExtendedAssessment: true,
+        parallelTesting: false,
+      });
+      orchestrator = new AssessmentOrchestrator(config);
+
+      const context = createMockAssessmentContext({
+        tools: [createMockTool()],
+      });
+
+      await orchestrator.runFullAssessment(context);
+
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+
+      // Every non-empty stderr line should be valid JSON
+      for (const call of calls) {
+        if (typeof call === "string" && call.trim()) {
+          expect(() => JSON.parse(call)).not.toThrow();
+        }
+      }
+    });
   });
 });

@@ -41,9 +41,8 @@ import {
 import { TestDataGenerator } from "./TestDataGenerator";
 
 /**
- * Emit module progress to stderr for real-time monitoring by external tools.
- * Format: <emoji> <ModuleName>: <STATUS> (<score>%)
- * Example: ✅ Functionality: PASS (95%)
+ * Emit module progress to stderr in JSONL format for machine parsing.
+ * Format: {"event":"module_complete","module":"<name>","status":"<STATUS>","score":<0-100>}
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function emitModuleProgress(
@@ -51,8 +50,6 @@ function emitModuleProgress(
   status: string,
   result: any,
 ): void {
-  const emoji = status === "PASS" ? "✅" : status === "FAIL" ? "❌" : "⚠️";
-
   // Compute score based on module type
   let score = 0;
   const metrics = result?.metrics;
@@ -79,8 +76,18 @@ function emitModuleProgress(
     score = status === "PASS" ? 100 : status === "FAIL" ? 0 : 50;
   }
 
-  // Emit to stderr (not stdout) so it doesn't interfere with JSON output
-  console.error(`${emoji} ${moduleName}: ${status} (${score}%)`);
+  // Convert module name to snake_case key for consistent machine parsing
+  const moduleKey = moduleName.toLowerCase().replace(/ /g, "_");
+
+  // Emit JSONL to stderr (not stdout) so it doesn't interfere with JSON output
+  console.error(
+    JSON.stringify({
+      event: "module_complete",
+      module: moduleKey,
+      status,
+      score,
+    }),
+  );
 }
 
 export interface AssessmentContext {

@@ -43,6 +43,93 @@ import {
 } from "../client/src/lib/assessmentTypes.js";
 import { FULL_CLAUDE_CODE_CONFIG } from "../client/src/services/assessment/lib/claudeCodeBridge.js";
 
+// ============================================================================
+// JSONL Event Emission Helpers (stderr)
+// ============================================================================
+
+/**
+ * Emit a JSONL event to stderr for real-time machine parsing.
+ */
+function emitJSONL(event: Record<string, unknown>): void {
+  console.error(JSON.stringify(event));
+}
+
+/**
+ * Emit server_connected event after successful connection.
+ */
+function emitServerConnected(
+  serverName: string,
+  transport: "stdio" | "http" | "sse",
+): void {
+  emitJSONL({ event: "server_connected", serverName, transport });
+}
+
+/**
+ * Emit tool_discovered event for each tool found.
+ */
+function emitToolDiscovered(tool: Tool): void {
+  const params = extractToolParams(tool.inputSchema);
+  emitJSONL({
+    event: "tool_discovered",
+    name: tool.name,
+    description: tool.description || null,
+    params,
+  });
+}
+
+/**
+ * Emit tools_discovery_complete event after all tools discovered.
+ */
+function emitToolsDiscoveryComplete(count: number): void {
+  emitJSONL({ event: "tools_discovery_complete", count });
+}
+
+/**
+ * Emit assessment_complete event at the end of assessment.
+ */
+function emitAssessmentComplete(
+  overallStatus: string,
+  totalTests: number,
+  executionTime: number,
+  outputPath: string,
+): void {
+  emitJSONL({
+    event: "assessment_complete",
+    overallStatus,
+    totalTests,
+    executionTime,
+    outputPath,
+  });
+}
+
+/**
+ * Extract parameter metadata from tool input schema.
+ */
+function extractToolParams(schema: unknown): Array<{
+  name: string;
+  type: string;
+  required: boolean;
+  description?: string;
+}> {
+  if (!schema || typeof schema !== "object") return [];
+  const s = schema as Record<string, unknown>;
+  if (!s.properties || typeof s.properties !== "object") return [];
+
+  const required = new Set(
+    Array.isArray(s.required) ? (s.required as string[]) : [],
+  );
+  const properties = s.properties as Record<string, Record<string, unknown>>;
+
+  return Object.entries(properties).map(([name, prop]) => ({
+    name,
+    type: (prop.type as string) || "any",
+    required: required.has(name),
+    ...(prop.description && { description: prop.description as string }),
+  }));
+}
+
+// ============================================================================
+
 interface ServerConfig {
   transport?: "stdio" | "http" | "sse";
   // For stdio transport
@@ -357,6 +444,9 @@ async function runFullAssessment(
     console.log("✅ Connected to MCP server");
   }
 
+  // Emit server_connected JSONL event
+  emitServerConnected(options.serverName, serverConfig.transport || "stdio");
+
   // Get tools
   const response = await client.listTools();
   const tools = response.tools || [];
@@ -365,6 +455,12 @@ async function runFullAssessment(
       `🔧 Found ${tools.length} tool${tools.length !== 1 ? "s" : ""}`,
     );
   }
+
+  // Emit tool_discovered JSONL events for each tool
+  for (const tool of tools) {
+    emitToolDiscovered(tool);
+  }
+  emitToolsDiscoveryComplete(tools.length);
 
   // Build configuration
   const config = buildConfig(options);
@@ -686,6 +782,14 @@ async function main() {
       options.serverName,
       results,
       options.outputPath,
+    );
+
+    // Emit assessment_complete JSONL event
+    emitAssessmentComplete(
+      results.overallStatus,
+      results.totalTestsRun,
+      results.executionTime,
+      outputPath,
     );
 
     if (options.jsonOnly) {
