@@ -417,7 +417,6 @@ const Sidebar = ({
                           size="icon"
                           className="h-9 w-9 p-0 shrink-0"
                           onClick={() => {
-                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                             const { [key]: _removed, ...rest } = env;
                             setEnv(rest);
                           }}
