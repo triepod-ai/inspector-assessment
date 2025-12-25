@@ -161,14 +161,17 @@ describe("TestDataGenerator - Boundary Scenario Optimization", () => {
       expect(scenarios.every((s) => s.name.includes("priority"))).toBe(true);
     });
 
-    it("should return empty array for tool with no input schema", () => {
-      const toolWithoutSchema: Tool = {
-        name: "no_schema_tool",
-        description: "A tool without schema",
+    it("should return empty array for tool with no properties in schema", () => {
+      const toolWithoutProperties: Tool = {
+        name: "no_properties_tool",
+        description: "A tool without properties",
+        inputSchema: {
+          type: "object",
+        },
       };
 
       const scenarios = (TestDataGenerator as any).generateBoundaryScenarios(
-        toolWithoutSchema,
+        toolWithoutProperties,
       );
 
       expect(scenarios).toEqual([]);

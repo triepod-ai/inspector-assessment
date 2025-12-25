@@ -783,12 +783,13 @@ const App = () => {
 
   const subscribeToResource = async (uri: string) => {
     if (!resourceSubscriptions.has(uri)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await sendMCPRequest(
         {
           method: "resources/subscribe" as const,
           params: { uri },
         },
-        z.object({}),
+        z.object({}) as any,
         "resources",
       );
       const clone = new Set(resourceSubscriptions);
@@ -799,12 +800,13 @@ const App = () => {
 
   const unsubscribeFromResource = async (uri: string) => {
     if (resourceSubscriptions.has(uri)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await sendMCPRequest(
         {
           method: "resources/unsubscribe" as const,
           params: { uri },
         },
-        z.object({}),
+        z.object({}) as any,
         "resources",
       );
       const clone = new Set(resourceSubscriptions);
@@ -910,12 +912,13 @@ const App = () => {
   };
 
   const sendLogLevelRequest = async (level: LoggingLevel) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await sendMCPRequest(
       {
         method: "logging/setLevel" as const,
         params: { level },
       },
-      z.object({}),
+      z.object({}) as any,
     );
     setLogLevel(level);
   };
