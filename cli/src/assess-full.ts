@@ -376,18 +376,19 @@ async function runFullAssessment(
 
   const response = await client.listTools();
   const tools = response.tools || [];
+
+  // Always emit tool discovery events to stderr for audit-worker parsing
+  // Format: TOOL_DISCOVERED:name|description|param1,param2,... (works even with --json flag)
+  for (const tool of tools) {
+    const description = tool.description || "";
+    const params = Object.keys(tool.inputSchema?.properties || {}).join(",");
+    console.error(`TOOL_DISCOVERED:${tool.name}|${description}|${params}`);
+  }
+
   if (!options.jsonOnly) {
     console.log(
       `🔧 Found ${tools.length} tool${tools.length !== 1 ? "s" : ""}`,
     );
-
-    // Output individual tools to stderr for early parsing by audit-worker
-    // Format: TOOL_DISCOVERED:name|description
-    // This enables MCP Auditor UI to show tools immediately after connection
-    for (const tool of tools) {
-      const description = tool.description || "";
-      console.error(`TOOL_DISCOVERED:${tool.name}|${description}`);
-    }
   }
 
   const config = buildConfig(options);
