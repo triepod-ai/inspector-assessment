@@ -49,7 +49,9 @@ import {
   emitToolDiscovered,
   emitToolsDiscoveryComplete,
   emitAssessmentComplete,
+  emitTestBatch,
 } from "./lib/jsonl-events.js";
+import type { ProgressEvent } from "../client/src/lib/assessmentTypes.js";
 
 // ============================================================================
 
@@ -408,6 +410,20 @@ async function runFullAssessment(
     }
   }
 
+  // Progress callback to emit JSONL events
+  const onProgress = (event: ProgressEvent): void => {
+    if (event.type === "test_batch") {
+      emitTestBatch(
+        event.module,
+        event.completed,
+        event.total,
+        event.batchSize,
+        event.elapsed,
+      );
+    }
+    // module_started and module_complete are handled by orchestrator directly
+  };
+
   // Build assessment context
   const context: AssessmentContext = {
     serverName: options.serverName,
@@ -415,6 +431,7 @@ async function runFullAssessment(
     callTool: createCallToolWrapper(client),
     config,
     sourceCodePath: options.sourceCodePath,
+    onProgress,
     ...sourceFiles,
   };
 

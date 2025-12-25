@@ -45,7 +45,10 @@ import {
   emitToolDiscovered,
   emitToolsDiscoveryComplete,
   emitAssessmentComplete,
+  emitTestBatch,
+  emitModuleStarted,
 } from "./lib/jsonl-events.js";
+import type { ProgressEvent } from "../client/src/lib/assessmentTypes.js";
 
 // ============================================================================
 
@@ -261,15 +264,35 @@ async function runSecurityAssessment(
     testTimeout: 30000,
   };
 
+  // Progress callback to emit JSONL events
+  const onProgress = (event: ProgressEvent): void => {
+    if (event.type === "test_batch") {
+      emitTestBatch(
+        event.module,
+        event.completed,
+        event.total,
+        event.batchSize,
+        event.elapsed,
+      );
+    }
+  };
+
   const context: AssessmentContext = {
     serverName: options.serverName,
     tools,
     callTool: createCallToolWrapper(client),
     config,
+    onProgress,
   };
 
   // Run security assessment
   console.log(`🛡️  Running security assessment with 17 attack patterns...`);
+
+  // Emit module_started event for security module
+  // Estimate: ~39 tests per tool (17 patterns × ~2.3 payloads avg)
+  const estimatedTests = tools.length * 39;
+  emitModuleStarted("security", estimatedTests, tools.length);
+
   const assessor = new SecurityAssessor(config);
   const results = await assessor.assess(context);
 

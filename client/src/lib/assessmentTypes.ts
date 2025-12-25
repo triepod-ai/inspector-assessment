@@ -867,6 +867,65 @@ export interface AssessmentConfiguration {
   };
 }
 
+// ============================================================================
+// Progress Event Types - For real-time test progress tracking
+// ============================================================================
+
+/**
+ * Progress callback for assessment modules to report test execution progress.
+ * Used by CLI to emit batched JSONL events.
+ */
+export interface ProgressCallback {
+  (event: ProgressEvent): void;
+}
+
+/**
+ * Union type for all progress events emitted during assessment.
+ */
+export type ProgressEvent =
+  | ModuleStartedProgress
+  | TestBatchProgress
+  | ModuleCompleteProgress;
+
+/**
+ * Emitted when an assessment module begins execution.
+ */
+export interface ModuleStartedProgress {
+  type: "module_started";
+  module: string;
+  estimatedTests: number;
+  toolCount: number;
+}
+
+/**
+ * Emitted periodically during module execution with batched test results.
+ * Batching reduces event volume for large assessments.
+ */
+export interface TestBatchProgress {
+  type: "test_batch";
+  module: string;
+  completed: number;
+  total: number;
+  batchSize: number;
+  elapsed: number;
+}
+
+/**
+ * Emitted when an assessment module completes with final stats.
+ */
+export interface ModuleCompleteProgress {
+  type: "module_complete";
+  module: string;
+  status: AssessmentStatus;
+  score: number;
+  testsRun: number;
+  duration: number;
+}
+
+// ============================================================================
+// End Progress Event Types
+// ============================================================================
+
 export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
   testTimeout: 30000, // 30 seconds per tool
   delayBetweenTests: 0, // No delay by default

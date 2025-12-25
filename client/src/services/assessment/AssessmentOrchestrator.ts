@@ -9,6 +9,7 @@ import {
   AssessmentStatus,
   DEFAULT_ASSESSMENT_CONFIG,
   ManifestJsonSchema,
+  ProgressCallback,
 } from "@/lib/assessmentTypes";
 import {
   Tool,
@@ -40,15 +41,41 @@ import {
 } from "./lib/claudeCodeBridge";
 import { TestDataGenerator } from "./TestDataGenerator";
 
+// Track module start times for duration calculation
+const moduleStartTimes: Map<string, number> = new Map();
+
+/**
+ * Emit module_started event before assessment module begins.
+ * Format: {"event":"module_started","module":"<name>","estimatedTests":<n>,"toolCount":<n>}
+ */
+function emitModuleStartedEvent(
+  moduleName: string,
+  estimatedTests: number,
+  toolCount: number,
+): void {
+  const moduleKey = moduleName.toLowerCase().replace(/ /g, "_");
+  moduleStartTimes.set(moduleKey, Date.now());
+
+  console.error(
+    JSON.stringify({
+      event: "module_started",
+      module: moduleKey,
+      estimatedTests,
+      toolCount,
+    }),
+  );
+}
+
 /**
  * Emit module progress to stderr in JSONL format for machine parsing.
- * Format: {"event":"module_complete","module":"<name>","status":"<STATUS>","score":<0-100>}
+ * Format: {"event":"module_complete","module":"<name>","status":"<STATUS>","score":<0-100>,"testsRun":<n>,"duration":<ms>}
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function emitModuleProgress(
   moduleName: string,
   status: string,
   result: any,
+  testsRun: number = 0,
 ): void {
   // Compute score based on module type
   let score = 0;
@@ -79,6 +106,11 @@ function emitModuleProgress(
   // Convert module name to snake_case key for consistent machine parsing
   const moduleKey = moduleName.toLowerCase().replace(/ /g, "_");
 
+  // Calculate duration from module start time
+  const startTime = moduleStartTimes.get(moduleKey);
+  const duration = startTime ? Date.now() - startTime : 0;
+  moduleStartTimes.delete(moduleKey);
+
   // Emit JSONL to stderr (not stdout) so it doesn't interfere with JSON output
   console.error(
     JSON.stringify({
@@ -86,6 +118,8 @@ function emitModuleProgress(
       module: moduleKey,
       status,
       score,
+      testsRun,
+      duration,
     }),
   );
 }
@@ -116,6 +150,10 @@ export interface AssessmentContext {
   // MCPB manifest validation (optional)
   manifestJson?: ManifestJsonSchema;
   manifestRaw?: string; // Raw manifest.json content for parsing validation
+
+  // Progress callback for real-time test progress events
+  // Called by assessors to emit batched progress during execution
+  onProgress?: ProgressCallback;
 }
 
 export class AssessmentOrchestrator {
@@ -306,35 +344,81 @@ export class AssessmentOrchestrator {
     const assessmentResults: any = {};
 
     if (this.config.parallelTesting) {
+      // Calculate estimates for module_started events
+      const toolCount = context.tools.length;
+      const securityPatterns = this.config.securityPatternsToTest || 17;
+
+      // Emit all module_started events before launching parallel assessments
+      emitModuleStartedEvent("Functionality", toolCount * 10, toolCount);
+      emitModuleStartedEvent(
+        "Security",
+        securityPatterns * toolCount,
+        toolCount,
+      );
+      emitModuleStartedEvent("Documentation", 5, toolCount);
+      emitModuleStartedEvent("Error Handling", toolCount * 5, toolCount);
+      emitModuleStartedEvent("Usability", 10, toolCount);
+
       // Core assessments
       assessmentPromises.push(
         this.functionalityAssessor.assess(context).then((r) => {
-          emitModuleProgress("Functionality", r.status, r);
+          emitModuleProgress(
+            "Functionality",
+            r.status,
+            r,
+            this.functionalityAssessor.getTestCount(),
+          );
           return (assessmentResults.functionality = r);
         }),
         this.securityAssessor.assess(context).then((r) => {
-          emitModuleProgress("Security", r.status, r);
+          emitModuleProgress(
+            "Security",
+            r.status,
+            r,
+            this.securityAssessor.getTestCount(),
+          );
           return (assessmentResults.security = r);
         }),
         this.documentationAssessor.assess(context).then((r) => {
-          emitModuleProgress("Documentation", r.status, r);
+          emitModuleProgress(
+            "Documentation",
+            r.status,
+            r,
+            this.documentationAssessor.getTestCount(),
+          );
           return (assessmentResults.documentation = r);
         }),
         this.errorHandlingAssessor.assess(context).then((r) => {
-          emitModuleProgress("Error Handling", r.status, r);
+          emitModuleProgress(
+            "Error Handling",
+            r.status,
+            r,
+            this.errorHandlingAssessor.getTestCount(),
+          );
           return (assessmentResults.errorHandling = r);
         }),
         this.usabilityAssessor.assess(context).then((r) => {
-          emitModuleProgress("Usability", r.status, r);
+          emitModuleProgress(
+            "Usability",
+            r.status,
+            r,
+            this.usabilityAssessor.getTestCount(),
+          );
           return (assessmentResults.usability = r);
         }),
       );
 
       // Extended assessments
       if (this.mcpSpecAssessor) {
+        emitModuleStartedEvent("MCP Spec", 10, toolCount);
         assessmentPromises.push(
           this.mcpSpecAssessor.assess(context).then((r) => {
-            emitModuleProgress("MCP Spec", r.status, r);
+            emitModuleProgress(
+              "MCP Spec",
+              r.status,
+              r,
+              this.mcpSpecAssessor!.getTestCount(),
+            );
             return (assessmentResults.mcpSpecCompliance = r);
           }),
         );
@@ -342,41 +426,71 @@ export class AssessmentOrchestrator {
 
       // New MCP Directory Compliance Gap assessments
       if (this.aupComplianceAssessor) {
+        emitModuleStartedEvent("AUP", 20, toolCount);
         assessmentPromises.push(
           this.aupComplianceAssessor.assess(context).then((r) => {
-            emitModuleProgress("AUP", r.status, r);
+            emitModuleProgress(
+              "AUP",
+              r.status,
+              r,
+              this.aupComplianceAssessor!.getTestCount(),
+            );
             return (assessmentResults.aupCompliance = r);
           }),
         );
       }
       if (this.toolAnnotationAssessor) {
+        emitModuleStartedEvent("Annotations", toolCount, toolCount);
         assessmentPromises.push(
           this.toolAnnotationAssessor.assess(context).then((r) => {
-            emitModuleProgress("Annotations", r.status, r);
+            emitModuleProgress(
+              "Annotations",
+              r.status,
+              r,
+              this.toolAnnotationAssessor!.getTestCount(),
+            );
             return (assessmentResults.toolAnnotations = r);
           }),
         );
       }
       if (this.prohibitedLibrariesAssessor) {
+        emitModuleStartedEvent("Libraries", 5, toolCount);
         assessmentPromises.push(
           this.prohibitedLibrariesAssessor.assess(context).then((r) => {
-            emitModuleProgress("Libraries", r.status, r);
+            emitModuleProgress(
+              "Libraries",
+              r.status,
+              r,
+              this.prohibitedLibrariesAssessor!.getTestCount(),
+            );
             return (assessmentResults.prohibitedLibraries = r);
           }),
         );
       }
       if (this.manifestValidationAssessor) {
+        emitModuleStartedEvent("Manifest", 10, toolCount);
         assessmentPromises.push(
           this.manifestValidationAssessor.assess(context).then((r) => {
-            emitModuleProgress("Manifest", r.status, r);
+            emitModuleProgress(
+              "Manifest",
+              r.status,
+              r,
+              this.manifestValidationAssessor!.getTestCount(),
+            );
             return (assessmentResults.manifestValidation = r);
           }),
         );
       }
       if (this.portabilityAssessor) {
+        emitModuleStartedEvent("Portability", 10, toolCount);
         assessmentPromises.push(
           this.portabilityAssessor.assess(context).then((r) => {
-            emitModuleProgress("Portability", r.status, r);
+            emitModuleProgress(
+              "Portability",
+              r.status,
+              r,
+              this.portabilityAssessor!.getTestCount(),
+            );
             return (assessmentResults.portability = r);
           }),
         );
@@ -384,100 +498,134 @@ export class AssessmentOrchestrator {
 
       await Promise.all(assessmentPromises);
     } else {
-      // Sequential execution
+      // Sequential execution with module_started events
+      const toolCount = context.tools.length;
+      const securityPatterns = this.config.securityPatternsToTest || 17;
+
+      // Functionality: ~10 scenarios per tool
+      emitModuleStartedEvent("Functionality", toolCount * 10, toolCount);
       assessmentResults.functionality =
         await this.functionalityAssessor.assess(context);
       emitModuleProgress(
         "Functionality",
         assessmentResults.functionality.status,
         assessmentResults.functionality,
+        this.functionalityAssessor.getTestCount(),
       );
 
+      // Security: patterns × tools
+      emitModuleStartedEvent(
+        "Security",
+        securityPatterns * toolCount,
+        toolCount,
+      );
       assessmentResults.security = await this.securityAssessor.assess(context);
       emitModuleProgress(
         "Security",
         assessmentResults.security.status,
         assessmentResults.security,
+        this.securityAssessor.getTestCount(),
       );
 
+      // Documentation: ~5 static tests
+      emitModuleStartedEvent("Documentation", 5, toolCount);
       assessmentResults.documentation =
         await this.documentationAssessor.assess(context);
       emitModuleProgress(
         "Documentation",
         assessmentResults.documentation.status,
         assessmentResults.documentation,
+        this.documentationAssessor.getTestCount(),
       );
 
+      // Error Handling: ~5 tests per tool
+      emitModuleStartedEvent("Error Handling", toolCount * 5, toolCount);
       assessmentResults.errorHandling =
         await this.errorHandlingAssessor.assess(context);
       emitModuleProgress(
         "Error Handling",
         assessmentResults.errorHandling.status,
         assessmentResults.errorHandling,
+        this.errorHandlingAssessor.getTestCount(),
       );
 
+      // Usability: ~10 static tests
+      emitModuleStartedEvent("Usability", 10, toolCount);
       assessmentResults.usability =
         await this.usabilityAssessor.assess(context);
       emitModuleProgress(
         "Usability",
         assessmentResults.usability.status,
         assessmentResults.usability,
+        this.usabilityAssessor.getTestCount(),
       );
 
       if (this.mcpSpecAssessor) {
+        emitModuleStartedEvent("MCP Spec", 10, toolCount);
         assessmentResults.mcpSpecCompliance =
           await this.mcpSpecAssessor.assess(context);
         emitModuleProgress(
           "MCP Spec",
           assessmentResults.mcpSpecCompliance.status,
           assessmentResults.mcpSpecCompliance,
+          this.mcpSpecAssessor.getTestCount(),
         );
       }
 
       // New MCP Directory Compliance Gap assessments (sequential)
       if (this.aupComplianceAssessor) {
+        emitModuleStartedEvent("AUP", 20, toolCount);
         assessmentResults.aupCompliance =
           await this.aupComplianceAssessor.assess(context);
         emitModuleProgress(
           "AUP",
           assessmentResults.aupCompliance.status,
           assessmentResults.aupCompliance,
+          this.aupComplianceAssessor.getTestCount(),
         );
       }
       if (this.toolAnnotationAssessor) {
+        emitModuleStartedEvent("Annotations", toolCount, toolCount);
         assessmentResults.toolAnnotations =
           await this.toolAnnotationAssessor.assess(context);
         emitModuleProgress(
           "Annotations",
           assessmentResults.toolAnnotations.status,
           assessmentResults.toolAnnotations,
+          this.toolAnnotationAssessor.getTestCount(),
         );
       }
       if (this.prohibitedLibrariesAssessor) {
+        emitModuleStartedEvent("Libraries", 5, toolCount);
         assessmentResults.prohibitedLibraries =
           await this.prohibitedLibrariesAssessor.assess(context);
         emitModuleProgress(
           "Libraries",
           assessmentResults.prohibitedLibraries.status,
           assessmentResults.prohibitedLibraries,
+          this.prohibitedLibrariesAssessor.getTestCount(),
         );
       }
       if (this.manifestValidationAssessor) {
+        emitModuleStartedEvent("Manifest", 10, toolCount);
         assessmentResults.manifestValidation =
           await this.manifestValidationAssessor.assess(context);
         emitModuleProgress(
           "Manifest",
           assessmentResults.manifestValidation.status,
           assessmentResults.manifestValidation,
+          this.manifestValidationAssessor.getTestCount(),
         );
       }
       if (this.portabilityAssessor) {
+        emitModuleStartedEvent("Portability", 10, toolCount);
         assessmentResults.portability =
           await this.portabilityAssessor.assess(context);
         emitModuleProgress(
           "Portability",
           assessmentResults.portability.status,
           assessmentResults.portability,
+          this.portabilityAssessor.getTestCount(),
         );
       }
     }

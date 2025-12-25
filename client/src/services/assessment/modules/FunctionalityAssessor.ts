@@ -65,6 +65,30 @@ export class FunctionalityAssessor extends BaseAssessor {
     const concurrency = this.config.maxParallelTests ?? 5;
     const limit = createConcurrencyLimit(concurrency);
 
+    // Progress tracking for batched events
+    const totalEstimate = toolsToTest.length;
+    let completedTests = 0;
+    let lastBatchTime = Date.now();
+    const startTime = Date.now();
+    const BATCH_INTERVAL = 500;
+    const BATCH_SIZE = 5; // Smaller batch for functionality (fewer tests)
+    let batchCount = 0;
+
+    const emitProgressBatch = () => {
+      if (context.onProgress) {
+        context.onProgress({
+          type: "test_batch",
+          module: "functionality",
+          completed: completedTests,
+          total: totalEstimate,
+          batchSize: batchCount,
+          elapsed: Date.now() - startTime,
+        });
+      }
+      batchCount = 0;
+      lastBatchTime = Date.now();
+    };
+
     this.log(
       `Testing ${toolsToTest.length} tools with concurrency limit of ${concurrency}`,
     );
@@ -73,7 +97,19 @@ export class FunctionalityAssessor extends BaseAssessor {
       toolsToTest.map((tool) =>
         limit(async () => {
           this.testCount++;
+          completedTests++;
+          batchCount++;
+
           const result = await this.testTool(tool, context.callTool);
+
+          // Emit progress batch if threshold reached
+          const timeSinceLastBatch = Date.now() - lastBatchTime;
+          if (
+            batchCount >= BATCH_SIZE ||
+            timeSinceLastBatch >= BATCH_INTERVAL
+          ) {
+            emitProgressBatch();
+          }
 
           // Add delay between tests to avoid rate limiting
           if (
@@ -87,6 +123,11 @@ export class FunctionalityAssessor extends BaseAssessor {
         }),
       ),
     );
+
+    // Final flush of any remaining progress
+    if (batchCount > 0) {
+      emitProgressBatch();
+    }
 
     // Post-process results after parallel execution
     for (const result of results) {

@@ -171,8 +171,33 @@ export class SecurityAssessor extends BaseAssessor {
     const concurrency = this.config.maxParallelTests ?? 5;
     const limit = createConcurrencyLimit(concurrency);
 
+    // Progress tracking for batched events
+    const totalEstimate = toolsToTest.length * attackPatterns.length * 3; // ~3 payloads per pattern
+    let completedTests = 0;
+    let lastBatchTime = Date.now();
+    const startTime = Date.now();
+    const BATCH_INTERVAL = 500; // ms
+    const BATCH_SIZE = 10; // tests
+    let batchCount = 0;
+
+    // Helper to emit batched progress
+    const emitProgressBatch = () => {
+      if (context.onProgress) {
+        context.onProgress({
+          type: "test_batch",
+          module: "security",
+          completed: completedTests,
+          total: totalEstimate,
+          batchSize: batchCount,
+          elapsed: Date.now() - startTime,
+        });
+      }
+      batchCount = 0;
+      lastBatchTime = Date.now();
+    };
+
     this.log(
-      `Starting ADVANCED security assessment - testing ${toolsToTest.length} tools with ${attackPatterns.length} security patterns (~${toolsToTest.length * attackPatterns.length * 3} tests) [concurrency: ${concurrency}]`,
+      `Starting ADVANCED security assessment - testing ${toolsToTest.length} tools with ${attackPatterns.length} security patterns (~${totalEstimate} tests) [concurrency: ${concurrency}]`,
     );
 
     const allToolResults = await Promise.all(
@@ -218,6 +243,8 @@ export class SecurityAssessor extends BaseAssessor {
             // Test tool with each payload variation
             for (const payload of payloads) {
               this.testCount++;
+              completedTests++;
+              batchCount++;
 
               try {
                 const result = await this.testPayload(
@@ -241,6 +268,15 @@ export class SecurityAssessor extends BaseAssessor {
                 );
               }
 
+              // Emit progress batch if threshold reached
+              const timeSinceLastBatch = Date.now() - lastBatchTime;
+              if (
+                batchCount >= BATCH_SIZE ||
+                timeSinceLastBatch >= BATCH_INTERVAL
+              ) {
+                emitProgressBatch();
+              }
+
               // Rate limiting
               if (this.testCount % 5 === 0) {
                 await this.sleep(100);
@@ -256,6 +292,11 @@ export class SecurityAssessor extends BaseAssessor {
     // Flatten all tool results into the main results array
     for (const toolResults of allToolResults) {
       results.push(...toolResults);
+    }
+
+    // Final flush of any remaining progress
+    if (batchCount > 0) {
+      emitProgressBatch();
     }
 
     this.log(
@@ -291,8 +332,32 @@ export class SecurityAssessor extends BaseAssessor {
     // Select tools for testing
     const toolsToTest = this.selectToolsForTesting(context.tools);
 
+    // Progress tracking for batched events
+    const totalEstimate = toolsToTest.length * basicPatterns.length;
+    let completedTests = 0;
+    let lastBatchTime = Date.now();
+    const startTime = Date.now();
+    const BATCH_INTERVAL = 500;
+    const BATCH_SIZE = 10;
+    let batchCount = 0;
+
+    const emitProgressBatch = () => {
+      if (context.onProgress) {
+        context.onProgress({
+          type: "test_batch",
+          module: "security",
+          completed: completedTests,
+          total: totalEstimate,
+          batchSize: batchCount,
+          elapsed: Date.now() - startTime,
+        });
+      }
+      batchCount = 0;
+      lastBatchTime = Date.now();
+    };
+
     this.log(
-      `Starting BASIC security assessment - testing ${toolsToTest.length} tools with ${basicPatterns.length} critical injection patterns (~${toolsToTest.length * basicPatterns.length * 5} tests)`,
+      `Starting BASIC security assessment - testing ${toolsToTest.length} tools with ${basicPatterns.length} critical injection patterns (~${totalEstimate} tests)`,
     );
 
     for (const tool of toolsToTest) {
@@ -337,6 +402,8 @@ export class SecurityAssessor extends BaseAssessor {
         if (!payload) continue;
 
         this.testCount++;
+        completedTests++;
+        batchCount++;
 
         try {
           const result = await this.testPayload(
@@ -360,11 +427,22 @@ export class SecurityAssessor extends BaseAssessor {
           );
         }
 
+        // Emit progress batch if threshold reached
+        const timeSinceLastBatch = Date.now() - lastBatchTime;
+        if (batchCount >= BATCH_SIZE || timeSinceLastBatch >= BATCH_INTERVAL) {
+          emitProgressBatch();
+        }
+
         // Rate limiting
         if (this.testCount % 5 === 0) {
           await this.sleep(100);
         }
       }
+    }
+
+    // Final flush of any remaining progress
+    if (batchCount > 0) {
+      emitProgressBatch();
     }
 
     this.log(

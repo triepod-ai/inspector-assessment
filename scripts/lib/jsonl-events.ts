@@ -50,11 +50,40 @@ export interface AssessmentCompleteEvent {
   outputPath: string;
 }
 
+// New events for real-time progress tracking
+export interface ModuleStartedEvent {
+  event: "module_started";
+  module: string;
+  estimatedTests: number;
+  toolCount: number;
+}
+
+export interface TestBatchEvent {
+  event: "test_batch";
+  module: string;
+  completed: number;
+  total: number;
+  batchSize: number;
+  elapsed: number;
+}
+
+export interface ModuleCompleteEvent {
+  event: "module_complete";
+  module: string;
+  status: "PASS" | "FAIL" | "NEED_MORE_INFO";
+  score: number;
+  testsRun: number;
+  duration: number;
+}
+
 export type JSONLEvent =
   | ServerConnectedEvent
   | ToolDiscoveredEvent
   | ToolsDiscoveryCompleteEvent
-  | AssessmentCompleteEvent;
+  | AssessmentCompleteEvent
+  | ModuleStartedEvent
+  | TestBatchEvent
+  | ModuleCompleteEvent;
 
 // ============================================================================
 // Core Functions
@@ -134,4 +163,198 @@ export function extractToolParams(schema: unknown): ToolParam[] {
     required: required.has(name),
     ...(prop.description && { description: prop.description as string }),
   }));
+}
+
+// ============================================================================
+// New Progress Event Emitters
+// ============================================================================
+
+/**
+ * Emit module_started event before assessment module begins.
+ */
+export function emitModuleStarted(
+  module: string,
+  estimatedTests: number,
+  toolCount: number,
+): void {
+  emitJSONL({ event: "module_started", module, estimatedTests, toolCount });
+}
+
+/**
+ * Emit test_batch event during assessment for real-time progress.
+ */
+export function emitTestBatch(
+  module: string,
+  completed: number,
+  total: number,
+  batchSize: number,
+  elapsed: number,
+): void {
+  emitJSONL({
+    event: "test_batch",
+    module,
+    completed,
+    total,
+    batchSize,
+    elapsed,
+  });
+}
+
+/**
+ * Emit module_complete event with enhanced data.
+ */
+export function emitModuleComplete(
+  module: string,
+  status: "PASS" | "FAIL" | "NEED_MORE_INFO",
+  score: number,
+  testsRun: number,
+  duration: number,
+): void {
+  emitJSONL({
+    event: "module_complete",
+    module,
+    status,
+    score,
+    testsRun,
+    duration,
+  });
+}
+
+// ============================================================================
+// EventBatcher - Batches test progress events for volume control
+// ============================================================================
+
+export interface TestResult {
+  toolName: string;
+  testName: string;
+  passed: boolean;
+}
+
+export interface TestBatch {
+  module: string;
+  completed: number;
+  total: number;
+  batchSize: number;
+  elapsed: number;
+}
+
+/**
+ * Batches test results and emits progress events at controlled intervals.
+ * Flushes either when batch size reached OR interval elapsed (whichever first).
+ */
+export class EventBatcher {
+  private module: string;
+  private total: number;
+  private completed: number = 0;
+  private batchBuffer: TestResult[] = [];
+  private startTime: number;
+  private lastFlushTime: number;
+  private flushIntervalMs: number;
+  private maxBatchSize: number;
+  private onBatchCallback?: (batch: TestBatch) => void;
+  private flushTimer?: ReturnType<typeof setTimeout>;
+
+  constructor(
+    module: string,
+    total: number,
+    flushIntervalMs: number = 500,
+    maxBatchSize: number = 10,
+  ) {
+    this.module = module;
+    this.total = total;
+    this.flushIntervalMs = flushIntervalMs;
+    this.maxBatchSize = maxBatchSize;
+    this.startTime = Date.now();
+    this.lastFlushTime = this.startTime;
+  }
+
+  /**
+   * Register callback for batch events.
+   */
+  onBatch(callback: (batch: TestBatch) => void): void {
+    this.onBatchCallback = callback;
+  }
+
+  /**
+   * Add a test result to the batch buffer.
+   * Triggers flush if max batch size reached.
+   */
+  addResult(result: TestResult): void {
+    this.completed++;
+    this.batchBuffer.push(result);
+
+    // Check if we should flush
+    const now = Date.now();
+    const timeSinceLastFlush = now - this.lastFlushTime;
+
+    if (
+      this.batchBuffer.length >= this.maxBatchSize ||
+      timeSinceLastFlush >= this.flushIntervalMs
+    ) {
+      this.flush();
+    } else if (!this.flushTimer) {
+      // Set a timer to flush after interval if nothing else triggers it
+      this.flushTimer = setTimeout(() => {
+        if (this.batchBuffer.length > 0) {
+          this.flush();
+        }
+      }, this.flushIntervalMs - timeSinceLastFlush);
+    }
+  }
+
+  /**
+   * Force flush the current batch buffer.
+   */
+  flush(): void {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = undefined;
+    }
+
+    if (this.batchBuffer.length === 0) return;
+
+    const batch: TestBatch = {
+      module: this.module,
+      completed: this.completed,
+      total: this.total,
+      batchSize: this.batchBuffer.length,
+      elapsed: Date.now() - this.startTime,
+    };
+
+    // Clear buffer before callback to prevent re-entrancy issues
+    this.batchBuffer = [];
+    this.lastFlushTime = Date.now();
+
+    // Emit via JSONL
+    emitTestBatch(
+      batch.module,
+      batch.completed,
+      batch.total,
+      batch.batchSize,
+      batch.elapsed,
+    );
+
+    // Call registered callback
+    if (this.onBatchCallback) {
+      this.onBatchCallback(batch);
+    }
+  }
+
+  /**
+   * Update the total test count (useful when estimate changes).
+   */
+  updateTotal(newTotal: number): void {
+    this.total = newTotal;
+  }
+
+  /**
+   * Get current progress stats.
+   */
+  getProgress(): { completed: number; total: number; elapsed: number } {
+    return {
+      completed: this.completed,
+      total: this.total,
+      elapsed: Date.now() - this.startTime,
+    };
+  }
 }
