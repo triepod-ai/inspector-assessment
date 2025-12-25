@@ -38,6 +38,7 @@ interface ServerConfig {
   command?: string;
   args?: string[];
   env?: Record<string, string>;
+  cwd?: string;
   url?: string;
 }
 
@@ -78,6 +79,7 @@ function loadServerConfig(
         command: serverConfig.command,
         args: serverConfig.args || [],
         env: serverConfig.env || {},
+        cwd: serverConfig.cwd,
       };
     }
 
@@ -196,6 +198,7 @@ function loadSourceFiles(sourcePath: string): {
  */
 async function connectToServer(config: ServerConfig): Promise<Client> {
   let transport;
+  let stderrData = ""; // Capture stderr for error reporting
 
   switch (config.transport) {
     case "http":
@@ -221,8 +224,19 @@ async function connectToServer(config: ServerConfig): Promise<Client> {
           ) as Record<string, string>),
           ...config.env,
         },
+        cwd: config.cwd,
         stderr: "pipe",
       });
+
+      // Capture stderr BEFORE connecting - critical for error context
+      // The MCP SDK creates a PassThrough stream immediately when stderr: "pipe"
+      // is set, allowing us to attach listeners before start() is called
+      const stderrStream = (transport as StdioClientTransport).stderr;
+      if (stderrStream) {
+        stderrStream.on("data", (data: Buffer) => {
+          stderrData += data.toString();
+        });
+      }
       break;
   }
 
@@ -236,7 +250,24 @@ async function connectToServer(config: ServerConfig): Promise<Client> {
     },
   );
 
-  await client.connect(transport);
+  try {
+    await client.connect(transport);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // Provide helpful context when connection fails
+    if (stderrData.trim()) {
+      throw new Error(
+        `Failed to connect to MCP server: ${errorMessage}\n\n` +
+          `Server stderr:\n${stderrData.trim()}\n\n` +
+          `Common causes:\n` +
+          `  - Missing environment variables (check .env file)\n` +
+          `  - Required external services not running\n` +
+          `  - Missing API credentials`,
+      );
+    }
+    throw new Error(`Failed to connect to MCP server: ${errorMessage}`);
+  }
 
   return client;
 }
