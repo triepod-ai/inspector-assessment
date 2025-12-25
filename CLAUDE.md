@@ -347,8 +347,7 @@ This file contains archived project timeline entries from earlier development ph
 ## npm Package Publishing & Maintenance
 
 **Package**: `@bryan-thompson/inspector-assessment`
-**Current Version**: 1.0.1
-**Published**: 2025-10-11 (v1.0.0), 2025-10-11 (v1.0.1)
+**Current Version**: 1.8.2
 **Registry**: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
 
 ### Quick Publish Workflow
@@ -356,29 +355,34 @@ This file contains archived project timeline entries from earlier development ph
 When making changes that should be published to npm:
 
 ```bash
-# 1. Update version (semantic versioning)
+# 1. Ensure clean git state (required for npm version)
+git status  # Should show no uncommitted changes to tracked files
+
+# 2. Format all files (catches new docs that would fail prettier-check)
+npm run prettier-fix
+git add . && git commit -m "style: format files"  # If any changes
+
+# 3. Bump root version (creates git tag automatically)
 npm version patch   # Bug fixes: 1.0.0 -> 1.0.1
 npm version minor   # New features: 1.0.0 -> 1.1.0
 npm version major   # Breaking changes: 1.0.0 -> 2.0.0
 
-# 2. Update CHANGELOG.md with changes
+# 4. CRITICAL: Sync workspace versions (npm doesn't do this automatically!)
+VERSION=$(node -p "require('./package.json').version")
+npm --workspace client version $VERSION --no-git-tag-version
+npm --workspace server version $VERSION --no-git-tag-version
+npm --workspace cli version $VERSION --no-git-tag-version
 
-# 3. Build and format
-npm run build
-npm run prettier-fix
-
-# 4. Publish all packages (workspaces + root)
+# 5. Publish all packages (workspaces + root)
 npm run publish-all
-# This runs: npm publish --workspaces --access public && npm publish --access public
 
-# 5. Test the published package
-bunx @bryan-thompson/inspector-assessment
-
-# 6. Commit and tag
-git add .
-git commit -m "chore: release v1.0.x"
-git tag v1.0.x
+# 6. Commit workspace version updates and push
+git add client/package.json server/package.json cli/package.json
+git commit -m "chore: release v$VERSION"
 git push origin main --tags
+
+# 7. Verify published package
+bunx @bryan-thompson/inspector-assessment --help
 ```
 
 ### Publishing Commands Reference
@@ -440,6 +444,25 @@ The npm package consists of 4 published packages:
 4. **@bryan-thompson/inspector-assessment-cli** - CLI tools
 
 All four must be published for the package to work correctly.
+
+### Monorepo Publishing Gotchas
+
+**Critical issues discovered during v1.8.2 release:**
+
+1. **Workspace Version Sync** (Most Common Failure)
+   - `npm version patch` only bumps the root package version
+   - Workspace packages (client, server, cli) keep their old versions
+   - Publishing fails with: `403 Forbidden - cannot publish over previously published versions`
+   - **Fix**: Always run the workspace version sync command after `npm version`
+
+2. **Prettier Formatting**
+   - New files (especially docs) must be formatted before commit
+   - `npm test` runs `prettier-check` first and fails if files aren't formatted
+   - **Fix**: Run `npm run prettier-fix` before committing new files
+
+3. **Clean Git Directory**
+   - `npm version` fails if working directory has uncommitted changes
+   - **Fix**: Commit or stash changes before running `npm version`
 
 ### Testing Published Package
 
