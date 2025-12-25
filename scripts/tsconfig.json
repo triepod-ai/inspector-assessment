@@ -8,11 +8,11 @@
     "skipLibCheck": true,
     "strict": false,
     "resolveJsonModule": true,
-    "types": ["node"],
+    "types": ["node", "jest"],
     "baseUrl": "..",
     "paths": {
       "@/*": ["client/src/*"]
     }
   },
-  "include": ["*.ts"]
+  "include": ["*.ts", "lib/**/*.ts", "__tests__/**/*.ts"]
 }

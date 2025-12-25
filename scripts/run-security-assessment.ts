@@ -39,90 +39,13 @@ import {
 } from "../client/src/lib/assessmentTypes.js";
 import { AssessmentContext } from "../client/src/services/assessment/AssessmentOrchestrator.js";
 
-// ============================================================================
-// JSONL Event Emission Helpers (stderr)
-// ============================================================================
-
-/**
- * Emit a JSONL event to stderr for real-time machine parsing.
- */
-function emitJSONL(event: Record<string, unknown>): void {
-  console.error(JSON.stringify(event));
-}
-
-/**
- * Emit server_connected event after successful connection.
- */
-function emitServerConnected(
-  serverName: string,
-  transport: "stdio" | "http" | "sse",
-): void {
-  emitJSONL({ event: "server_connected", serverName, transport });
-}
-
-/**
- * Emit tool_discovered event for each tool found.
- */
-function emitToolDiscovered(tool: Tool): void {
-  const params = extractToolParams(tool.inputSchema);
-  emitJSONL({
-    event: "tool_discovered",
-    name: tool.name,
-    description: tool.description || null,
-    params,
-  });
-}
-
-/**
- * Emit tools_discovery_complete event after all tools discovered.
- */
-function emitToolsDiscoveryComplete(count: number): void {
-  emitJSONL({ event: "tools_discovery_complete", count });
-}
-
-/**
- * Emit assessment_complete event at the end of assessment.
- */
-function emitAssessmentComplete(
-  overallStatus: string,
-  totalTests: number,
-  executionTime: number,
-  outputPath: string,
-): void {
-  emitJSONL({
-    event: "assessment_complete",
-    overallStatus,
-    totalTests,
-    executionTime,
-    outputPath,
-  });
-}
-
-/**
- * Extract parameter metadata from tool input schema.
- */
-function extractToolParams(schema: unknown): Array<{
-  name: string;
-  type: string;
-  required: boolean;
-  description?: string;
-}> {
-  if (!schema || typeof schema !== "object") return [];
-  const s = schema as Record<string, unknown>;
-  if (!s.properties || typeof s.properties !== "object") return [];
-
-  const required = new Set(
-    Array.isArray(s.required) ? (s.required as string[]) : [],
-  );
-  const properties = s.properties as Record<string, Record<string, unknown>>;
-
-  return Object.entries(properties).map(([name, prop]) => ({
-    name,
-    type: (prop.type as string) || "any",
-    required: required.has(name),
-    ...(prop.description && { description: prop.description as string }),
-  }));
-}
+// Import JSONL event helpers from shared module
+import {
+  emitServerConnected,
+  emitToolDiscovered,
+  emitToolsDiscoveryComplete,
+  emitAssessmentComplete,
+} from "./lib/jsonl-events.js";
 
 // ============================================================================
 
