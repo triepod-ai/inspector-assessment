@@ -196,6 +196,7 @@ For detailed documentation on specific features, see:
 - **Security Assessment**: [README.md](README.md#4-context-aware-security-assessment-with-zero-false-positives) - Domain-specific patterns, zero false positives
 - **Error Handling**: [README.md](README.md#assessment-categories) - MCP protocol compliance, validation quality
 - **MCP Spec Compliance**: See PROJECT_STATUS.md timeline for latest enhancements
+- **Real-Time Progress Output**: [docs/REAL_TIME_PROGRESS_OUTPUT.md](docs/REAL_TIME_PROGRESS_OUTPUT.md) - Module progress to stderr for CLI/auditor integration (v1.8.1)
 - **Recent Changes**: [PROJECT_STATUS.md](PROJECT_STATUS.md#development-timeline---october-2025)
 
 ## Key Technical Implementations
