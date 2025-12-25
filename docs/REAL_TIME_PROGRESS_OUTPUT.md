@@ -1,33 +1,149 @@
-# Real-Time Progress Output (v1.8.1)
+# Real-Time JSONL Progress Output (v1.9.0)
 
 ## Overview
 
-The MCP Inspector emits real-time module completion status to stderr during assessment execution. This enables external tools (like the MCP Auditor) to display live progress and scores as each assessment module completes.
+The MCP Inspector emits real-time progress events to stderr in JSONL (JSON Lines) format during assessment execution. This enables external tools (like the MCP Auditor) to parse and display live progress as each phase completes.
 
 ## Output Format
 
-```
-<emoji> <ModuleName>: <STATUS> (<score>%)
-```
+Each line is a valid JSON object with an `event` field indicating the event type:
 
-## Example Output
-
-```
-✅ Functionality: PASS (95%)
-❌ Security: FAIL (70%)
-⚠️ Documentation: NEED_MORE_INFO (50%)
-✅ Error Handling: PASS (88%)
-✅ Usability: PASS (100%)
-✅ MCP Spec: PASS (92%)
+```jsonl
+{"event":"<event_type>", ...fields}
 ```
 
-## Emoji Mapping
+## Event Types
 
-| Emoji | Status                             |
-| ----- | ---------------------------------- |
-| ✅    | PASS                               |
-| ❌    | FAIL                               |
-| ⚠️    | NEED_MORE_INFO (or other statuses) |
+### 1. `server_connected`
+
+Emitted immediately after connecting to the MCP server.
+
+```json
+{ "event": "server_connected", "serverName": "my-server", "transport": "http" }
+```
+
+| Field        | Type   | Description                                     |
+| ------------ | ------ | ----------------------------------------------- |
+| `serverName` | string | Name of the server being assessed               |
+| `transport`  | string | Transport type: `"stdio"`, `"http"`, or `"sse"` |
+
+### 2. `tool_discovered`
+
+Emitted for each tool found during discovery.
+
+```json
+{
+  "event": "tool_discovered",
+  "name": "add_memory",
+  "description": "Store a memory",
+  "params": [{ "name": "content", "type": "string", "required": true }]
+}
+```
+
+| Field         | Type           | Description                            |
+| ------------- | -------------- | -------------------------------------- |
+| `name`        | string         | Tool name                              |
+| `description` | string \| null | Tool description                       |
+| `params`      | array          | Parameter definitions from inputSchema |
+
+**Param object fields:**
+
+- `name` (string): Parameter name
+- `type` (string): Parameter type (e.g., "string", "number", "object")
+- `required` (boolean): Whether the parameter is required
+- `description` (string, optional): Parameter description
+
+### 3. `tools_discovery_complete`
+
+Emitted after all tools have been discovered.
+
+```json
+{ "event": "tools_discovery_complete", "count": 17 }
+```
+
+| Field   | Type   | Description                      |
+| ------- | ------ | -------------------------------- |
+| `count` | number | Total number of tools discovered |
+
+### 4. `module_complete`
+
+Emitted after each assessment module completes.
+
+```json
+{
+  "event": "module_complete",
+  "module": "security",
+  "status": "FAIL",
+  "score": 70
+}
+```
+
+| Field    | Type   | Description                               |
+| -------- | ------ | ----------------------------------------- |
+| `module` | string | Module name in snake_case                 |
+| `status` | string | `"PASS"`, `"FAIL"`, or `"NEED_MORE_INFO"` |
+| `score`  | number | Score from 0-100                          |
+
+**Module names:**
+
+Core modules (5):
+
+- `functionality`
+- `security`
+- `documentation`
+- `error_handling`
+- `usability`
+
+Extended modules (6):
+
+- `mcp_spec`
+- `aup`
+- `annotations`
+- `libraries`
+- `manifest`
+- `portability`
+
+### 5. `assessment_complete`
+
+Emitted when the entire assessment finishes.
+
+```json
+{
+  "event": "assessment_complete",
+  "overallStatus": "FAIL",
+  "totalTests": 728,
+  "executionTime": 19287,
+  "outputPath": "/tmp/inspector-full-assessment-my-server.json"
+}
+```
+
+| Field           | Type   | Description                         |
+| --------------- | ------ | ----------------------------------- |
+| `overallStatus` | string | `"PASS"` or `"FAIL"`                |
+| `totalTests`    | number | Total test count across all modules |
+| `executionTime` | number | Execution time in milliseconds      |
+| `outputPath`    | string | Path to full JSON results file      |
+
+## Complete Example Output
+
+```jsonl
+{"event":"server_connected","serverName":"memory-mcp","transport":"http"}
+{"event":"tool_discovered","name":"add_memory","description":"Store a memory in the database","params":[{"name":"content","type":"string","required":true,"description":"The memory content to store"}]}
+{"event":"tool_discovered","name":"search_memories","description":"Search stored memories","params":[{"name":"query","type":"string","required":true}]}
+{"event":"tools_discovery_complete","count":2}
+{"event":"module_complete","module":"functionality","status":"PASS","score":100}
+{"event":"module_complete","module":"security","status":"PASS","score":100}
+{"event":"module_complete","module":"documentation","status":"FAIL","score":0}
+{"event":"module_complete","module":"error_handling","status":"PASS","score":95}
+{"event":"module_complete","module":"usability","status":"PASS","score":100}
+{"event":"module_complete","module":"mcp_spec","status":"PASS","score":92}
+{"event":"module_complete","module":"aup","status":"PASS","score":100}
+{"event":"module_complete","module":"annotations","status":"FAIL","score":0}
+{"event":"module_complete","module":"libraries","status":"PASS","score":100}
+{"event":"module_complete","module":"manifest","status":"FAIL","score":0}
+{"event":"module_complete","module":"portability","status":"PASS","score":100}
+{"event":"assessment_complete","overallStatus":"FAIL","totalTests":234,"executionTime":5234,"outputPath":"/tmp/inspector-full-assessment-memory-mcp.json"}
+```
 
 ## Score Calculation
 
@@ -42,86 +158,142 @@ Scores are calculated differently based on module type:
 | AUP Compliance      | `violations[]`               | `100 - (violationCount * 10)`, min 0 |
 | Others              | Status-based                 | PASS=100, FAIL=0, other=50           |
 
-## Module Names
-
-Progress is emitted for all 11 assessment modules:
-
-**Core Modules (5):**
-
-- Functionality
-- Security
-- Documentation
-- Error Handling
-- Usability
-
-**Extended Modules (6)** - when `enableExtendedAssessment: true`:
-
-- MCP Spec
-- AUP
-- Annotations
-- Libraries
-- Manifest
-- Portability
-
 ## Implementation Details
 
-- **File**: `client/src/services/assessment/AssessmentOrchestrator.ts`
-- **Function**: `emitModuleProgress()` (lines 43-84)
+- **Orchestrator**: `client/src/services/assessment/AssessmentOrchestrator.ts`
+- **CLI Scripts**: `scripts/run-full-assessment.ts`, `scripts/run-security-assessment.ts`
 - **Output Stream**: stderr (doesn't interfere with JSON stdout)
-- **Emission Points**: After each module completes (both parallel and sequential execution)
 
 ## Usage
 
 Progress output is automatic when running CLI assessments:
 
 ```bash
-npm run assess -- --server <server-name> --config <config.json>
+npm run assess:full -- --server <server-name> --config <config.json>
 ```
 
-The progress lines appear on stderr while the final JSON results go to stdout, allowing both to be captured separately:
+JSONL events go to stderr while human-readable summary goes to stdout:
 
 ```bash
-# Capture progress to file, JSON to variable
-npm run assess -- --server my-server --config config.json 2>progress.log
+# Capture JSONL events to file
+npm run assess:full -- --server my-server --config config.json 2>events.jsonl
+
+# Parse events with jq
+npm run assess:full -- --server my-server --config config.json 2>&1 | \
+  grep '^{"event":' | jq -s '.'
+
+# Filter specific event types
+npm run assess:full -- --server my-server --config config.json 2>&1 | \
+  grep '"event":"module_complete"' | jq '.module, .status, .score'
 ```
 
 ## Consumer Integration
 
-### MCP Auditor
+### Shell (jq)
 
-The MCP Auditor backend parses this output to display live scores during audit execution. The regex pattern used:
+```bash
+# Count events by type
+npm run assess:full -- ... 2>&1 | grep '^{"event":' | jq -s 'group_by(.event) | map({event: .[0].event, count: length})'
 
-```regex
-^[✅❌⚠️] [A-Za-z ]+: [A-Z][A-Z_]* \(\d+%\)$
+# Get all tool names
+npm run assess:full -- ... 2>&1 | grep '"event":"tool_discovered"' | jq -r '.name'
+
+# Get failing modules
+npm run assess:full -- ... 2>&1 | grep '"event":"module_complete"' | jq -r 'select(.status == "FAIL") | .module'
 ```
 
-### Custom Integration
-
-To parse progress output in your own tools:
+### JavaScript/Node.js
 
 ```javascript
-const progressRegex = /^([✅❌⚠️]) ([^:]+): ([A-Z_]+) \((\d+)%\)$/;
-const match = line.match(progressRegex);
-if (match) {
-  const [, emoji, moduleName, status, score] = match;
-  // Update UI with module progress
-}
+const { spawn } = require("child_process");
+
+const proc = spawn("npm", [
+  "run",
+  "assess:full",
+  "--",
+  "--server",
+  "my-server",
+  "--config",
+  "config.json",
+]);
+
+proc.stderr.on("data", (data) => {
+  const lines = data
+    .toString()
+    .split("\n")
+    .filter((l) => l.startsWith("{"));
+  for (const line of lines) {
+    try {
+      const event = JSON.parse(line);
+      switch (event.event) {
+        case "server_connected":
+          console.log(
+            `Connected to ${event.serverName} via ${event.transport}`,
+          );
+          break;
+        case "tool_discovered":
+          console.log(
+            `Found tool: ${event.name} (${event.params.length} params)`,
+          );
+          break;
+        case "module_complete":
+          console.log(`${event.module}: ${event.status} (${event.score}%)`);
+          break;
+        case "assessment_complete":
+          console.log(
+            `Done: ${event.overallStatus} - ${event.totalTests} tests in ${event.executionTime}ms`,
+          );
+          break;
+      }
+    } catch (e) {
+      // Not a JSON line, ignore
+    }
+  }
+});
+```
+
+### Python
+
+```python
+import subprocess
+import json
+
+proc = subprocess.Popen(
+    ["npm", "run", "assess:full", "--", "--server", "my-server", "--config", "config.json"],
+    stderr=subprocess.PIPE,
+    text=True
+)
+
+for line in proc.stderr:
+    line = line.strip()
+    if line.startswith("{"):
+        try:
+            event = json.loads(line)
+            if event["event"] == "module_complete":
+                print(f"{event['module']}: {event['status']} ({event['score']}%)")
+        except json.JSONDecodeError:
+            pass
 ```
 
 ## Tests
 
-Comprehensive regression tests ensure the feature works correctly:
+Comprehensive tests ensure the JSONL output works correctly:
 
 - **File**: `client/src/services/assessment/__tests__/emitModuleProgress.test.ts`
-- **Test Count**: 14 test cases
 - **Coverage**:
-  - Emoji selection (PASS/FAIL/NEED_MORE_INFO)
+  - Valid JSON output for all event types
+  - Correct field structure
+  - Status values (PASS/FAIL/NEED_MORE_INFO)
   - Score calculation from various module result types
-  - Output format validation
-  - Core and extended module name coverage
-  - Parallel and sequential execution modes
-  - Edge cases (no tools, many tools)
+  - Module names in snake_case format
 
 ## Version History
 
-- **v1.8.1**: Initial implementation of real-time progress output
+- **v1.9.0**: Converted to JSONL format for machine parsing
+  - All events now emitted as JSON objects
+  - Added `server_connected` event
+  - Added `tool_discovered` event with full parameter metadata
+  - Added `tools_discovery_complete` event
+  - Added `assessment_complete` event
+  - Module names changed to snake_case format
+- **v1.8.1**: Initial implementation with emoji-based text format (deprecated)

@@ -470,3 +470,34 @@
 - Version 1.8.2 documented in catalog footer
 
 ---
+
+## 2025-12-25: JSONL Progress Output and v1.9.0 Release
+
+**Summary:** Implemented JSONL progress output for MCP Inspector CLI and published v1.9.0 with updated documentation.
+
+**Session Focus:** Convert CLI progress output from text-based formats to machine-parseable JSONL, publish new version, and update documentation.
+
+**Changes Made:**
+- `client/src/services/assessment/AssessmentOrchestrator.ts` - Converted emitModuleProgress() to emit JSONL format
+- `scripts/run-full-assessment.ts` - Added JSONL helper functions and 5 event types (server_connected, tool_discovered, tools_discovery_complete, module_complete, assessment_complete)
+- `scripts/run-security-assessment.ts` - Added same JSONL event emissions
+- `client/src/services/assessment/__tests__/emitModuleProgress.test.ts` - Updated tests for JSONL format
+- `docs/REAL_TIME_PROGRESS_OUTPUT.md` - Complete rewrite documenting JSONL format with consumer integration examples
+- `docs/EARLY_TOOL_OUTPUT.md` - Complete rewrite documenting JSONL tool discovery format
+
+**Key Decisions:**
+- Used JSONL (one JSON object per line) for easy streaming/parsing
+- All events emitted to stderr to preserve stdout for human-readable output
+- Added full parameter metadata to tool_discovered events
+- Module names converted to snake_case for consistency
+
+**Next Steps:**
+- Update MCP Auditor to parse new JSONL format
+- Consider adding resource_discovered event for completeness
+
+**Notes:**
+- Published v1.9.0 to npm (bumped from v1.8.2 as minor version for new feature)
+- Tested with broken-mcp testbed: 31 valid JSONL events parsed successfully
+- Documentation includes examples for Shell (jq), JavaScript, and Python consumers
+
+---
