@@ -33,6 +33,12 @@ import { ProhibitedLibrariesAssessor } from "./modules/ProhibitedLibrariesAssess
 import { ManifestValidationAssessor } from "./modules/ManifestValidationAssessor";
 import { PortabilityAssessor } from "./modules/PortabilityAssessor";
 
+// Pattern configuration for tool annotation assessment
+import {
+  loadPatternConfig,
+  compilePatterns,
+} from "./config/annotationPatterns";
+
 // Claude Code integration for intelligent analysis
 import {
   ClaudeCodeBridge,
@@ -202,6 +208,14 @@ export class AssessmentOrchestrator {
         // Wire up Claude bridge for behavior inference
         if (this.claudeBridge) {
           this.toolAnnotationAssessor.setClaudeBridge(this.claudeBridge);
+        }
+        // Load custom pattern configuration if provided
+        if (this.config.patternConfigPath) {
+          const patternConfig = loadPatternConfig(
+            this.config.patternConfigPath,
+          );
+          const compiledPatterns = compilePatterns(patternConfig);
+          this.toolAnnotationAssessor.setPatterns(compiledPatterns);
         }
       }
       if (this.config.assessmentCategories?.prohibitedLibraries) {

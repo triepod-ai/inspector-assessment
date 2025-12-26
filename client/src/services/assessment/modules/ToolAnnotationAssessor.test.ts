@@ -241,4 +241,162 @@ describe("ToolAnnotationAssessor", () => {
       );
     });
   });
+
+  describe("Ambiguous pattern handling (GitHub Issue #3)", () => {
+    it("should NOT flag store_expression_tool with destructiveHint=true as misaligned", async () => {
+      // Arrange - ambiguous "store" verb with destructiveHint=true
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "store_expression_tool",
+          description: "Stores an expression in memory",
+          readOnlyHint: false,
+          destructiveHint: true, // Should NOT be flagged as misaligned
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.toolResults[0].alignmentStatus).toBe("REVIEW_RECOMMENDED");
+      expect(result.toolResults[0].inferredBehavior?.isAmbiguous).toBe(true);
+      expect(result.toolResults[0].inferredBehavior?.confidence).toBe("low");
+      expect(result.status).not.toBe("FAIL"); // Should not fail assessment
+    });
+
+    it("SHOULD flag delete_user_tool with readOnlyHint=true as misaligned", async () => {
+      // Arrange - clear destructive verb with wrong annotation
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "delete_user_tool",
+          description: "Deletes a user from the system",
+          readOnlyHint: true, // WRONG - should be flagged
+          destructiveHint: false,
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.toolResults[0].alignmentStatus).toBe("MISALIGNED");
+      expect(result.toolResults[0].inferredBehavior?.confidence).toBe("high");
+      expect(result.toolResults[0].inferredBehavior?.isAmbiguous).toBe(false);
+      expect(result.status).toBe("FAIL"); // Should fail assessment
+    });
+
+    it("should flag process_data_tool with destructiveHint=true as review recommended", async () => {
+      // Arrange - ambiguous "process" verb
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "process_data_tool",
+          description: "Processes data",
+          readOnlyHint: false,
+          destructiveHint: true,
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.toolResults[0].alignmentStatus).toBe("REVIEW_RECOMMENDED");
+      expect(result.toolResults[0].inferredBehavior?.isAmbiguous).toBe(true);
+    });
+
+    it("should mark ambiguous patterns with low confidence", async () => {
+      const ambiguousNames = [
+        "store_data",
+        "queue_message",
+        "cache_result",
+        "process_input",
+        "handle_event",
+        "manage_session",
+      ];
+
+      for (const name of ambiguousNames) {
+        mockContext.tools = [createMockTool({ name, description: "Test" })];
+        const result = await assessor.assess(mockContext);
+
+        expect(result.toolResults[0].inferredBehavior?.isAmbiguous).toBe(true);
+        expect(result.toolResults[0].inferredBehavior?.confidence).toBe("low");
+      }
+    });
+
+    it("should mark clear patterns with high confidence", async () => {
+      const clearDestructive = [
+        "delete_item",
+        "remove_user",
+        "destroy_session",
+      ];
+      const clearReadOnly = ["get_data", "list_users", "fetch_config"];
+
+      for (const name of clearDestructive) {
+        mockContext.tools = [createMockTool({ name, description: "Test" })];
+        const result = await assessor.assess(mockContext);
+        expect(result.toolResults[0].inferredBehavior?.confidence).toBe("high");
+        expect(result.toolResults[0].inferredBehavior?.isAmbiguous).toBe(false);
+      }
+
+      for (const name of clearReadOnly) {
+        mockContext.tools = [createMockTool({ name, description: "Test" })];
+        const result = await assessor.assess(mockContext);
+        expect(result.toolResults[0].inferredBehavior?.confidence).toBe("high");
+        expect(result.toolResults[0].inferredBehavior?.isAmbiguous).toBe(false);
+      }
+    });
+
+    it("should calculate metrics correctly", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "get_data",
+          description: "Gets data",
+          readOnlyHint: true,
+          destructiveHint: false,
+        }),
+        createMockToolWithAnnotations({
+          name: "delete_item",
+          description: "Deletes an item",
+          readOnlyHint: false,
+          destructiveHint: true,
+        }),
+        createMockTool({ name: "process_data", description: "Processes data" }), // No annotations
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      // Check metrics exist
+      expect(result.metrics).toBeDefined();
+      expect(result.metrics?.coverage).toBeCloseTo(66.67, 0); // 2/3 annotated
+      expect(result.alignmentBreakdown).toBeDefined();
+      expect(result.alignmentBreakdown?.aligned).toBe(2);
+      expect(result.alignmentBreakdown?.unknown).toBe(1); // process_data has no annotations
+    });
+
+    it("should not count REVIEW_RECOMMENDED as misaligned for status determination", async () => {
+      // All tools have ambiguous patterns with annotations that don't match inferred behavior
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "store_data",
+          description: "Stores data",
+          readOnlyHint: true, // Mismatch - but ambiguous pattern
+          destructiveHint: false,
+        }),
+        createMockToolWithAnnotations({
+          name: "cache_result",
+          description: "Caches a result",
+          readOnlyHint: false,
+          destructiveHint: true, // Mismatch - but ambiguous pattern
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      // Both should be REVIEW_RECOMMENDED, not MISALIGNED
+      expect(result.toolResults[0].alignmentStatus).toBe("REVIEW_RECOMMENDED");
+      expect(result.toolResults[1].alignmentStatus).toBe("REVIEW_RECOMMENDED");
+      // Assessment should NOT fail
+      expect(result.status).not.toBe("FAIL");
+    });
+  });
 });

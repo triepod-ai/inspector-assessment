@@ -73,6 +73,7 @@ interface AssessmentOptions {
   serverConfigPath?: string;
   outputPath?: string;
   sourceCodePath?: string;
+  patternConfigPath?: string;
   claudeEnabled?: boolean;
   fullAssessment?: boolean;
   verbose?: boolean;
@@ -341,6 +342,11 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
         documentationQuality: true,
       },
     };
+  }
+
+  // Pass custom annotation pattern config path
+  if (options.patternConfigPath) {
+    config.patternConfigPath = options.patternConfigPath;
   }
 
   return config;
@@ -645,6 +651,10 @@ function parseArgs(): AssessmentOptions {
       case "--source":
         options.sourceCodePath = args[++i];
         break;
+      case "--pattern-config":
+      case "-p":
+        options.patternConfigPath = args[++i];
+        break;
       case "--claude-enabled":
         options.claudeEnabled = true;
         break;
@@ -704,6 +714,7 @@ Options:
   --config, -c <path>    Path to server config JSON
   --output, -o <path>    Output JSON path (default: /tmp/inspector-full-assessment-<server>.json)
   --source <path>        Source code path for deep analysis (AUP, portability, etc.)
+  --pattern-config, -p <path>  Path to custom annotation pattern JSON
   --claude-enabled       Enable Claude Code integration for intelligent analysis
   --full                 Enable all assessment modules (default)
   --json                 Output only JSON (no console summary)

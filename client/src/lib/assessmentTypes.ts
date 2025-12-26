@@ -6,6 +6,21 @@
 export type AssessmentStatus = "PASS" | "FAIL" | "NEED_MORE_INFO";
 export type SecurityRiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
+/**
+ * Alignment status for tool annotations.
+ * Extends beyond PASS/FAIL to handle ambiguous cases.
+ */
+export type AlignmentStatus =
+  | "ALIGNED" // Annotations match inferred behavior
+  | "MISALIGNED" // Clear contradiction (e.g., delete_* with readOnlyHint=true)
+  | "REVIEW_RECOMMENDED" // Ambiguous pattern, human review suggested
+  | "UNKNOWN"; // Cannot determine alignment (no annotations)
+
+/**
+ * Confidence level for behavior inference
+ */
+export type InferenceConfidence = "high" | "medium" | "low";
+
 export interface TestInputMetadata {
   toolCategory: string; // Category from ToolClassifier (e.g., "calculator")
   generationStrategy: string; // How value was generated (e.g., "category-specific", "field-name", "default")
@@ -647,7 +662,13 @@ export interface ToolAnnotationResult {
     expectedReadOnly: boolean;
     expectedDestructive: boolean;
     reason: string;
+    /** Confidence level of the inference */
+    confidence: InferenceConfidence;
+    /** True if the tool name matches an ambiguous pattern */
+    isAmbiguous: boolean;
   };
+  /** Alignment status between annotations and inferred behavior */
+  alignmentStatus?: AlignmentStatus;
   issues: string[];
   recommendations: string[];
 }
@@ -656,10 +677,29 @@ export interface ToolAnnotationAssessment {
   toolResults: ToolAnnotationResult[];
   annotatedCount: number;
   missingAnnotationsCount: number;
+  /** Count of high-confidence misalignments only (excludes REVIEW_RECOMMENDED) */
   misalignedAnnotationsCount: number;
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
+  /** Detailed metrics for annotation quality */
+  metrics?: {
+    /** Percentage of tools with any annotations (0-100) */
+    coverage: number;
+    /** Percentage of tools without contradictions (0-100) */
+    consistency: number;
+    /** Percentage of high-confidence alignments (0-100) */
+    correctness: number;
+    /** Count of tools needing manual review */
+    reviewRequired: number;
+  };
+  /** Breakdown of tools by alignment status */
+  alignmentBreakdown?: {
+    aligned: number;
+    misaligned: number;
+    reviewRecommended: number;
+    unknown: number;
+  };
 }
 
 /**
@@ -870,6 +910,8 @@ export interface AssessmentConfiguration {
   mcpProtocolVersion?: string;
   // Enable source code analysis (requires sourceCodePath in context)
   enableSourceCodeAnalysis?: boolean;
+  // Path to custom annotation pattern JSON file (for ToolAnnotationAssessor)
+  patternConfigPath?: string;
   // Claude Code integration for intelligent analysis
   claudeCode?: ClaudeCodeConfig;
   assessmentCategories?: {
@@ -909,7 +951,8 @@ export type ProgressEvent =
   | ModuleCompleteProgress
   | VulnerabilityFoundProgress
   | AnnotationMissingProgress
-  | AnnotationMisalignedProgress;
+  | AnnotationMisalignedProgress
+  | AnnotationReviewRecommendedProgress;
 
 /**
  * Emitted when an assessment module begins execution.
@@ -1003,6 +1046,26 @@ export interface AnnotationMisalignedProgress {
   actual: boolean | undefined;
   expected: boolean;
   confidence: number;
+  reason: string;
+}
+
+/**
+ * Emitted when annotation alignment cannot be confidently determined.
+ * Used for ambiguous patterns like store_*, queue_*, cache_* where behavior
+ * varies by implementation context. Does not indicate a failure - just flags
+ * for human review.
+ */
+export interface AnnotationReviewRecommendedProgress {
+  type: "annotation_review_recommended";
+  tool: string;
+  title?: string;
+  description?: string;
+  parameters: ToolParamProgress[];
+  field: "readOnlyHint" | "destructiveHint";
+  actual: boolean | undefined;
+  inferred: boolean;
+  confidence: InferenceConfidence;
+  isAmbiguous: boolean;
   reason: string;
 }
 

@@ -379,3 +379,59 @@
 - Version 1.11.0 ready for integration into mcp-auditor v1.4.0 roadmap
 
 ---
+
+## 2025-12-26: Fixed JSONL Event Emission Inconsistencies
+
+**Summary:** Fixed JSONL event emission inconsistencies by adding version field to module_started and module_complete events in AssessmentOrchestrator.
+
+**Session Focus:**
+Mapping JSONL emit points and fixing version field inconsistency in orchestrator module events
+
+**Changes Made:**
+- Created `client/src/lib/moduleScoring.ts` - New shared module with normalizeModuleKey(), calculateModuleScore(), and INSPECTOR_VERSION constant
+- Modified `client/src/services/assessment/AssessmentOrchestrator.ts` - Import shared helpers, add version field to module event emissions
+- Modified `scripts/lib/jsonl-events.ts` - Re-export shared helpers from client module, removed duplicate definitions
+
+**Key Decisions:**
+- Created shared moduleScoring.ts in client/src/lib/ to avoid cross-package import issues with monorepo rootDir constraints
+- Kept emit functions in orchestrator but added version field directly rather than importing emit functions (simpler approach)
+- Single source of truth for scoring logic and version constant
+
+**Next Steps:**
+- Consider adding enhanced test_batch events with currentTool, currentPattern fields
+- Consider adding tool_test_complete event for per-tool summaries
+- Handoff to auditor team for UI consumption of versioned events
+
+**Notes:**
+- All 827 tests passed
+- Verified via broken-mcp testbed that all module events now include version: "1.11.0"
+- Commit 7b8ceac pushed to origin/main
+
+---
+
+## 2025-12-26: Phase 2 - TestInputMetadata Emission for FunctionalityAssessor
+
+**Summary:** Implemented testInputMetadata emission for FunctionalityAssessor, enabling downstream consumers to see input generation reasoning. Published v1.11.1 to npm.
+
+**Session Focus:**
+Phase 2 implementation of smart test input generation - adding metadata emission to track how test inputs were generated (category-specific, field-name, enum, format, or default).
+
+**Changes Made:**
+- Modified `client/src/lib/assessmentTypes.ts` - Added TestInputMetadata interface with toolCategory, generationStrategy, and fieldSources
+- Modified `client/src/services/assessment/modules/FunctionalityAssessor.ts` - Added generateSmartParamValueWithMetadata(), determineStrategy(), SPECIFIC_FIELD_PATTERNS; modified generateMinimalParams and testTool
+- Modified `client/src/services/assessment/modules/FunctionalityAssessor.test.ts` - Added 7 new tests for metadata emission
+
+**Key Decisions:**
+- Field-name patterns (url, email, path) take priority over category-specific values
+- Metadata included in all ToolTestResult return paths (including failures)
+- Source types: category, field-name, enum, format, default
+
+**Next Steps:**
+- Phase 3: MCP-Auditor UI enhancements to display testInputMetadata
+- Consumer integration for metadata visualization
+
+**Notes:**
+- 839 tests passing (23 FunctionalityAssessor tests)
+- Published v1.11.1 to npm with all 4 packages
+
+---

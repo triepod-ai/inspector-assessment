@@ -132,6 +132,26 @@ export interface AnnotationMisalignedEvent {
   reason: string;
 }
 
+/**
+ * Event emitted when annotation alignment cannot be confidently determined.
+ * Used for ambiguous patterns like store_*, queue_*, cache_* where behavior
+ * varies by implementation context. Does not indicate a failure - just flags
+ * for human review.
+ */
+export interface AnnotationReviewRecommendedEvent {
+  event: "annotation_review_recommended";
+  tool: string;
+  title?: string;
+  description?: string;
+  parameters: ToolParam[];
+  field: "readOnlyHint" | "destructiveHint";
+  actual: boolean | undefined;
+  inferred: boolean;
+  confidence: "high" | "medium" | "low";
+  isAmbiguous: boolean;
+  reason: string;
+}
+
 export type JSONLEvent =
   | ServerConnectedEvent
   | ToolDiscoveredEvent
@@ -142,7 +162,8 @@ export type JSONLEvent =
   | ModuleCompleteEvent
   | VulnerabilityFoundEvent
   | AnnotationMissingEvent
-  | AnnotationMisalignedEvent;
+  | AnnotationMisalignedEvent
+  | AnnotationReviewRecommendedEvent;
 
 // ============================================================================
 // Core Functions
@@ -367,6 +388,38 @@ export function emitAnnotationMisaligned(
     actual,
     expected,
     confidence,
+    reason,
+  });
+}
+
+/**
+ * Emit annotation_review_recommended event for ambiguous patterns.
+ * This indicates human review is suggested but no automated penalty applied.
+ * Used for patterns like store_*, queue_*, cache_* where behavior varies.
+ */
+export function emitAnnotationReviewRecommended(
+  tool: string,
+  title: string | undefined,
+  description: string | undefined,
+  parameters: ToolParam[],
+  field: "readOnlyHint" | "destructiveHint",
+  actual: boolean | undefined,
+  inferred: boolean,
+  confidence: "high" | "medium" | "low",
+  isAmbiguous: boolean,
+  reason: string,
+): void {
+  emitJSONL({
+    event: "annotation_review_recommended",
+    tool,
+    ...(title && { title }),
+    ...(description && { description }),
+    parameters,
+    field,
+    actual,
+    inferred,
+    confidence,
+    isAmbiguous,
     reason,
   });
 }
