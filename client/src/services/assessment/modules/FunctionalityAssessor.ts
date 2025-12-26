@@ -3,13 +3,21 @@
  * Tests tool functionality and basic operations
  */
 
-import { FunctionalityAssessment, ToolTestResult } from "@/lib/assessmentTypes";
+import {
+  FunctionalityAssessment,
+  ToolTestResult,
+  TestInputMetadata,
+} from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { ResponseValidator } from "../ResponseValidator";
 import { createConcurrencyLimit } from "../lib/concurrencyLimit";
+import { ToolClassifier, ToolCategory } from "../ToolClassifier";
+import { TestDataGenerator } from "../TestDataGenerator";
 
 export class FunctionalityAssessor extends BaseAssessor {
+  private toolClassifier = new ToolClassifier();
+
   /**
    * Select tools for testing based on configuration
    */
@@ -177,10 +185,10 @@ export class FunctionalityAssessor extends BaseAssessor {
   ): Promise<ToolTestResult> {
     const startTime = Date.now();
 
-    try {
-      // Generate minimal valid parameters
-      const testParams = this.generateMinimalParams(tool);
+    // Generate minimal valid parameters with metadata
+    const { params: testParams, metadata } = this.generateMinimalParams(tool);
 
+    try {
       this.log(
         `Testing tool: ${tool.name} with params: ${JSON.stringify(testParams)}`,
       );
@@ -214,6 +222,7 @@ export class FunctionalityAssessor extends BaseAssessor {
             executionTime,
             testParameters: testParams,
             response,
+            testInputMetadata: metadata,
           };
         }
 
@@ -226,6 +235,7 @@ export class FunctionalityAssessor extends BaseAssessor {
           executionTime,
           testParameters: testParams,
           response,
+          testInputMetadata: metadata,
         };
       }
 
@@ -236,6 +246,7 @@ export class FunctionalityAssessor extends BaseAssessor {
         executionTime,
         testParameters: testParams,
         response,
+        testInputMetadata: metadata,
       };
     } catch (error) {
       return {
@@ -244,21 +255,43 @@ export class FunctionalityAssessor extends BaseAssessor {
         status: "broken",
         error: this.extractErrorMessage(error),
         executionTime: Date.now() - startTime,
+        testInputMetadata: metadata,
       };
     }
   }
 
-  private generateMinimalParams(tool: any): Record<string, unknown> {
-    if (!tool.inputSchema) return {};
+  private generateMinimalParams(tool: any): {
+    params: Record<string, unknown>;
+    metadata: TestInputMetadata;
+  } {
+    // Classify tool to get category for smart parameter generation
+    const classification = this.toolClassifier.classify(
+      tool.name,
+      tool.description || "",
+    );
+    const primaryCategory =
+      classification.categories[0] || ToolCategory.GENERIC;
+
+    const emptyResult = {
+      params: {},
+      metadata: {
+        toolCategory: primaryCategory,
+        generationStrategy: "default",
+        fieldSources: {},
+      },
+    };
+
+    if (!tool.inputSchema) return emptyResult;
 
     const schema =
       typeof tool.inputSchema === "string"
         ? this.safeJsonParse(tool.inputSchema)
         : tool.inputSchema;
 
-    if (!schema?.properties) return {};
+    if (!schema?.properties) return emptyResult;
 
     const params: Record<string, unknown> = {};
+    const fieldSources: TestInputMetadata["fieldSources"] = {};
     const required = schema.required || [];
 
     // For functionality testing, only generate REQUIRED parameters
@@ -268,11 +301,21 @@ export class FunctionalityAssessor extends BaseAssessor {
     )) {
       // Only include required parameters for basic functionality testing
       if (required.includes(key)) {
-        params[key] = this.generateParamValue(prop, key);
+        const { value, source, reason } =
+          this.generateSmartParamValueWithMetadata(prop, key, primaryCategory);
+        params[key] = value;
+        fieldSources[key] = { field: key, value, source, reason };
       }
     }
 
-    return params;
+    return {
+      params,
+      metadata: {
+        toolCategory: primaryCategory,
+        generationStrategy: this.determineStrategy(fieldSources),
+        fieldSources,
+      },
+    };
   }
 
   private generateParamValue(
@@ -361,6 +404,129 @@ export class FunctionalityAssessor extends BaseAssessor {
         // Return empty object instead of null to avoid validation errors
         return {};
     }
+  }
+
+  /**
+   * Field names that indicate specific data types regardless of tool category.
+   * These take precedence over category-specific generation.
+   */
+  private static readonly SPECIFIC_FIELD_PATTERNS = [
+    /url/i,
+    /endpoint/i,
+    /link/i,
+    /email/i,
+    /mail/i,
+    /path/i,
+    /file/i,
+    /directory/i,
+    /folder/i,
+    /uuid/i,
+    /page_id/i,
+    /database_id/i,
+    /user_id/i,
+    /block_id/i,
+  ];
+
+  /**
+   * Generate smart parameter value with metadata about how it was generated.
+   * Returns value, source type, and reason for downstream consumers.
+   */
+  private generateSmartParamValueWithMetadata(
+    prop: any,
+    fieldName: string,
+    category: ToolCategory,
+  ): {
+    value: unknown;
+    source: TestInputMetadata["fieldSources"][string]["source"];
+    reason: string;
+  } {
+    // Handle enum first
+    if (prop.enum && prop.enum.length > 0) {
+      return {
+        value: prop.enum[0],
+        source: "enum",
+        reason: `First enum value: ${prop.enum[0]}`,
+      };
+    }
+
+    // Handle format (uri, email, etc.)
+    if (prop.format === "uri") {
+      return {
+        value: "https://example.com",
+        source: "format",
+        reason: "URI format detected",
+      };
+    }
+    if (prop.format === "email") {
+      return {
+        value: "test@example.com",
+        source: "format",
+        reason: "Email format detected",
+      };
+    }
+
+    // For non-string types, use standard generation
+    if (prop.type !== "string") {
+      const value = this.generateParamValue(prop, fieldName);
+      return {
+        value,
+        source: "default",
+        reason: `Default for type: ${prop.type}`,
+      };
+    }
+
+    // Specific field names (url, email, path, etc.) take precedence over category
+    // These indicate explicit data type requirements regardless of tool category
+    const isSpecificFieldName =
+      FunctionalityAssessor.SPECIFIC_FIELD_PATTERNS.some((pattern) =>
+        pattern.test(fieldName),
+      );
+    if (isSpecificFieldName) {
+      const fieldValue = TestDataGenerator.generateSingleValue(fieldName, prop);
+      return {
+        value: fieldValue,
+        source: "field-name",
+        reason: `Field name pattern: ${fieldName}`,
+      };
+    }
+
+    // Check category-specific data
+    const categoryData = TestDataGenerator.TOOL_CATEGORY_DATA[category];
+    if (categoryData?.default) {
+      return {
+        value: categoryData.default[0],
+        source: "category",
+        reason: `Category ${category} default value`,
+      };
+    }
+
+    // Fall back to field-name detection for generic fields
+    const fieldValue = TestDataGenerator.generateSingleValue(fieldName, prop);
+    if (fieldValue !== "test") {
+      return {
+        value: fieldValue,
+        source: "field-name",
+        reason: `Field name pattern: ${fieldName}`,
+      };
+    }
+
+    return {
+      value: "test",
+      source: "default",
+      reason: "No specific pattern matched",
+    };
+  }
+
+  /**
+   * Determine overall generation strategy based on field sources
+   */
+  private determineStrategy(
+    fieldSources: TestInputMetadata["fieldSources"],
+  ): string {
+    const sources = Object.values(fieldSources).map((f) => f.source);
+    if (sources.includes("category")) return "category-specific";
+    if (sources.includes("field-name")) return "field-name-aware";
+    return "default";
   }
 
   // Public method for testing purposes - allows tests to verify parameter generation logic

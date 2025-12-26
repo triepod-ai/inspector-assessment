@@ -840,4 +840,95 @@ export class TestDataGenerator {
         return "test";
     }
   }
+
+  // ============================================================================
+  // Tool Category-Aware Generation
+  // ============================================================================
+
+  /**
+   * Tool category-specific data pools for when field name doesn't help identify
+   * the expected input type. Used as fallback after field-name detection.
+   */
+  static readonly TOOL_CATEGORY_DATA: Record<string, Record<string, string[]>> =
+    {
+      // Keys must match ToolClassifier category names (lowercase)
+      calculator: {
+        default: ["2+2", "10*5", "100/4", "sqrt(16)", "15-7"],
+      },
+      search_retrieval: {
+        default: [
+          "hello world",
+          "example query",
+          "recent changes",
+          "find documents",
+        ],
+      },
+      system_exec: {
+        default: ["echo hello", "pwd", "date", "whoami"],
+      },
+      url_fetcher: {
+        default: [
+          "https://api.github.com",
+          "https://httpbin.org/get",
+          "https://jsonplaceholder.typicode.com/posts/1",
+        ],
+      },
+    };
+
+  /**
+   * Field names that indicate specific data types regardless of tool category.
+   * These take precedence over category-specific generation.
+   */
+  private static readonly SPECIFIC_FIELD_PATTERNS = [
+    /url/i,
+    /endpoint/i,
+    /link/i,
+    /email/i,
+    /mail/i,
+    /path/i,
+    /file/i,
+    /directory/i,
+    /folder/i,
+    /uuid/i,
+    /page_id/i,
+    /database_id/i,
+    /user_id/i,
+    /block_id/i,
+  ];
+
+  /**
+   * Generate a value using tool category as hint.
+   * For specific field names (url, email, path, etc.), uses field-name detection.
+   * For generic field names with specific tool categories, uses category-specific inputs.
+   * Otherwise falls back to field-name-based generation.
+   *
+   * @param fieldName The parameter field name
+   * @param schema The parameter schema
+   * @param category The tool category from ToolClassifier (e.g., "CALCULATOR", "SEARCH_RETRIEVAL")
+   * @returns Generated test value appropriate for the tool type
+   */
+  static generateValueForCategory(
+    fieldName: string,
+    schema: Record<string, unknown>,
+    category: string,
+  ): unknown {
+    // Specific field names (url, email, path, etc.) take precedence over category
+    // These indicate explicit data type requirements regardless of tool category
+    const isSpecificFieldName = this.SPECIFIC_FIELD_PATTERNS.some((pattern) =>
+      pattern.test(fieldName),
+    );
+    if (isSpecificFieldName) {
+      return this.generateSingleValue(fieldName, schema);
+    }
+
+    // For specific tool categories (not GENERIC), use category-specific test values
+    // This ensures calculator tools get math expressions, search tools get search queries, etc.
+    const categoryData = this.TOOL_CATEGORY_DATA[category];
+    if (categoryData?.default) {
+      return categoryData.default[0];
+    }
+
+    // For GENERIC category or unknown categories, use field-name-based generation
+    return this.generateSingleValue(fieldName, schema);
+  }
 }

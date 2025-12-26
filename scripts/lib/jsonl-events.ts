@@ -105,6 +105,33 @@ export interface VulnerabilityFoundEvent {
   payload?: string; // The test payload that triggered the vulnerability
 }
 
+// Tool annotation events for real-time annotation status reporting
+export interface AnnotationMissingEvent {
+  event: "annotation_missing";
+  tool: string;
+  title?: string;
+  description?: string;
+  parameters: ToolParam[];
+  inferredBehavior: {
+    expectedReadOnly: boolean;
+    expectedDestructive: boolean;
+    reason: string;
+  };
+}
+
+export interface AnnotationMisalignedEvent {
+  event: "annotation_misaligned";
+  tool: string;
+  title?: string;
+  description?: string;
+  parameters: ToolParam[];
+  field: "readOnlyHint" | "destructiveHint";
+  actual: boolean | undefined;
+  expected: boolean;
+  confidence: number;
+  reason: string;
+}
+
 export type JSONLEvent =
   | ServerConnectedEvent
   | ToolDiscoveredEvent
@@ -113,7 +140,9 @@ export type JSONLEvent =
   | ModuleStartedEvent
   | TestBatchEvent
   | ModuleCompleteEvent
-  | VulnerabilityFoundEvent;
+  | VulnerabilityFoundEvent
+  | AnnotationMissingEvent
+  | AnnotationMisalignedEvent;
 
 // ============================================================================
 // Core Functions
@@ -285,6 +314,60 @@ export function emitVulnerabilityFound(
     riskLevel,
     requiresReview,
     ...(payload && { payload }),
+  });
+}
+
+/**
+ * Emit annotation_missing event when a tool lacks required annotations.
+ * This provides real-time alerts during annotation assessment.
+ */
+export function emitAnnotationMissing(
+  tool: string,
+  title: string | undefined,
+  description: string | undefined,
+  parameters: ToolParam[],
+  inferredBehavior: {
+    expectedReadOnly: boolean;
+    expectedDestructive: boolean;
+    reason: string;
+  },
+): void {
+  emitJSONL({
+    event: "annotation_missing",
+    tool,
+    ...(title && { title }),
+    ...(description && { description }),
+    parameters,
+    inferredBehavior,
+  });
+}
+
+/**
+ * Emit annotation_misaligned event when annotations don't match inferred behavior.
+ * This provides real-time alerts during annotation assessment.
+ */
+export function emitAnnotationMisaligned(
+  tool: string,
+  title: string | undefined,
+  description: string | undefined,
+  parameters: ToolParam[],
+  field: "readOnlyHint" | "destructiveHint",
+  actual: boolean | undefined,
+  expected: boolean,
+  confidence: number,
+  reason: string,
+): void {
+  emitJSONL({
+    event: "annotation_misaligned",
+    tool,
+    ...(title && { title }),
+    ...(description && { description }),
+    parameters,
+    field,
+    actual,
+    expected,
+    confidence,
+    reason,
   });
 }
 

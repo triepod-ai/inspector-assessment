@@ -284,4 +284,370 @@ describe("FunctionalityAssessor", () => {
       expect(typeof input.nested.value).toBe("string");
     });
   });
+
+  describe("smart parameter generation", () => {
+    it("generates math expression for calculator tools", async () => {
+      // Arrange
+      const calculatorTool = createMockTool({
+        name: "calculator",
+        description: "Evaluate math expressions",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description: "Math expression to evaluate",
+            },
+          },
+          required: ["query"],
+        },
+      });
+      mockContext.tools = [calculatorTool];
+
+      // Capture the params passed to callTool
+      let capturedParams: Record<string, unknown> = {};
+      mockContext.callTool = jest.fn().mockImplementation((name, params) => {
+        capturedParams = params;
+        return createMockCallToolResponse("4", false);
+      });
+
+      // Act
+      await assessor.assess(mockContext);
+
+      // Assert - calculator should get math expression, not "test"
+      expect(capturedParams.query).toBe("2+2");
+    });
+
+    it("generates search query for search tools", async () => {
+      // Arrange
+      const searchTool = createMockTool({
+        name: "search_documents",
+        description: "Search for documents",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Search query" },
+          },
+          required: ["query"],
+        },
+      });
+      mockContext.tools = [searchTool];
+
+      // Capture the params passed to callTool
+      let capturedParams: Record<string, unknown> = {};
+      mockContext.callTool = jest.fn().mockImplementation((name, params) => {
+        capturedParams = params;
+        return createMockCallToolResponse("results", false);
+      });
+
+      // Act
+      await assessor.assess(mockContext);
+
+      // Assert - search tool should get search query, not "test"
+      expect(capturedParams.query).toBe("hello world");
+    });
+
+    it("generates shell command for system exec tools", async () => {
+      // Arrange
+      const execTool = createMockTool({
+        name: "system_exec",
+        description: "Execute system commands",
+        inputSchema: {
+          type: "object",
+          properties: {
+            command: { type: "string", description: "Command to execute" },
+          },
+          required: ["command"],
+        },
+      });
+      mockContext.tools = [execTool];
+
+      // Capture the params passed to callTool
+      let capturedParams: Record<string, unknown> = {};
+      mockContext.callTool = jest.fn().mockImplementation((name, params) => {
+        capturedParams = params;
+        return createMockCallToolResponse("hello", false);
+      });
+
+      // Act
+      await assessor.assess(mockContext);
+
+      // Assert - exec tool should get shell command, not "test"
+      expect(capturedParams.command).toBe("echo hello");
+    });
+
+    it("falls back to test for generic tools", async () => {
+      // Arrange
+      const genericTool = createMockTool({
+        name: "do_something",
+        description: "Does something generic",
+        inputSchema: {
+          type: "object",
+          properties: {
+            input: { type: "string", description: "Generic input" },
+          },
+          required: ["input"],
+        },
+      });
+      mockContext.tools = [genericTool];
+
+      // Capture the params passed to callTool
+      let capturedParams: Record<string, unknown> = {};
+      mockContext.callTool = jest.fn().mockImplementation((name, params) => {
+        capturedParams = params;
+        return createMockCallToolResponse("done", false);
+      });
+
+      // Act
+      await assessor.assess(mockContext);
+
+      // Assert - generic tool should still get "test" (backward compat)
+      expect(capturedParams.input).toBe("test");
+    });
+
+    it("uses field-name detection over category for URL fields", async () => {
+      // Arrange - calculator tool but with URL field
+      const toolWithUrl = createMockTool({
+        name: "calculator",
+        description: "Calculator with URL",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: { type: "string", description: "API URL" },
+          },
+          required: ["url"],
+        },
+      });
+      mockContext.tools = [toolWithUrl];
+
+      // Capture the params passed to callTool
+      let capturedParams: Record<string, unknown> = {};
+      mockContext.callTool = jest.fn().mockImplementation((name, params) => {
+        capturedParams = params;
+        return createMockCallToolResponse("result", false);
+      });
+
+      // Act
+      await assessor.assess(mockContext);
+
+      // Assert - URL field detection takes priority over calculator category
+      expect(capturedParams.url).toMatch(/^https?:\/\//);
+    });
+  });
+
+  describe("testInputMetadata emission", () => {
+    it("emits metadata with category-specific source for calculator tools", async () => {
+      // Arrange
+      const calculatorTool = createMockTool({
+        name: "calculator",
+        description: "Evaluate math expressions",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Math expression" },
+          },
+          required: ["query"],
+        },
+      });
+      mockContext.tools = [calculatorTool];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      const toolResult = result.toolResults[0];
+      expect(toolResult.testInputMetadata).toBeDefined();
+      expect(toolResult.testInputMetadata?.toolCategory).toBe("calculator");
+      expect(toolResult.testInputMetadata?.generationStrategy).toBe(
+        "category-specific",
+      );
+      expect(toolResult.testInputMetadata?.fieldSources.query).toBeDefined();
+      expect(toolResult.testInputMetadata?.fieldSources.query.source).toBe(
+        "category",
+      );
+      expect(toolResult.testInputMetadata?.fieldSources.query.value).toBe(
+        "2+2",
+      );
+      expect(toolResult.testInputMetadata?.fieldSources.query.reason).toContain(
+        "calculator",
+      );
+    });
+
+    it("emits metadata with field-name source for URL fields", async () => {
+      // Arrange
+      const genericTool = createMockTool({
+        name: "generic_tool",
+        description: "Generic tool",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: { type: "string", description: "URL to process" },
+          },
+          required: ["url"],
+        },
+      });
+      mockContext.tools = [genericTool];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      const toolResult = result.toolResults[0];
+      expect(toolResult.testInputMetadata).toBeDefined();
+      expect(toolResult.testInputMetadata?.fieldSources.url).toBeDefined();
+      expect(toolResult.testInputMetadata?.fieldSources.url.source).toBe(
+        "field-name",
+      );
+      expect(toolResult.testInputMetadata?.fieldSources.url.reason).toContain(
+        "url",
+      );
+    });
+
+    it("emits metadata with enum source for enum fields", async () => {
+      // Arrange
+      const modeTool = createMockTool({
+        name: "mode_tool",
+        description: "Tool with mode selection",
+        inputSchema: {
+          type: "object",
+          properties: {
+            mode: { type: "string", enum: ["fast", "slow", "normal"] },
+          },
+          required: ["mode"],
+        },
+      });
+      mockContext.tools = [modeTool];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      const toolResult = result.toolResults[0];
+      expect(toolResult.testInputMetadata).toBeDefined();
+      expect(toolResult.testInputMetadata?.fieldSources.mode).toBeDefined();
+      expect(toolResult.testInputMetadata?.fieldSources.mode.source).toBe(
+        "enum",
+      );
+      expect(toolResult.testInputMetadata?.fieldSources.mode.value).toBe(
+        "fast",
+      );
+      expect(toolResult.testInputMetadata?.fieldSources.mode.reason).toContain(
+        "enum",
+      );
+    });
+
+    it("emits metadata with format source for URI format fields", async () => {
+      // Arrange
+      const uriTool = createMockTool({
+        name: "uri_tool",
+        description: "Tool with URI field",
+        inputSchema: {
+          type: "object",
+          properties: {
+            endpoint: { type: "string", format: "uri" },
+          },
+          required: ["endpoint"],
+        },
+      });
+      mockContext.tools = [uriTool];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      const toolResult = result.toolResults[0];
+      expect(toolResult.testInputMetadata).toBeDefined();
+      expect(toolResult.testInputMetadata?.fieldSources.endpoint).toBeDefined();
+      expect(toolResult.testInputMetadata?.fieldSources.endpoint.source).toBe(
+        "format",
+      );
+      expect(toolResult.testInputMetadata?.fieldSources.endpoint.value).toBe(
+        "https://example.com",
+      );
+    });
+
+    it("emits metadata with default source for generic fields", async () => {
+      // Arrange
+      const genericTool = createMockTool({
+        name: "do_something",
+        description: "Does something",
+        inputSchema: {
+          type: "object",
+          properties: {
+            input: { type: "string", description: "Some input" },
+          },
+          required: ["input"],
+        },
+      });
+      mockContext.tools = [genericTool];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      const toolResult = result.toolResults[0];
+      expect(toolResult.testInputMetadata).toBeDefined();
+      expect(toolResult.testInputMetadata?.generationStrategy).toBe("default");
+      expect(toolResult.testInputMetadata?.fieldSources.input).toBeDefined();
+      expect(toolResult.testInputMetadata?.fieldSources.input.source).toBe(
+        "default",
+      );
+      expect(toolResult.testInputMetadata?.fieldSources.input.value).toBe(
+        "test",
+      );
+    });
+
+    it("includes metadata even when tool execution fails", async () => {
+      // Arrange
+      mockContext.callTool = jest
+        .fn()
+        .mockRejectedValue(new Error("Network error"));
+      const tool = createMockTool({
+        name: "failing_tool",
+        description: "Tool that fails",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string" },
+          },
+          required: ["query"],
+        },
+      });
+      mockContext.tools = [tool];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      const toolResult = result.toolResults[0];
+      expect(toolResult.status).toBe("broken");
+      expect(toolResult.testInputMetadata).toBeDefined();
+      expect(toolResult.testInputMetadata?.toolCategory).toBeDefined();
+    });
+
+    it("handles tools with no required parameters", async () => {
+      // Arrange
+      const noParamsTool = createMockTool({
+        name: "no_params_tool",
+        description: "Tool without required params",
+        inputSchema: {
+          type: "object",
+          properties: {
+            optional: { type: "string" },
+          },
+          // No required array
+        },
+      });
+      mockContext.tools = [noParamsTool];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      const toolResult = result.toolResults[0];
+      expect(toolResult.testInputMetadata).toBeDefined();
+      expect(toolResult.testInputMetadata?.fieldSources).toEqual({});
+      expect(toolResult.testInputMetadata?.generationStrategy).toBe("default");
+    });
+  });
 });

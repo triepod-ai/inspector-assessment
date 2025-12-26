@@ -17,6 +17,7 @@ import type {
   ToolAnnotationAssessment,
   ToolAnnotationResult,
   AssessmentStatus,
+  ToolParamProgress,
 } from "@/lib/assessmentTypes";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { ClaudeCodeBridge } from "../lib/claudeCodeBridge";
@@ -214,10 +215,75 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         }
       }
 
-      if (toolResults[toolResults.length - 1].hasAnnotations) {
+      const latestResult = toolResults[toolResults.length - 1];
+      if (latestResult.hasAnnotations) {
         annotatedCount++;
       } else {
         missingAnnotationsCount++;
+        // Emit annotation_missing event with tool details
+        if (context.onProgress && latestResult.inferredBehavior) {
+          const annotations = this.extractAnnotations(tool);
+          context.onProgress({
+            type: "annotation_missing",
+            tool: tool.name,
+            title: annotations.title,
+            description: tool.description,
+            parameters: this.extractToolParams(tool.inputSchema),
+            inferredBehavior: {
+              expectedReadOnly: latestResult.inferredBehavior.expectedReadOnly,
+              expectedDestructive:
+                latestResult.inferredBehavior.expectedDestructive,
+              reason: latestResult.inferredBehavior.reason,
+            },
+          });
+        }
+      }
+
+      // Emit annotation_misaligned events for each misalignment
+      if (context.onProgress && latestResult.inferredBehavior) {
+        const annotations = latestResult.annotations;
+        const inferred = latestResult.inferredBehavior;
+        const confidence = latestResult.claudeInference?.confidence ?? 50;
+        const toolParams = this.extractToolParams(tool.inputSchema);
+        const toolAnnotations = this.extractAnnotations(tool);
+
+        // Check readOnlyHint misalignment
+        if (
+          annotations?.readOnlyHint !== undefined &&
+          annotations.readOnlyHint !== inferred.expectedReadOnly
+        ) {
+          context.onProgress({
+            type: "annotation_misaligned",
+            tool: tool.name,
+            title: toolAnnotations.title,
+            description: tool.description,
+            parameters: toolParams,
+            field: "readOnlyHint",
+            actual: annotations.readOnlyHint,
+            expected: inferred.expectedReadOnly,
+            confidence,
+            reason: `Tool has readOnlyHint=${annotations.readOnlyHint}, but ${inferred.reason}`,
+          });
+        }
+
+        // Check destructiveHint misalignment
+        if (
+          annotations?.destructiveHint !== undefined &&
+          annotations.destructiveHint !== inferred.expectedDestructive
+        ) {
+          context.onProgress({
+            type: "annotation_misaligned",
+            tool: tool.name,
+            title: toolAnnotations.title,
+            description: tool.description,
+            parameters: toolParams,
+            field: "destructiveHint",
+            actual: annotations.destructiveHint,
+            expected: inferred.expectedDestructive,
+            confidence,
+            reason: `Tool has destructiveHint=${annotations.destructiveHint}, but ${inferred.reason}`,
+          });
+        }
       }
     }
 
@@ -663,6 +729,32 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       idempotentHint,
       openWorldHint,
     };
+  }
+
+  /**
+   * Extract parameters from tool input schema for event emission
+   */
+  private extractToolParams(schema: unknown): ToolParamProgress[] {
+    if (!schema || typeof schema !== "object") return [];
+    const s = schema as Record<string, unknown>;
+    if (!s.properties || typeof s.properties !== "object") return [];
+
+    const required = new Set(
+      Array.isArray(s.required) ? (s.required as string[]) : [],
+    );
+    const properties = s.properties as Record<string, Record<string, unknown>>;
+
+    return Object.entries(properties).map(([name, prop]) => {
+      const param: ToolParamProgress = {
+        name,
+        type: (prop.type as string) || "any",
+        required: required.has(name),
+      };
+      if (prop.description) {
+        param.description = prop.description as string;
+      }
+      return param;
+    });
   }
 
   /**

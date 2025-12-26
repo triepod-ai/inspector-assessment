@@ -51,6 +51,8 @@ import {
   emitAssessmentComplete,
   emitTestBatch,
   emitVulnerabilityFound,
+  emitAnnotationMissing,
+  emitAnnotationMisaligned,
 } from "./lib/jsonl-events.js";
 import type { ProgressEvent } from "../client/src/lib/assessmentTypes.js";
 
@@ -430,6 +432,26 @@ async function runFullAssessment(
         event.riskLevel,
         event.requiresReview,
         event.payload,
+      );
+    } else if (event.type === "annotation_missing") {
+      emitAnnotationMissing(
+        event.tool,
+        event.title,
+        event.description,
+        event.parameters,
+        event.inferredBehavior,
+      );
+    } else if (event.type === "annotation_misaligned") {
+      emitAnnotationMisaligned(
+        event.tool,
+        event.title,
+        event.description,
+        event.parameters,
+        event.field,
+        event.actual,
+        event.expected,
+        event.confidence,
+        event.reason,
       );
     }
     // module_started and module_complete are handled by orchestrator directly

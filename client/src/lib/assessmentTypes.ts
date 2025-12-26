@@ -6,6 +6,26 @@
 export type AssessmentStatus = "PASS" | "FAIL" | "NEED_MORE_INFO";
 export type SecurityRiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
+export interface TestInputMetadata {
+  toolCategory: string; // Category from ToolClassifier (e.g., "calculator")
+  generationStrategy: string; // How value was generated (e.g., "category-specific", "field-name", "default")
+  fieldSources: Record<
+    string,
+    {
+      field: string;
+      value: unknown;
+      source:
+        | "category"
+        | "field-name"
+        | "schema-default"
+        | "enum"
+        | "format"
+        | "default";
+      reason: string;
+    }
+  >;
+}
+
 export interface ToolTestResult {
   toolName: string;
   tested: boolean;
@@ -14,6 +34,7 @@ export interface ToolTestResult {
   executionTime?: number;
   testParameters?: Record<string, unknown>;
   response?: unknown;
+  testInputMetadata?: TestInputMetadata;
 }
 
 // Enhanced testing types for comprehensive functionality validation
@@ -886,7 +907,9 @@ export type ProgressEvent =
   | ModuleStartedProgress
   | TestBatchProgress
   | ModuleCompleteProgress
-  | VulnerabilityFoundProgress;
+  | VulnerabilityFoundProgress
+  | AnnotationMissingProgress
+  | AnnotationMisalignedProgress;
 
 /**
  * Emitted when an assessment module begins execution.
@@ -936,6 +959,51 @@ export interface VulnerabilityFoundProgress {
   riskLevel: "HIGH" | "MEDIUM" | "LOW";
   requiresReview: boolean;
   payload?: string;
+}
+
+/**
+ * Tool parameter metadata for annotation events.
+ * Reusable type matching jsonl-events.ts ToolParam.
+ */
+export interface ToolParamProgress {
+  name: string;
+  type: string;
+  required: boolean;
+  description?: string;
+}
+
+/**
+ * Emitted when a tool is missing required annotations.
+ * Provides real-time alerts during annotation assessment.
+ */
+export interface AnnotationMissingProgress {
+  type: "annotation_missing";
+  tool: string;
+  title?: string;
+  description?: string;
+  parameters: ToolParamProgress[];
+  inferredBehavior: {
+    expectedReadOnly: boolean;
+    expectedDestructive: boolean;
+    reason: string;
+  };
+}
+
+/**
+ * Emitted when tool annotations don't match inferred behavior.
+ * Provides real-time alerts during annotation assessment.
+ */
+export interface AnnotationMisalignedProgress {
+  type: "annotation_misaligned";
+  tool: string;
+  title?: string;
+  description?: string;
+  parameters: ToolParamProgress[];
+  field: "readOnlyHint" | "destructiveHint";
+  actual: boolean | undefined;
+  expected: boolean;
+  confidence: number;
+  reason: string;
 }
 
 // ============================================================================
