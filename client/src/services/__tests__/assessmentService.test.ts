@@ -799,7 +799,7 @@ describe("MCPAssessmentService", () => {
         expect(result.functionality.brokenTools.length).toBeGreaterThan(0);
         // Comprehensive mode makes multiple calls per tool - verify reasonable total
         expect(result.totalTestsRun).toBeGreaterThan(0);
-        expect(result.totalTestsRun).toBeLessThan(200); // Sanity check
+        expect(result.totalTestsRun).toBeLessThan(300); // Sanity check (increased for additional security scenarios)
       });
 
       it("should handle partial tool execution failures", async () => {

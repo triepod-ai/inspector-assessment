@@ -21,6 +21,7 @@ import type {
   InferenceConfidence,
   ToolParamProgress,
   AssessmentConfiguration,
+  AnnotationSource,
 } from "@/lib/assessmentTypes";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { ClaudeCodeBridge } from "../lib/claudeCodeBridge";
@@ -112,6 +113,14 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     let missingAnnotationsCount = 0;
     let misalignedAnnotationsCount = 0;
 
+    // Track annotation sources
+    const annotationSourceCounts = {
+      mcp: 0,
+      sourceCode: 0,
+      inferred: 0,
+      none: 0,
+    };
+
     const useClaudeInference = this.isClaudeEnabled();
     if (useClaudeInference) {
       this.log(
@@ -176,7 +185,22 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         annotatedCount++;
       } else {
         missingAnnotationsCount++;
-        // Emit annotation_missing event with tool details
+      }
+
+      // Track annotation source
+      const source = latestResult.annotationSource;
+      if (source === "mcp") {
+        annotationSourceCounts.mcp++;
+      } else if (source === "source-code") {
+        annotationSourceCounts.sourceCode++;
+      } else if (source === "inferred") {
+        annotationSourceCounts.inferred++;
+      } else {
+        annotationSourceCounts.none++;
+      }
+
+      // Emit annotation_missing event with tool details
+      if (!latestResult.hasAnnotations) {
         if (context.onProgress && latestResult.inferredBehavior) {
           const annotations = this.extractAnnotations(tool);
           context.onProgress({
@@ -330,6 +354,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         recommendations: this.generateEnhancedRecommendations(toolResults),
         metrics,
         alignmentBreakdown,
+        annotationSources: annotationSourceCounts,
         claudeEnhanced: true,
         highConfidenceMisalignments,
       };
@@ -345,6 +370,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       recommendations,
       metrics,
       alignmentBreakdown,
+      annotationSources: annotationSourceCounts,
     };
   }
 
@@ -724,6 +750,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       toolName: tool.name,
       hasAnnotations,
       annotations: hasAnnotations ? annotations : undefined,
+      annotationSource: annotations.source,
       inferredBehavior,
       alignmentStatus,
       issues,
@@ -734,6 +761,12 @@ export class ToolAnnotationAssessor extends BaseAssessor {
   /**
    * Extract annotations from a tool
    * MCP SDK may have annotations in different locations
+   *
+   * Priority order:
+   * 1. tool.annotations (MCP 2024-11 spec) - "mcp" source
+   * 2. Direct properties on tool - "mcp" source
+   * 3. tool.metadata - "mcp" source
+   * 4. No annotations found - "none" source
    */
   private extractAnnotations(tool: Tool): {
     readOnlyHint?: boolean;
@@ -742,37 +775,69 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     description?: string;
     idempotentHint?: boolean;
     openWorldHint?: boolean;
+    source: AnnotationSource;
   } {
-    // Try to find annotations in various locations
     const toolAny = tool as any;
 
-    // Check direct properties
-    let readOnlyHint = toolAny.readOnlyHint;
-    let destructiveHint = toolAny.destructiveHint;
-    let idempotentHint = toolAny.idempotentHint;
-    let openWorldHint = toolAny.openWorldHint;
-
-    // Check annotations object (MCP 2024-11 spec)
+    // Priority 1: Check annotations object (MCP 2024-11 spec) - primary source
     if (toolAny.annotations) {
-      readOnlyHint = readOnlyHint ?? toolAny.annotations.readOnlyHint;
-      destructiveHint = destructiveHint ?? toolAny.annotations.destructiveHint;
-      idempotentHint = idempotentHint ?? toolAny.annotations.idempotentHint;
-      openWorldHint = openWorldHint ?? toolAny.annotations.openWorldHint;
+      const hasAnnotations =
+        toolAny.annotations.readOnlyHint !== undefined ||
+        toolAny.annotations.destructiveHint !== undefined;
+
+      if (hasAnnotations) {
+        return {
+          readOnlyHint: toolAny.annotations.readOnlyHint,
+          destructiveHint: toolAny.annotations.destructiveHint,
+          title: toolAny.annotations.title || toolAny.title,
+          description: tool.description,
+          idempotentHint: toolAny.annotations.idempotentHint,
+          openWorldHint: toolAny.annotations.openWorldHint,
+          source: "mcp",
+        };
+      }
     }
 
-    // Check metadata (some servers use this)
+    // Priority 2: Check direct properties on tool object
+    if (
+      toolAny.readOnlyHint !== undefined ||
+      toolAny.destructiveHint !== undefined
+    ) {
+      return {
+        readOnlyHint: toolAny.readOnlyHint,
+        destructiveHint: toolAny.destructiveHint,
+        title: toolAny.title,
+        description: tool.description,
+        idempotentHint: toolAny.idempotentHint,
+        openWorldHint: toolAny.openWorldHint,
+        source: "mcp",
+      };
+    }
+
+    // Priority 3: Check metadata (some servers use this)
     if (toolAny.metadata) {
-      readOnlyHint = readOnlyHint ?? toolAny.metadata.readOnlyHint;
-      destructiveHint = destructiveHint ?? toolAny.metadata.destructiveHint;
+      const hasMetadataAnnotations =
+        toolAny.metadata.readOnlyHint !== undefined ||
+        toolAny.metadata.destructiveHint !== undefined;
+
+      if (hasMetadataAnnotations) {
+        return {
+          readOnlyHint: toolAny.metadata.readOnlyHint,
+          destructiveHint: toolAny.metadata.destructiveHint,
+          title: toolAny.metadata.title || toolAny.title,
+          description: tool.description,
+          idempotentHint: toolAny.metadata.idempotentHint,
+          openWorldHint: toolAny.metadata.openWorldHint,
+          source: "mcp",
+        };
+      }
     }
 
+    // No annotations found from MCP protocol
     return {
-      readOnlyHint,
-      destructiveHint,
-      title: toolAny.title || toolAny.annotations?.title,
+      title: toolAny.title,
       description: tool.description,
-      idempotentHint,
-      openWorldHint,
+      source: "none",
     };
   }
 

@@ -20,7 +20,9 @@
   "include": [
     "src/services/assessment/**/*.ts",
     "src/lib/assessmentTypes.ts",
-    "src/lib/aupPatterns.ts"
+    "src/lib/aupPatterns.ts",
+    "src/lib/policyMapping.ts",
+    "src/lib/reportFormatters/**/*.ts"
   ],
   "exclude": ["node_modules", "**/*.test.ts", "**/__tests__/**"]
 }

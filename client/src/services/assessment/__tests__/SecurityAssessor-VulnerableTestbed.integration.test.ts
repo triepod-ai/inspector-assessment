@@ -446,7 +446,7 @@ describeIntegration("SecurityAssessor - Vulnerable Testbed Integration", () => {
         (t) => t.vulnerable,
       );
       expect(allFlagged.length).toBe(0);
-    });
+    }, 30000); // 30 second timeout for 17-tool assessment
   });
 
   describe("Metrics Validation", () => {

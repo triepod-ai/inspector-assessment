@@ -647,6 +647,11 @@ export interface AUPComplianceAssessment {
  * Tool Annotation Types (Policy #17)
  * Verifies readOnlyHint, destructiveHint presence
  */
+/**
+ * Source of tool annotations
+ */
+export type AnnotationSource = "mcp" | "source-code" | "inferred" | "none";
+
 export interface ToolAnnotationResult {
   toolName: string;
   hasAnnotations: boolean;
@@ -658,6 +663,8 @@ export interface ToolAnnotationResult {
     idempotentHint?: boolean;
     openWorldHint?: boolean;
   };
+  /** Where the annotations were extracted from */
+  annotationSource?: AnnotationSource;
   inferredBehavior?: {
     expectedReadOnly: boolean;
     expectedDestructive: boolean;
@@ -699,6 +706,17 @@ export interface ToolAnnotationAssessment {
     misaligned: number;
     reviewRecommended: number;
     unknown: number;
+  };
+  /** Summary of where annotations were extracted from */
+  annotationSources?: {
+    /** Count from MCP protocol (tools/list response) */
+    mcp: number;
+    /** Count from source code analysis */
+    sourceCode: number;
+    /** Count where behavior was inferred from patterns */
+    inferred: number;
+    /** Count with no annotations found */
+    none: number;
   };
 }
 

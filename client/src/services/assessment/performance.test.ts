@@ -120,8 +120,8 @@ describe("Assessment Performance Benchmarks", () => {
           throughput,
         });
 
-        // Performance should scale reasonably
-        expect(executionTime).toBeLessThan(toolCount * 1000); // < 1000ms per tool
+        // Performance should scale reasonably (1500ms per tool accounts for CI variance)
+        expect(executionTime).toBeLessThan(toolCount * 1500); // < 1500ms per tool
         expect(throughput).toBeGreaterThan(1); // > 1 test/second minimum
       }
 

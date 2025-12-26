@@ -32,6 +32,11 @@ import {
   ManifestJsonSchema,
 } from "../../client/lib/lib/assessmentTypes.js";
 import { FULL_CLAUDE_CODE_CONFIG } from "../../client/lib/services/assessment/lib/claudeCodeBridge.js";
+import {
+  createFormatter,
+  type ReportFormat,
+} from "../../client/lib/lib/reportFormatters/index.js";
+import { generatePolicyComplianceReport } from "../../client/lib/services/assessment/PolicyComplianceGenerator.js";
 
 interface ServerConfig {
   transport?: "stdio" | "http" | "sse";
@@ -53,6 +58,8 @@ interface AssessmentOptions {
   verbose?: boolean;
   jsonOnly?: boolean;
   helpRequested?: boolean;
+  format?: ReportFormat;
+  includePolicy?: boolean;
 }
 
 /**
@@ -440,23 +447,48 @@ async function runFullAssessment(
 }
 
 /**
- * Save results to JSON file
+ * Save results to file with appropriate format
  */
 function saveResults(
   serverName: string,
   results: MCPDirectoryAssessment,
-  outputPath?: string,
+  options: AssessmentOptions,
 ): string {
-  const defaultPath = `/tmp/inspector-full-assessment-${serverName}.json`;
-  const finalPath = outputPath || defaultPath;
+  const format = options.format || "json";
 
-  const output = {
-    timestamp: new Date().toISOString(),
-    assessmentType: "full",
-    ...results,
-  };
+  // Generate policy compliance report if requested
+  const policyReport = options.includePolicy
+    ? generatePolicyComplianceReport(results, serverName)
+    : undefined;
 
-  fs.writeFileSync(finalPath, JSON.stringify(output, null, 2));
+  // Create formatter with options
+  const formatter = createFormatter({
+    format,
+    includePolicyMapping: options.includePolicy,
+    policyReport,
+    serverName,
+    includeDetails: true,
+    prettyPrint: true,
+  });
+
+  const fileExtension = formatter.getFileExtension();
+  const defaultPath = `/tmp/inspector-full-assessment-${serverName}${fileExtension}`;
+  const finalPath = options.outputPath || defaultPath;
+
+  // For JSON format, add metadata wrapper
+  if (format === "json") {
+    const output = {
+      timestamp: new Date().toISOString(),
+      assessmentType: "full",
+      ...results,
+      ...(policyReport ? { policyCompliance: policyReport } : {}),
+    };
+    fs.writeFileSync(finalPath, JSON.stringify(output, null, 2));
+  } else {
+    // For other formats (markdown), use the formatter
+    const content = formatter.format(results);
+    fs.writeFileSync(finalPath, content);
+  }
 
   return finalPath;
 }
@@ -620,6 +652,22 @@ function parseArgs(): AssessmentOptions {
       case "--json":
         options.jsonOnly = true;
         break;
+      case "--format":
+      case "-f":
+        const formatValue = args[++i] as ReportFormat;
+        if (formatValue !== "json" && formatValue !== "markdown") {
+          console.error(
+            `Invalid format: ${formatValue}. Valid options: json, markdown`,
+          );
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        options.format = formatValue;
+        break;
+      case "--include-policy":
+        options.includePolicy = true;
+        break;
       case "--help":
       case "-h":
         printHelp();
@@ -663,12 +711,14 @@ Run comprehensive MCP server assessment with all 11 assessor modules.
 Options:
   --server, -s <name>    Server name (required, or pass as first positional arg)
   --config, -c <path>    Path to server config JSON
-  --output, -o <path>    Output JSON path (default: /tmp/inspector-full-assessment-<server>.json)
+  --output, -o <path>    Output path (default: /tmp/inspector-full-assessment-<server>.<ext>)
   --source <path>        Source code path for deep analysis (AUP, portability, etc.)
   --pattern-config, -p <path>  Path to custom annotation pattern JSON
+  --format, -f <type>    Output format: json (default) or markdown
+  --include-policy       Include policy compliance mapping in report (30 requirements)
   --claude-enabled       Enable Claude Code integration for intelligent analysis
   --full                 Enable all assessment modules (default)
-  --json                 Output only JSON (no console summary)
+  --json                 Output only JSON path (no console summary)
   --verbose, -v          Enable verbose logging
   --help, -h             Show this help message
 
@@ -689,6 +739,7 @@ Examples:
   mcp-assess-full my-server
   mcp-assess-full --server broken-mcp --claude-enabled
   mcp-assess-full --server my-server --source ./my-server --output ./results.json
+  mcp-assess-full --server my-server --format markdown --include-policy
   `);
 }
 
@@ -709,11 +760,7 @@ async function main() {
       displaySummary(results);
     }
 
-    const outputPath = saveResults(
-      options.serverName,
-      results,
-      options.outputPath,
-    );
+    const outputPath = saveResults(options.serverName, results, options);
 
     if (options.jsonOnly) {
       console.log(outputPath);
