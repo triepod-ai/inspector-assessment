@@ -18,7 +18,8 @@
   "bin": {
     "mcp-inspector-assess-cli": "build/cli.js",
     "mcp-assess-full": "build/assess-full.js",
-    "mcp-assess-security": "build/assess-security.js"
+    "mcp-assess-security": "build/assess-security.js",
+    "mcp-validate-testbed": "build/validate-testbed.js"
   },
   "publishConfig": {
     "access": "public"
