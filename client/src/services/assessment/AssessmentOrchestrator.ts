@@ -32,6 +32,7 @@ import { ToolAnnotationAssessor } from "./modules/ToolAnnotationAssessor";
 import { ProhibitedLibrariesAssessor } from "./modules/ProhibitedLibrariesAssessor";
 import { ManifestValidationAssessor } from "./modules/ManifestValidationAssessor";
 import { PortabilityAssessor } from "./modules/PortabilityAssessor";
+import { ExternalAPIScannerAssessor } from "./modules/ExternalAPIScannerAssessor";
 
 // Pattern configuration for tool annotation assessment
 import {
@@ -173,6 +174,7 @@ export class AssessmentOrchestrator {
   private prohibitedLibrariesAssessor?: ProhibitedLibrariesAssessor;
   private manifestValidationAssessor?: ManifestValidationAssessor;
   private portabilityAssessor?: PortabilityAssessor;
+  private externalAPIScannerAssessor?: ExternalAPIScannerAssessor;
 
   constructor(config: Partial<AssessmentConfiguration> = {}) {
     this.config = { ...DEFAULT_ASSESSMENT_CONFIG, ...config };
@@ -230,6 +232,11 @@ export class AssessmentOrchestrator {
       }
       if (this.config.assessmentCategories?.portability) {
         this.portabilityAssessor = new PortabilityAssessor(this.config);
+      }
+      if (this.config.assessmentCategories?.externalAPIScanner) {
+        this.externalAPIScannerAssessor = new ExternalAPIScannerAssessor(
+          this.config,
+        );
       }
     }
 
@@ -495,6 +502,20 @@ export class AssessmentOrchestrator {
           }),
         );
       }
+      if (this.externalAPIScannerAssessor) {
+        emitModuleStartedEvent("External APIs", 10, toolCount);
+        assessmentPromises.push(
+          this.externalAPIScannerAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "External APIs",
+              r.status,
+              r,
+              this.externalAPIScannerAssessor!.getTestCount(),
+            );
+            return (assessmentResults.externalAPIScanner = r);
+          }),
+        );
+      }
 
       await Promise.all(assessmentPromises);
     } else {
@@ -628,6 +649,17 @@ export class AssessmentOrchestrator {
           this.portabilityAssessor.getTestCount(),
         );
       }
+      if (this.externalAPIScannerAssessor) {
+        emitModuleStartedEvent("External APIs", 10, toolCount);
+        assessmentResults.externalAPIScanner =
+          await this.externalAPIScannerAssessor.assess(context);
+        emitModuleProgress(
+          "External APIs",
+          assessmentResults.externalAPIScanner.status,
+          assessmentResults.externalAPIScanner,
+          this.externalAPIScannerAssessor.getTestCount(),
+        );
+      }
     }
 
     // Collect test counts from all assessors
@@ -701,6 +733,8 @@ export class AssessmentOrchestrator {
       this.prohibitedLibrariesAssessor?.getTestCount() || 0;
     const manifestCount = this.manifestValidationAssessor?.getTestCount() || 0;
     const portabilityCount = this.portabilityAssessor?.getTestCount() || 0;
+    const externalAPICount =
+      this.externalAPIScannerAssessor?.getTestCount() || 0;
 
     console.log("[AssessmentOrchestrator] Test counts by assessor:", {
       functionality: functionalityCount,
@@ -714,6 +748,7 @@ export class AssessmentOrchestrator {
       prohibitedLibraries: librariesCount,
       manifestValidation: manifestCount,
       portability: portabilityCount,
+      externalAPIScanner: externalAPICount,
     });
 
     total =
@@ -727,7 +762,8 @@ export class AssessmentOrchestrator {
       annotationCount +
       librariesCount +
       manifestCount +
-      portabilityCount;
+      portabilityCount +
+      externalAPICount;
 
     console.log("[AssessmentOrchestrator] Total test count:", total);
 

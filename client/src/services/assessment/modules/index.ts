@@ -36,3 +36,4 @@ export { ToolAnnotationAssessor } from "./ToolAnnotationAssessor";
 export { ProhibitedLibrariesAssessor } from "./ProhibitedLibrariesAssessor";
 export { ManifestValidationAssessor } from "./ManifestValidationAssessor";
 export { PortabilityAssessor } from "./PortabilityAssessor";
+export { ExternalAPIScannerAssessor } from "./ExternalAPIScannerAssessor";

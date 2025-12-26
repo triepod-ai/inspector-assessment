@@ -576,6 +576,7 @@ export interface MCPDirectoryAssessment {
   prohibitedLibraries?: ProhibitedLibrariesAssessment;
   manifestValidation?: ManifestValidationAssessment;
   portability?: PortabilityAssessment;
+  externalAPIScanner?: ExternalAPIScannerAssessment;
 
   // Overall assessment
   overallStatus: AssessmentStatus;
@@ -828,6 +829,23 @@ export interface PortabilityAssessment {
   recommendations: string[];
 }
 
+// External API Scanner Types
+export interface DetectedAPI {
+  url: string;
+  service: string; // 'github' | 'slack' | 'aws' | 'openai' | 'anthropic' | 'unknown'
+  filePath: string;
+}
+
+export interface ExternalAPIScannerAssessment {
+  detectedAPIs: DetectedAPI[];
+  uniqueServices: string[];
+  affiliationWarning?: string; // If server name suggests unverified affiliation
+  scannedFiles: number;
+  status: AssessmentStatus;
+  explanation: string;
+  recommendations: string[];
+}
+
 // ============================================================================
 // END NEW ASSESSOR TYPES
 // ============================================================================
@@ -945,6 +963,7 @@ export interface AssessmentConfiguration {
     prohibitedLibraries?: boolean; // Policy #28-30 - Financial/Media libs
     manifestValidation?: boolean; // MCPB manifest.json compliance
     portability?: boolean; // Hardcoded paths, platform-specific code
+    externalAPIScanner?: boolean; // External API detection and affiliation check
   };
 }
 
@@ -1117,6 +1136,7 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
     prohibitedLibraries: false,
     manifestValidation: false,
     portability: false,
+    externalAPIScanner: false,
   },
 };
 
@@ -1149,6 +1169,7 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
     prohibitedLibraries: false,
     manifestValidation: false,
     portability: false,
+    externalAPIScanner: false,
   },
 };
 
@@ -1179,6 +1200,7 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
     prohibitedLibraries: true,
     manifestValidation: true,
     portability: true,
+    externalAPIScanner: true,
   },
 };
 
@@ -1210,6 +1232,7 @@ export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
     prohibitedLibraries: true,
     manifestValidation: true,
     portability: true,
+    externalAPIScanner: true,
   },
 };
 
@@ -1252,5 +1275,6 @@ export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
     prohibitedLibraries: true,
     manifestValidation: true,
     portability: true,
+    externalAPIScanner: true,
   },
 };

@@ -60,6 +60,7 @@ interface AssessmentOptions {
   helpRequested?: boolean;
   format?: ReportFormat;
   includePolicy?: boolean;
+  preflightOnly?: boolean;
 }
 
 /**
@@ -323,6 +324,7 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
     enableExtendedAssessment: options.fullAssessment !== false,
     parallelTesting: true,
     testTimeout: 30000,
+    enableSourceCodeAnalysis: !!options.sourceCodePath,
   };
 
   if (options.fullAssessment !== false) {
@@ -338,6 +340,7 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
       prohibitedLibraries: true,
       manifestValidation: true,
       portability: true,
+      externalAPIScanner: !!options.sourceCodePath,
     };
   }
 
@@ -402,6 +405,72 @@ async function runFullAssessment(
     console.log(
       `🔧 Found ${tools.length} tool${tools.length !== 1 ? "s" : ""}`,
     );
+  }
+
+  // Pre-flight validation checks
+  if (options.preflightOnly) {
+    const preflightResult: {
+      passed: boolean;
+      toolCount: number;
+      manifestValid?: boolean;
+      serverResponsive?: boolean;
+      errors: string[];
+    } = {
+      passed: true,
+      toolCount: tools.length,
+      errors: [],
+    };
+
+    // Check 1: Tools exist
+    if (tools.length === 0) {
+      preflightResult.passed = false;
+      preflightResult.errors.push("No tools discovered from server");
+    }
+
+    // Check 2: Manifest valid (if source path provided)
+    if (options.sourceCodePath) {
+      const manifestPath = path.join(options.sourceCodePath, "manifest.json");
+      if (fs.existsSync(manifestPath)) {
+        try {
+          JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+          preflightResult.manifestValid = true;
+        } catch {
+          preflightResult.passed = false;
+          preflightResult.manifestValid = false;
+          preflightResult.errors.push(
+            "Invalid manifest.json (JSON parse error)",
+          );
+        }
+      }
+    }
+
+    // Check 3: First tool responds (basic connectivity)
+    if (tools.length > 0) {
+      try {
+        const callTool = createCallToolWrapper(client);
+        const firstToolResult = await callTool(tools[0].name, {});
+        preflightResult.serverResponsive = !firstToolResult.isError;
+        if (firstToolResult.isError) {
+          preflightResult.errors.push(
+            `First tool (${tools[0].name}) returned error - server may not be fully functional`,
+          );
+        }
+      } catch (e) {
+        preflightResult.serverResponsive = false;
+        preflightResult.errors.push(
+          `First tool call failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
+    await client.close();
+
+    // Output pre-flight result
+    console.log(JSON.stringify(preflightResult, null, 2));
+    setTimeout(() => process.exit(preflightResult.passed ? 0 : 1), 10);
+
+    // Return empty result (won't be used due to process.exit)
+    return {} as MCPDirectoryAssessment;
   }
 
   const config = buildConfig(options);
@@ -668,6 +737,9 @@ function parseArgs(): AssessmentOptions {
       case "--include-policy":
         options.includePolicy = true;
         break;
+      case "--preflight":
+        options.preflightOnly = true;
+        break;
       case "--help":
       case "-h":
         printHelp();
@@ -716,6 +788,7 @@ Options:
   --pattern-config, -p <path>  Path to custom annotation pattern JSON
   --format, -f <type>    Output format: json (default) or markdown
   --include-policy       Include policy compliance mapping in report (30 requirements)
+  --preflight            Run quick validation only (tools exist, manifest valid, server responds)
   --claude-enabled       Enable Claude Code integration for intelligent analysis
   --full                 Enable all assessment modules (default)
   --json                 Output only JSON path (no console summary)
@@ -755,6 +828,11 @@ async function main() {
     }
 
     const results = await runFullAssessment(options);
+
+    // Pre-flight mode handles its own output and exit
+    if (options.preflightOnly) {
+      return;
+    }
 
     if (!options.jsonOnly) {
       displaySummary(results);
