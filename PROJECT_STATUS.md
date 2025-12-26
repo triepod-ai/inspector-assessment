@@ -308,3 +308,30 @@
 - mcp-auditor UI should now show "X/Y tests" progress for security-only assessments
 
 ---
+
+## 2025-12-25: Fixed CI Linting Errors for GitHub Actions
+
+**Summary:** Fixed CI linting errors by configuring eslint to ignore lib/ build output and removing unused disable directives.
+
+**Session Focus:** CI/Linting fixes for GitHub Actions workflow
+
+**Changes Made:**
+- `client/eslint.config.js` - Added 'lib' to ignores array to exclude build output
+- `client/src/App.tsx` - Removed 3 unused eslint-disable-next-line directives
+- `client/src/components/Sidebar.tsx` - Removed 1 unused eslint-disable-next-line directive
+
+**Key Decisions:**
+- Added lib/ directory to eslint ignores since build output was causing "Definition for rule '@typescript-eslint/no-explicit-any' was not found" error
+- Removed unused eslint-disable comments rather than moving them (warnings are acceptable since rule is set to "warn" not "error")
+- No version bump needed as changes are internal dev tooling only
+
+**Next Steps:**
+- Continue with normal development
+- Publish new version when actual functionality changes are made
+
+**Notes:**
+- Reduced from 1 error + 160 warnings to 0 errors + 146 warnings
+- All 827 tests passing, CI workflow green
+- Internal tooling fix only, no impact on package functionality
+
+---
