@@ -2,30 +2,92 @@
 
 ## Current Version
 
-- **Version**: 1.13.0 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.13.1 (published to npm as "@bryan-thompson/inspector-assessment")
 
 **Changes Made:**
-- Added PolicyComplianceGenerator with 30 Anthropic Software Directory Policy requirements
-- Added MarkdownReportFormatter for human-readable assessment reports
-- Added annotation source tracking (mcp, source-code, inferred, none) to ToolAnnotationAssessor
-- Added CLI --format (json|markdown) and --include-policy flags to assess-full
-- Maps assessment results to 5 policy categories: Safety & Security, Compatibility, Functionality, Developer Requirements, Unsupported Use Cases
-- Generates executive summary, module status, key findings, and action items in markdown output
+- Added Distribution Detection utility for identifying MCP server distribution types (local_bundle, local_source, remote, hybrid)
+- Added ExternalAPIScannerAssessor for scanning source code for external API URLs (16+ known services)
+- Added --preflight CLI flag for quick validation mode (tools exist, manifest valid, server responds)
+- Added affiliation checking to warn when server name suggests service affiliation
+- Enabled source code analysis automatically when --source flag is provided
 
 **Key Decisions:**
-- Minor version bump (1.12.0 -> 1.13.0) for new feature additions
-- Policy compliance mapping based on gap analysis comparing /mcp-audit skill with CLI capabilities
-- Markdown report designed for human reviewers with prioritized action items
+- Patch version bump (1.13.0 -> 1.13.1) for Priority 2 feature additions
+- Simplified implementation: distribution detection as utility function (~30 lines), not full assessor
+- External API Scanner enabled automatically with --source flag
+- Pre-flight mode returns JSON result and exits early without full assessment
 
 **Next Steps:**
-- Consider adding Priority 2 features from gap analysis (distribution detection, external API scanner, pre-flight validation)
-- Monitor usage of new --format markdown option
+- Consider adding Priority 3 features from gap analysis (privacy policy URL validator, authentication assessment, state management)
+- Monitor usage of new --preflight and External API Scanner features
 
 **Notes:**
 - 857 tests passing (3 skipped)
 - All 4 npm packages published successfully
-- Package verified working with `bunx @bryan-thompson/inspector-assessment@1.13.0`
-- Report includes: Executive Summary, Module Status, Key Findings, Policy Compliance (30 requirements), Recommendations, Detailed Results
+- Package verified working with `bunx @bryan-thompson/inspector-assessment@1.13.1`
+- Tested against 4 real MCP servers: vulnerable-mcp, memory-mcp, firecrawl-mcp, context7
+
+---
+
+## 2025-12-26: v1.13.1 Release - Priority 2 Features (Distribution Detection, External API Scanner, Pre-flight)
+
+**Summary:** Implemented Priority 2 features from gap analysis - distribution detection utility, external API scanner assessor, and pre-flight validation mode. Published v1.13.1 to npm.
+
+**Session Focus:**
+Closing the gap between /mcp-audit skill capabilities and the inspector CLI by adding distribution detection, external API scanning, and quick pre-flight validation.
+
+**Changes Made:**
+- Created `client/src/lib/distributionDetection.ts` - Utility function to detect MCP server distribution type
+- Created `client/src/services/assessment/modules/ExternalAPIScannerAssessor.ts` - Scans source code for external APIs
+- Modified `client/src/lib/assessmentTypes.ts` - Added DetectedAPI and ExternalAPIScannerAssessment types
+- Modified `client/src/services/assessment/AssessmentOrchestrator.ts` - Integrated External API Scanner
+- Modified `client/src/services/assessment/modules/index.ts` - Added ExternalAPIScannerAssessor export
+- Modified `cli/src/assess-full.ts` - Added --preflight flag and enableSourceCodeAnalysis
+
+**New CLI Options:**
+```bash
+# Pre-flight validation (quick check)
+node cli/build/assess-full.js --server <name> --config <path> --preflight
+
+# Full assessment with External API scanning
+node cli/build/assess-full.js --server <name> --config <path> --source <path>
+```
+
+**Distribution Detection Types:**
+- `local_bundle` - Has manifest.json, runs via stdio
+- `local_source` - No bundle, direct source execution
+- `remote` - HTTP/SSE transport, no local source
+- `hybrid` - Uses mcp-remote or @modelcontextprotocol/remote
+
+**External API Scanner Features:**
+- Detects 16+ known services (GitHub, Slack, AWS, OpenAI, Anthropic, etc.)
+- Affiliation checking: warns if server name suggests unverified service affiliation
+- Scans .ts, .js, .py, .go, .rs source files
+- Skips node_modules, test files, build artifacts
+
+**Testing Results:**
+| Server | Pre-flight | External APIs Found |
+|--------|------------|---------------------|
+| vulnerable-mcp | ✅ 17 tools | 2 URLs (templated) |
+| memory-mcp | ✅ 12 tools | 0 (local Neo4j) |
+| firecrawl-mcp | ✅ 8 tools | 2 URLs (docs.firecrawl.dev) |
+| context7 | ✅ 2 tools | 1 URL (context7.com/api) |
+
+**Key Decisions:**
+- Simplified distribution detection to utility function (~30 lines) vs full assessor
+- External API Scanner enabled automatically when --source provided
+- Pre-flight returns JSON with pass/fail, toolCount, errors array
+- Affiliation warning triggers NEED_MORE_INFO status
+
+**Next Steps:**
+- Priority 3 features: Privacy policy URL validator, authentication assessment, state management
+- Consider adding more known services to ExternalAPIScannerAssessor
+
+**Notes:**
+- Total implementation: ~583 lines of new code
+- All tests passing (857 tests)
+- Builds clean with no TypeScript errors
+- Reviewed for over-engineering and simplified per user feedback
 
 ---
 
