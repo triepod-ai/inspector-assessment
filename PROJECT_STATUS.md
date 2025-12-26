@@ -2,31 +2,75 @@
 
 ## Current Version
 
-- **Version**: 1.4.0 (published to npm as "MCP Assessor")
+- **Version**: 1.13.0 (published to npm as "@bryan-thompson/inspector-assessment")
 
 **Changes Made:**
-- Merged 14 commits from upstream (v0.17.6 + v0.18.0)
-- Resolved conflicts in package.json files (kept fork naming, accepted SDK v1.24.3)
-- DynamicJsonForm.tsx auto-merged (upstream enum support preserved with our validation)
-- Updated CLAUDE.md upstream sync status to v0.18.0
-- Added sync entry to PROJECT_STATUS.md Recent Changes section
-- Bumped version 1.7.2 -> 1.8.0
-- Published all 4 packages to npm (@bryan-thompson/inspector-assessment)
+- Added PolicyComplianceGenerator with 30 Anthropic Software Directory Policy requirements
+- Added MarkdownReportFormatter for human-readable assessment reports
+- Added annotation source tracking (mcp, source-code, inferred, none) to ToolAnnotationAssessor
+- Added CLI --format (json|markdown) and --include-policy flags to assess-full
+- Maps assessment results to 5 policy categories: Safety & Security, Compatibility, Functionality, Developer Requirements, Unsupported Use Cases
+- Generates executive summary, module status, key findings, and action items in markdown output
 
 **Key Decisions:**
-- Minor version bump (1.8.0) chosen since upstream added new features (enum support, theme property)
-- Kept fork package naming (@bryan-thompson/inspector-assessment)
-- Accepted upstream SDK dependency update (1.23.0 -> 1.24.3)
+- Minor version bump (1.12.0 -> 1.13.0) for new feature additions
+- Policy compliance mapping based on gap analysis comparing /mcp-audit skill with CLI capabilities
+- Markdown report designed for human reviewers with prioritized action items
 
 **Next Steps:**
-- Monitor for next upstream release
-- Consider addressing 24 test timeout failures in SecurityAssessor tests
+- Consider adding Priority 2 features from gap analysis (distribution detection, external API scanner, pre-flight validation)
+- Monitor usage of new --format markdown option
 
 **Notes:**
-- 622/646 tests passing (96%) - failures are pre-existing timeouts, not sync-related
-- Build successful
-- Published package verified working with bunx test
-- Upstream features merged: enum value support in DynamicJsonForm, theme property, SDK 1.24.3
+- 857 tests passing (3 skipped)
+- All 4 npm packages published successfully
+- Package verified working with `bunx @bryan-thompson/inspector-assessment@1.13.0`
+- Report includes: Executive Summary, Module Status, Key Findings, Policy Compliance (30 requirements), Recommendations, Detailed Results
+
+---
+
+## 2025-12-26: v1.13.0 Release - Policy Compliance Mapping & Markdown Reports
+
+**Summary:** Implemented Priority 1 features from gap analysis - policy compliance mapping, markdown report generation, and annotation source tracking. Published v1.13.0 to npm.
+
+**Session Focus:**
+Closing the gap between /mcp-audit skill capabilities and the inspector CLI by adding policy compliance mapping, markdown reports, and improved annotation tracking.
+
+**Changes Made:**
+- Created `client/src/lib/policyMapping.ts` - Policy types and 30 requirement definitions
+- Created `client/src/services/assessment/PolicyComplianceGenerator.ts` - Maps assessment results to policy requirements
+- Created `client/src/lib/reportFormatters/index.ts` - Formatter factory for JSON/Markdown output
+- Created `client/src/lib/reportFormatters/MarkdownReportFormatter.ts` - Human-readable markdown generation
+- Modified `client/src/services/assessment/modules/ToolAnnotationAssessor.ts` - Added annotation source tracking
+- Modified `client/src/lib/assessmentTypes.ts` - Added AnnotationSource type
+- Modified `cli/src/assess-full.ts` - Added --format and --include-policy CLI options
+- Modified `client/tsconfig.lib.json` - Added new files to lib build
+
+**Key Decisions:**
+- Policy requirements mapped to 5 categories: Safety & Security (6), Compatibility (6), Functionality (7), Developer Requirements (8), Unsupported Use Cases (3)
+- Annotation sources tracked as: "mcp" (from protocol), "source-code" (from analysis), "inferred" (from behavior), "none"
+- Markdown report includes prioritized action items: CRITICAL → HIGH → MEDIUM → INFO
+
+**New CLI Options:**
+```bash
+# Generate markdown report with policy compliance
+node cli/build/assess-full.js --server <name> --config <path> --format markdown --include-policy
+```
+
+**Policy Compliance Output:**
+- Total Requirements: 30
+- Categories: Safety & Security, Compatibility, Functionality, Developer Requirements, Unsupported Use Cases
+- Status types: PASS, FAIL, FLAG (needs attention), REVIEW (manual check needed)
+- Action items with severity and evidence
+
+**Next Steps:**
+- Priority 2 features: Distribution detection, external API scanner, pre-flight validation
+- Priority 3 features: Privacy policy URL validator, authentication assessment, state management
+
+**Notes:**
+- Tested against vulnerable-mcp testbed: 36 vulnerabilities detected, 62% compliance score
+- All builds successful, tests passing
+- Gap analysis plan preserved at `/home/bryan/.claude/plans/replicated-yawning-wave.md`
 
 ---
 
