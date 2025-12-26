@@ -41,34 +41,43 @@ import {
 } from "./lib/claudeCodeBridge";
 import { TestDataGenerator } from "./TestDataGenerator";
 
+// Import score calculation helpers from shared module
+import {
+  calculateModuleScore,
+  normalizeModuleKey,
+  INSPECTOR_VERSION,
+} from "@/lib/moduleScoring";
+
 // Track module start times for duration calculation
 const moduleStartTimes: Map<string, number> = new Map();
 
 /**
- * Emit module_started event before assessment module begins.
- * Format: {"event":"module_started","module":"<name>","estimatedTests":<n>,"toolCount":<n>}
+ * Emit module_started event and track start time for duration calculation.
+ * Emits JSONL to stderr with version field for consistent event structure.
  */
 function emitModuleStartedEvent(
   moduleName: string,
   estimatedTests: number,
   toolCount: number,
 ): void {
-  const moduleKey = moduleName.toLowerCase().replace(/ /g, "_");
+  const moduleKey = normalizeModuleKey(moduleName);
   moduleStartTimes.set(moduleKey, Date.now());
 
+  // Emit JSONL to stderr with version field
   console.error(
     JSON.stringify({
       event: "module_started",
       module: moduleKey,
       estimatedTests,
       toolCount,
+      version: INSPECTOR_VERSION,
     }),
   );
 }
 
 /**
- * Emit module progress to stderr in JSONL format for machine parsing.
- * Format: {"event":"module_complete","module":"<name>","status":"<STATUS>","score":<0-100>,"testsRun":<n>,"duration":<ms>}
+ * Emit module_complete event with score and duration.
+ * Uses shared score calculator for consistent scoring logic.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function emitModuleProgress(
@@ -77,41 +86,17 @@ function emitModuleProgress(
   result: any,
   testsRun: number = 0,
 ): void {
-  // Compute score based on module type
-  let score = 0;
-  const metrics = result?.metrics;
+  const moduleKey = normalizeModuleKey(moduleName);
 
-  if (metrics?.mcpComplianceScore !== undefined) {
-    // ErrorHandling module
-    score = Math.round(metrics.mcpComplianceScore);
-  } else if (result?.complianceScore !== undefined) {
-    // MCPSpecCompliance module
-    score = Math.round(result.complianceScore);
-  } else if (result?.workingPercentage !== undefined) {
-    // Functionality module
-    score = Math.round(result.workingPercentage);
-  } else if (Array.isArray(result?.vulnerabilities)) {
-    // Security module: 100% if no vulns, lower based on vuln count
-    const vulnCount = result.vulnerabilities.length;
-    score = vulnCount === 0 ? 100 : Math.max(0, 100 - vulnCount * 10);
-  } else if (Array.isArray(result?.violations)) {
-    // AUP module: 100% if no violations, lower based on violation count
-    const violationCount = result.violations.length;
-    score = violationCount === 0 ? 100 : Math.max(0, 100 - violationCount * 10);
-  } else {
-    // Derive from status: PASS=100, FAIL=0, other=50
-    score = status === "PASS" ? 100 : status === "FAIL" ? 0 : 50;
-  }
-
-  // Convert module name to snake_case key for consistent machine parsing
-  const moduleKey = moduleName.toLowerCase().replace(/ /g, "_");
+  // Calculate score using shared helper
+  const score = calculateModuleScore(result);
 
   // Calculate duration from module start time
   const startTime = moduleStartTimes.get(moduleKey);
   const duration = startTime ? Date.now() - startTime : 0;
   moduleStartTimes.delete(moduleKey);
 
-  // Emit JSONL to stderr (not stdout) so it doesn't interfere with JSON output
+  // Emit JSONL to stderr with version field
   console.error(
     JSON.stringify({
       event: "module_complete",
@@ -120,6 +105,7 @@ function emitModuleProgress(
       score,
       testsRun,
       duration,
+      version: INSPECTOR_VERSION,
     }),
   );
 }

@@ -9,9 +9,25 @@
  * - tool_discovered: Emitted for each tool found
  * - tools_discovery_complete: Emitted after all tools listed
  * - assessment_complete: Emitted at end of assessment
+ *
+ * Shared helpers (normalizeModuleKey, calculateModuleScore) are imported from
+ * client/src/lib/moduleScoring.ts to maintain a single source of truth.
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+
+// Import and re-export shared helpers from client module
+// This maintains a single source of truth for scoring and normalization logic
+export {
+  normalizeModuleKey,
+  calculateModuleScore,
+  INSPECTOR_VERSION,
+} from "../../client/src/lib/moduleScoring.js";
+
+import {
+  normalizeModuleKey,
+  INSPECTOR_VERSION,
+} from "../../client/src/lib/moduleScoring.js";
 
 // ============================================================================
 // Types
@@ -100,16 +116,6 @@ export type JSONLEvent =
   | VulnerabilityFoundEvent;
 
 // ============================================================================
-// Version Constant
-// ============================================================================
-
-/**
- * Current inspector-assessment version for event compatibility checking.
- * This should match the version in package.json.
- */
-export const INSPECTOR_VERSION = "1.11.0";
-
-// ============================================================================
 // Core Functions
 // ============================================================================
 
@@ -182,12 +188,17 @@ export function extractToolParams(schema: unknown): ToolParam[] {
   );
   const properties = s.properties as Record<string, Record<string, unknown>>;
 
-  return Object.entries(properties).map(([name, prop]) => ({
-    name,
-    type: (prop.type as string) || "any",
-    required: required.has(name),
-    ...(prop.description && { description: prop.description as string }),
-  }));
+  return Object.entries(properties).map(([name, prop]) => {
+    const param: ToolParam = {
+      name,
+      type: (prop.type as string) || "any",
+      required: required.has(name),
+    };
+    if (prop.description) {
+      param.description = prop.description as string;
+    }
+    return param;
+  });
 }
 
 // ============================================================================
@@ -196,13 +207,19 @@ export function extractToolParams(schema: unknown): ToolParam[] {
 
 /**
  * Emit module_started event before assessment module begins.
+ * Module name is normalized to snake_case for consistent parsing.
  */
 export function emitModuleStarted(
   module: string,
   estimatedTests: number,
   toolCount: number,
 ): void {
-  emitJSONL({ event: "module_started", module, estimatedTests, toolCount });
+  emitJSONL({
+    event: "module_started",
+    module: normalizeModuleKey(module),
+    estimatedTests,
+    toolCount,
+  });
 }
 
 /**
@@ -227,6 +244,7 @@ export function emitTestBatch(
 
 /**
  * Emit module_complete event with enhanced data.
+ * Module name is normalized to snake_case for consistent parsing.
  */
 export function emitModuleComplete(
   module: string,
@@ -237,7 +255,7 @@ export function emitModuleComplete(
 ): void {
   emitJSONL({
     event: "module_complete",
-    module,
+    module: normalizeModuleKey(module),
     status,
     score,
     testsRun,
