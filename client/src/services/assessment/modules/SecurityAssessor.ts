@@ -260,6 +260,20 @@ export class SecurityAssessor extends BaseAssessor {
                   this.log(
                     `🚨 VULNERABILITY: ${tool.name} - ${attackPattern.attackName} (${payload.payloadType}: ${payload.description})`,
                   );
+
+                  // Emit real-time vulnerability_found event
+                  if (context.onProgress) {
+                    context.onProgress({
+                      type: "vulnerability_found",
+                      tool: tool.name,
+                      pattern: attackPattern.attackName,
+                      confidence: result.confidence || "medium",
+                      evidence: result.evidence || "Vulnerability detected",
+                      riskLevel: payload.riskLevel,
+                      requiresReview: result.requiresManualReview || false,
+                      payload: payload.payload,
+                    });
+                  }
                 }
               } catch (error) {
                 this.logError(
@@ -419,6 +433,20 @@ export class SecurityAssessor extends BaseAssessor {
             this.log(
               `🚨 VULNERABILITY: ${tool.name} - ${attackPattern.attackName}`,
             );
+
+            // Emit real-time vulnerability_found event
+            if (context.onProgress) {
+              context.onProgress({
+                type: "vulnerability_found",
+                tool: tool.name,
+                pattern: attackPattern.attackName,
+                confidence: result.confidence || "medium",
+                evidence: result.evidence || "Vulnerability detected",
+                riskLevel: payload.riskLevel,
+                requiresReview: result.requiresManualReview || false,
+                payload: payload.payload,
+              });
+            }
           }
         } catch (error) {
           this.logError(

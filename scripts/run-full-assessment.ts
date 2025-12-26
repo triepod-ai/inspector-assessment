@@ -50,6 +50,7 @@ import {
   emitToolsDiscoveryComplete,
   emitAssessmentComplete,
   emitTestBatch,
+  emitVulnerabilityFound,
 } from "./lib/jsonl-events.js";
 import type { ProgressEvent } from "../client/src/lib/assessmentTypes.js";
 
@@ -419,6 +420,16 @@ async function runFullAssessment(
         event.total,
         event.batchSize,
         event.elapsed,
+      );
+    } else if (event.type === "vulnerability_found") {
+      emitVulnerabilityFound(
+        event.tool,
+        event.pattern,
+        event.confidence,
+        event.evidence,
+        event.riskLevel,
+        event.requiresReview,
+        event.payload,
       );
     }
     // module_started and module_complete are handled by orchestrator directly

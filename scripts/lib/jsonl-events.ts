@@ -76,6 +76,19 @@ export interface ModuleCompleteEvent {
   duration: number;
 }
 
+// Real-time security vulnerability detection event
+export interface VulnerabilityFoundEvent {
+  event: "vulnerability_found";
+  version: string;
+  tool: string;
+  pattern: string;
+  confidence: "high" | "medium" | "low";
+  evidence: string;
+  riskLevel: "HIGH" | "MEDIUM" | "LOW";
+  requiresReview: boolean;
+  payload?: string; // The test payload that triggered the vulnerability
+}
+
 export type JSONLEvent =
   | ServerConnectedEvent
   | ToolDiscoveredEvent
@@ -83,7 +96,18 @@ export type JSONLEvent =
   | AssessmentCompleteEvent
   | ModuleStartedEvent
   | TestBatchEvent
-  | ModuleCompleteEvent;
+  | ModuleCompleteEvent
+  | VulnerabilityFoundEvent;
+
+// ============================================================================
+// Version Constant
+// ============================================================================
+
+/**
+ * Current inspector-assessment version for event compatibility checking.
+ * This should match the version in package.json.
+ */
+export const INSPECTOR_VERSION = "1.11.0";
 
 // ============================================================================
 // Core Functions
@@ -91,9 +115,10 @@ export type JSONLEvent =
 
 /**
  * Emit a JSONL event to stderr for real-time machine parsing.
+ * Automatically includes version field for compatibility checking.
  */
 export function emitJSONL(event: Record<string, unknown>): void {
-  console.error(JSON.stringify(event));
+  console.error(JSON.stringify({ ...event, version: INSPECTOR_VERSION }));
 }
 
 /**
@@ -217,6 +242,31 @@ export function emitModuleComplete(
     score,
     testsRun,
     duration,
+  });
+}
+
+/**
+ * Emit vulnerability_found event when a security vulnerability is detected.
+ * This provides real-time alerts during security assessment.
+ */
+export function emitVulnerabilityFound(
+  tool: string,
+  pattern: string,
+  confidence: "high" | "medium" | "low",
+  evidence: string,
+  riskLevel: "HIGH" | "MEDIUM" | "LOW",
+  requiresReview: boolean,
+  payload?: string,
+): void {
+  emitJSONL({
+    event: "vulnerability_found",
+    tool,
+    pattern,
+    confidence,
+    evidence,
+    riskLevel,
+    requiresReview,
+    ...(payload && { payload }),
   });
 }
 

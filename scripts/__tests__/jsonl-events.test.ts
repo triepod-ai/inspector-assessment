@@ -49,7 +49,15 @@ describe("JSONL Event Helpers", () => {
       const event = { event: "test", field1: "value1", field2: 123 };
       emitJSONL(event);
 
-      expect(getLastEvent()).toEqual(event);
+      // Use toMatchObject since emitJSONL now adds version field automatically
+      expect(getLastEvent()).toMatchObject(event);
+    });
+
+    it("includes version field in all events", () => {
+      emitJSONL({ event: "test" });
+
+      const output = getLastEvent();
+      expect(output.version).toBe("1.11.0");
     });
   });
 
@@ -62,11 +70,12 @@ describe("JSONL Event Helpers", () => {
       emitServerConnected("test-server", "http");
 
       const event = getLastEvent();
-      expect(event).toEqual({
+      expect(event).toMatchObject({
         event: "server_connected",
         serverName: "test-server",
         transport: "http",
       });
+      expect(event.version).toBe("1.11.0");
     });
 
     it("handles stdio transport", () => {
@@ -229,10 +238,11 @@ describe("JSONL Event Helpers", () => {
       emitToolsDiscoveryComplete(17);
 
       const event = getLastEvent();
-      expect(event).toEqual({
+      expect(event).toMatchObject({
         event: "tools_discovery_complete",
         count: 17,
       });
+      expect(event.version).toBe("1.11.0");
     });
 
     it("handles zero tools", () => {
@@ -259,13 +269,14 @@ describe("JSONL Event Helpers", () => {
       emitAssessmentComplete("PASS", 234, 5000, "/tmp/results.json");
 
       const event = getLastEvent();
-      expect(event).toEqual({
+      expect(event).toMatchObject({
         event: "assessment_complete",
         overallStatus: "PASS",
         totalTests: 234,
         executionTime: 5000,
         outputPath: "/tmp/results.json",
       });
+      expect(event.version).toBe("1.11.0");
     });
 
     it("includes correct overallStatus for PASS", () => {

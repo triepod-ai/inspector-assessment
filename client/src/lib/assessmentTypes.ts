@@ -885,7 +885,8 @@ export interface ProgressCallback {
 export type ProgressEvent =
   | ModuleStartedProgress
   | TestBatchProgress
-  | ModuleCompleteProgress;
+  | ModuleCompleteProgress
+  | VulnerabilityFoundProgress;
 
 /**
  * Emitted when an assessment module begins execution.
@@ -920,6 +921,21 @@ export interface ModuleCompleteProgress {
   score: number;
   testsRun: number;
   duration: number;
+}
+
+/**
+ * Emitted when a security vulnerability is detected during assessment.
+ * Provides real-time alerts for security findings.
+ */
+export interface VulnerabilityFoundProgress {
+  type: "vulnerability_found";
+  tool: string;
+  pattern: string;
+  confidence: "high" | "medium" | "low";
+  evidence: string;
+  riskLevel: "HIGH" | "MEDIUM" | "LOW";
+  requiresReview: boolean;
+  payload?: string;
 }
 
 // ============================================================================

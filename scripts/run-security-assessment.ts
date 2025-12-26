@@ -47,6 +47,7 @@ import {
   emitAssessmentComplete,
   emitTestBatch,
   emitModuleStarted,
+  emitVulnerabilityFound,
 } from "./lib/jsonl-events.js";
 import type { ProgressEvent } from "../client/src/lib/assessmentTypes.js";
 
@@ -273,6 +274,16 @@ async function runSecurityAssessment(
         event.total,
         event.batchSize,
         event.elapsed,
+      );
+    } else if (event.type === "vulnerability_found") {
+      emitVulnerabilityFound(
+        event.tool,
+        event.pattern,
+        event.confidence,
+        event.evidence,
+        event.riskLevel,
+        event.requiresReview,
+        event.payload,
       );
     }
   };
