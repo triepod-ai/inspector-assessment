@@ -435,3 +435,34 @@ Phase 2 implementation of smart test input generation - adding metadata emission
 - Published v1.11.1 to npm with all 4 packages
 
 ---
+
+## 2025-12-26: GitHub Issue #3 Complete - Tool Annotation Alignment & Pattern Config CLI Option
+
+**Summary:** Completed GitHub Issue #3 - Tool Annotation Alignment Logic Enhancement and published v1.12.0 to npm.
+
+**Session Focus:**
+Finishing the --pattern-config CLI option implementation for the tiered confidence system feature, enabling custom security pattern configurations via CLI.
+
+**Changes Made:**
+- Modified `cli/src/assess-full.ts` - Added --pattern-config CLI option for custom pattern configuration files
+- Modified `scripts/run-full-assessment.ts` - Added --pattern-config CLI option support
+- Modified `client/src/lib/assessmentTypes.ts` - Added patternConfigPath field to assessment options
+- Modified `client/src/services/assessment/AssessmentOrchestrator.ts` - Load and apply custom patterns from config file
+- Updated `package.json`, `client/package.json`, `server/package.json`, `cli/package.json` - Version 1.12.0
+
+**Key Decisions:**
+- Minor version bump (1.11.1 -> 1.12.0) for new feature addition
+- Graceful degradation: Missing pattern config file logs warning and uses defaults instead of failing
+- mcp-auditor integration: Team will update their handler to accept the new `tool` field in annotation alignment data
+
+**Next Steps:**
+- mcp-auditor can now consume the annotation alignment data with tool context
+- Monitor for any issues with the new --pattern-config option in production usage
+
+**Notes:**
+- GitHub Issue #3 auto-closed by "Fixes #3" commit message convention
+- All 846 tests passing
+- 4 npm packages published successfully (@bryan-thompson/inspector-assessment and workspaces)
+- Feature enables security pattern customization without code changes
+
+---
