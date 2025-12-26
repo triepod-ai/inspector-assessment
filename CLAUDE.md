@@ -374,15 +374,18 @@ npm --workspace client version $VERSION --no-git-tag-version
 npm --workspace server version $VERSION --no-git-tag-version
 npm --workspace cli version $VERSION --no-git-tag-version
 
-# 5. Publish all packages (workspaces + root)
+# 5. CRITICAL: Update package-lock.json (prevents CI build failures!)
+npm install
+
+# 6. Publish all packages (workspaces + root)
 npm run publish-all
 
-# 6. Commit workspace version updates and push
-git add client/package.json server/package.json cli/package.json
+# 7. Commit workspace version updates AND lock file, then push
+git add package.json package-lock.json client/package.json server/package.json cli/package.json
 git commit -m "chore: release v$VERSION"
 git push origin main --tags
 
-# 7. Verify published package
+# 8. Verify published package
 bunx @bryan-thompson/inspector-assessment --help
 ```
 
@@ -464,6 +467,12 @@ All four must be published for the package to work correctly.
 3. **Clean Git Directory**
    - `npm version` fails if working directory has uncommitted changes
    - **Fix**: Commit or stash changes before running `npm version`
+
+4. **Package-Lock Version Mismatch** (CI Build Failure)
+   - After bumping versions, package-lock.json still references old versions
+   - GitHub CI fails with version mismatch between package.json and package-lock.json
+   - **Fix**: Run `npm install` after syncing workspace versions to update lock file
+   - **Commit**: Include `package-lock.json` in your release commit
 
 ### Testing Published Package
 
