@@ -588,6 +588,94 @@ mcp-inspector-assess-cli node build/index.js --assess functionality
 mcp-inspector-assess-cli node build/index.js --assess --output assessment-report.json
 ```
 
+### Full Assessment CLI
+
+The full assessment CLI (`npm run assess:full`) provides comprehensive 12-module assessment with policy compliance mapping:
+
+```bash
+# Basic full assessment
+npm run assess:full -- --server <name> --config <path>
+
+# With source code analysis (enables External API Scanner, AUP, Portability checks)
+npm run assess:full -- --server <name> --config <path> --source <path-to-source>
+
+# Generate markdown report with policy compliance
+npm run assess:full -- --server <name> --config <path> --format markdown --include-policy
+
+# Quick pre-flight validation only
+npm run assess:full -- --server <name> --config <path> --preflight
+```
+
+**CLI Options:**
+
+| Option                        | Description                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------ |
+| `--server, -s <name>`         | Server name (required)                                                               |
+| `--config, -c <path>`         | Path to server config JSON                                                           |
+| `--output, -o <path>`         | Output path (default: `/tmp/inspector-full-assessment-<server>.<ext>`)               |
+| `--source <path>`             | Source code path for deep analysis (enables AUP, portability, external API scanning) |
+| `--format, -f <type>`         | Output format: `json` (default) or `markdown`                                        |
+| `--include-policy`            | Include 30-requirement policy compliance mapping in report                           |
+| `--preflight`                 | Quick validation only (tools exist, manifest valid, server responds)                 |
+| `--pattern-config, -p <path>` | Path to custom annotation pattern JSON                                               |
+| `--claude-enabled`            | Enable Claude Code integration for intelligent analysis                              |
+| `--json`                      | Output only JSON path (no console summary)                                           |
+| `--verbose, -v`               | Enable verbose logging                                                               |
+
+**Config File Format (HTTP transport):**
+
+```json
+{
+  "transport": "http",
+  "url": "http://localhost:10900/mcp"
+}
+```
+
+**Config File Format (STDIO transport):**
+
+```json
+{
+  "transport": "stdio",
+  "command": "node",
+  "args": ["build/index.js"],
+  "env": {}
+}
+```
+
+**Pre-flight Mode:**
+
+The `--preflight` flag runs quick validation without full assessment:
+
+```bash
+npm run assess:full -- --server my-server --config config.json --preflight
+```
+
+Returns JSON with:
+
+- `passed`: boolean - overall validation result
+- `toolCount`: number - tools discovered
+- `manifestValid`: boolean - if manifest.json is valid (when --source provided)
+- `serverResponsive`: boolean - if first tool call succeeds
+- `errors`: string[] - any validation errors
+
+**External API Scanner:**
+
+When `--source` is provided, the External API Scanner automatically scans source code for:
+
+- External API URLs (GitHub, Slack, AWS, OpenAI, Anthropic, etc.)
+- Affiliation warnings (e.g., server named "github-mcp" by unaffiliated developer)
+- Privacy policy considerations for detected services
+
+**Policy Compliance Report:**
+
+When `--include-policy` is used, the report includes mapping to Anthropic's 30 Software Directory Policy requirements across 5 categories:
+
+- Safety & Security (6 requirements)
+- Compatibility (6 requirements)
+- Functionality (7 requirements)
+- Developer Requirements (8 requirements)
+- Unsupported Use Cases (3 requirements)
+
 ## Running the Inspector
 
 ### Requirements
