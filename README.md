@@ -1136,6 +1136,7 @@ All performance claims in this README are backed by implementation analysis and 
 ### Supporting Documentation
 
 - **Project Status**: [PROJECT_STATUS.md](PROJECT_STATUS.md) - Current status, recent changes, and development roadmap
+- **Architecture & Value**: [ARCHITECTURE_AND_VALUE.md](docs/ARCHITECTURE_AND_VALUE.md) - Why behavioral testing matters, mcp-auditor integration
 - **Implementation Details**: [FUNCTIONALITY_TEST_ENHANCEMENTS_IMPLEMENTED.md](docs/FUNCTIONALITY_TEST_ENHANCEMENTS_IMPLEMENTED.md)
 - **Assessment Methodology**: [ASSESSMENT_METHODOLOGY.md](docs/ASSESSMENT_METHODOLOGY.md)
 - **Testing Comparison**: [TESTING_COMPARISON_EXAMPLE.md](docs/TESTING_COMPARISON_EXAMPLE.md)
