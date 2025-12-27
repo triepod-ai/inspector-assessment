@@ -2,30 +2,126 @@
 
 ## Current Version
 
-- **Version**: 1.13.1 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.14.0 (published to npm as "@bryan-thompson/inspector-assessment")
 
 **Changes Made:**
-- Added Distribution Detection utility for identifying MCP server distribution types (local_bundle, local_source, remote, hybrid)
-- Added ExternalAPIScannerAssessor for scanning source code for external API URLs (16+ known services)
-- Added --preflight CLI flag for quick validation mode (tools exist, manifest valid, server responds)
-- Added affiliation checking to warn when server name suggests service affiliation
-- Enabled source code analysis automatically when --source flag is provided
+- Added Privacy Policy URL Validator - validates accessibility of privacy_policies URLs in manifest
+- Added Version Comparison Mode - compare assessments with `--compare` and `--diff-only` flags
+- Added State Management - resumable assessments with `--resume` and `--no-resume` flags
+- Added Authentication Assessment Module - evaluates OAuth appropriateness for deployment model
+- Extended ManifestValidationAssessor for privacy policy URL checks (HTTP HEAD/GET validation)
+- Created assessmentDiffer.ts for regression detection between assessment runs
+- Created DiffReportFormatter.ts for markdown comparison reports
+- Created AssessmentStateManager for file-based checkpoint persistence
 
 **Key Decisions:**
-- Patch version bump (1.13.0 -> 1.13.1) for Priority 2 feature additions
-- Simplified implementation: distribution detection as utility function (~30 lines), not full assessor
-- External API Scanner enabled automatically with --source flag
-- Pre-flight mode returns JSON result and exits early without full assessment
+- Minor version bump (1.13.1 -> 1.14.0) for Priority 3 feature additions
+- Privacy policy validation uses HTTP HEAD with GET fallback, 5-second timeout
+- Authentication detection uses regex patterns for OAuth, API key, and local resource indicators
+- State files stored at `/tmp/inspector-assessment-state-{serverName}.json`
+- Version comparison generates markdown diff reports with module-by-module breakdown
+
+**New CLI Options:**
+```bash
+# Compare against baseline assessment
+node cli/build/assess-full.js --server <name> --config <path> --compare ./baseline.json
+
+# Only show diff (no full assessment output)
+node cli/build/assess-full.js --server <name> --config <path> --compare ./baseline.json --diff-only
+
+# Resume interrupted assessment
+node cli/build/assess-full.js --server <name> --config <path> --resume
+
+# Force fresh start (ignore any existing state)
+node cli/build/assess-full.js --server <name> --config <path> --no-resume
+```
 
 **Next Steps:**
-- Consider adding Priority 3 features from gap analysis (privacy policy URL validator, authentication assessment, state management)
-- Monitor usage of new --preflight and External API Scanner features
+- Gap analysis Priority 1-3 features complete
+- Consider additional enhancements based on usage feedback
+- Monitor effectiveness of authentication appropriateness detection
 
 **Notes:**
 - 857 tests passing (3 skipped)
 - All 4 npm packages published successfully
-- Package verified working with `bunx @bryan-thompson/inspector-assessment@1.13.1`
-- Tested against 4 real MCP servers: vulnerable-mcp, memory-mcp, firecrawl-mcp, context7
+- Package verified working with `bunx @bryan-thompson/inspector-assessment@1.14.0`
+- Completes all Priority 3 features from gap analysis plan
+
+---
+
+## 2025-12-27: v1.14.0 Release - Priority 3 Features (Privacy Policy, Version Comparison, State Management, Authentication)
+
+**Summary:** Implemented Priority 3 features from gap analysis - privacy policy URL validation, version comparison mode, resumable state management, and authentication assessment module. Published v1.14.0 to npm.
+
+**Session Focus:**
+Completing the gap analysis by implementing all "nice to have" Priority 3 features to bring the inspector CLI closer to feature parity with the /mcp-audit skill.
+
+**Changes Made:**
+- Extended `client/src/services/assessment/modules/ManifestValidationAssessor.ts` - Added privacy policy URL validation
+- Created `client/src/lib/assessmentDiffer.ts` - Compare two assessment runs for regression detection
+- Created `client/src/lib/reportFormatters/DiffReportFormatter.ts` - Markdown diff report generation
+- Created `cli/src/assessmentState.ts` - File-based state management for resumable assessments
+- Created `client/src/services/assessment/modules/AuthenticationAssessor.ts` - OAuth appropriateness evaluation
+- Modified `client/src/lib/assessmentTypes.ts` - Added types for all new features
+- Modified `cli/src/assess-full.ts` - Added --compare, --diff-only, --resume, --no-resume flags
+
+**New CLI Options:**
+```bash
+# Version comparison
+--compare <path>    Compare against baseline assessment JSON file
+--diff-only         Only output diff report, not full assessment
+
+# State management
+--resume            Resume from previous interrupted assessment
+--no-resume         Force fresh start, ignore existing state
+```
+
+**Privacy Policy URL Validation:**
+- Validates URLs in manifest.json privacy_policies array
+- Uses HTTP HEAD request with GET fallback
+- 5-second timeout per URL
+- Reports accessibility, status code, and content type
+
+**Version Comparison Features:**
+- Module-by-module status comparison
+- Security delta tracking (new vs fixed vulnerabilities)
+- Functionality delta tracking (broken vs fixed tools)
+- Markdown diff report with summary tables
+- Change direction indicators (improved/regressed/unchanged)
+
+**Authentication Assessment:**
+- Detects OAuth patterns (10+ regex patterns)
+- Detects API key patterns (5+ regex patterns)
+- Detects local resource dependencies (10+ regex patterns)
+- Evaluates appropriateness based on auth method + transport + local deps
+- Recommends remote deployment for OAuth without local dependencies
+
+**State Management:**
+- File-based state persistence at `/tmp/inspector-assessment-state-{serverName}.json`
+- Tracks completed modules and partial results
+- Automatic state detection on startup
+- Resume from checkpoint capability
+
+**Key Decisions:**
+- Privacy policy validation extends existing ManifestValidationAssessor (not separate assessor)
+- State management placed in cli package (uses Node.js fs, not available in browser)
+- Authentication patterns derived from common OAuth/API key implementations
+- Version comparison uses 5% threshold for score-based change detection
+
+**Testing Results:**
+- All 857 tests passing (3 skipped)
+- Build clean with no TypeScript errors
+- New features work correctly with existing assessment infrastructure
+
+**Next Steps:**
+- Gap analysis complete (Priority 1, 2, and 3 all implemented)
+- Monitor real-world usage and gather feedback
+- Consider upstream contribution of select features
+
+**Notes:**
+- Total implementation: ~800 lines of new code across 7 files
+- All 4 npm packages published successfully (@bryan-thompson/inspector-assessment@1.14.0)
+- Gap analysis plan preserved at `/home/bryan/.claude/plans/replicated-yawning-wave.md`
 
 ---
 
