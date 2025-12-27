@@ -33,6 +33,7 @@ import { ProhibitedLibrariesAssessor } from "./modules/ProhibitedLibrariesAssess
 import { ManifestValidationAssessor } from "./modules/ManifestValidationAssessor";
 import { PortabilityAssessor } from "./modules/PortabilityAssessor";
 import { ExternalAPIScannerAssessor } from "./modules/ExternalAPIScannerAssessor";
+import { TemporalAssessor } from "./modules/TemporalAssessor";
 
 // Pattern configuration for tool annotation assessment
 import {
@@ -175,6 +176,7 @@ export class AssessmentOrchestrator {
   private manifestValidationAssessor?: ManifestValidationAssessor;
   private portabilityAssessor?: PortabilityAssessor;
   private externalAPIScannerAssessor?: ExternalAPIScannerAssessor;
+  private temporalAssessor?: TemporalAssessor;
 
   constructor(config: Partial<AssessmentConfiguration> = {}) {
     this.config = { ...DEFAULT_ASSESSMENT_CONFIG, ...config };
@@ -237,6 +239,9 @@ export class AssessmentOrchestrator {
         this.externalAPIScannerAssessor = new ExternalAPIScannerAssessor(
           this.config,
         );
+      }
+      if (this.config.assessmentCategories?.temporal) {
+        this.temporalAssessor = new TemporalAssessor(this.config);
       }
     }
 
@@ -516,6 +521,25 @@ export class AssessmentOrchestrator {
           }),
         );
       }
+      if (this.temporalAssessor) {
+        const invocationsPerTool = this.config.temporalInvocations ?? 25;
+        emitModuleStartedEvent(
+          "Temporal",
+          toolCount * invocationsPerTool,
+          toolCount,
+        );
+        assessmentPromises.push(
+          this.temporalAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "Temporal",
+              r.status,
+              r,
+              this.temporalAssessor!.getTestCount(),
+            );
+            return (assessmentResults.temporal = r);
+          }),
+        );
+      }
 
       await Promise.all(assessmentPromises);
     } else {
@@ -660,6 +684,37 @@ export class AssessmentOrchestrator {
           this.externalAPIScannerAssessor.getTestCount(),
         );
       }
+      if (this.temporalAssessor) {
+        const invocationsPerTool = this.config.temporalInvocations ?? 25;
+        emitModuleStartedEvent(
+          "Temporal",
+          toolCount * invocationsPerTool,
+          toolCount,
+        );
+        assessmentResults.temporal =
+          await this.temporalAssessor.assess(context);
+        emitModuleProgress(
+          "Temporal",
+          assessmentResults.temporal.status,
+          assessmentResults.temporal,
+          this.temporalAssessor.getTestCount(),
+        );
+      }
+    }
+
+    // Integrate temporal findings into security.vulnerabilities for unified view
+    if (
+      assessmentResults.temporal?.rugPullsDetected &&
+      assessmentResults.temporal.rugPullsDetected > 0 &&
+      assessmentResults.security
+    ) {
+      for (const detail of assessmentResults.temporal.details.filter(
+        (d: { vulnerable: boolean }) => d.vulnerable,
+      )) {
+        assessmentResults.security.vulnerabilities.push(
+          `RUG_PULL_TEMPORAL: ${detail.tool} - Tool behavior changed after invocation ${detail.firstDeviationAt}. Requires immediate manual review.`,
+        );
+      }
     }
 
     // Collect test counts from all assessors
@@ -735,6 +790,7 @@ export class AssessmentOrchestrator {
     const portabilityCount = this.portabilityAssessor?.getTestCount() || 0;
     const externalAPICount =
       this.externalAPIScannerAssessor?.getTestCount() || 0;
+    const temporalCount = this.temporalAssessor?.getTestCount() || 0;
 
     console.log("[AssessmentOrchestrator] Test counts by assessor:", {
       functionality: functionalityCount,
@@ -749,6 +805,7 @@ export class AssessmentOrchestrator {
       manifestValidation: manifestCount,
       portability: portabilityCount,
       externalAPIScanner: externalAPICount,
+      temporal: temporalCount,
     });
 
     total =
@@ -763,7 +820,8 @@ export class AssessmentOrchestrator {
       librariesCount +
       manifestCount +
       portabilityCount +
-      externalAPICount;
+      externalAPICount +
+      temporalCount;
 
     console.log("[AssessmentOrchestrator] Total test count:", total);
 

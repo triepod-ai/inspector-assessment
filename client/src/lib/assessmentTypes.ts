@@ -591,6 +591,7 @@ export interface MCPDirectoryAssessment {
   portability?: PortabilityAssessment;
   externalAPIScanner?: ExternalAPIScannerAssessment;
   authentication?: AuthenticationAssessment;
+  temporal?: TemporalAssessment;
 
   // Overall assessment
   overallStatus: AssessmentStatus;
@@ -904,6 +905,37 @@ export interface AuthenticationAssessment {
   recommendations: string[];
 }
 
+/**
+ * Temporal/Rug Pull Assessment Types
+ * Detects tools that change behavior after N invocations
+ */
+
+export interface TemporalToolResult {
+  tool: string;
+  vulnerable: boolean;
+  totalInvocations: number;
+  firstDeviationAt: number | null;
+  deviationCount: number;
+  errorCount: number; // Track errors during invocations (subset of deviationCount)
+  pattern: "RUG_PULL_TEMPORAL" | null;
+  severity: "HIGH" | "MEDIUM" | "NONE";
+  reducedInvocations?: boolean; // True if destructive tool detection applied
+  evidence?: {
+    safeResponseExample: unknown;
+    maliciousResponseExample: unknown;
+  };
+}
+
+export interface TemporalAssessment {
+  toolsTested: number;
+  invocationsPerTool: number;
+  rugPullsDetected: number;
+  details: TemporalToolResult[];
+  status: AssessmentStatus;
+  explanation: string;
+  recommendations: string[];
+}
+
 // ============================================================================
 // END NEW ASSESSOR TYPES
 // ============================================================================
@@ -1008,6 +1040,8 @@ export interface AssessmentConfiguration {
   patternConfigPath?: string;
   // Claude Code integration for intelligent analysis
   claudeCode?: ClaudeCodeConfig;
+  // Temporal/rug pull detection configuration
+  temporalInvocations?: number; // Number of invocations per tool for rug pull detection (default 25)
   assessmentCategories?: {
     functionality: boolean;
     security: boolean;
@@ -1023,6 +1057,7 @@ export interface AssessmentConfiguration {
     portability?: boolean; // Hardcoded paths, platform-specific code
     externalAPIScanner?: boolean; // External API detection and affiliation check
     authentication?: boolean; // OAuth appropriateness evaluation
+    temporal?: boolean; // Temporal/rug pull vulnerability detection
   };
 }
 

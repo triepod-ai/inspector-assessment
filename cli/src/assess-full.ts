@@ -68,6 +68,8 @@ interface AssessmentOptions {
   diffOnly?: boolean;
   resume?: boolean;
   noResume?: boolean;
+  temporalInvocations?: number;
+  skipTemporal?: boolean;
 }
 
 /**
@@ -348,7 +350,13 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
       manifestValidation: true,
       portability: true,
       externalAPIScanner: !!options.sourceCodePath,
+      temporal: !options.skipTemporal, // Enable by default with --full, skip with --skip-temporal
     };
+  }
+
+  // Temporal/rug pull detection configuration
+  if (options.temporalInvocations) {
+    config.temporalInvocations = options.temporalInvocations;
   }
 
   if (options.claudeEnabled) {
@@ -792,6 +800,12 @@ function parseArgs(): AssessmentOptions {
       case "--no-resume":
         options.noResume = true;
         break;
+      case "--temporal-invocations":
+        options.temporalInvocations = parseInt(args[++i], 10);
+        break;
+      case "--skip-temporal":
+        options.skipTemporal = true;
+        break;
       case "--help":
       case "-h":
         printHelp();
@@ -847,11 +861,13 @@ Options:
   --no-resume            Force fresh start, clear any existing state
   --claude-enabled       Enable Claude Code integration for intelligent analysis
   --full                 Enable all assessment modules (default)
+  --temporal-invocations <n>  Number of invocations per tool for rug pull detection (default: 25)
+  --skip-temporal        Skip temporal/rug pull testing (faster assessment)
   --json                 Output only JSON path (no console summary)
   --verbose, -v          Enable verbose logging
   --help, -h             Show this help message
 
-Assessment Modules (11 total):
+Assessment Modules (12 total):
   • Functionality      - Tests all tools work correctly
   • Security           - Prompt injection & vulnerability testing
   • Documentation      - README completeness checks
@@ -863,6 +879,7 @@ Assessment Modules (11 total):
   • Prohibited Libs    - Dependency security checks
   • Manifest           - MCPB manifest.json validation
   • Portability        - Cross-platform compatibility
+  • Temporal           - Rug pull/temporal behavior change detection
 
 Examples:
   mcp-assess-full my-server

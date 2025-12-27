@@ -17,6 +17,7 @@
  * - ProhibitedLibrariesAssessor - Detects prohibited libraries per Policy #28-30
  * - ManifestValidationAssessor - Validates MCPB manifest.json
  * - PortabilityAssessor - Checks for portability issues
+ * - TemporalAssessor - Detects rug pull vulnerabilities (temporal behavior changes)
  */
 
 // Base class
@@ -37,3 +38,4 @@ export { ProhibitedLibrariesAssessor } from "./ProhibitedLibrariesAssessor";
 export { ManifestValidationAssessor } from "./ManifestValidationAssessor";
 export { PortabilityAssessor } from "./PortabilityAssessor";
 export { ExternalAPIScannerAssessor } from "./ExternalAPIScannerAssessor";
+export { TemporalAssessor } from "./TemporalAssessor";
