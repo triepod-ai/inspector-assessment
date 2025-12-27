@@ -18,6 +18,7 @@ import type {
   ManifestValidationResult,
   ManifestJsonSchema,
   AssessmentStatus,
+  PrivacyPolicyValidation,
 } from "@/lib/assessmentTypes";
 
 const REQUIRED_FIELDS = ["name", "version", "mcp_config"] as const;
@@ -108,6 +109,52 @@ export class ManifestValidationAssessor extends BaseAssessor {
     this.testCount++;
     validationResults.push(this.validateVersionFormat(manifest.version));
 
+    // Validate privacy policy URLs if present
+    let privacyPolicies:
+      | {
+          declared: string[];
+          validationResults: PrivacyPolicyValidation[];
+          allAccessible: boolean;
+        }
+      | undefined;
+
+    if (
+      manifest.privacy_policies &&
+      Array.isArray(manifest.privacy_policies) &&
+      manifest.privacy_policies.length > 0
+    ) {
+      this.log(
+        `Validating ${manifest.privacy_policies.length} privacy policy URL(s)`,
+      );
+      const policyResults = await this.validatePrivacyPolicyUrls(
+        manifest.privacy_policies,
+      );
+      privacyPolicies = {
+        declared: manifest.privacy_policies,
+        validationResults: policyResults,
+        allAccessible: policyResults.every((r) => r.accessible),
+      };
+
+      // Add validation result for privacy policies
+      if (!privacyPolicies.allAccessible) {
+        const inaccessible = policyResults.filter((r) => !r.accessible);
+        validationResults.push({
+          field: "privacy_policies",
+          valid: false,
+          value: manifest.privacy_policies,
+          issue: `${inaccessible.length}/${policyResults.length} privacy policy URL(s) inaccessible`,
+          severity: "WARNING",
+        });
+      } else {
+        validationResults.push({
+          field: "privacy_policies",
+          valid: true,
+          value: manifest.privacy_policies,
+          severity: "INFO",
+        });
+      }
+    }
+
     const status = this.determineManifestStatus(
       validationResults,
       hasRequiredFields,
@@ -116,8 +163,12 @@ export class ManifestValidationAssessor extends BaseAssessor {
       validationResults,
       hasRequiredFields,
       hasIcon,
+      privacyPolicies,
     );
-    const recommendations = this.generateRecommendations(validationResults);
+    const recommendations = this.generateRecommendations(
+      validationResults,
+      privacyPolicies,
+    );
 
     this.log(
       `Assessment complete: ${validationResults.filter((r) => r.valid).length}/${validationResults.length} checks passed`,
@@ -130,6 +181,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
       hasIcon,
       hasRequiredFields,
       missingFields,
+      privacyPolicies,
       status,
       explanation,
       recommendations,
@@ -451,6 +503,84 @@ export class ManifestValidationAssessor extends BaseAssessor {
   }
 
   /**
+   * Validate privacy policy URLs are accessible
+   */
+  private async validatePrivacyPolicyUrls(
+    privacyPolicies: string[],
+  ): Promise<PrivacyPolicyValidation[]> {
+    const results: PrivacyPolicyValidation[] = [];
+
+    for (const url of privacyPolicies) {
+      this.testCount++;
+
+      // Validate URL format first
+      try {
+        new URL(url);
+      } catch {
+        results.push({
+          url,
+          accessible: false,
+          error: "Invalid URL format",
+        });
+        continue;
+      }
+
+      try {
+        // Use HEAD request for efficiency, fallback to GET if needed
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(url, {
+          method: "HEAD",
+          signal: controller.signal,
+          redirect: "follow",
+        });
+
+        clearTimeout(timeoutId);
+
+        results.push({
+          url,
+          accessible: response.ok,
+          statusCode: response.status,
+          contentType: response.headers.get("content-type") || undefined,
+        });
+      } catch (error) {
+        // Try GET request as fallback (some servers reject HEAD)
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+          const response = await fetch(url, {
+            method: "GET",
+            signal: controller.signal,
+            redirect: "follow",
+          });
+
+          clearTimeout(timeoutId);
+
+          results.push({
+            url,
+            accessible: response.ok,
+            statusCode: response.status,
+            contentType: response.headers.get("content-type") || undefined,
+          });
+        } catch (fetchError) {
+          results.push({
+            url,
+            accessible: false,
+            error:
+              fetchError instanceof Error
+                ? fetchError.message
+                : "Network error",
+          });
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
    * Determine overall status
    */
   private determineManifestStatus(
@@ -482,6 +612,11 @@ export class ManifestValidationAssessor extends BaseAssessor {
     results: ManifestValidationResult[],
     hasRequiredFields: boolean,
     hasIcon: boolean,
+    privacyPolicies?: {
+      declared: string[];
+      validationResults: PrivacyPolicyValidation[];
+      allAccessible: boolean;
+    },
   ): string {
     const parts: string[] = [];
 
@@ -498,6 +633,15 @@ export class ManifestValidationAssessor extends BaseAssessor {
       parts.push("No icon found - recommended for MCPB bundles.");
     }
 
+    if (privacyPolicies && !privacyPolicies.allAccessible) {
+      const inaccessible = privacyPolicies.validationResults.filter(
+        (r) => !r.accessible,
+      );
+      parts.push(
+        `${inaccessible.length} privacy policy URL(s) are inaccessible.`,
+      );
+    }
+
     const errors = results.filter((r) => !r.valid && r.severity === "ERROR");
     if (errors.length > 0) {
       parts.push(`${errors.length} error(s) require attention.`);
@@ -511,6 +655,11 @@ export class ManifestValidationAssessor extends BaseAssessor {
    */
   private generateRecommendations(
     results: ManifestValidationResult[],
+    privacyPolicies?: {
+      declared: string[];
+      validationResults: PrivacyPolicyValidation[];
+      allAccessible: boolean;
+    },
   ): string[] {
     const recommendations: string[] = [];
 
@@ -529,6 +678,17 @@ export class ManifestValidationAssessor extends BaseAssessor {
       recommendations.push("RECOMMENDED - Manifest improvements:");
       for (const warning of warnings.slice(0, 3)) {
         recommendations.push(`- ${warning.field}: ${warning.issue}`);
+      }
+    }
+
+    // Add privacy policy recommendations
+    if (privacyPolicies && !privacyPolicies.allAccessible) {
+      recommendations.push("PRIVACY POLICY - Fix inaccessible URLs:");
+      for (const result of privacyPolicies.validationResults) {
+        if (!result.accessible) {
+          const reason = result.error || `HTTP ${result.statusCode}`;
+          recommendations.push(`- ${result.url}: ${reason}`);
+        }
       }
     }
 

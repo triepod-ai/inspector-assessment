@@ -167,6 +167,13 @@ export class FunctionalityAssessor extends BaseAssessor {
       brokenTools,
     );
 
+    // Map tools to include only schema-relevant fields for downstream consumers
+    const tools = context.tools.map((t: any) => ({
+      name: t.name,
+      description: t.description,
+      inputSchema: t.inputSchema,
+    }));
+
     return {
       totalTools,
       testedTools,
@@ -176,6 +183,7 @@ export class FunctionalityAssessor extends BaseAssessor {
       status,
       explanation,
       toolResults,
+      tools,
     };
   }
 

@@ -37,6 +37,9 @@ import {
   type ReportFormat,
 } from "../../client/lib/lib/reportFormatters/index.js";
 import { generatePolicyComplianceReport } from "../../client/lib/services/assessment/PolicyComplianceGenerator.js";
+import { compareAssessments } from "../../client/lib/lib/assessmentDiffer.js";
+import { formatDiffAsMarkdown } from "../../client/lib/lib/reportFormatters/DiffReportFormatter.js";
+import { AssessmentStateManager } from "./assessmentState.js";
 
 interface ServerConfig {
   transport?: "stdio" | "http" | "sse";
@@ -61,6 +64,10 @@ interface AssessmentOptions {
   format?: ReportFormat;
   includePolicy?: boolean;
   preflightOnly?: boolean;
+  comparePath?: string;
+  diffOnly?: boolean;
+  resume?: boolean;
+  noResume?: boolean;
 }
 
 /**
@@ -407,6 +414,39 @@ async function runFullAssessment(
     );
   }
 
+  // State management for resumable assessments
+  const stateManager = new AssessmentStateManager(options.serverName);
+
+  if (stateManager.exists() && !options.noResume) {
+    const summary = stateManager.getSummary();
+    if (summary) {
+      if (!options.jsonOnly) {
+        console.log(`\n📋 Found interrupted session from ${summary.startedAt}`);
+        console.log(
+          `   Completed modules: ${summary.completedModules.length > 0 ? summary.completedModules.join(", ") : "none"}`,
+        );
+      }
+
+      if (options.resume) {
+        if (!options.jsonOnly) {
+          console.log("   Resuming from previous state...");
+        }
+        // Will use partial results later
+      } else if (!options.jsonOnly) {
+        console.log(
+          "   Use --resume to continue or --no-resume to start fresh",
+        );
+        // Clear state and start fresh by default
+        stateManager.clear();
+      }
+    }
+  } else if (options.noResume && stateManager.exists()) {
+    stateManager.clear();
+    if (!options.jsonOnly) {
+      console.log("🗑️  Cleared previous assessment state");
+    }
+  }
+
   // Pre-flight validation checks
   if (options.preflightOnly) {
     const preflightResult: {
@@ -740,6 +780,18 @@ function parseArgs(): AssessmentOptions {
       case "--preflight":
         options.preflightOnly = true;
         break;
+      case "--compare":
+        options.comparePath = args[++i];
+        break;
+      case "--diff-only":
+        options.diffOnly = true;
+        break;
+      case "--resume":
+        options.resume = true;
+        break;
+      case "--no-resume":
+        options.noResume = true;
+        break;
       case "--help":
       case "-h":
         printHelp();
@@ -789,6 +841,10 @@ Options:
   --format, -f <type>    Output format: json (default) or markdown
   --include-policy       Include policy compliance mapping in report (30 requirements)
   --preflight            Run quick validation only (tools exist, manifest valid, server responds)
+  --compare <path>       Compare current assessment against baseline JSON file
+  --diff-only            Output only the comparison diff (requires --compare)
+  --resume               Resume from previous interrupted assessment
+  --no-resume            Force fresh start, clear any existing state
   --claude-enabled       Enable Claude Code integration for intelligent analysis
   --full                 Enable all assessment modules (default)
   --json                 Output only JSON path (no console summary)
@@ -813,6 +869,8 @@ Examples:
   mcp-assess-full --server broken-mcp --claude-enabled
   mcp-assess-full --server my-server --source ./my-server --output ./results.json
   mcp-assess-full --server my-server --format markdown --include-policy
+  mcp-assess-full --server my-server --compare ./baseline.json
+  mcp-assess-full --server my-server --compare ./baseline.json --diff-only --format markdown
   `);
 }
 
@@ -832,6 +890,84 @@ async function main() {
     // Pre-flight mode handles its own output and exit
     if (options.preflightOnly) {
       return;
+    }
+
+    // Handle comparison mode
+    if (options.comparePath) {
+      if (!fs.existsSync(options.comparePath)) {
+        console.error(`Error: Baseline file not found: ${options.comparePath}`);
+        setTimeout(() => process.exit(1), 10);
+        return;
+      }
+
+      const baselineData = JSON.parse(
+        fs.readFileSync(options.comparePath, "utf-8"),
+      );
+      const baseline: MCPDirectoryAssessment =
+        baselineData.functionality && baselineData.security
+          ? baselineData
+          : baselineData;
+
+      const diff = compareAssessments(baseline, results);
+
+      if (options.diffOnly) {
+        // Only output diff, not full assessment
+        if (options.format === "markdown") {
+          const diffPath =
+            options.outputPath ||
+            `/tmp/inspector-diff-${options.serverName}.md`;
+          fs.writeFileSync(diffPath, formatDiffAsMarkdown(diff));
+          console.log(diffPath);
+        } else {
+          const diffPath =
+            options.outputPath ||
+            `/tmp/inspector-diff-${options.serverName}.json`;
+          fs.writeFileSync(diffPath, JSON.stringify(diff, null, 2));
+          console.log(diffPath);
+        }
+        const exitCode = diff.summary.overallChange === "regressed" ? 1 : 0;
+        setTimeout(() => process.exit(exitCode), 10);
+        return;
+      }
+
+      // Include diff in output alongside full assessment
+      if (!options.jsonOnly) {
+        console.log("\n" + "=".repeat(70));
+        console.log("VERSION COMPARISON");
+        console.log("=".repeat(70));
+        console.log(
+          `Baseline: ${diff.baseline.version || "N/A"} (${diff.baseline.date})`,
+        );
+        console.log(
+          `Current:  ${diff.current.version || "N/A"} (${diff.current.date})`,
+        );
+        console.log(
+          `Overall Change: ${diff.summary.overallChange.toUpperCase()}`,
+        );
+        console.log(`Modules Improved: ${diff.summary.modulesImproved}`);
+        console.log(`Modules Regressed: ${diff.summary.modulesRegressed}`);
+
+        if (diff.securityDelta.newVulnerabilities.length > 0) {
+          console.log(
+            `\n⚠️  NEW VULNERABILITIES: ${diff.securityDelta.newVulnerabilities.length}`,
+          );
+        }
+        if (diff.securityDelta.fixedVulnerabilities.length > 0) {
+          console.log(
+            `✅ FIXED VULNERABILITIES: ${diff.securityDelta.fixedVulnerabilities.length}`,
+          );
+        }
+        if (diff.functionalityDelta.newBrokenTools.length > 0) {
+          console.log(
+            `❌ NEW BROKEN TOOLS: ${diff.functionalityDelta.newBrokenTools.length}`,
+          );
+        }
+        if (diff.functionalityDelta.fixedTools.length > 0) {
+          console.log(
+            `✅ FIXED TOOLS: ${diff.functionalityDelta.fixedTools.length}`,
+          );
+        }
+      }
     }
 
     if (!options.jsonOnly) {

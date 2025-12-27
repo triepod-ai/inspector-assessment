@@ -262,6 +262,17 @@ export interface UsabilityMetrics {
   };
 }
 
+/** Tool definition with schema from MCP tools/list response */
+export interface DiscoveredTool {
+  name: string;
+  description?: string;
+  inputSchema?: {
+    type: string;
+    properties?: Record<string, unknown>;
+    required?: string[];
+  };
+}
+
 export interface FunctionalityAssessment {
   totalTools: number;
   testedTools: number;
@@ -271,6 +282,8 @@ export interface FunctionalityAssessment {
   status: AssessmentStatus;
   explanation: string;
   toolResults: ToolTestResult[];
+  /** Raw tool definitions with inputSchema from MCP server */
+  tools?: DiscoveredTool[];
 }
 
 export interface SecurityAssessment {
@@ -577,6 +590,7 @@ export interface MCPDirectoryAssessment {
   manifestValidation?: ManifestValidationAssessment;
   portability?: PortabilityAssessment;
   externalAPIScanner?: ExternalAPIScannerAssessment;
+  authentication?: AuthenticationAssessment;
 
   // Overall assessment
   overallStatus: AssessmentStatus;
@@ -776,6 +790,19 @@ export interface ManifestJsonSchema {
   icon?: string;
   homepage?: string;
   keywords?: string[];
+  privacy_policies?: string[]; // URLs to privacy policy documents
+}
+
+/**
+ * Privacy Policy URL Validation Result
+ * Validates that privacy_policies URLs are accessible
+ */
+export interface PrivacyPolicyValidation {
+  url: string;
+  accessible: boolean;
+  statusCode?: number;
+  contentType?: string;
+  error?: string;
 }
 
 export interface ManifestValidationResult {
@@ -794,6 +821,12 @@ export interface ManifestValidationAssessment {
   hasIcon: boolean;
   hasRequiredFields: boolean;
   missingFields: string[];
+  /** Privacy policy URL validation results */
+  privacyPolicies?: {
+    declared: string[];
+    validationResults: PrivacyPolicyValidation[];
+    allAccessible: boolean;
+  };
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
@@ -841,6 +874,31 @@ export interface ExternalAPIScannerAssessment {
   uniqueServices: string[];
   affiliationWarning?: string; // If server name suggests unverified affiliation
   scannedFiles: number;
+  status: AssessmentStatus;
+  explanation: string;
+  recommendations: string[];
+}
+
+// Authentication Assessment Types
+export type AuthMethod = "oauth" | "api_key" | "none" | "unknown";
+
+export interface AuthAppropriateness {
+  isAppropriate: boolean;
+  concerns: string[];
+  explanation: string;
+}
+
+export interface AuthenticationAssessment {
+  authMethod: AuthMethod;
+  hasLocalDependencies: boolean;
+  transportType: string;
+  appropriateness: AuthAppropriateness;
+  recommendation: string;
+  detectedPatterns: {
+    oauthIndicators: string[];
+    localResourceIndicators: string[];
+    apiKeyIndicators: string[];
+  };
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
@@ -964,6 +1022,7 @@ export interface AssessmentConfiguration {
     manifestValidation?: boolean; // MCPB manifest.json compliance
     portability?: boolean; // Hardcoded paths, platform-specific code
     externalAPIScanner?: boolean; // External API detection and affiliation check
+    authentication?: boolean; // OAuth appropriateness evaluation
   };
 }
 
@@ -1137,6 +1196,7 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
     manifestValidation: false,
     portability: false,
     externalAPIScanner: false,
+    authentication: false,
   },
 };
 
@@ -1170,6 +1230,7 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
     manifestValidation: false,
     portability: false,
     externalAPIScanner: false,
+    authentication: false,
   },
 };
 
@@ -1201,6 +1262,7 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
     manifestValidation: true,
     portability: true,
     externalAPIScanner: true,
+    authentication: true,
   },
 };
 
@@ -1233,6 +1295,7 @@ export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
     manifestValidation: true,
     portability: true,
     externalAPIScanner: true,
+    authentication: true,
   },
 };
 
@@ -1276,5 +1339,6 @@ export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
     manifestValidation: true,
     portability: true,
     externalAPIScanner: true,
+    authentication: true,
   },
 };
