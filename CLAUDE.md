@@ -537,5 +537,38 @@ See [PUBLISHING_GUIDE.md](PUBLISHING_GUIDE.md) for detailed publishing documenta
 - **Last Sync**: 2025-12-23 (synced from v0.17.5 to v0.18.0)
 - **Fork**: triepod-ai/inspector-assessment
 - **Upstream**: modelcontextprotocol/inspector
+- **Integration Doc**: [UPSTREAM_SYNC.md](UPSTREAM_SYNC.md) - Documents all integration points
 - See [PROJECT_STATUS.md](PROJECT_STATUS.md) for sync history
-- **Note**: Upstream created [AGENTS.md](AGENTS.md) for basic development guide
+
+### Upstream Sync Helper Script
+
+Use the automated sync script for guided upstream syncing:
+
+```bash
+# Check status and view upstream changes (safe, read-only)
+npm run sync:upstream
+
+# Individual commands
+./scripts/sync-upstream.sh status    # Show sync status and divergence
+./scripts/sync-upstream.sh diff      # View upstream changes to App.tsx
+./scripts/sync-upstream.sh merge     # Attempt merge with conflict guidance
+./scripts/sync-upstream.sh validate  # Build and test after merge
+```
+
+**What the script does:**
+
+- Fetches upstream and shows how many commits behind/ahead
+- Highlights if upstream changes affect our integration lines in App.tsx
+- Provides merge conflict resolution guidance referencing UPSTREAM_SYNC.md
+- Prompts to update UPSTREAM_SYNC.md with new version info after successful merge
+
+**Integration Architecture:**
+
+Our assessment enhancements are isolated from upstream code:
+
+- **Only 6 integration points** in `client/src/App.tsx` (marked with `[ASSESSMENT-INTEGRATION]`)
+- **Integration layer**: `client/src/integrations/assessment.ts` centralizes all coupling
+- **Feature flags**: `client/src/lib/featureFlags.ts` for optional enablement
+- **~160k lines** of assessment code in dedicated directories (no upstream conflicts)
+
+See [UPSTREAM_SYNC.md](UPSTREAM_SYNC.md) for detailed integration point documentation.
