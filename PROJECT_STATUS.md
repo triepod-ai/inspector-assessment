@@ -703,3 +703,40 @@ Standard assessments call tools with many different payloads but never call the 
 - Modified: `cli/src/assess-full.ts` (CLI flags)
 
 ---
+
+## 2025-12-27: TemporalAssessor Unit Tests - 77 Comprehensive Tests
+
+**Summary:** Created 77 comprehensive unit tests for TemporalAssessor module covering rug pull detection functionality.
+
+**Session Focus:** Unit testing for TemporalAssessor module (v1.15.0 feature)
+
+**Changes Made:**
+- Created `client/src/services/assessment/__tests__/TemporalAssessor.test.ts` (740 lines, 77 tests)
+- Test coverage for all key methods:
+  - `normalizeResponse()`: 20 tests (timestamps, UUIDs, IDs, counters)
+  - `analyzeResponses()`: 8 tests (deviation detection, error handling)
+  - `generateSafePayload()`: 10 tests (schema-based payload generation)
+  - `isDestructiveTool()`: 29 tests (destructive pattern matching)
+  - `assess()` integration: 10 tests (full assessment flow, rug pull detection)
+- Fixed TypeScript config (added documentation/usability to assessmentCategories)
+
+**Key Decisions:**
+- Used type casting `(assessor as any).methodName()` to test private methods (standard TypeScript testing pattern)
+- Renamed UUID test field from 'id' to 'uuid' to avoid conflict with string ID normalizer
+- Removed undefined test case (JSON.stringify(undefined) returns undefined, not testable)
+
+**Results:**
+- All 77 new tests pass
+- Full test suite: 52 suites, 934 tests, 3 skipped
+- Commit b10f01d pushed to origin
+
+**Next Steps:**
+- Consider adding integration tests against vulnerable testbed
+- Monitor for any false positives in temporal detection
+
+**Notes:**
+- Test file follows existing patterns in `client/src/services/assessment/__tests__/`
+- Private method testing via type casting is standard practice for thorough unit test coverage
+- TemporalAssessor now has comprehensive test coverage matching other assessment modules
+
+---
