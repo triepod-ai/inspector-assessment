@@ -410,9 +410,10 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
         parameterTypes: ["url", "uri", "link", "endpoint"],
       },
       {
-        payload: "http://metadata.google.internal/computeMetadata/v1/",
+        // GCP metadata via IP (more reliable than metadata.google.internal which requires GCP DNS)
+        payload: "http://169.254.169.254/computeMetadata/v1/project/project-id",
         evidence:
-          /(SSRF.*fetched|SSRF.*attempted|project-id|instance|google.*metadata|computeMetadata|fetched.*internal)/i,
+          /(SSRF.*attempted.*169\.254|SSRF.*fetched.*169\.254|HTTPConnectionPool.*169\.254|attempted.*SSRF.*metadata|google.*project|gcp.*metadata)/i,
         riskLevel: "HIGH",
         description: "SSRF - GCP metadata endpoint",
         payloadType: "injection",
