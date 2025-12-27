@@ -348,10 +348,11 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // TOOL-SPECIFIC VULNERABILITY TESTS (7)
   // ==========================================
 
-  // 10. INDIRECT PROMPT INJECTION (HTTP URL Fetching)
+  // 10. INDIRECT PROMPT INJECTION (HTTP URL Fetching + SSRF)
   {
     attackName: "Indirect Prompt Injection",
-    description: "Test if tool fetches and executes external content",
+    description:
+      "Test if tool fetches external content or allows SSRF attacks against internal services",
     payloads: [
       {
         payload: "http://example.com",
@@ -369,6 +370,91 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
         description: "Malicious URL fetch test",
         payloadType: "injection",
         parameterTypes: ["url", "uri", "link"],
+      },
+      // SSRF - Local/Internal Services
+      {
+        payload: "http://localhost",
+        evidence:
+          /(SSRF.*fetched|SSRF.*attempted|fetched.*internal|127\.0\.0\.1|localhost.*request|connection.*refused|ECONNREFUSED)/i,
+        riskLevel: "HIGH",
+        description: "SSRF - localhost access attempt",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint", "address"],
+      },
+      {
+        payload: "http://127.0.0.1:6379",
+        evidence:
+          /(SSRF.*fetched|SSRF.*attempted|redis|PONG|\+OK|127\.0\.0\.1.*request|fetched.*internal)/i,
+        riskLevel: "HIGH",
+        description: "SSRF - Redis service access",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      {
+        payload: "http://127.0.0.1:3306",
+        evidence:
+          /(SSRF.*fetched|SSRF.*attempted|mysql|mariadb|3306.*request|fetched.*internal)/i,
+        riskLevel: "HIGH",
+        description: "SSRF - MySQL service access",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      // SSRF - Cloud Metadata Endpoints
+      {
+        payload: "http://169.254.169.254/latest/meta-data/",
+        evidence:
+          /(SSRF.*fetched|SSRF.*attempted|ami-id|instance-id|iam|security-credentials|metadata.*169\.254|fetched.*internal)/i,
+        riskLevel: "HIGH",
+        description: "SSRF - AWS metadata endpoint",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      {
+        payload: "http://metadata.google.internal/computeMetadata/v1/",
+        evidence:
+          /(SSRF.*fetched|SSRF.*attempted|project-id|instance|google.*metadata|computeMetadata|fetched.*internal)/i,
+        riskLevel: "HIGH",
+        description: "SSRF - GCP metadata endpoint",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      {
+        payload: "http://169.254.169.254/metadata/instance",
+        evidence:
+          /(SSRF.*fetched|SSRF.*attempted|subscriptionId|resourceGroup|vmId|azure.*metadata|fetched.*internal)/i,
+        riskLevel: "HIGH",
+        description: "SSRF - Azure metadata endpoint",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      // SSRF - Internal Network
+      {
+        payload: "http://192.168.1.1",
+        evidence:
+          /(SSRF.*fetched|SSRF.*attempted|192\.168.*request|fetched.*internal|router|gateway)/i,
+        riskLevel: "HIGH",
+        description: "SSRF - Internal network access",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      {
+        payload: "http://10.0.0.1",
+        evidence:
+          /(SSRF.*fetched|SSRF.*attempted|10\.0\.0.*request|fetched.*internal|private.*network)/i,
+        riskLevel: "HIGH",
+        description: "SSRF - Private network (10.x) access",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      // SSRF - File Protocol
+      {
+        payload: "file:///etc/passwd",
+        evidence:
+          /(root:x:0:0|file.*protocol|local.*file|file.*accessed|SSRF.*file)/i,
+        riskLevel: "HIGH",
+        description: "SSRF - file:// protocol abuse",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
       },
     ],
   },
