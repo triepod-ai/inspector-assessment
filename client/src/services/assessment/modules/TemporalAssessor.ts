@@ -24,6 +24,9 @@ interface InvocationResult {
   timestamp: number;
 }
 
+// Security: Maximum response size to prevent memory exhaustion attacks
+const MAX_RESPONSE_SIZE = 1_000_000; // 1MB
+
 export class TemporalAssessor extends BaseAssessor {
   private invocationsPerTool: number;
 
@@ -41,7 +44,17 @@ export class TemporalAssessor extends BaseAssessor {
     "submit",
     "execute",
     "run",
+    // P2-3: Additional destructive patterns
+    "drop",
+    "truncate",
+    "clear",
+    "purge",
+    "destroy",
+    "reset",
   ];
+
+  // P2-2: Per-invocation timeout to prevent long-running tools from blocking
+  private readonly PER_INVOCATION_TIMEOUT = 10_000; // 10 seconds
 
   constructor(config: AssessmentConfiguration) {
     super(config);
@@ -114,9 +127,24 @@ export class TemporalAssessor extends BaseAssessor {
     for (let i = 1; i <= invocations; i++) {
       this.testCount++;
       try {
+        // P2-2: Use shorter per-invocation timeout (10s vs default 30s)
         const response = await this.executeWithTimeout(
           context.callTool(tool.name, payload),
+          this.PER_INVOCATION_TIMEOUT,
         );
+
+        // Security: Prevent memory exhaustion from large responses
+        const responseSize = JSON.stringify(response).length;
+        if (responseSize > MAX_RESPONSE_SIZE) {
+          responses.push({
+            invocation: i,
+            response: null,
+            error: `Response exceeded size limit (${responseSize} > ${MAX_RESPONSE_SIZE} bytes)`,
+            timestamp: Date.now(),
+          });
+          continue;
+        }
+
         responses.push({
           invocation: i,
           response,
@@ -130,6 +158,11 @@ export class TemporalAssessor extends BaseAssessor {
           error: this.extractErrorMessage(err),
           timestamp: Date.now(),
         });
+      }
+
+      // P2-4: Small delay between invocations to prevent rate limiting false positives
+      if (i < invocations) {
+        await this.sleep(50);
       }
     }
 
@@ -250,8 +283,8 @@ export class TemporalAssessor extends BaseAssessor {
 
     return (
       str
-        // ISO timestamps
-        .replace(/"\d{4}-\d{2}-\d{2}T[\d:.]+Z?"/g, '"<TIMESTAMP>"')
+        // ISO timestamps (bounded quantifier to prevent ReDoS)
+        .replace(/"\d{4}-\d{2}-\d{2}T[\d:.]{1,30}Z?"/g, '"<TIMESTAMP>"')
         // Unix timestamps (13 digits)
         .replace(/"\d{13}"/g, '"<TIMESTAMP>"')
         // UUIDs
@@ -284,6 +317,16 @@ export class TemporalAssessor extends BaseAssessor {
         .replace(/\\"index\\":\s*\d+/g, '\\"index\\": <NUMBER>')
         // String IDs
         .replace(/"id":\s*"[^"]+"/g, '"id": "<ID>"')
+        // P2-1: Additional timestamp fields that vary between calls
+        .replace(
+          /"(updated_at|created_at|modified_at)":\s*"[^"]+"/g,
+          '"$1": "<TIMESTAMP>"',
+        )
+        // P2-1: Dynamic tokens/hashes that change per request
+        .replace(
+          /"(nonce|token|hash|etag|session_id|correlation_id)":\s*"[^"]+"/g,
+          '"$1": "<DYNAMIC>"',
+        )
     );
   }
 
