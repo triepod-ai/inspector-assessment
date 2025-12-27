@@ -668,3 +668,38 @@ Finishing the --pattern-config CLI option implementation for the tiered confiden
 - Feature enables security pattern customization without code changes
 
 ---
+
+## 2025-12-27: TemporalAssessor Module - Rug Pull Detection (v1.15.0)
+
+**Summary:** Implemented TemporalAssessor module for detecting "rug pull" vulnerabilities - tools that behave safely for first N invocations then become malicious.
+
+**Problem Solved:**
+Standard assessments call tools with many different payloads but never call the same tool repeatedly with identical payloads. This means state-based temporal attacks go undetected.
+
+**Implementation:**
+- New `TemporalAssessor.ts` module (365 lines)
+- Calls each tool 25x with identical safe payload
+- Detects response changes indicating behavioral drift
+- Response normalization prevents false positives from timestamps, UUIDs, incrementing IDs
+
+**Features:**
+- `--temporal-invocations <n>`: Configure invocations per tool (default 25)
+- `--skip-temporal`: Disable temporal testing for speed
+- Destructive tool detection: Reduced invocations (5) for create/write/delete tools
+- Error tracking as potential vulnerability indicators
+- Dual output: `security.vulnerabilities[]` AND `temporal` section
+
+**Validation Results:**
+- Vulnerable testbed (port 10900): 1 rug pull detected (`vulnerable_rug_pull_tool` at invocation 8)
+- Hardened server (port 10901): 0 false positives (17/17 tools pass)
+- Test suite: 857 tests passing
+
+**Files Changed:**
+- Created: `client/src/services/assessment/modules/TemporalAssessor.ts`
+- Created: `docs/TEMPORAL-ASSESSOR-SPEC.md`
+- Modified: `client/src/lib/assessmentTypes.ts` (new types)
+- Modified: `client/src/services/assessment/AssessmentOrchestrator.ts` (registration + security integration)
+- Modified: `client/src/services/assessment/modules/index.ts` (export)
+- Modified: `cli/src/assess-full.ts` (CLI flags)
+
+---
