@@ -162,7 +162,31 @@ These files are entirely new and have no upstream equivalents:
 
 ## Sync Procedure
 
-### Before Syncing
+### Automated Sync (Recommended)
+
+Use the sync helper script for guided upstream syncing:
+
+```bash
+# Check status and view changes (safe, read-only)
+npm run sync:upstream
+
+# Or run individual commands:
+./scripts/sync-upstream.sh status    # Show sync status
+./scripts/sync-upstream.sh diff      # View upstream changes to App.tsx
+./scripts/sync-upstream.sh merge     # Attempt merge with conflict guidance
+./scripts/sync-upstream.sh validate  # Build and test after merge
+```
+
+The script automatically:
+
+- Fetches upstream and shows divergence
+- Highlights if integration lines are affected
+- Provides merge conflict resolution guidance
+- Prompts to update this document after successful merge
+
+### Manual Sync
+
+#### Before Syncing
 
 1. **Check upstream changes to App.tsx**:
 
@@ -176,7 +200,7 @@ These files are entirely new and have no upstream equivalents:
    git diff fe393e514a..upstream/main -- client/src/App.tsx
    ```
 
-### During Sync
+#### During Sync
 
 1. **Merge upstream**:
 
@@ -193,7 +217,7 @@ These files are entirely new and have no upstream equivalents:
    npm test
    ```
 
-### After Sync
+#### After Sync
 
 1. **Update this document** with:
    - New sync version
