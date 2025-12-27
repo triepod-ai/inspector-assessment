@@ -14,8 +14,8 @@
 - Development mode: `npm run dev` (use `npm run dev:windows` on Windows)
 - Format code: `npm run prettier-fix`
 - Client lint: `cd client && npm run lint`
-- Run tests: `npm test` (646 tests, 622 passing)
-- Run assessment tests: `npm test -- assessment` (208 assessment module tests)
+- Run tests: `npm test` (937 tests passing)
+- Run assessment tests: `npm test -- assessment` (assessment module tests)
 
 ## Code Style Guidelines
 
@@ -219,8 +219,9 @@ For detailed documentation on specific features, see:
 
 **Testing:**
 
-- `client/src/services/__tests__/` - 464 total tests (100% passing)
-- `client/src/services/assessment/__tests__/` - 208 assessment module tests
+- `client/src/services/__tests__/` - Service layer tests
+- `client/src/services/assessment/__tests__/` - Assessment module tests
+- Total: 937 tests across 52 test suites (100% passing)
 
 ## Development Workflow
 

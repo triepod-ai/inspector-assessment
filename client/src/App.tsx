@@ -59,7 +59,6 @@ import {
   Settings,
 } from "lucide-react";
 
-import { z } from "zod";
 import "./App.css";
 import AuthDebugger from "./components/AuthDebugger";
 import ConsoleTab from "./components/ConsoleTab";
@@ -799,7 +798,7 @@ const App = () => {
           method: "resources/subscribe" as const,
           params: { uri },
         },
-        z.object({}) as any,
+        EmptyResultSchema,
         "resources",
       );
       const clone = new Set(resourceSubscriptions);
@@ -815,7 +814,7 @@ const App = () => {
           method: "resources/unsubscribe" as const,
           params: { uri },
         },
-        z.object({}) as any,
+        EmptyResultSchema,
         "resources",
       );
       const clone = new Set(resourceSubscriptions);
@@ -926,7 +925,7 @@ const App = () => {
         method: "logging/setLevel" as const,
         params: { level },
       },
-      z.object({}) as any,
+      EmptyResultSchema,
     );
     setLogLevel(level);
   };
