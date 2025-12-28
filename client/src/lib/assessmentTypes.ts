@@ -624,8 +624,11 @@ export interface MCPDirectoryAssessment {
   temporal?: TemporalAssessment;
 
   // New capability assessors (resources, prompts, cross-capability)
+  /** MCP Resources capability assessment results */
   resources?: ResourceAssessment;
+  /** MCP Prompts capability assessment results */
   prompts?: PromptAssessment;
+  /** Cross-capability security assessment (resources x prompts x tools interactions) */
   crossCapability?: CrossCapabilitySecurityAssessment;
 
   // Overall assessment
