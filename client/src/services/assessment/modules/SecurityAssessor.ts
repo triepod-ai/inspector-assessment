@@ -1,9 +1,11 @@
 /**
  * Security Assessor Module
- * Tests for backend API security vulnerabilities using 8 focused patterns
- * - Critical Injection (3): Command, SQL, Path Traversal
+ * Tests for backend API security vulnerabilities using 18 focused patterns
+ * - Critical Injection (6): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
  * - Input Validation (3): Type Safety, Boundary Testing, Required Fields
  * - Protocol Compliance (2): MCP Error Format, Timeout Handling
+ * - Tool-Specific (7): SSRF, Unicode Bypass, Nested Injection, Package Squatting,
+ *                      Data Exfiltration, Configuration Drift, Tool Shadowing
  */
 
 import {

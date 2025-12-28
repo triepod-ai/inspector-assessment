@@ -35,6 +35,11 @@ import { PortabilityAssessor } from "./modules/PortabilityAssessor";
 import { ExternalAPIScannerAssessor } from "./modules/ExternalAPIScannerAssessor";
 import { TemporalAssessor } from "./modules/TemporalAssessor";
 
+// New capability assessors
+import { ResourceAssessor } from "./modules/ResourceAssessor";
+import { PromptAssessor } from "./modules/PromptAssessor";
+import { CrossCapabilitySecurityAssessor } from "./modules/CrossCapabilitySecurityAssessor";
+
 // Pattern configuration for tool annotation assessment
 import {
   loadPatternConfig,
@@ -118,6 +123,50 @@ function emitModuleProgress(
   );
 }
 
+/**
+ * MCP Resource interface for assessment context
+ */
+export interface MCPResource {
+  uri: string;
+  name?: string;
+  description?: string;
+  mimeType?: string;
+}
+
+/**
+ * MCP Resource Template interface for assessment context
+ */
+export interface MCPResourceTemplate {
+  uriTemplate: string;
+  name?: string;
+  description?: string;
+  mimeType?: string;
+}
+
+/**
+ * MCP Prompt interface for assessment context
+ */
+export interface MCPPrompt {
+  name: string;
+  description?: string;
+  arguments?: Array<{
+    name: string;
+    description?: string;
+    required?: boolean;
+  }>;
+}
+
+/**
+ * MCP Server Capabilities interface
+ */
+export interface MCPServerCapabilities {
+  tools?: { listChanged?: boolean };
+  resources?: { subscribe?: boolean; listChanged?: boolean };
+  prompts?: { listChanged?: boolean };
+  logging?: Record<string, unknown>;
+  experimental?: Record<string, unknown>;
+}
+
 export interface AssessmentContext {
   serverName: string;
   tools: Tool[];
@@ -148,6 +197,27 @@ export interface AssessmentContext {
   // Progress callback for real-time test progress events
   // Called by assessors to emit batched progress during execution
   onProgress?: ProgressCallback;
+
+  // MCP Resources and Prompts (for extended assessments)
+  resources?: MCPResource[];
+  resourceTemplates?: MCPResourceTemplate[];
+  prompts?: MCPPrompt[];
+  serverCapabilities?: MCPServerCapabilities;
+
+  // Resource and prompt operations (optional - provided by CLI runner)
+  readResource?: (uri: string) => Promise<string>;
+  getPrompt?: (
+    name: string,
+    args: Record<string, string>,
+  ) => Promise<{ messages: Array<{ role: string; content: string }> }>;
+
+  // Transport configuration for security assessment
+  transportConfig?: {
+    type: "stdio" | "sse" | "streamable-http";
+    url?: string;
+    usesTLS?: boolean;
+    oauthEnabled?: boolean;
+  };
 }
 
 export class AssessmentOrchestrator {
@@ -177,6 +247,11 @@ export class AssessmentOrchestrator {
   private portabilityAssessor?: PortabilityAssessor;
   private externalAPIScannerAssessor?: ExternalAPIScannerAssessor;
   private temporalAssessor?: TemporalAssessor;
+
+  // New capability assessors
+  private resourceAssessor?: ResourceAssessor;
+  private promptAssessor?: PromptAssessor;
+  private crossCapabilityAssessor?: CrossCapabilitySecurityAssessor;
 
   constructor(config: Partial<AssessmentConfiguration> = {}) {
     this.config = { ...DEFAULT_ASSESSMENT_CONFIG, ...config };
@@ -242,6 +317,19 @@ export class AssessmentOrchestrator {
       }
       if (this.config.assessmentCategories?.temporal) {
         this.temporalAssessor = new TemporalAssessor(this.config);
+      }
+
+      // Initialize new capability assessors
+      if (this.config.assessmentCategories?.resources) {
+        this.resourceAssessor = new ResourceAssessor(this.config);
+      }
+      if (this.config.assessmentCategories?.prompts) {
+        this.promptAssessor = new PromptAssessor(this.config);
+      }
+      if (this.config.assessmentCategories?.crossCapability) {
+        this.crossCapabilityAssessor = new CrossCapabilitySecurityAssessor(
+          this.config,
+        );
       }
     }
 
@@ -338,6 +426,16 @@ export class AssessmentOrchestrator {
     }
     if (this.portabilityAssessor) {
       this.portabilityAssessor.resetTestCount();
+    }
+    // Reset new capability assessors
+    if (this.resourceAssessor) {
+      this.resourceAssessor.resetTestCount();
+    }
+    if (this.promptAssessor) {
+      this.promptAssessor.resetTestCount();
+    }
+    if (this.crossCapabilityAssessor) {
+      this.crossCapabilityAssessor.resetTestCount();
     }
   }
 
@@ -541,6 +639,62 @@ export class AssessmentOrchestrator {
         );
       }
 
+      // New capability assessors
+      if (this.resourceAssessor) {
+        const resourceCount =
+          (context.resources?.length || 0) +
+          (context.resourceTemplates?.length || 0);
+        emitModuleStartedEvent("Resources", resourceCount * 5, resourceCount);
+        assessmentPromises.push(
+          this.resourceAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "Resources",
+              r.status,
+              r,
+              this.resourceAssessor!.getTestCount(),
+            );
+            return (assessmentResults.resources = r);
+          }),
+        );
+      }
+      if (this.promptAssessor) {
+        const promptCount = context.prompts?.length || 0;
+        emitModuleStartedEvent("Prompts", promptCount * 10, promptCount);
+        assessmentPromises.push(
+          this.promptAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "Prompts",
+              r.status,
+              r,
+              this.promptAssessor!.getTestCount(),
+            );
+            return (assessmentResults.prompts = r);
+          }),
+        );
+      }
+      if (this.crossCapabilityAssessor) {
+        const capabilityCount =
+          toolCount +
+          (context.resources?.length || 0) +
+          (context.prompts?.length || 0);
+        emitModuleStartedEvent(
+          "Cross-Capability",
+          capabilityCount * 3,
+          capabilityCount,
+        );
+        assessmentPromises.push(
+          this.crossCapabilityAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "Cross-Capability",
+              r.status,
+              r,
+              this.crossCapabilityAssessor!.getTestCount(),
+            );
+            return (assessmentResults.crossCapability = r);
+          }),
+        );
+      }
+
       await Promise.all(assessmentPromises);
     } else {
       // Sequential execution with module_started events
@@ -700,6 +854,52 @@ export class AssessmentOrchestrator {
           this.temporalAssessor.getTestCount(),
         );
       }
+
+      // New capability assessors (sequential)
+      if (this.resourceAssessor) {
+        const resourceCount =
+          (context.resources?.length || 0) +
+          (context.resourceTemplates?.length || 0);
+        emitModuleStartedEvent("Resources", resourceCount * 5, resourceCount);
+        assessmentResults.resources =
+          await this.resourceAssessor.assess(context);
+        emitModuleProgress(
+          "Resources",
+          assessmentResults.resources.status,
+          assessmentResults.resources,
+          this.resourceAssessor.getTestCount(),
+        );
+      }
+      if (this.promptAssessor) {
+        const promptCount = context.prompts?.length || 0;
+        emitModuleStartedEvent("Prompts", promptCount * 10, promptCount);
+        assessmentResults.prompts = await this.promptAssessor.assess(context);
+        emitModuleProgress(
+          "Prompts",
+          assessmentResults.prompts.status,
+          assessmentResults.prompts,
+          this.promptAssessor.getTestCount(),
+        );
+      }
+      if (this.crossCapabilityAssessor) {
+        const capabilityCount =
+          toolCount +
+          (context.resources?.length || 0) +
+          (context.prompts?.length || 0);
+        emitModuleStartedEvent(
+          "Cross-Capability",
+          capabilityCount * 3,
+          capabilityCount,
+        );
+        assessmentResults.crossCapability =
+          await this.crossCapabilityAssessor.assess(context);
+        emitModuleProgress(
+          "Cross-Capability",
+          assessmentResults.crossCapability.status,
+          assessmentResults.crossCapability,
+          this.crossCapabilityAssessor.getTestCount(),
+        );
+      }
     }
 
     // Integrate temporal findings into security.vulnerabilities for unified view
@@ -792,6 +992,12 @@ export class AssessmentOrchestrator {
       this.externalAPIScannerAssessor?.getTestCount() || 0;
     const temporalCount = this.temporalAssessor?.getTestCount() || 0;
 
+    // New capability assessor counts
+    const resourcesCount = this.resourceAssessor?.getTestCount() || 0;
+    const promptsCount = this.promptAssessor?.getTestCount() || 0;
+    const crossCapabilityCount =
+      this.crossCapabilityAssessor?.getTestCount() || 0;
+
     console.log("[AssessmentOrchestrator] Test counts by assessor:", {
       functionality: functionalityCount,
       security: securityCount,
@@ -806,6 +1012,9 @@ export class AssessmentOrchestrator {
       portability: portabilityCount,
       externalAPIScanner: externalAPICount,
       temporal: temporalCount,
+      resources: resourcesCount,
+      prompts: promptsCount,
+      crossCapability: crossCapabilityCount,
     });
 
     total =
@@ -821,7 +1030,10 @@ export class AssessmentOrchestrator {
       manifestCount +
       portabilityCount +
       externalAPICount +
-      temporalCount;
+      temporalCount +
+      resourcesCount +
+      promptsCount +
+      crossCapabilityCount;
 
     console.log("[AssessmentOrchestrator] Total test count:", total);
 

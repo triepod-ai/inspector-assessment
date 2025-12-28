@@ -16,6 +16,7 @@ import type {
   AuthMethod,
   AuthAppropriateness,
   AuthenticationAssessment,
+  TransportSecurityAnalysis,
 } from "@/lib/assessmentTypes";
 
 // Patterns that indicate OAuth usage
@@ -54,6 +55,24 @@ const LOCAL_RESOURCE_PATTERNS = [
   /\.local|\.config|\.cache/i,
   /localhost|127\.0\.0\.1/i,
   /file:\/\//i,
+];
+
+// Patterns indicating insecure transport practices
+const INSECURE_TRANSPORT_PATTERNS = [
+  /http:\/\/(?!localhost|127\.0\.0\.1)/i, // Non-local HTTP
+  /allowInsecure|rejectUnauthorized:\s*false/i, // TLS validation disabled
+  /NODE_TLS_REJECT_UNAUTHORIZED.*0/i, // TLS verification disabled via env
+  /cors.*\*|origin:\s*true|origin:\s*\*/i, // Overly permissive CORS
+];
+
+// Patterns indicating secure transport practices
+const SECURE_TRANSPORT_PATTERNS = [
+  /https:\/\//i,
+  /secure:\s*true/i,
+  /httpOnly:\s*true/i,
+  /sameSite.*strict|sameSite.*lax/i,
+  /helmet/i, // Security middleware
+  /cors.*origin.*string|cors.*origin.*array/i, // Specific CORS origins
 ];
 
 export class AuthenticationAssessor extends BaseAssessor {
@@ -146,8 +165,20 @@ export class AuthenticationAssessor extends BaseAssessor {
       appropriateness,
     );
 
+    // Analyze transport security
+    const transportSecurity = this.analyzeTransportSecurity(context);
+
+    // Add transport security issues to concerns
+    if (transportSecurity.hasInsecurePatterns) {
+      appropriateness.concerns.push(
+        ...transportSecurity.insecurePatterns.map(
+          (p) => `Insecure transport pattern: ${p}`,
+        ),
+      );
+    }
+
     this.log(
-      `Assessment complete: auth=${authMethod}, localDeps=${hasLocalDependencies}`,
+      `Assessment complete: auth=${authMethod}, localDeps=${hasLocalDependencies}, tlsEnforced=${transportSecurity.tlsEnforced}`,
     );
 
     return {
@@ -161,8 +192,108 @@ export class AuthenticationAssessor extends BaseAssessor {
         localResourceIndicators,
         apiKeyIndicators,
       },
+      transportSecurity,
       status,
       explanation,
+      recommendations: [
+        ...recommendations,
+        ...transportSecurity.recommendations,
+      ],
+    };
+  }
+
+  /**
+   * Analyze transport security configuration
+   */
+  private analyzeTransportSecurity(
+    context: AssessmentContext,
+  ): TransportSecurityAnalysis {
+    const insecurePatterns: string[] = [];
+    const securePatterns: string[] = [];
+
+    // Check transport config from context
+    const transportConfig = context.transportConfig;
+    const usesTLS = transportConfig?.usesTLS ?? false;
+    const tlsEnforced = transportConfig?.type === "streamable-http" && usesTLS;
+
+    // Analyze source code for patterns
+    if (context.sourceCodeFiles) {
+      for (const [filePath, content] of context.sourceCodeFiles) {
+        this.testCount++;
+
+        // Check for insecure patterns
+        for (const pattern of INSECURE_TRANSPORT_PATTERNS) {
+          if (pattern.test(content)) {
+            const indicator = `${filePath}: ${pattern.source}`;
+            if (!insecurePatterns.includes(indicator)) {
+              insecurePatterns.push(indicator);
+            }
+          }
+        }
+
+        // Check for secure patterns
+        for (const pattern of SECURE_TRANSPORT_PATTERNS) {
+          if (pattern.test(content)) {
+            const indicator = `${filePath}: ${pattern.source}`;
+            if (!securePatterns.includes(indicator)) {
+              securePatterns.push(indicator);
+            }
+          }
+        }
+      }
+    }
+
+    // Determine CORS configuration
+    const corsConfigured = securePatterns.some((p) => /cors/i.test(p));
+    const corsPermissive = insecurePatterns.some((p) =>
+      /cors.*\*|origin.*true/i.test(p),
+    );
+
+    // Check session security
+    const sessionSecure =
+      securePatterns.some((p) => /secure.*true|httpOnly/i.test(p)) &&
+      !insecurePatterns.some((p) => /secure.*false/i.test(p));
+
+    // Generate recommendations
+    const recommendations: string[] = [];
+
+    if (insecurePatterns.length > 0) {
+      recommendations.push(
+        "TRANSPORT SECURITY: Found insecure patterns that should be reviewed:",
+      );
+      for (const pattern of insecurePatterns.slice(0, 3)) {
+        recommendations.push(`  - ${pattern}`);
+      }
+    }
+
+    if (!usesTLS && transportConfig?.type !== "stdio") {
+      recommendations.push(
+        "Ensure HTTPS/TLS is enforced for remote transport to protect data in transit",
+      );
+    }
+
+    if (corsPermissive) {
+      recommendations.push(
+        "CORS policy is overly permissive (allows all origins). Restrict to specific trusted origins.",
+      );
+    }
+
+    if (!sessionSecure && securePatterns.length > 0) {
+      recommendations.push(
+        "Review session cookie security: ensure Secure, HttpOnly, and SameSite flags are set appropriately",
+      );
+    }
+
+    return {
+      usesTLS,
+      tlsEnforced,
+      hasInsecurePatterns: insecurePatterns.length > 0,
+      insecurePatterns,
+      hasSecurePatterns: securePatterns.length > 0,
+      securePatterns,
+      corsConfigured,
+      corsPermissive,
+      sessionSecure,
       recommendations,
     };
   }

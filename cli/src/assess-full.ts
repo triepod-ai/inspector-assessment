@@ -351,6 +351,10 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
       portability: true,
       externalAPIScanner: !!options.sourceCodePath,
       temporal: !options.skipTemporal, // Enable by default with --full, skip with --skip-temporal
+      // New capability assessors - always enabled in full mode
+      resources: true,
+      prompts: true,
+      crossCapability: true,
     };
   }
 
@@ -420,6 +424,92 @@ async function runFullAssessment(
     console.log(
       `🔧 Found ${tools.length} tool${tools.length !== 1 ? "s" : ""}`,
     );
+  }
+
+  // Fetch resources for new capability assessments
+  let resources: {
+    uri: string;
+    name?: string;
+    description?: string;
+    mimeType?: string;
+  }[] = [];
+  let resourceTemplates: {
+    uriTemplate: string;
+    name?: string;
+    description?: string;
+    mimeType?: string;
+  }[] = [];
+  try {
+    const resourcesResponse = await client.listResources();
+    resources = (resourcesResponse.resources || []).map((r) => ({
+      uri: r.uri,
+      name: r.name,
+      description: r.description,
+      mimeType: r.mimeType,
+    }));
+    // resourceTemplates may be typed as unknown in some SDK versions
+    const templates = (
+      resourcesResponse as {
+        resourceTemplates?: Array<{
+          uriTemplate: string;
+          name?: string;
+          description?: string;
+          mimeType?: string;
+        }>;
+      }
+    ).resourceTemplates;
+    if (templates) {
+      resourceTemplates = templates.map((rt) => ({
+        uriTemplate: rt.uriTemplate,
+        name: rt.name,
+        description: rt.description,
+        mimeType: rt.mimeType,
+      }));
+    }
+    if (
+      !options.jsonOnly &&
+      (resources.length > 0 || resourceTemplates.length > 0)
+    ) {
+      console.log(
+        `📦 Found ${resources.length} resource(s) and ${resourceTemplates.length} resource template(s)`,
+      );
+    }
+  } catch {
+    // Server may not support resources - that's okay
+    if (!options.jsonOnly) {
+      console.log("📦 Resources not supported by server");
+    }
+  }
+
+  // Fetch prompts for new capability assessments
+  let prompts: {
+    name: string;
+    description?: string;
+    arguments?: Array<{
+      name: string;
+      description?: string;
+      required?: boolean;
+    }>;
+  }[] = [];
+  try {
+    const promptsResponse = await client.listPrompts();
+    prompts = (promptsResponse.prompts || []).map((p) => ({
+      name: p.name,
+      description: p.description,
+      arguments: p.arguments?.map((a) => ({
+        name: a.name,
+        description: a.description,
+        required: a.required,
+      })),
+    }));
+    if (!options.jsonOnly && prompts.length > 0) {
+      console.log(`💬 Found ${prompts.length} prompt(s)`);
+    }
+  } catch {
+    // Server may not support prompts - that's okay
+    if (!options.jsonOnly) {
+      console.log("💬 Prompts not supported by server");
+    }
   }
 
   // State management for resumable assessments
@@ -540,6 +630,38 @@ async function runFullAssessment(
     }
   }
 
+  // Create readResource wrapper for ResourceAssessor
+  const readResource = async (uri: string): Promise<string> => {
+    const response = await client.readResource({ uri });
+    // Extract text content from response
+    if (response.contents && response.contents.length > 0) {
+      const content = response.contents[0];
+      if ("text" in content && content.text) {
+        return content.text;
+      }
+      if ("blob" in content && content.blob) {
+        // Return base64 blob as string
+        return content.blob;
+      }
+    }
+    return "";
+  };
+
+  // Create getPrompt wrapper for PromptAssessor
+  const getPrompt = async (
+    name: string,
+    args: Record<string, string>,
+  ): Promise<{ messages: Array<{ role: string; content: string }> }> => {
+    const response = await client.getPrompt({ name, arguments: args });
+    return {
+      messages: (response.messages || []).map((m) => ({
+        role: m.role,
+        content:
+          typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+      })),
+    };
+  };
+
   const context: AssessmentContext = {
     serverName: options.serverName,
     tools,
@@ -547,6 +669,12 @@ async function runFullAssessment(
     config,
     sourceCodePath: options.sourceCodePath,
     ...sourceFiles,
+    // New capability assessment data
+    resources,
+    resourceTemplates,
+    prompts,
+    readResource,
+    getPrompt,
   };
 
   if (!options.jsonOnly) {

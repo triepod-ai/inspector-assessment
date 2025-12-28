@@ -41,6 +41,33 @@ export interface TestInputMetadata {
   >;
 }
 
+/**
+ * Metadata about the response content types and structure.
+ * Tracks what type of content the tool returns for better categorization.
+ */
+export interface ResponseMetadata {
+  /** Content types present in the response */
+  contentTypes: Array<
+    "text" | "image" | "resource" | "resource_link" | "audio"
+  >;
+  /** True if response includes structuredContent property */
+  hasStructuredContent: boolean;
+  /** True if response includes _meta property */
+  hasMeta: boolean;
+  /** Number of text content blocks */
+  textBlockCount: number;
+  /** Number of image content blocks */
+  imageCount: number;
+  /** Number of resource/resource_link content blocks */
+  resourceCount: number;
+  /** Output schema validation result (if tool has outputSchema) */
+  outputSchemaValidation?: {
+    hasOutputSchema: boolean;
+    isValid: boolean;
+    error?: string;
+  };
+}
+
 export interface ToolTestResult {
   toolName: string;
   tested: boolean;
@@ -50,6 +77,8 @@ export interface ToolTestResult {
   testParameters?: Record<string, unknown>;
   response?: unknown;
   testInputMetadata?: TestInputMetadata;
+  /** Metadata about response content types and structure (optional, backward compatible) */
+  responseMetadata?: ResponseMetadata;
 }
 
 // Enhanced testing types for comprehensive functionality validation
@@ -354,6 +383,7 @@ export interface ProtocolChecks {
   schemaCompliance: ProtocolCheckResult; // May have false positives from Zod/TypeBox
   errorResponseCompliance: ProtocolCheckResult;
   structuredOutputSupport: ProtocolCheckResult;
+  capabilitiesCompliance?: ProtocolCheckResult; // Validates declared capabilities match actual behavior
 }
 
 /**
@@ -889,6 +919,19 @@ export interface AuthAppropriateness {
   explanation: string;
 }
 
+export interface TransportSecurityAnalysis {
+  usesTLS: boolean;
+  tlsEnforced: boolean;
+  hasInsecurePatterns: boolean;
+  insecurePatterns: string[];
+  hasSecurePatterns: boolean;
+  securePatterns: string[];
+  corsConfigured: boolean;
+  corsPermissive: boolean;
+  sessionSecure: boolean;
+  recommendations: string[];
+}
+
 export interface AuthenticationAssessment {
   authMethod: AuthMethod;
   hasLocalDependencies: boolean;
@@ -900,6 +943,7 @@ export interface AuthenticationAssessment {
     localResourceIndicators: string[];
     apiKeyIndicators: string[];
   };
+  transportSecurity?: TransportSecurityAnalysis;
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
@@ -931,6 +975,96 @@ export interface TemporalAssessment {
   invocationsPerTool: number;
   rugPullsDetected: number;
   details: TemporalToolResult[];
+  status: AssessmentStatus;
+  explanation: string;
+  recommendations: string[];
+}
+
+/**
+ * Resource Assessment Types
+ * Evaluates MCP server resources for security and compliance
+ */
+export interface ResourceTestResult {
+  resourceUri: string;
+  resourceName?: string;
+  mimeType?: string;
+  tested: boolean;
+  accessible: boolean;
+  securityIssues: string[];
+  pathTraversalVulnerable: boolean;
+  sensitiveDataExposed: boolean;
+  validUri: boolean;
+  readTime?: number;
+  contentSizeBytes?: number;
+  error?: string;
+}
+
+export interface ResourceAssessment {
+  resourcesTested: number;
+  resourceTemplatesTested: number;
+  accessibleResources: number;
+  securityIssuesFound: number;
+  pathTraversalVulnerabilities: number;
+  sensitiveDataExposures: number;
+  results: ResourceTestResult[];
+  status: AssessmentStatus;
+  explanation: string;
+  recommendations: string[];
+}
+
+/**
+ * Prompt Assessment Types
+ * Evaluates MCP server prompts for security and AUP compliance
+ */
+export interface PromptTestResult {
+  promptName: string;
+  description?: string;
+  tested: boolean;
+  hasRequiredArguments: boolean;
+  argumentsValidated: boolean;
+  aupCompliant: boolean;
+  injectionVulnerable: boolean;
+  safetyIssues: string[];
+  argumentCount: number;
+  executionTime?: number;
+  error?: string;
+}
+
+export interface PromptAssessment {
+  promptsTested: number;
+  aupViolations: number;
+  injectionVulnerabilities: number;
+  argumentValidationIssues: number;
+  results: PromptTestResult[];
+  status: AssessmentStatus;
+  explanation: string;
+  recommendations: string[];
+}
+
+/**
+ * Cross-Capability Security Assessment Types
+ * Tests interactions between tools, resources, and prompts
+ */
+export interface CrossCapabilityTestResult {
+  testType:
+    | "tool_to_resource"
+    | "prompt_to_tool"
+    | "resource_to_tool"
+    | "privilege_escalation";
+  sourceCapability: string;
+  targetCapability: string;
+  vulnerable: boolean;
+  evidence?: string;
+  riskLevel: SecurityRiskLevel;
+  description: string;
+}
+
+export interface CrossCapabilitySecurityAssessment {
+  testsRun: number;
+  vulnerabilitiesFound: number;
+  privilegeEscalationRisks: number;
+  dataFlowViolations: number;
+  results: CrossCapabilityTestResult[];
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
@@ -1058,6 +1192,10 @@ export interface AssessmentConfiguration {
     externalAPIScanner?: boolean; // External API detection and affiliation check
     authentication?: boolean; // OAuth appropriateness evaluation
     temporal?: boolean; // Temporal/rug pull vulnerability detection
+    // New capability assessors
+    resources?: boolean; // Resource path traversal, sensitive data exposure
+    prompts?: boolean; // Prompt AUP compliance, injection vulnerabilities
+    crossCapability?: boolean; // Cross-capability security (tool→resource, prompt→tool)
   };
 }
 
@@ -1232,6 +1370,10 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
     portability: false,
     externalAPIScanner: false,
     authentication: false,
+    // New capability assessors - disabled by default
+    resources: false,
+    prompts: false,
+    crossCapability: false,
   },
 };
 
@@ -1266,6 +1408,10 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
     portability: false,
     externalAPIScanner: false,
     authentication: false,
+    // New capability assessors - disabled in reviewer mode for speed
+    resources: false,
+    prompts: false,
+    crossCapability: false,
   },
 };
 
@@ -1298,6 +1444,10 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
     portability: true,
     externalAPIScanner: true,
     authentication: true,
+    // New capability assessors - enabled in developer mode
+    resources: true,
+    prompts: true,
+    crossCapability: true,
   },
 };
 
@@ -1331,6 +1481,10 @@ export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
     portability: true,
     externalAPIScanner: true,
     authentication: true,
+    // New capability assessors - enabled in audit mode
+    resources: true,
+    prompts: true,
+    crossCapability: true,
   },
 };
 
@@ -1375,5 +1529,9 @@ export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
     portability: true,
     externalAPIScanner: true,
     authentication: true,
+    // New capability assessors - enabled in Claude mode
+    resources: true,
+    prompts: true,
+    crossCapability: true,
   },
 };

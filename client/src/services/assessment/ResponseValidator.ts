@@ -7,6 +7,8 @@ import {
   CompatibilityCallToolResult,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
+import { ResponseMetadata } from "@/lib/assessmentTypes";
+import { validateToolOutput, hasOutputSchema } from "@/utils/schemaUtils";
 
 export interface ValidationResult {
   isValid: boolean;
@@ -20,6 +22,8 @@ export interface ValidationResult {
     | "connectivity_only"
     | "broken"
     | "error";
+  /** Metadata about response content types (optional, for enhanced tracking) */
+  responseMetadata?: ResponseMetadata;
 }
 
 export interface ValidationContext {
@@ -30,6 +34,87 @@ export interface ValidationContext {
 }
 
 export class ResponseValidator {
+  /**
+   * Extract response metadata including content types, structuredContent, and _meta
+   */
+  static extractResponseMetadata(context: ValidationContext): ResponseMetadata {
+    const content = context.response.content as
+      | Array<{ type: string; text?: string; data?: string; mimeType?: string }>
+      | undefined;
+    const response = context.response as Record<string, unknown>;
+
+    // Track content types present
+    const contentTypes: ResponseMetadata["contentTypes"] = [];
+    let textBlockCount = 0;
+    let imageCount = 0;
+    let resourceCount = 0;
+
+    if (Array.isArray(content)) {
+      for (const item of content) {
+        const type = item.type as ResponseMetadata["contentTypes"][number];
+        if (!contentTypes.includes(type)) {
+          contentTypes.push(type);
+        }
+
+        // Count by type
+        switch (type) {
+          case "text":
+            textBlockCount++;
+            break;
+          case "image":
+            imageCount++;
+            break;
+          case "resource":
+          case "resource_link":
+            resourceCount++;
+            break;
+        }
+      }
+    }
+
+    // Check for structuredContent property (MCP 2024-11-05+)
+    const hasStructuredContent =
+      "structuredContent" in response &&
+      response.structuredContent !== undefined;
+
+    // Check for _meta property
+    const hasMeta = "_meta" in response && response._meta !== undefined;
+
+    // Output schema validation
+    let outputSchemaValidation: ResponseMetadata["outputSchemaValidation"];
+    const toolHasOutputSchema = hasOutputSchema(context.tool.name);
+
+    if (toolHasOutputSchema) {
+      if (!hasStructuredContent) {
+        outputSchemaValidation = {
+          hasOutputSchema: true,
+          isValid: false,
+          error: "Tool has output schema but did not return structuredContent",
+        };
+      } else {
+        const validation = validateToolOutput(
+          context.tool.name,
+          response.structuredContent,
+        );
+        outputSchemaValidation = {
+          hasOutputSchema: true,
+          isValid: validation.isValid,
+          error: validation.error,
+        };
+      }
+    }
+
+    return {
+      contentTypes,
+      hasStructuredContent,
+      hasMeta,
+      textBlockCount,
+      imageCount,
+      resourceCount,
+      outputSchemaValidation,
+    };
+  }
+
   /**
    * Validate a tool response comprehensively
    */
@@ -42,6 +127,10 @@ export class ResponseValidator {
       evidence: [],
       classification: "broken",
     };
+
+    // Extract response metadata for content type tracking
+    const responseMetadata = this.extractResponseMetadata(context);
+    result.responseMetadata = responseMetadata;
 
     // Check if response indicates an error
     if (context.response.isError) {
@@ -89,20 +178,53 @@ export class ResponseValidator {
       return result;
     }
 
-    // Tool responded successfully - it's functional!
+    // Tool responded successfully - start with fully_working
     result.isValid = true;
     result.classification = "fully_working";
     result.confidence = 100;
     result.evidence.push("Tool responded successfully with content");
 
-    // Add details about response type for debugging
-    const hasText = content.some((item) => item.type === "text");
-    const hasResource = content.some((item) => item.type === "resource");
-    if (hasText) {
-      result.evidence.push("Response includes text content");
+    // Add details about content types for debugging
+    if (responseMetadata.textBlockCount > 0) {
+      result.evidence.push(
+        `Response includes ${responseMetadata.textBlockCount} text block(s)`,
+      );
     }
-    if (hasResource) {
-      result.evidence.push("Response includes resource content");
+    if (responseMetadata.imageCount > 0) {
+      result.evidence.push(
+        `Response includes ${responseMetadata.imageCount} image(s)`,
+      );
+    }
+    if (responseMetadata.resourceCount > 0) {
+      result.evidence.push(
+        `Response includes ${responseMetadata.resourceCount} resource(s)`,
+      );
+    }
+    if (responseMetadata.hasStructuredContent) {
+      result.evidence.push("Response includes structuredContent");
+    }
+    if (responseMetadata.hasMeta) {
+      result.evidence.push("Response includes _meta field");
+    }
+
+    // Check output schema validation (P0 enhancement)
+    if (responseMetadata.outputSchemaValidation) {
+      const {
+        hasOutputSchema: hasSchema,
+        isValid,
+        error,
+      } = responseMetadata.outputSchemaValidation;
+      if (hasSchema && !isValid) {
+        // Downgrade classification if output schema validation fails
+        result.classification = "partially_working";
+        result.confidence = 70;
+        result.issues.push(error || "Output schema validation failed");
+        result.evidence.push(
+          "Tool has output schema but response does not conform",
+        );
+      } else if (hasSchema && isValid) {
+        result.evidence.push("Output schema validation passed");
+      }
     }
 
     return result;

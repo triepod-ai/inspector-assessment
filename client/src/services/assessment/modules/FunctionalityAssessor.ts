@@ -14,6 +14,9 @@ import { ResponseValidator } from "../ResponseValidator";
 import { createConcurrencyLimit } from "../lib/concurrencyLimit";
 import { ToolClassifier, ToolCategory } from "../ToolClassifier";
 import { TestDataGenerator } from "../TestDataGenerator";
+import { cleanParams } from "@/utils/paramUtils";
+import { JsonSchemaType } from "@/utils/jsonUtils";
+import { resolveRef, normalizeUnionType } from "@/utils/schemaUtils";
 
 export class FunctionalityAssessor extends BaseAssessor {
   private toolClassifier = new ToolClassifier();
@@ -197,17 +200,35 @@ export class FunctionalityAssessor extends BaseAssessor {
     const { params: testParams, metadata } = this.generateMinimalParams(tool);
 
     try {
+      // Clean parameters to remove empty/null/undefined values for optional fields
+      // This prevents false negatives where tools reject empty optional values
+      const schema = tool.inputSchema as JsonSchemaType | undefined;
+      const cleanedParams = schema
+        ? cleanParams(testParams, schema)
+        : testParams;
+
       this.log(
-        `Testing tool: ${tool.name} with params: ${JSON.stringify(testParams)}`,
+        `Testing tool: ${tool.name} with params: ${JSON.stringify(cleanedParams)}`,
       );
 
       // Execute tool with timeout
       const response = await this.executeWithTimeout(
-        callTool(tool.name, testParams),
+        callTool(tool.name, cleanedParams),
         this.config.testTimeout,
       );
 
       const executionTime = Date.now() - startTime;
+
+      // Create validation context for response analysis
+      const validationContext = {
+        tool,
+        input: cleanedParams,
+        response,
+      };
+
+      // Extract response metadata (content types, structuredContent, etc.)
+      const responseMetadata =
+        ResponseValidator.extractResponseMetadata(validationContext);
 
       // Check if response indicates an error using base class method
       // Use strict mode for functionality testing - only check explicit error indicators
@@ -215,12 +236,6 @@ export class FunctionalityAssessor extends BaseAssessor {
       if (this.isErrorResponse(response, true)) {
         // Check if this is a business logic error (validation error)
         // Tools that correctly validate inputs should be marked as "working"
-        const validationContext = {
-          tool,
-          input: testParams,
-          response,
-        };
-
         if (ResponseValidator.isBusinessLogicError(validationContext)) {
           // Tool is correctly validating inputs - this is expected behavior
           return {
@@ -228,9 +243,10 @@ export class FunctionalityAssessor extends BaseAssessor {
             tested: true,
             status: "working",
             executionTime,
-            testParameters: testParams,
+            testParameters: cleanedParams,
             response,
             testInputMetadata: metadata,
+            responseMetadata,
           };
         }
 
@@ -241,9 +257,10 @@ export class FunctionalityAssessor extends BaseAssessor {
           status: "broken",
           error: this.extractErrorMessage(response),
           executionTime,
-          testParameters: testParams,
+          testParameters: cleanedParams,
           response,
           testInputMetadata: metadata,
+          responseMetadata,
         };
       }
 
@@ -252,9 +269,10 @@ export class FunctionalityAssessor extends BaseAssessor {
         tested: true,
         status: "working",
         executionTime,
-        testParameters: testParams,
+        testParameters: cleanedParams,
         response,
         testInputMetadata: metadata,
+        responseMetadata,
       };
     } catch (error) {
       return {
@@ -304,11 +322,20 @@ export class FunctionalityAssessor extends BaseAssessor {
 
     // For functionality testing, only generate REQUIRED parameters
     // This avoids triggering validation errors on optional parameters with complex rules
-    for (const [key, prop] of Object.entries(
+    for (const [key, rawProp] of Object.entries(
       schema.properties as Record<string, any>,
     )) {
       // Only include required parameters for basic functionality testing
       if (required.includes(key)) {
+        // P2 Enhancement: Resolve $ref references in the property schema
+        let prop = rawProp;
+        if (prop.$ref) {
+          prop = resolveRef(prop as JsonSchemaType, schema as JsonSchemaType);
+        }
+
+        // P2 Enhancement: Normalize union types (e.g., string|null from FastMCP)
+        prop = normalizeUnionType(prop as JsonSchemaType);
+
         const { value, source, reason } =
           this.generateSmartParamValueWithMetadata(prop, key, primaryCategory);
         params[key] = value;
@@ -369,8 +396,18 @@ export class FunctionalityAssessor extends BaseAssessor {
       case "array":
         // Generate array with sample items based on items schema
         if (prop.items) {
+          // Resolve $ref and normalize union types for items schema
+          let itemsSchema = prop.items;
+          if (itemsSchema.$ref) {
+            itemsSchema = resolveRef(
+              itemsSchema as JsonSchemaType,
+              prop as JsonSchemaType,
+            );
+          }
+          itemsSchema = normalizeUnionType(itemsSchema as JsonSchemaType);
+
           return [
-            this.generateParamValue(prop.items, undefined, includeOptional),
+            this.generateParamValue(itemsSchema, undefined, includeOptional),
           ];
         }
         return [];
@@ -384,8 +421,18 @@ export class FunctionalityAssessor extends BaseAssessor {
           // Generate properties based on includeOptional flag
           // includeOptional=false: Only required properties (for functionality testing)
           // includeOptional=true: All properties (for test input generation)
-          for (const [key, subProp] of Object.entries(prop.properties)) {
+          for (const [key, rawSubProp] of Object.entries(prop.properties)) {
             if (includeOptional || requiredProps.includes(key)) {
+              // Resolve $ref and normalize union types for nested properties
+              let subProp = rawSubProp;
+              if ((subProp as any).$ref) {
+                subProp = resolveRef(
+                  subProp as JsonSchemaType,
+                  prop as JsonSchemaType,
+                );
+              }
+              subProp = normalizeUnionType(subProp as JsonSchemaType);
+
               obj[key] = this.generateParamValue(subProp, key, includeOptional);
             }
           }

@@ -46,6 +46,7 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
     const schemaCheck = this.checkSchemaCompliance(tools);
     const jsonRpcCheck = await this.checkJsonRpcCompliance(callTool);
     const errorCheck = await this.checkErrorResponses(tools, callTool);
+    const capabilitiesCheck = this.checkCapabilitiesCompliance(context);
 
     const protocolChecks: ProtocolChecks = {
       jsonRpcCompliance: {
@@ -84,6 +85,13 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
           hasOutputSchema: !!t.outputSchema,
           outputSchema: t.outputSchema,
         })),
+      },
+      capabilitiesCompliance: {
+        passed: capabilitiesCheck.passed,
+        confidence: capabilitiesCheck.confidence as "high" | "medium" | "low",
+        evidence: capabilitiesCheck.evidence,
+        warnings: capabilitiesCheck.warnings,
+        rawResponse: capabilitiesCheck.rawResponse,
       },
     };
 
@@ -303,6 +311,100 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
 
     // Consider it supported if at least some tools use it
     return toolsWithOutputSchema > 0;
+  }
+
+  /**
+   * Check if declared server capabilities match actual behavior
+   * Tests that capabilities advertised via serverCapabilities are actually implemented
+   */
+  private checkCapabilitiesCompliance(context: AssessmentContext): {
+    passed: boolean;
+    confidence: string;
+    evidence: string;
+    warnings?: string[];
+    rawResponse?: unknown;
+  } {
+    const warnings: string[] = [];
+    const capabilities = context.serverCapabilities;
+
+    // If no capabilities declared, that's fine - it's optional
+    if (!capabilities) {
+      return {
+        passed: true,
+        confidence: "medium",
+        evidence: "No server capabilities declared (optional)",
+        rawResponse: undefined,
+      };
+    }
+
+    // Check tools capability
+    if (capabilities.tools) {
+      if (context.tools.length === 0) {
+        warnings.push("Declared tools capability but no tools registered");
+      }
+      this.testCount++;
+    }
+
+    // Check resources capability
+    if (capabilities.resources) {
+      if (!context.resources || context.resources.length === 0) {
+        // Resources declared but not provided - could be valid if not fetched
+        if (!context.readResource) {
+          warnings.push(
+            "Declared resources capability but no resources data provided for validation",
+          );
+        }
+      }
+
+      // Check listChanged notification support
+      if (capabilities.resources.listChanged) {
+        this.log("Server declares resources.listChanged notification support");
+      }
+
+      // Check subscribe support
+      if (capabilities.resources.subscribe) {
+        this.log("Server declares resource subscription support");
+      }
+      this.testCount++;
+    }
+
+    // Check prompts capability
+    if (capabilities.prompts) {
+      if (!context.prompts || context.prompts.length === 0) {
+        // Prompts declared but not provided
+        if (!context.getPrompt) {
+          warnings.push(
+            "Declared prompts capability but no prompts data provided for validation",
+          );
+        }
+      }
+
+      // Check listChanged notification support
+      if (capabilities.prompts.listChanged) {
+        this.log("Server declares prompts.listChanged notification support");
+      }
+      this.testCount++;
+    }
+
+    // Check logging capability
+    if (capabilities.logging) {
+      this.log("Server declares logging capability");
+      this.testCount++;
+    }
+
+    // Determine pass/fail
+    const passed = warnings.length === 0;
+    const confidence = warnings.length === 0 ? "high" : "medium";
+
+    return {
+      passed,
+      confidence,
+      evidence: passed
+        ? "All declared capabilities have corresponding implementations"
+        : `Capability validation issues: ${warnings.join("; ")}`,
+      warnings: warnings.length > 0 ? warnings : undefined,
+      rawResponse: capabilities,
+    };
   }
 
   /**

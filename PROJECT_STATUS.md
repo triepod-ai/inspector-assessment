@@ -289,3 +289,65 @@ Standard assessments call tools with many different payloads but never call the 
 - Both code-reviewer-pro and security-auditor agents validated fixes before commit
 
 ---
+
+## 2025-12-28: ESLint CI Fixes - Unblocking Upstream PR Work
+
+**Summary:** Fixed 6 ESLint errors causing CI failures, enabling main workflow to pass
+
+**Session Focus:** Resolving CI lint failures to unblock upstream PR work
+
+**Changes Made:**
+- Modified: `client/src/services/assessment/__tests__/SecurityAssessor-VulnerableTestbed.integration.test.ts`
+  - Removed 3 unused imports: TESTBED_CONFIG, EXPECTED_VULNERABILITIES, VULNERABLE_TOOL_NAMES
+- Modified: `client/src/services/assessment/__tests__/TemporalAssessor.test.ts`
+  - Changed `let toolsCalled` to `const toolsCalled` (never reassigned)
+- Modified: `client/src/services/assessment/config/annotationPatterns.ts`
+  - Removed unused `error` variable in catch block (bare `catch`)
+- Modified: `client/src/services/assessment/modules/ManifestValidationAssessor.ts`
+  - Removed unused `error` variable in catch block (bare `catch`)
+
+**Key Decisions:**
+- Used bare `catch` instead of `catch (_error)` for unused error variables (cleaner syntax)
+- Removed unused imports entirely rather than prefixing with underscore
+
+**Next Steps:**
+- Monitor upstream PRs #990 and #991 for review feedback
+- Address any reviewer comments on the security PRs
+
+**Notes:**
+- CI now fully passing: Playwright Tests (2m21s) and main workflow (5m3s)
+- 128 warnings remain but do not block CI (only errors block)
+- This clears the path for upstream contribution work
+
+---
+
+## 2025-12-28: FunctionalityAssessor Enhancement from Code Review
+
+**Summary:** Enhanced FunctionalityAssessor with 6 improvements from code review, adding parameter cleaning, output schema validation, content type tracking, and updated mcp-auditor UI to display the new responseMetadata.
+
+**Session Focus:** Code review comparing FunctionalityAssessor with original inspector's tool parsing, implementing enhancement opportunities identified.
+
+**Changes Made:**
+- `client/src/services/assessment/modules/FunctionalityAssessor.ts` - Added cleanParams, $ref resolution, union type normalization
+- `client/src/services/assessment/ResponseValidator.ts` - Added extractResponseMetadata(), output schema validation, content type tracking
+- `client/src/lib/assessmentTypes.ts` - Added ResponseMetadata interface, updated ToolTestResult
+- `~/mcp-auditor/src/types/assessment.ts` - Added ResponseMetadata type
+- `~/mcp-auditor/src/components/developer-portal/InspectorModuleDetails.tsx` - Added responseMetadata display UI
+
+**Key Decisions:**
+- All new fields added as optional for backward compatibility
+- Output schema validation uses existing AJV infrastructure from schemaUtils.ts
+- Content type tracking includes text, image, resource, resource_link, audio
+- P0/P1/P2 priority system for implementation order
+
+**Next Steps:**
+- Test with MCP servers that return images or resources
+- Test with servers that have outputSchema defined
+- Consider adding aggregate statistics to Functionality module summary
+
+**Notes:**
+- 953 tests passing after changes
+- mcp-auditor build succeeded
+- Cross-project enhancement (inspector + mcp-auditor)
+
+---

