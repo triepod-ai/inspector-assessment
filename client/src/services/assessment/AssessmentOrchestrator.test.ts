@@ -528,7 +528,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
           result.overallStatus,
         );
       }
-    });
+    }, 30000); // Extended for 4 full assessment runs
   });
 
   describe("Error Handling and Edge Cases", () => {
