@@ -325,6 +325,7 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
       prohibitedLibraries: true,
       manifestValidation: true,
       portability: true,
+      temporal: true, // Rug pull / temporal behavior detection
     };
   }
 

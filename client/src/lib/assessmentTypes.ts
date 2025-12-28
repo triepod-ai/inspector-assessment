@@ -972,6 +972,7 @@ export interface TemporalToolResult {
   pattern: "RUG_PULL_TEMPORAL" | null;
   severity: "HIGH" | "MEDIUM" | "NONE";
   reducedInvocations?: boolean; // True if destructive tool detection applied
+  note?: string; // Additional context (e.g., stateful tool with expected variation)
   evidence?: {
     safeResponseExample: unknown;
     maliciousResponseExample: unknown;

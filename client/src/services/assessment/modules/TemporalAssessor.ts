@@ -56,6 +56,23 @@ export class TemporalAssessor extends BaseAssessor {
   // P2-2: Per-invocation timeout to prevent long-running tools from blocking
   private readonly PER_INVOCATION_TIMEOUT = 10_000; // 10 seconds
 
+  /**
+   * Tool name patterns that are expected to have state-dependent responses.
+   * These tools legitimately return different results based on data state,
+   * which is NOT a rug pull vulnerability (e.g., search returning more results
+   * after other tools have stored data).
+   */
+  private readonly STATEFUL_TOOL_PATTERNS = [
+    "search",
+    "list",
+    "query",
+    "find",
+    "get",
+    "fetch",
+    "read",
+    "browse",
+  ];
+
   constructor(config: AssessmentConfiguration) {
     super(config);
     this.invocationsPerTool = config.temporalInvocations ?? 25;
@@ -194,13 +211,30 @@ export class TemporalAssessor extends BaseAssessor {
     const deviations: number[] = [];
     const errors: number[] = [];
 
+    // For stateful tools (search, list, etc.), use schema comparison instead of exact match
+    // These tools legitimately return different content based on data state
+    const isStateful = this.isStatefulTool(tool);
+
     for (let i = 1; i < responses.length; i++) {
       if (responses[i].error) {
         errors.push(i + 1); // Track errors as potential indicators
         deviations.push(i + 1);
       } else {
-        const normalized = this.normalizeResponse(responses[i].response);
-        if (normalized !== baseline) {
+        let isDifferent: boolean;
+        if (isStateful) {
+          // Schema-only comparison for stateful tools
+          // Content can vary, but field names should remain consistent
+          isDifferent = !this.compareSchemas(
+            responses[0].response,
+            responses[i].response,
+          );
+        } else {
+          // Exact comparison for non-stateful tools
+          const normalized = this.normalizeResponse(responses[i].response);
+          isDifferent = normalized !== baseline;
+        }
+
+        if (isDifferent) {
           deviations.push(i + 1); // 1-indexed
         }
       }
@@ -228,6 +262,11 @@ export class TemporalAssessor extends BaseAssessor {
               responses[deviations[0] - 1]?.response ?? null,
           }
         : undefined,
+      // Add note for stateful tools that passed schema check
+      note:
+        isStateful && !isVulnerable
+          ? "Stateful tool - content variation expected, schema consistent"
+          : undefined,
     };
   }
 
@@ -336,6 +375,72 @@ export class TemporalAssessor extends BaseAssessor {
   private isDestructiveTool(tool: Tool): boolean {
     const name = tool.name.toLowerCase();
     return this.DESTRUCTIVE_PATTERNS.some((p) => name.includes(p));
+  }
+
+  /**
+   * Check if a tool is expected to have state-dependent behavior.
+   * Stateful tools (search, list, etc.) legitimately return different
+   * results as underlying data changes - this is NOT a rug pull.
+   */
+  private isStatefulTool(tool: Tool): boolean {
+    const toolName = tool.name.toLowerCase();
+    return this.STATEFUL_TOOL_PATTERNS.some((pattern) =>
+      toolName.includes(pattern),
+    );
+  }
+
+  /**
+   * Compare response schemas (field names) rather than full content.
+   * Stateful tools may have different values but should have consistent fields.
+   *
+   * For stateful tools, allows schema growth (empty arrays → populated arrays)
+   * but flags when baseline fields disappear (suspicious behavior).
+   */
+  private compareSchemas(response1: unknown, response2: unknown): boolean {
+    const fields1 = this.extractFieldNames(response1).sort();
+    const fields2 = this.extractFieldNames(response2).sort();
+
+    // Check for exact match (handles non-array cases)
+    const exactMatch = fields1.join(",") === fields2.join(",");
+    if (exactMatch) return true;
+
+    // For stateful tools, allow schema to grow (empty arrays → populated)
+    // Baseline (fields1) can be a subset of later responses (fields2)
+    // But fields2 cannot have FEWER fields than baseline (that's suspicious)
+    const set2 = new Set(fields2);
+    const baselineIsSubset = fields1.every((f) => set2.has(f));
+
+    return baselineIsSubset;
+  }
+
+  /**
+   * Extract all field names from an object recursively.
+   * Handles arrays by sampling the first element's schema with [] notation.
+   */
+  private extractFieldNames(obj: unknown, prefix = ""): string[] {
+    if (obj === null || obj === undefined || typeof obj !== "object") return [];
+
+    const fields: string[] = [];
+
+    // Handle arrays: sample first element's schema
+    if (Array.isArray(obj)) {
+      if (obj.length > 0 && typeof obj[0] === "object" && obj[0] !== null) {
+        const arrayItemFields = this.extractFieldNames(obj[0], `${prefix}[]`);
+        fields.push(...arrayItemFields);
+      }
+      return fields;
+    }
+
+    // Handle objects
+    for (const [key, value] of Object.entries(obj)) {
+      const fieldPath = prefix ? `${prefix}.${key}` : key;
+      fields.push(fieldPath);
+
+      if (typeof value === "object" && value !== null) {
+        fields.push(...this.extractFieldNames(value, fieldPath));
+      }
+    }
+    return fields;
   }
 
   private determineTemporalStatus(

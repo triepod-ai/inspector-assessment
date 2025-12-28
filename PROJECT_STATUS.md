@@ -410,3 +410,30 @@ Standard assessments call tools with many different payloads but never call the 
 - All documentation now consistent with latest A/B comparison testing methodology
 
 ---
+
+## 2025-12-28: Code Review Warning Fixes for Test Assertions
+
+**Summary:** Addressed code review warnings by fixing test assertions and adding documentation
+
+**Session Focus:** Address code review warnings from test fix changes (brokenTools assertion and timeout documentation)
+
+**Changes Made:**
+- `client/src/services/assessment/performance.test.ts` - Replaced no-op brokenTools assertion with tool accounting verification (working + broken = total)
+- `client/src/services/__tests__/assessmentService.test.ts` - Added timeout math documentation and totalTestsRun calculation breakdown
+- `client/src/services/assessment/AssessmentOrchestrator.test.ts` - Added timeout documentation
+
+**Key Decisions:**
+- Use tool accounting verification instead of simple >= 0 assertion to ensure stress test exercises failure paths
+- Document timeout rationale: 4 iterations x ~5-7s per assessment = 20-28s execution time
+- Add totalTestsRun calculation breakdown: 5 tools x 18 attack patterns x ~3 payloads = ~270 security tests
+
+**Next Steps:**
+- Continue monitoring test stability with expanded security patterns
+- Consider publishing v1.16.2 if needed
+
+**Notes:**
+- All 953 tests passing
+- Testbed validation confirmed: 50 vulnerabilities (vulnerable server) vs 0 (hardened server)
+- Commit: 9e05f02 fix(tests): address code review warnings for test assertions
+
+---
