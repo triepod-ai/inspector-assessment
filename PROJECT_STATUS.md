@@ -2,7 +2,7 @@
 
 ## Current Version
 
-- **Version**: 1.14.0 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.16.1 (published to npm as "@bryan-thompson/inspector-assessment")
 
 **Changes Made:**
 - Added Privacy Policy URL Validator - validates accessibility of privacy_policies URLs in manifest
@@ -87,6 +87,37 @@ node cli/build/assess-full.js --server <name> --config <path> --no-resume
 - Two-team workflow enables parallel development: inspector emits events, auditor consumes them
 - Slash command provides reproducible hand-off template for future enhancement sessions
 - Version 1.11.0 ready for integration into mcp-auditor v1.4.0 roadmap
+
+---
+
+## 2025-12-28: v1.16.1 - Code Review Fixes & Documentation Clarification
+
+**Summary:** Addressed code review suggestions from code-reviewer-pro agent before npm publish. Fixed ordering mismatch, added JSDoc comments, and clarified testbed documentation.
+
+**Session Focus:**
+Code review of unpublished changes since v1.16.0, addressing all reviewer suggestions before release.
+
+**Changes Made:**
+- Modified `cli/src/assess-full.ts` - Aligned destructuring order with display order in displaySummary() for better maintainability
+- Modified `client/src/lib/assessmentTypes.ts` - Added JSDoc comments to new capability assessor types (resources, prompts, crossCapability)
+- Modified `docs/mcp_vulnerability_testbed.md` - Clarified tool count breakdown: 18 = 10 vulnerable + 6 safe + 2 utility (get_testbed_info, reset_testbed_state)
+
+**Key Decisions:**
+- Patch version bump (1.16.0 → 1.16.1) for non-functional improvements
+- Addressed all 3 reviewer suggestions plus 1 warning from code-reviewer-pro
+- Deferred CI/CD health check suggestion (docs only, not blocking)
+
+**Code Review Results:**
+- Critical Issues: 0
+- Warnings: 1 (fixed - ordering mismatch)
+- Suggestions: 3 (all addressed)
+- Overall: APPROVE
+
+**Notes:**
+- 948 tests passing (5 pre-existing timeout failures in documentation variation tests, unrelated to changes)
+- All 4 npm packages published successfully
+- Git tag v1.16.1 pushed to origin/main
+- Verified: `npm view @bryan-thompson/inspector-assessment version` → 1.16.1
 
 ---
 
