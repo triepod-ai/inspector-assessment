@@ -29,6 +29,11 @@ jobs:
           cd ..
           npm install --no-package-lock --ignore-scripts
 
+      - name: Build client library (required by CLI)
+        run: |
+          cd ..
+          npm run build-client
+
       - name: Build CLI
         run: npm run build
 
