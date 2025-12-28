@@ -757,6 +757,11 @@ function displaySummary(results: MCPDirectoryAssessment) {
     mcpSpecCompliance,
     prohibitedLibraries,
     manifestValidation,
+    usability,
+    temporal,
+    resources,
+    prompts,
+    crossCapability,
   } = results;
 
   console.log("\n" + "=".repeat(70));
@@ -775,12 +780,17 @@ function displaySummary(results: MCPDirectoryAssessment) {
     ["Security", security],
     ["Documentation", documentation],
     ["Error Handling", errorHandling],
+    ["Usability", usability],
     ["MCP Spec Compliance", mcpSpecCompliance],
     ["AUP Compliance", aupCompliance],
     ["Tool Annotations", toolAnnotations],
     ["Prohibited Libraries", prohibitedLibraries],
     ["Manifest Validation", manifestValidation],
     ["Portability", portability],
+    ["Temporal", temporal],
+    ["Resources", resources],
+    ["Prompts", prompts],
+    ["Cross-Capability", crossCapability],
   ];
 
   for (const [name, module] of modules) {

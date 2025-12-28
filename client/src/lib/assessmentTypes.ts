@@ -623,6 +623,11 @@ export interface MCPDirectoryAssessment {
   authentication?: AuthenticationAssessment;
   temporal?: TemporalAssessment;
 
+  // New capability assessors (resources, prompts, cross-capability)
+  resources?: ResourceAssessment;
+  prompts?: PromptAssessment;
+  crossCapability?: CrossCapabilitySecurityAssessment;
+
   // Overall assessment
   overallStatus: AssessmentStatus;
   summary: string;
