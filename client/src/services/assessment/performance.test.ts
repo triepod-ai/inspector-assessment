@@ -582,8 +582,12 @@ describe("Assessment Performance Benchmarks", () => {
       expect(executionTime).toBeLessThan(30000); // Should complete within 30 seconds even under stress
 
       // Should handle failures gracefully (5% random failure rate means 0-5 failures typically)
-      expect(result.functionality.brokenTools.length).toBeGreaterThanOrEqual(0); // May have some failures
-      expect(result.functionality.workingTools).toBeGreaterThan(30); // But most should work
+      // Verify all tools are accounted for (working + broken = total)
+      expect(
+        result.functionality.brokenTools.length +
+          result.functionality.workingTools,
+      ).toBe(result.functionality.totalTools);
+      expect(result.functionality.workingTools).toBeGreaterThan(30); // Most should work
 
       const memoryIncreaseMB =
         (finalMemory.heapUsed - initialMemory.heapUsed) / 1024 / 1024;

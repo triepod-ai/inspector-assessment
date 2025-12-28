@@ -528,7 +528,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
           result.overallStatus,
         );
       }
-    }, 30000); // Extended for 4 full assessment runs
+    }, 30000); // 4 iterations × ~5-7s per assessment = 20-28s execution time
   });
 
   describe("Error Handling and Edge Cases", () => {

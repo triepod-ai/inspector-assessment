@@ -398,7 +398,7 @@ describe("MCPAssessmentService", () => {
         // Should handle timeouts and not crash
         expect(result.security).toBeDefined();
         expect(result.functionality.brokenTools.length).toBeGreaterThan(0);
-      }, 30000); // Extended for comprehensive security testing
+      }, 30000); // Single comprehensive security assessment can take 5-8s with 18 attack patterns
 
       it("should distinguish between blocked injections and vulnerabilities", async () => {
         // Simulate a server that properly blocks injections by throwing errors
@@ -799,7 +799,10 @@ describe("MCPAssessmentService", () => {
         expect(result.functionality.brokenTools.length).toBeGreaterThan(0);
         // Comprehensive mode makes multiple calls per tool - verify reasonable total
         expect(result.totalTestsRun).toBeGreaterThan(0);
-        expect(result.totalTestsRun).toBeLessThan(500); // Sanity check (increased for expanded security patterns: 18 attack types)
+        // Sanity check: 5 tools × 18 attack patterns × ~3 payloads = ~270 security tests
+        // Plus functionality (~25), error handling (~20), documentation (~10), usability (~10)
+        // Maximum expected: ~335 tests, limit set to 500 for buffer
+        expect(result.totalTestsRun).toBeLessThan(500);
       });
 
       it("should handle partial tool execution failures", async () => {
@@ -1006,7 +1009,7 @@ Some inline \`code\` doesn't count.
             true,
           );
         }
-      }, 30000);
+      }, 30000); // 4 iterations × ~5-7s per assessment = 20-28s execution time
 
       it("should detect usage guide variations", async () => {
         const usageVariations = [
@@ -1036,7 +1039,7 @@ Some inline \`code\` doesn't count.
 
           expect(result.documentation.metrics.hasUsageGuide).toBe(true);
         }
-      }, 30000);
+      }, 30000); // 4 iterations × ~5-7s per assessment = 20-28s execution time
 
       it("should handle multi-language documentation", async () => {
         const multiLangReadme = `
