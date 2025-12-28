@@ -61,6 +61,11 @@ export class TemporalAssessor extends BaseAssessor {
    * These tools legitimately return different results based on data state,
    * which is NOT a rug pull vulnerability (e.g., search returning more results
    * after other tools have stored data).
+   *
+   * NOTE: Uses substring matching, so "get" matches "get_user", "forget",
+   * "target", etc. This favors recall over precision - we prefer lenient
+   * schema comparison for edge cases over false positives on legitimate tools.
+   * Consider word-boundary regex if false positives become problematic.
    */
   private readonly STATEFUL_TOOL_PATTERNS = [
     "search",
@@ -214,6 +219,9 @@ export class TemporalAssessor extends BaseAssessor {
     // For stateful tools (search, list, etc.), use schema comparison instead of exact match
     // These tools legitimately return different content based on data state
     const isStateful = this.isStatefulTool(tool);
+    if (isStateful) {
+      this.log(`${tool.name} classified as stateful - using schema comparison`);
+    }
 
     for (let i = 1; i < responses.length; i++) {
       if (responses[i].error) {
@@ -399,6 +407,12 @@ export class TemporalAssessor extends BaseAssessor {
   private compareSchemas(response1: unknown, response2: unknown): boolean {
     const fields1 = this.extractFieldNames(response1).sort();
     const fields2 = this.extractFieldNames(response2).sort();
+
+    // Edge case: empty baseline with populated later response is suspicious
+    // An attacker could start with {} then switch to content with malicious fields
+    if (fields1.length === 0 && fields2.length > 0) {
+      return false; // Flag as schema mismatch
+    }
 
     // Check for exact match (handles non-array cases)
     const exactMatch = fields1.join(",") === fields2.join(",");
