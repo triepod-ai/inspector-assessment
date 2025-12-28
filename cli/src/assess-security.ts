@@ -14,6 +14,87 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { execSync } from "child_process";
+
+/**
+ * Validate that a command is safe to execute
+ * - Must be an absolute path or resolvable via PATH
+ * - Must not contain shell metacharacters
+ */
+function validateCommand(command: string): void {
+  // Check for shell metacharacters that could indicate injection
+  const dangerousChars = /[;&|`$(){}[\]<>!\\]/;
+  if (dangerousChars.test(command)) {
+    throw new Error(
+      `Invalid command: contains shell metacharacters: ${command}`,
+    );
+  }
+
+  // Verify the command exists and is executable
+  try {
+    // Use 'which' on Unix-like systems, 'where' on Windows
+    const whichCmd = process.platform === "win32" ? "where" : "which";
+    execSync(`${whichCmd} "${command}"`, { stdio: "pipe" });
+  } catch {
+    // Check if it's an absolute path that exists
+    if (path.isAbsolute(command) && fs.existsSync(command)) {
+      try {
+        fs.accessSync(command, fs.constants.X_OK);
+        return; // Command exists and is executable
+      } catch {
+        throw new Error(`Command not executable: ${command}`);
+      }
+    }
+    throw new Error(`Command not found: ${command}`);
+  }
+}
+
+/**
+ * Validate environment variables from config
+ * - Keys must be valid env var names (alphanumeric + underscore)
+ * - Values should not contain null bytes
+ */
+function validateEnvVars(
+  env: Record<string, string> | undefined,
+): Record<string, string> {
+  if (!env) return {};
+
+  const validatedEnv: Record<string, string> = {};
+  const validKeyPattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+  for (const [key, value] of Object.entries(env)) {
+    // Validate key format
+    if (!validKeyPattern.test(key)) {
+      console.warn(
+        `Skipping invalid environment variable name: ${key} (must match [a-zA-Z_][a-zA-Z0-9_]*)`,
+      );
+      continue;
+    }
+
+    // Check for null bytes in value (could truncate strings)
+    if (typeof value === "string" && value.includes("\0")) {
+      console.warn(`Skipping environment variable with null byte: ${key}`);
+      continue;
+    }
+
+    validatedEnv[key] = String(value);
+  }
+
+  return validatedEnv;
+}
+
+/**
+ * Safely parse JSON with error handling
+ */
+function safeJsonParse<T>(content: string, filePath: string): T {
+  try {
+    return JSON.parse(content) as T;
+  } catch (error) {
+    throw new Error(
+      `Failed to parse JSON from ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
@@ -33,6 +114,31 @@ import {
 import { AssessmentContext } from "../../client/lib/services/assessment/AssessmentOrchestrator.js";
 
 interface ServerConfig {
+  transport?: "stdio" | "http" | "sse";
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  url?: string;
+}
+
+/**
+ * Config file structure for Claude Desktop format
+ */
+interface ClaudeDesktopConfigFile {
+  mcpServers?: Record<
+    string,
+    {
+      command?: string;
+      args?: string[];
+      env?: Record<string, string>;
+    }
+  >;
+}
+
+/**
+ * Config file structure for direct config format
+ */
+interface DirectConfigFile {
   transport?: "stdio" | "http" | "sse";
   command?: string;
   args?: string[];
@@ -65,41 +171,59 @@ function loadServerConfig(
   for (const tryPath of possiblePaths) {
     if (!fs.existsSync(tryPath)) continue;
 
-    const config = JSON.parse(fs.readFileSync(tryPath, "utf-8"));
+    const rawConfig = safeJsonParse<unknown>(
+      fs.readFileSync(tryPath, "utf-8"),
+      tryPath,
+    );
 
-    if (config.mcpServers && config.mcpServers[serverName]) {
-      const serverConfig = config.mcpServers[serverName];
-      return {
-        transport: "stdio",
-        command: serverConfig.command,
-        args: serverConfig.args || [],
-        env: serverConfig.env || {},
-      };
-    }
-
+    // Type guard: check if it's a Claude Desktop config with mcpServers
     if (
-      config.url ||
-      config.transport === "http" ||
-      config.transport === "sse"
+      rawConfig &&
+      typeof rawConfig === "object" &&
+      "mcpServers" in rawConfig
     ) {
-      if (!config.url) {
-        throw new Error(
-          `Invalid server config: transport is '${config.transport}' but 'url' is missing`,
-        );
+      const desktopConfig = rawConfig as ClaudeDesktopConfigFile;
+      const serverConfig = desktopConfig.mcpServers?.[serverName];
+      if (serverConfig) {
+        return {
+          transport: "stdio",
+          command: serverConfig.command,
+          args: serverConfig.args || [],
+          env: serverConfig.env || {},
+        };
       }
-      return {
-        transport: config.transport || "http",
-        url: config.url,
-      };
     }
 
-    if (config.command) {
-      return {
-        transport: "stdio",
-        command: config.command,
-        args: config.args || [],
-        env: config.env || {},
-      };
+    // Type guard: check if it's a direct config file
+    if (rawConfig && typeof rawConfig === "object") {
+      const directConfig = rawConfig as DirectConfigFile;
+
+      // Check for HTTP/SSE transport
+      if (
+        directConfig.url ||
+        directConfig.transport === "http" ||
+        directConfig.transport === "sse"
+      ) {
+        if (!directConfig.url) {
+          throw new Error(
+            `Invalid server config: transport is '${directConfig.transport}' but 'url' is missing`,
+          );
+        }
+        return {
+          transport: directConfig.transport || "http",
+          url: directConfig.url,
+        };
+      }
+
+      // Check for stdio transport
+      if (directConfig.command) {
+        return {
+          transport: "stdio",
+          command: directConfig.command,
+          args: directConfig.args || [],
+          env: directConfig.env || {},
+        };
+      }
     }
   }
 
@@ -129,6 +253,13 @@ async function connectToServer(config: ServerConfig): Promise<Client> {
     default:
       if (!config.command)
         throw new Error("Command required for stdio transport");
+
+      // Validate command before execution to prevent injection attacks
+      validateCommand(config.command);
+
+      // Validate and sanitize environment variables from config
+      const validatedEnv = validateEnvVars(config.env);
+
       transport = new StdioClientTransport({
         command: config.command,
         args: config.args,
@@ -136,7 +267,7 @@ async function connectToServer(config: ServerConfig): Promise<Client> {
           ...(Object.fromEntries(
             Object.entries(process.env).filter(([, v]) => v !== undefined),
           ) as Record<string, string>),
-          ...config.env,
+          ...validatedEnv,
         },
         stderr: "pipe",
       });

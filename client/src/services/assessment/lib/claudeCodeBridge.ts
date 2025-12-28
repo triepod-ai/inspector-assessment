@@ -11,7 +11,7 @@
  * - Documentation quality assessment
  */
 
-import { execSync } from "child_process";
+import { execFileSync, execSync } from "child_process";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { AUPCategory } from "@/lib/assessmentTypes";
 
@@ -184,6 +184,7 @@ export class ClaudeCodeBridge {
 
   /**
    * Execute Claude CLI with a prompt
+   * Uses execFileSync to avoid shell injection vulnerabilities
    */
   private executeClaudeCommand(prompt: string): ClaudeCodeResponse {
     const startTime = Date.now();
@@ -191,10 +192,9 @@ export class ClaudeCodeBridge {
     try {
       const timeout = this.config.timeout || 30000;
 
-      // Escape the prompt for shell execution
-      const escapedPrompt = prompt.replace(/'/g, "'\\''");
-
-      const output = execSync(`claude --print '${escapedPrompt}'`, {
+      // Use execFileSync with argument array to prevent shell injection
+      // This avoids spawning a shell and passes arguments directly
+      const output = execFileSync("claude", ["--print", prompt], {
         encoding: "utf-8",
         timeout,
         stdio: ["pipe", "pipe", "pipe"],

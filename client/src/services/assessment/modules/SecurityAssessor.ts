@@ -14,7 +14,10 @@ import {
 } from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
-import { CompatibilityCallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import {
+  CompatibilityCallToolResult,
+  Tool,
+} from "@modelcontextprotocol/sdk/types.js";
 import {
   getAllAttackPatterns,
   getPayloadsForAttack,
@@ -114,7 +117,7 @@ export class SecurityAssessor extends BaseAssessor {
   /**
    * Select tools for testing based on configuration
    */
-  private selectToolsForTesting(tools: any[]): any[] {
+  private selectToolsForTesting(tools: Tool[]): Tool[] {
     // Prefer new selectedToolsForTesting configuration
     // Note: undefined/null means "test all" (default), empty array [] means "test none" (explicit)
     if (this.config.selectedToolsForTesting !== undefined) {
@@ -484,7 +487,7 @@ export class SecurityAssessor extends BaseAssessor {
    * Test tool with a specific payload
    */
   private async testPayload(
-    tool: any,
+    tool: Tool,
     attackName: string,
     payload: SecurityPayload,
     callTool: (
@@ -1433,9 +1436,6 @@ export class SecurityAssessor extends BaseAssessor {
    * Layer 2: Verify NO execution evidence (defense-in-depth)
    */
   private isReflectionResponse(responseText: string): boolean {
-    console.log("[DIAG] isReflectionResponse called");
-    console.log("[DIAG] Response preview:", responseText.substring(0, 200));
-
     // Status message patterns (NEW)
     const statusPatterns = [
       // "Action executed successfully: <anything>" (generic status message)
@@ -1523,22 +1523,9 @@ export class SecurityAssessor extends BaseAssessor {
     ];
 
     // LAYER 1: Check for reflection/status patterns
-    const matchedPatterns: string[] = [];
-    const hasReflection = reflectionPatterns.some((pattern) => {
-      const matches = pattern.test(responseText);
-      if (matches) {
-        matchedPatterns.push(pattern.source.substring(0, 50));
-      }
-      return matches;
-    });
-
-    console.log("[DIAG] Has reflection:", hasReflection);
-    if (matchedPatterns.length > 0) {
-      console.log(
-        "[DIAG] Matched reflection patterns:",
-        matchedPatterns.join(", "),
-      );
-    }
+    const hasReflection = reflectionPatterns.some((pattern) =>
+      pattern.test(responseText),
+    );
 
     if (hasReflection) {
       // LAYER 2: Defense-in-depth - verify NO execution evidence
@@ -1568,35 +1555,18 @@ export class SecurityAssessor extends BaseAssessor {
           : this.detectExecutionArtifacts(resultText) ||
             this.detectExecutionArtifacts(outputFields);
 
-        console.log(
-          "[DIAG] JSON mode - checking execution in result/output fields only",
-        );
-        console.log("[DIAG] Has execution in output:", hasExecutionInOutput);
-
         if (hasExecutionInOutput) {
-          console.log(
-            "[DIAG] RESULT: Reflection + Execution in output = VULNERABLE (false)",
-          );
-          return false;
+          return false; // Reflection + Execution in output = VULNERABLE
         }
-        console.log("[DIAG] RESULT: Reflection + clean output = SAFE (true)");
-        return true;
+        return true; // Reflection + clean output = SAFE
       } catch {
         // Not JSON, check entire response for execution
         const hasExecution = this.detectExecutionArtifacts(responseText);
-        console.log(
-          "[DIAG] Text mode - Has execution artifacts:",
-          hasExecution,
-        );
 
         if (hasExecution) {
-          console.log(
-            "[DIAG] RESULT: Reflection + Execution = VULNERABLE (false)",
-          );
-          return false;
+          return false; // Reflection + Execution = VULNERABLE
         }
-        console.log("[DIAG] RESULT: Reflection only = SAFE (true)");
-        return true;
+        return true; // Reflection only = SAFE
       }
     }
 
@@ -1633,8 +1603,6 @@ export class SecurityAssessor extends BaseAssessor {
    * MEDIUM confidence: Contextual patterns (root alone, paths)
    */
   private detectExecutionArtifacts(responseText: string): boolean {
-    console.log("[DIAG] detectExecutionArtifacts called");
-
     const executionIndicators = [
       // HIGH CONFIDENCE - System files (requires format)
       /[a-z]+:x:\d+:\d+:/i, // passwd: "root:x:0:0:"
@@ -1661,24 +1629,7 @@ export class SecurityAssessor extends BaseAssessor {
       /PID:\s*\d{3,}/i, // Process ID
     ];
 
-    const matchedExecutionPatterns: string[] = [];
-    const found = executionIndicators.some((pattern) => {
-      const matches = pattern.test(responseText);
-      if (matches) {
-        matchedExecutionPatterns.push(pattern.source.substring(0, 50));
-      }
-      return matches;
-    });
-
-    if (matchedExecutionPatterns.length > 0) {
-      console.log(
-        "[DIAG] Matched execution patterns:",
-        matchedExecutionPatterns.join(", "),
-      );
-    }
-    console.log("[DIAG] Execution artifacts found:", found);
-
-    return found;
+    return executionIndicators.some((pattern) => pattern.test(responseText));
   }
 
   /**

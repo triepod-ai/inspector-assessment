@@ -76,6 +76,25 @@ export async function handleAssessmentTabSelect(
   listTools: () => Promise<void>,
   clearError: (key: string) => void,
 ): Promise<void> {
+  // Input validation
+  if (!Array.isArray(currentTools)) {
+    console.warn(
+      "handleAssessmentTabSelect: currentTools must be an array, got:",
+      typeof currentTools,
+    );
+    return;
+  }
+
+  if (typeof listTools !== "function") {
+    console.error("handleAssessmentTabSelect: listTools must be a function");
+    return;
+  }
+
+  if (typeof clearError !== "function") {
+    console.error("handleAssessmentTabSelect: clearError must be a function");
+    return;
+  }
+
   if (currentTools.length === 0 && isAssessmentEnabled(serverCapabilities)) {
     try {
       clearError("tools");

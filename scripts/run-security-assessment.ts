@@ -15,6 +15,87 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { EventEmitter } from "events";
+import { execSync } from "child_process";
+
+/**
+ * Validate that a command is safe to execute
+ * - Must be an absolute path or resolvable via PATH
+ * - Must not contain shell metacharacters
+ */
+function validateCommand(command: string): void {
+  // Check for shell metacharacters that could indicate injection
+  const dangerousChars = /[;&|`$(){}[\]<>!\\]/;
+  if (dangerousChars.test(command)) {
+    throw new Error(
+      `Invalid command: contains shell metacharacters: ${command}`,
+    );
+  }
+
+  // Verify the command exists and is executable
+  try {
+    // Use 'which' on Unix-like systems, 'where' on Windows
+    const whichCmd = process.platform === "win32" ? "where" : "which";
+    execSync(`${whichCmd} "${command}"`, { stdio: "pipe" });
+  } catch {
+    // Check if it's an absolute path that exists
+    if (path.isAbsolute(command) && fs.existsSync(command)) {
+      try {
+        fs.accessSync(command, fs.constants.X_OK);
+        return; // Command exists and is executable
+      } catch {
+        throw new Error(`Command not executable: ${command}`);
+      }
+    }
+    throw new Error(`Command not found: ${command}`);
+  }
+}
+
+/**
+ * Validate environment variables from config
+ * - Keys must be valid env var names (alphanumeric + underscore)
+ * - Values should not contain null bytes
+ */
+function validateEnvVars(
+  env: Record<string, string> | undefined,
+): Record<string, string> {
+  if (!env) return {};
+
+  const validatedEnv: Record<string, string> = {};
+  const validKeyPattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+  for (const [key, value] of Object.entries(env)) {
+    // Validate key format
+    if (!validKeyPattern.test(key)) {
+      console.warn(
+        `Skipping invalid environment variable name: ${key} (must match [a-zA-Z_][a-zA-Z0-9_]*)`,
+      );
+      continue;
+    }
+
+    // Check for null bytes in value (could truncate strings)
+    if (typeof value === "string" && value.includes("\0")) {
+      console.warn(`Skipping environment variable with null byte: ${key}`);
+      continue;
+    }
+
+    validatedEnv[key] = String(value);
+  }
+
+  return validatedEnv;
+}
+
+/**
+ * Safely parse JSON with error handling
+ */
+function safeJsonParse<T>(content: string, filePath: string): T {
+  try {
+    return JSON.parse(content) as T;
+  } catch (error) {
+    throw new Error(
+      `Failed to parse JSON from ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
 
 // Increase max listeners to prevent warning during security testing
 // Security assessment runs 234+ sequential tool calls (tools × 13 patterns × payloads)
@@ -91,7 +172,10 @@ function loadServerConfig(
     throw new Error(`Server config not found: ${finalPath}`);
   }
 
-  const config = JSON.parse(fs.readFileSync(finalPath, "utf-8"));
+  const config = safeJsonParse<Record<string, unknown>>(
+    fs.readFileSync(finalPath, "utf-8"),
+    finalPath,
+  );
 
   // Support both stdio and HTTP/SSE transports
   if (config.url || config.transport === "http" || config.transport === "sse") {
@@ -140,12 +224,19 @@ async function connectToServer(config: ServerConfig): Promise<Client> {
     default:
       if (!config.command)
         throw new Error("Command required for stdio transport");
+
+      // Validate command before execution to prevent injection attacks
+      validateCommand(config.command);
+
+      // Validate and sanitize environment variables from config
+      const validatedEnv = validateEnvVars(config.env);
+
       transport = new StdioClientTransport({
         command: config.command,
         args: config.args,
         env: {
           ...process.env,
-          ...config.env,
+          ...validatedEnv,
         },
         stderr: "pipe",
       });

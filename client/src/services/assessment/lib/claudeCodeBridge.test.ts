@@ -15,22 +15,28 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 // Mock child_process
 jest.mock("child_process", () => ({
   execSync: jest.fn(),
+  execFileSync: jest.fn(),
 }));
 
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 
 const mockedExecSync = execSync as jest.MockedFunction<typeof execSync>;
+const mockedExecFileSync = execFileSync as jest.MockedFunction<
+  typeof execFileSync
+>;
 
 describe("ClaudeCodeBridge", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Default: Claude CLI is available
+    // Default: Claude CLI is available (checked via execSync)
     mockedExecSync.mockImplementation((command: string) => {
       if (command === "which claude") {
         return "/usr/local/bin/claude";
       }
       return "";
     });
+    // Default: execFileSync returns empty (will be overridden in specific tests)
+    mockedExecFileSync.mockReturnValue("");
   });
 
   afterEach(() => {
@@ -139,15 +145,8 @@ describe("ClaudeCodeBridge", () => {
         contextFactors: ["security context", "defensive purpose"],
       });
 
-      mockedExecSync.mockImplementation((command: string) => {
-        if (command === "which claude") {
-          return "/usr/local/bin/claude";
-        }
-        if (command.includes("claude --print")) {
-          return mockResponse;
-        }
-        return "";
-      });
+      // execFileSync is used for the actual claude command
+      mockedExecFileSync.mockReturnValue(mockResponse);
 
       const bridge = new ClaudeCodeBridge(FULL_CLAUDE_CODE_CONFIG);
       const result = await bridge.analyzeAUPViolation("exploit detection", {
@@ -166,14 +165,9 @@ describe("ClaudeCodeBridge", () => {
     });
 
     it("should handle Claude CLI errors gracefully", async () => {
-      mockedExecSync.mockImplementation((command: string) => {
-        if (command === "which claude") {
-          return "/usr/local/bin/claude";
-        }
-        if (command.includes("claude --print")) {
-          throw new Error("CLI timeout");
-        }
-        return "";
+      // execFileSync throws error to simulate CLI timeout
+      mockedExecFileSync.mockImplementation(() => {
+        throw new Error("CLI timeout");
       });
 
       const bridge = new ClaudeCodeBridge({
@@ -205,15 +199,8 @@ describe("ClaudeCodeBridge", () => {
 }
 \`\`\``;
 
-      mockedExecSync.mockImplementation((command: string) => {
-        if (command === "which claude") {
-          return "/usr/local/bin/claude";
-        }
-        if (command.includes("claude --print")) {
-          return mockResponse;
-        }
-        return "";
-      });
+      // execFileSync is used for the actual claude command
+      mockedExecFileSync.mockReturnValue(mockResponse);
 
       const bridge = new ClaudeCodeBridge(FULL_CLAUDE_CODE_CONFIG);
       const result = await bridge.analyzeAUPViolation("violation text", {
@@ -265,15 +252,8 @@ describe("ClaudeCodeBridge", () => {
         misalignmentDetails: null,
       });
 
-      mockedExecSync.mockImplementation((command: string) => {
-        if (command === "which claude") {
-          return "/usr/local/bin/claude";
-        }
-        if (command.includes("claude --print")) {
-          return mockResponse;
-        }
-        return "";
-      });
+      // execFileSync is used for the actual claude command
+      mockedExecFileSync.mockReturnValue(mockResponse);
 
       const bridge = new ClaudeCodeBridge(FULL_CLAUDE_CODE_CONFIG);
       const result = await bridge.inferToolBehavior(mockTool, {
@@ -301,15 +281,8 @@ describe("ClaudeCodeBridge", () => {
           "Tool is marked readOnlyHint: true but appears to be destructive",
       });
 
-      mockedExecSync.mockImplementation((command: string) => {
-        if (command === "which claude") {
-          return "/usr/local/bin/claude";
-        }
-        if (command.includes("claude --print")) {
-          return mockResponse;
-        }
-        return "";
-      });
+      // execFileSync is used for the actual claude command
+      mockedExecFileSync.mockReturnValue(mockResponse);
 
       const bridge = new ClaudeCodeBridge(FULL_CLAUDE_CODE_CONFIG);
       const result = await bridge.inferToolBehavior(mockTool, {
@@ -363,15 +336,8 @@ describe("ClaudeCodeBridge", () => {
         reasoning: "These scenarios test input validation and security",
       });
 
-      mockedExecSync.mockImplementation((command: string) => {
-        if (command === "which claude") {
-          return "/usr/local/bin/claude";
-        }
-        if (command.includes("claude --print")) {
-          return mockResponse;
-        }
-        return "";
-      });
+      // execFileSync is used for the actual claude command
+      mockedExecFileSync.mockReturnValue(mockResponse);
 
       const bridge = new ClaudeCodeBridge(FULL_CLAUDE_CODE_CONFIG);
       const result = await bridge.generateTestScenarios(mockTool, 3);
@@ -400,15 +366,8 @@ describe("ClaudeCodeBridge", () => {
         ],
       });
 
-      mockedExecSync.mockImplementation((command: string) => {
-        if (command === "which claude") {
-          return "/usr/local/bin/claude";
-        }
-        if (command.includes("claude --print")) {
-          return mockResponse;
-        }
-        return "";
-      });
+      // execFileSync is used for the actual claude command
+      mockedExecFileSync.mockReturnValue(mockResponse);
 
       const bridge = new ClaudeCodeBridge(FULL_CLAUDE_CODE_CONFIG);
       const result = await bridge.assessDocumentation(
@@ -435,18 +394,13 @@ describe("ClaudeCodeBridge", () => {
         contextFactors: [],
       });
 
-      mockedExecSync.mockImplementation((command: string) => {
-        if (command === "which claude") {
-          return "/usr/local/bin/claude";
+      // execFileSync is used for the actual claude command - track calls and simulate failure
+      mockedExecFileSync.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          throw new Error("Temporary failure");
         }
-        if (command.includes("claude --print")) {
-          callCount++;
-          if (callCount === 1) {
-            throw new Error("Temporary failure");
-          }
-          return mockResponse;
-        }
-        return "";
+        return mockResponse;
       });
 
       const bridge = new ClaudeCodeBridge({
