@@ -351,3 +351,31 @@ Standard assessments call tools with many different payloads but never call the 
 - Cross-project enhancement (inspector + mcp-auditor)
 
 ---
+
+## 2025-12-28: MCP Vulnerability Testbed Documentation Update
+
+**Summary:** Updated all MCP vulnerability testbed documentation to reflect A/B comparison testing with identical tool names proving pure behavior-based detection.
+
+**Session Focus:** Documentation updates for testbed validation results
+
+**Changes Made:**
+- `/home/bryan/inspector/docs/mcp_vulnerability_testbed.md` - Complete rewrite with A/B comparison design, detection gap table, 1440 tests, 200 vulnerabilities
+- `/home/bryan/inspector/CLAUDE.md` - Updated Vulnerability Testbed Validation section with new server configuration and commands
+- `/home/bryan/mcp-servers/mcp-vulnerable-testbed/VULNERABILITY-COMPARISON-CHART.md` - Updated all 10 tests to show identical tool names between vulnerable and hardened servers
+- `/home/bryan/mcp-servers/mcp-vulnerable-testbed/AUDIT-EXECUTIVE-SUMMARY.md` - Updated metrics (34->200 vulns), added detection gap breakdown, updated Quick Reference
+
+**Key Decisions:**
+- Emphasized that both servers use IDENTICAL tool names but yield 200 vs 0 vulnerabilities
+- This proves inspector uses pure behavior-based detection, not name-based heuristics
+- Updated all metrics: 18 attack patterns, 1440 tests/server, 200 vulnerabilities detected
+
+**Next Steps:**
+- Continue using testbed for inspector changes validation
+- Consider adding to CI/CD pipeline
+
+**Notes:**
+- Validation date: 2025-12-28
+- Inspector Version: 1.16.0
+- All documentation now consistent with latest A/B comparison testing methodology
+
+---

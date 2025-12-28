@@ -83,75 +83,88 @@ npm run assess -- --server <server-name> --config <config.json> --tool <tool-nam
 
 ## Vulnerability Testbed Validation
 
-The inspector includes comprehensive validation using the broken-mcp/fixed-mcp vulnerability testbed servers.
+The inspector includes comprehensive A/B comparison validation using the vulnerable-mcp and hardened-mcp testbed servers.
 
-**Purpose**: Validate pure behavior-based detection logic with ground-truth labeled tools (vulnerable vs safe).
+**Purpose**: Validate pure behavior-based detection logic with ground-truth labeled tools. Both servers use **IDENTICAL tool names** but different implementations to prove detection is behavior-based, not name-based.
+
+**Server Configuration**:
+
+| Server         | Port  | Description                           |
+| -------------- | ----- | ------------------------------------- |
+| vulnerable-mcp | 10900 | 10 vulnerable + 6 safe tools          |
+| hardened-mcp   | 10901 | Same tool names, safe implementations |
 
 **Quick Usage**:
 
 ```bash
-# Run assessment against testbed (pure behavior detection)
-npm run assess -- --server broken-mcp --config /tmp/broken-mcp-config.json
+# Run assessment against both servers
+npm run assess -- --server vulnerable-mcp --config /tmp/vulnerable-mcp-config.json
+npm run assess -- --server hardened-mcp --config /tmp/hardened-mcp-config.json
 
-# Expected results:
-# - 374 tests executed
-# - 20 vulnerabilities detected
-# - 0 false positives on 6 safe tools (100% precision)
+# Expected results (A/B comparison):
+# Vulnerable: 1440 tests, 200 vulnerabilities, FAIL
+# Hardened: 1440 tests, 0 vulnerabilities, PASS
+# Both: 0 false positives on 6 safe tools (100% precision)
 ```
 
-**Testbed Config** (`/tmp/broken-mcp-config.json`):
+**Testbed Configs**:
 
 ```json
-{
-  "transport": "http",
-  "url": "http://localhost:10900/mcp"
-}
+// /tmp/vulnerable-mcp-config.json
+{"transport": "http", "url": "http://localhost:10900/mcp"}
+
+// /tmp/hardened-mcp-config.json
+{"transport": "http", "url": "http://localhost:10901/mcp"}
 ```
 
-**Validation Status**:
+**Validation Status** (2025-12-28):
 
-- ✅ Pure Behavior Detection: 100% precision (0 false positives on 6 safe tools)
-- ✅ 20 vulnerabilities detected across 10 vulnerable tools
-- ✅ Bugs found and fixed during validation (SAFE_STORAGE category, bidirectional reflection patterns)
+- ✅ A/B Detection Gap: 200 vulnerabilities (vulnerable) vs 0 (hardened) with identical tool names
+- ✅ Pure Behavior Detection: 100% precision (0 false positives on both servers)
+- ✅ 18 attack patterns tested per tool (expanded from 8)
+- ✅ Real HTTP tool calls verified inspector findings
 - ✅ Ready for production MCP server assessments
 
 **When to Use Testbed**:
 
-1. **Before Inspector Changes**: Run baseline assessment to record current behavior
-2. **After Inspector Changes**: Verify 0 false positives remain (100% precision)
-3. **Before Release**: Full validation on testbed
+1. **Before Inspector Changes**: Run baseline on both servers
+2. **After Inspector Changes**: Verify A/B detection gap and 0 false positives
+3. **Before Release**: Full validation on both servers
 4. **CI/CD Pipeline**: Automated regression testing
 
-**Key Insight**: Testbed tools include `vulnerable: true/false` flags for **human visual inspection only**. The inspector completely ignores these flags and uses pure behavior detection. This proves the inspector works correctly on real-world servers that don't have security metadata.
+**Key Insight**: Both servers have tools named `vulnerable_calculator_tool`, `vulnerable_system_exec_tool`, etc. The inspector detects 200 vulnerabilities on one server and 0 on the other - proving pure behavior-based detection, not name-based heuristics.
 
 **Validation Commands**:
 
 ```bash
-# Verify zero false positives (critical metric)
-cat /tmp/inspector-assessment-broken-mcp.json | \
+# A/B Comparison (should be 200 vs 0)
+cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '.security.vulnerabilities | length'
+# Expected: 200
+cat /tmp/inspector-assessment-hardened-mcp.json | jq '.security.vulnerabilities | length'
+# Expected: 0
+
+# Verify zero false positives on safe tools (both servers)
+cat /tmp/inspector-assessment-vulnerable-mcp.json | \
   jq '[.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length'
 # Expected: 0
 
-# Check total vulnerabilities detected
-cat /tmp/inspector-assessment-broken-mcp.json | jq '.security.vulnerabilities | length'
-# Expected: 20
-
-# Compare before/after changes
-diff <(cat /tmp/baseline.json | jq '.security.vulnerabilities | length') \
-     <(cat /tmp/after.json | jq '.security.vulnerabilities | length')
+cat /tmp/inspector-assessment-hardened-mcp.json | \
+  jq '[.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length'
+# Expected: 0
 ```
 
 **Acceptance Criteria for Changes**:
 
-- ✅ False positives: 0/6 safe tools
+- ✅ False positives: 0 (both servers, safe tools)
 - ✅ Precision: 100%
-- ✅ Vulnerabilities detected ≥ previous version
+- ✅ Vulnerable server: ≥200 vulnerabilities
+- ✅ Hardened server: 0 vulnerabilities (same tool names!)
 - ✅ No regressions in detection logic
 
 **Detailed Documentation**: See [docs/mcp_vulnerability_testbed.md](docs/mcp_vulnerability_testbed.md) for:
 
-- Complete validation results
-- Bugs found and fixed during validation
+- Complete A/B comparison results
+- Real tool response evidence
 - Detection architecture explanation
 - Testbed configuration and usage
 - CI/CD integration examples
