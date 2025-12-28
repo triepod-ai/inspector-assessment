@@ -275,7 +275,7 @@ export function loadPatternConfig(
       write: userConfig.write ?? DEFAULT_ANNOTATION_PATTERNS.write,
       ambiguous: userConfig.ambiguous ?? DEFAULT_ANNOTATION_PATTERNS.ambiguous,
     };
-  } catch (error) {
+  } catch {
     console.warn(
       `Warning: Could not load pattern config from ${configPath}, using defaults`,
     );

@@ -28,10 +28,7 @@ import {
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import {
-  TESTBED_CONFIG,
-  EXPECTED_VULNERABILITIES,
   EXPECTED_SAFE_TOOLS,
-  VULNERABLE_TOOL_NAMES,
   calculateMetrics,
   checkTestbedHealth,
 } from "./testbed-config";

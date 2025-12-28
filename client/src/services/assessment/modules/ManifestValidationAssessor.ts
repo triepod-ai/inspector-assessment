@@ -544,7 +544,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
           statusCode: response.status,
           contentType: response.headers.get("content-type") || undefined,
         });
-      } catch (error) {
+      } catch {
         // Try GET request as fallback (some servers reject HEAD)
         try {
           const controller = new AbortController();

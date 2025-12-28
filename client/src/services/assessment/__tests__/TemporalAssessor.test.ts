@@ -611,7 +611,7 @@ describe("TemporalAssessor", () => {
       const assessor = new TemporalAssessor(config);
       const tools = [createTool("tool_a"), createTool("tool_b")];
 
-      let toolsCalled: string[] = [];
+      const toolsCalled: string[] = [];
       const context = createMockContext(tools, async (name: string) => {
         toolsCalled.push(name);
         return { ok: true };
