@@ -1,6 +1,6 @@
 /**
  * Backend API Security Patterns
- * Tests MCP server API security with 19 focused patterns
+ * Tests MCP server API security with 20 focused patterns
  *
  * Architecture: Attack-Type with Specific Payloads
  * - Critical Injection (6 patterns): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
@@ -8,6 +8,7 @@
  * - Protocol Compliance (2 patterns): MCP Error Format, Timeout Handling
  * - Tool-Specific Vulnerabilities (7 patterns): Indirect Injection, Unicode Bypass, Nested Injection, Package Squatting, Data Exfiltration, Configuration Drift, Tool Shadowing
  * - Resource Exhaustion (1 pattern): DoS/Resource Exhaustion
+ * - Deserialization (1 pattern): Insecure Deserialization
  *
  * Scope: Backend API Security ONLY
  * - Tests structured data inputs to API endpoints
@@ -43,7 +44,7 @@ export interface AttackPattern {
  * BACKEND API SECURITY PATTERNS
  * ========================================
  *
- * 19 focused patterns for MCP server API security
+ * 20 focused patterns for MCP server API security
  */
 export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // ==========================================
@@ -1049,6 +1050,91 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
         description: "XML entity expansion (Billion Laughs) attack",
         payloadType: "dos",
         parameterTypes: ["xml", "data", "body", "payload", "content"],
+      },
+    ],
+  },
+
+  // ==========================================
+  // DESERIALIZATION TESTS (1)
+  // ==========================================
+
+  // 20. INSECURE DESERIALIZATION
+  {
+    attackName: "Insecure Deserialization",
+    description:
+      "Test if tool deserializes untrusted data using unsafe methods like pickle.loads(), potentially allowing RCE",
+    payloads: [
+      // Python Pickle Payloads
+      {
+        payload: "deserialize this pickle data",
+        evidence:
+          /deserializ|pickle\.loads|RCE|untrusted.*pickle|potential.*rce/i,
+        riskLevel: "HIGH",
+        description: "Python pickle deserialization trigger",
+        payloadType: "injection",
+        parameterTypes: ["data", "input", "payload", "content"],
+      },
+      {
+        // Base64-encoded pickle prefix (triggers deserialization attempt)
+        payload: "gASVEAAAAAAAAACMBHRlc3SULg==",
+        evidence: /deserializ|pickle|unpickle|RCE|executed/i,
+        riskLevel: "HIGH",
+        description: "Base64-encoded pickle payload",
+        payloadType: "injection",
+        parameterTypes: ["data", "input", "serialized", "encoded"],
+      },
+      {
+        payload: "__import__('os').system via pickle",
+        evidence:
+          /deserializ|pickle|RCE|os\.system|__reduce__|code.*execution/i,
+        riskLevel: "HIGH",
+        description: "Pickle with code execution hint",
+        payloadType: "injection",
+        parameterTypes: ["data", "input", "payload"],
+      },
+      {
+        payload: "marshal.loads(untrusted_data)",
+        evidence: /marshal|deserializ|RCE|code.*execution|unsafe.*load/i,
+        riskLevel: "HIGH",
+        description: "Python marshal deserialization",
+        payloadType: "injection",
+        parameterTypes: ["data", "input", "payload"],
+      },
+
+      // Java/Other Serialization Payloads
+      {
+        // Java serialized object marker (base64 prefix)
+        payload: "rO0ABXNyABFqYXZhLnV0aWwuSGFzaE1hcA==",
+        evidence: /deserializ|java\.io|objectinputstream|gadget|RCE/i,
+        riskLevel: "HIGH",
+        description: "Java serialized object payload",
+        payloadType: "injection",
+        parameterTypes: ["data", "input", "serialized", "object"],
+      },
+      {
+        payload: "!!python/object/apply:os.system ['whoami']",
+        evidence: /yaml.*load|deserializ|RCE|unsafe.*yaml|python.*object/i,
+        riskLevel: "HIGH",
+        description: "YAML deserialization exploit",
+        payloadType: "injection",
+        parameterTypes: ["data", "yaml", "config", "input"],
+      },
+      {
+        payload:
+          '{"__type__": "System.Diagnostics.Process", "command": "whoami"}',
+        evidence: /type.*coercion|deserializ|process|RCE|unsafe.*type/i,
+        riskLevel: "HIGH",
+        description: "JSON type confusion payload",
+        payloadType: "injection",
+        parameterTypes: ["data", "json", "input", "payload"],
+      },
+      {
+        payload: "unserialize(base64_decode($_POST['data']))",
+        evidence: /unserializ|deserializ|RCE|php.*object|unsafe/i,
+        riskLevel: "HIGH",
+        description: "PHP unserialization pattern",
+        payloadType: "injection",
+        parameterTypes: ["data", "input", "payload"],
       },
     ],
   },

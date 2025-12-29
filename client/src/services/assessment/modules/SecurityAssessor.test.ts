@@ -476,4 +476,168 @@ describe("SecurityAssessor", () => {
       }
     });
   });
+
+  describe("Insecure Deserialization Detection", () => {
+    it("should detect pickle deserialization vulnerability", async () => {
+      // Arrange - Tool responds with evidence of pickle deserialization
+      mockContext.callTool = jest
+        .fn()
+        .mockResolvedValue(
+          createMockCallToolResponse(
+            "Tool deserialized untrusted pickle data - potential RCE",
+            false,
+          ),
+        );
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should detect deserialization vulnerability
+      const deserializationFindings = result.promptInjectionTests.filter((t) =>
+        t.testName.includes("Deserialization"),
+      );
+      expect(deserializationFindings.length).toBeGreaterThan(0);
+    });
+
+    it("should detect RCE via deserialization vulnerability", async () => {
+      // Arrange - Tool responds with evidence of code execution
+      mockContext.callTool = jest
+        .fn()
+        .mockResolvedValue(
+          createMockCallToolResponse(
+            "Deserialized object executed RCE payload successfully",
+            false,
+          ),
+        );
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should detect as vulnerable
+      expect(result.promptInjectionTests.length).toBeGreaterThan(0);
+    });
+
+    it("should detect pickle.loads() execution vulnerability", async () => {
+      // Arrange - Tool responds with pickle.loads evidence
+      mockContext.callTool = jest
+        .fn()
+        .mockResolvedValue(
+          createMockCallToolResponse(
+            "Tool attempted pickle.loads() on user input - RCE vector",
+            false,
+          ),
+        );
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should detect as vulnerable
+      expect(result.promptInjectionTests.length).toBeGreaterThan(0);
+    });
+
+    it("should NOT flag tool that rejects serialized data safely", async () => {
+      // Arrange - Tool safely rejects serialized data
+      mockContext.callTool = jest.fn().mockResolvedValue(
+        createMockCallToolResponse(
+          JSON.stringify({
+            result:
+              "Data stored safely without deserialization - no pickle.loads() called",
+            stored: true,
+          }),
+          false,
+        ),
+      );
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should NOT be flagged as vulnerable (safe rejection)
+      expect(result.vulnerabilities.length).toBe(0);
+      expect(result.status).toBe("PASS");
+    });
+
+    it("should NOT flag tool with pickle disabled message", async () => {
+      // Arrange - Tool returns pickle disabled message
+      mockContext.callTool = jest.fn().mockResolvedValue(
+        createMockCallToolResponse(
+          JSON.stringify({
+            result: "Error: pickle disabled for security reasons",
+            rejected: true,
+          }),
+          false,
+        ),
+      );
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should NOT be flagged as vulnerable
+      expect(result.vulnerabilities.length).toBe(0);
+    });
+
+    it("should NOT flag tool with serialization not supported message", async () => {
+      // Arrange - Tool returns serialization not supported
+      mockContext.callTool = jest.fn().mockResolvedValue(
+        createMockCallToolResponse(
+          JSON.stringify({
+            result: "Serialization not supported - data stored as text",
+            stored: true,
+          }),
+          false,
+        ),
+      );
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should NOT be flagged as vulnerable
+      expect(result.vulnerabilities.length).toBe(0);
+      expect(result.status).toBe("PASS");
+    });
+
+    it("should NOT flag tool with MCP validation error for binary data", async () => {
+      // Arrange - Tool returns MCP validation error
+      mockContext.callTool = jest.fn().mockResolvedValue({
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              code: -32602,
+              message: "Invalid params: binary data not accepted",
+            }),
+          },
+        ],
+      });
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - MCP validation errors should NOT be flagged
+      expect(result.vulnerabilities.length).toBe(0);
+    });
+
+    it("evidence regex should complete quickly on adversarial input", () => {
+      // Test that evidence patterns don't cause ReDoS in the inspector itself
+      const { SECURITY_ATTACK_PATTERNS } = require("@/lib/securityPatterns");
+      const deserializationPattern = SECURITY_ATTACK_PATTERNS.find(
+        (p: { attackName: string }) =>
+          p.attackName === "Insecure Deserialization",
+      );
+
+      expect(deserializationPattern).toBeDefined();
+
+      // Test each payload's evidence regex against adversarial input
+      const adversarialInput = "a".repeat(10000) + "!";
+
+      for (const payload of deserializationPattern.payloads) {
+        const startTime = Date.now();
+        payload.evidence.test(adversarialInput);
+        const elapsed = Date.now() - startTime;
+
+        // Each regex should complete in <100ms (usually <1ms)
+        expect(elapsed).toBeLessThan(100);
+      }
+    });
+  });
 });
