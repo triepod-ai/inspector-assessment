@@ -64,7 +64,7 @@ echo ""
 for i in {1..10}; do
     config_file="/tmp/dvmcp-challenge-$i-config.json"
     if [ ! -f "$config_file" ]; then
-        echo "{\"transport\": \"sse\", \"url\": \"http://localhost:900$i/sse\"}" > "$config_file"
+        echo "{\"transport\": \"sse\", \"url\": \"http://localhost:$((9000 + i))/sse\"}" > "$config_file"
     fi
 done
 
