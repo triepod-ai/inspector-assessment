@@ -2,27 +2,55 @@
 
 ## Current Version
 
-- **Version**: 1.17.1 (published to npm as "@bryan-thompson/inspector-assessment")
-- Bounded regex quantifier to {1,30} - sufficient for ISO timestamps (max ~30 chars)
-- 1MB response limit - generous for legitimate responses, protective against attacks
-- 10s per-invocation timeout - covers 99%+ legitimate operations
-- 50ms inter-invocation delay - prevents rate limiting false positives with minimal overhead
+- **Version**: 1.18.0 (published to npm as "@bryan-thompson/inspector-assessment")
+- Fixed Insecure Deserialization false positive on hardened servers
+- Improved JSON type confusion detection pattern precision
+- 20 security attack patterns with zero false positives
 
 **Results:**
-- Code review: 0 critical issues, 2 warnings (minor optimizations), 3 suggestions
-- Security audit: All 6 fixes validated, approved for production
-- Tests: 934 passed, 3 skipped, 0 failed
-- Commit: 49f5813 (fix(security): harden TemporalAssessor against ReDoS and memory exhaustion)
-- npm: Published v1.15.1
+- A/B Validation: Vulnerable=253 failures, Hardened=0 (correct detection)
+- False positives: 0 on safe tools (both servers)
+- Tests: ~1000 passing
+- Commit: 0ee220b (fix(security): improve Insecure Deserialization pattern precision)
+- npm: Published v1.18.0
 
-**Next Steps:**
-- Consider adding tests for new P2-1 normalization patterns
-- Update test file's DESTRUCTIVE_PATTERNS array to include P2-3 patterns
-- Make 50ms delay configurable for servers with different rate limits (optional)
+---
 
-**Notes:**
-- Security auditor created docs/security/ directory with audit documentation
-- Both code-reviewer-pro and security-auditor agents validated fixes before commit
+## 2025-12-29: v1.18.0 Release - Insecure Deserialization Pattern Fix
+
+**Summary:** Fixed false positive in Insecure Deserialization detection pattern and published v1.18.0.
+
+**Session Focus:** Validate security enhancements against A/B testbed and publish release.
+
+**Issue Found:**
+- Hardened server showed 1 false positive on `vulnerable_nested_parser_tool`
+- Root cause: Evidence pattern `/type.*coercion|deserializ|process|RCE|unsafe.*type/i` matched "not processed" in hardened response
+- The generic `/process/i` was too broad
+
+**Fix Applied:**
+- Changed pattern from `/process/i` to `/System\..*Process|Process\.Start/i`
+- Now specifically looks for .NET Process class instantiation evidence
+- File: `client/src/lib/securityPatterns.ts` (line 1125-1128)
+
+**Validation Results:**
+| Server | Test Failures | Expected | Status |
+|--------|--------------|----------|--------|
+| vulnerable-mcp | 253 | ≥200 | ✅ PASS |
+| hardened-mcp | 0 | 0 | ✅ PASS |
+| Safe tools FP | 0 | 0 | ✅ PASS |
+
+**Commits:**
+- 0ee220b fix(security): improve Insecure Deserialization pattern precision
+- 8835d9b docs: update project status and assessment guides
+- 85f834e v1.18.0
+
+**Published Packages:**
+- @bryan-thompson/inspector-assessment@1.18.0
+- @bryan-thompson/inspector-assessment-client@1.18.0
+- @bryan-thompson/inspector-assessment-server@1.18.0
+- @bryan-thompson/inspector-assessment-cli@1.18.0
+
+**Key Insight:** Pattern matching for security detection must be precise - generic terms like "process" can match benign phrases like "not processed". Always prefer specific patterns (e.g., `System.Diagnostics.Process`) over generic ones.
 
 ---
 
