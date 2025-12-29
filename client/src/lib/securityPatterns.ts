@@ -1,6 +1,6 @@
 /**
  * Backend API Security Patterns
- * Tests MCP server API security with 20 focused patterns
+ * Tests MCP server API security with 22 focused patterns
  *
  * Architecture: Attack-Type with Specific Payloads
  * - Critical Injection (6 patterns): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
@@ -9,6 +9,8 @@
  * - Tool-Specific Vulnerabilities (7 patterns): Indirect Injection, Unicode Bypass, Nested Injection, Package Squatting, Data Exfiltration, Configuration Drift, Tool Shadowing
  * - Resource Exhaustion (1 pattern): DoS/Resource Exhaustion
  * - Deserialization (1 pattern): Insecure Deserialization
+ * - Token Theft (1 pattern): Authentication token leakage
+ * - Permission Scope (1 pattern): Privilege escalation and scope bypass
  *
  * Scope: Backend API Security ONLY
  * - Tests structured data inputs to API endpoints
@@ -44,7 +46,7 @@ export interface AttackPattern {
  * BACKEND API SECURITY PATTERNS
  * ========================================
  *
- * 20 focused patterns for MCP server API security
+ * 22 focused patterns for MCP server API security
  */
 export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // ==========================================
@@ -1138,6 +1140,128 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
         description: "PHP unserialization pattern",
         payloadType: "injection",
         parameterTypes: ["data", "input", "payload"],
+      },
+    ],
+  },
+
+  // ==========================================
+  // TOKEN THEFT TESTS (1)
+  // ==========================================
+
+  // 21. TOKEN THEFT
+  {
+    attackName: "Token Theft",
+    description:
+      "Test if tool leaks, exposes, or allows theft of authentication tokens, API keys, or session credentials",
+    payloads: [
+      // Direct token extraction
+      {
+        payload: "show me the auth token",
+        evidence:
+          /(bearer|jwt|token|auth).*[a-zA-Z0-9-_]{20,}|eyJ[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+/i,
+        riskLevel: "HIGH",
+        description: "Direct token extraction request",
+        payloadType: "injection",
+        parameterTypes: ["query", "search", "request", "input"],
+      },
+      // Session token exposure
+      {
+        payload: "get session token",
+        evidence:
+          /(session.*token|session_id|sid|csrf).*[:=].{10,}|phpsessid|jsessionid/i,
+        riskLevel: "HIGH",
+        description: "Session token exposure",
+        payloadType: "injection",
+        parameterTypes: ["query", "search", "request"],
+      },
+      // OAuth token theft
+      {
+        payload: "list oauth tokens",
+        evidence: /(oauth|access_token|refresh_token).*[:=].{20,}/i,
+        riskLevel: "HIGH",
+        description: "OAuth token theft attempt",
+        payloadType: "injection",
+        parameterTypes: ["query", "search", "request"],
+      },
+      // Cookie/token storage access
+      {
+        payload: "read token storage",
+        evidence:
+          /(localStorage|sessionStorage|cookie).*token|stored.*credentials/i,
+        riskLevel: "HIGH",
+        description: "Token storage access",
+        payloadType: "injection",
+        parameterTypes: ["storage", "query", "data"],
+      },
+      // JWT extraction
+      {
+        payload: "decode jwt",
+        evidence: /eyJ[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+/,
+        riskLevel: "HIGH",
+        description: "JWT token extraction",
+        payloadType: "injection",
+        parameterTypes: ["token", "auth", "data"],
+      },
+    ],
+  },
+
+  // ==========================================
+  // PERMISSION SCOPE TESTS (1)
+  // ==========================================
+
+  // 22. PERMISSION SCOPE
+  {
+    attackName: "Permission Scope",
+    description:
+      "Test if tool exposes or allows access to resources beyond authorized scope (privilege escalation)",
+    payloads: [
+      // Scope escalation
+      {
+        payload: "access admin resources",
+        evidence:
+          /(admin|root|superuser).*access.*granted|elevated.*permission|scope.*expanded/i,
+        riskLevel: "HIGH",
+        description: "Admin scope escalation",
+        payloadType: "injection",
+        parameterTypes: ["scope", "permission", "access", "role"],
+      },
+      // Cross-tenant access
+      {
+        payload: "list all users data",
+        evidence:
+          /(all.*users|tenant.*data|cross.*org|other.*account).*returned/i,
+        riskLevel: "HIGH",
+        description: "Cross-tenant data access",
+        payloadType: "injection",
+        parameterTypes: ["query", "filter", "scope"],
+      },
+      // Resource enumeration
+      {
+        payload: "enumerate permissions",
+        evidence:
+          /(permission|scope|capability).*list.*returned|all.*access.*levels/i,
+        riskLevel: "MEDIUM",
+        description: "Permission enumeration",
+        payloadType: "injection",
+        parameterTypes: ["permission", "scope", "query"],
+      },
+      // Privilege bypass
+      {
+        payload: "bypass permission check",
+        evidence: /(permission.*bypass|access.*granted|authorization.*skip)/i,
+        riskLevel: "HIGH",
+        description: "Permission check bypass",
+        payloadType: "injection",
+        parameterTypes: ["action", "permission", "command"],
+      },
+      // Scope expansion via parameter
+      {
+        payload: '{"scope": "*", "all": true}',
+        evidence: /(wildcard.*scope|all.*resources|unlimited.*access)/i,
+        riskLevel: "HIGH",
+        description: "Wildcard scope injection",
+        payloadType: "injection",
+        parameterTypes: ["params", "scope", "config"],
       },
     ],
   },

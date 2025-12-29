@@ -1450,6 +1450,14 @@ export class SecurityAssessor extends BaseAssessor {
       /result.*action\s+executed\s+successfully/i,
       /successfully\s+(executed|completed|processed):/i,
       /successfully\s+(executed|completed|processed)"/i,
+      // "Action received:" - safe echo/acknowledgment pattern (DVMCP testbed)
+      /action\s+received:/i,
+      /input\s+received:/i,
+      /request\s+received:/i,
+      // Explicit safety indicators in JSON responses
+      /"safe":\s*true/i,
+      /"vulnerable":\s*false/i,
+      /"status":\s*"acknowledged"/i,
     ];
 
     const reflectionPatterns = [
