@@ -2,17 +2,65 @@
 
 ## Current Version
 
-- **Version**: 1.18.0 (published to npm as "@bryan-thompson/inspector-assessment")
-- Fixed Insecure Deserialization false positive on hardened servers
-- Improved JSON type confusion detection pattern precision
-- 20 security attack patterns with zero false positives
+- **Version**: 1.19.0 (published to npm as "@bryan-thompson/inspector-assessment")
+- Tool Description Poisoning Detection (Issue #8) - 27 patterns across 6 categories
+- Code review fixes: multi-match bug, encoding bypass, typoglycemia evasion
+- 23 security attack patterns with zero false positives
 
 **Results:**
-- A/B Validation: Vulnerable=253 failures, Hardened=0 (correct detection)
+- A/B Validation: Vulnerable=122 vulnerabilities, Hardened=0 (correct detection)
 - False positives: 0 on safe tools (both servers)
-- Tests: ~1000 passing
-- Commit: 0ee220b (fix(security): improve Insecure Deserialization pattern precision)
-- npm: Published v1.18.0
+- Tests: ~1100 passing (33 ToolAnnotationAssessor tests)
+- Commits: 8e8aa15, f3ee0d2, efb51bc
+- npm: Published v1.19.0
+
+---
+
+## 2025-12-29: v1.19.0 Release - Tool Description Poisoning Detection
+
+**Summary:** Added comprehensive tool description poisoning detection with 27 patterns to detect hidden instructions, override commands, and evasion techniques in MCP tool descriptions.
+
+**Session Focus:** Implement Issue #8 (Tool Description Poisoning Detection) and address code review warnings.
+
+**Issue #8 Implementation:**
+- Added `scanDescriptionForPoisoning()` method to ToolAnnotationAssessor
+- 16 initial patterns across 5 categories:
+  - Hidden instructions: `<HIDDEN>`, `<IMPORTANT>`, `<SYSTEM>`, `<INSTRUCTION>` tags
+  - Override commands: ignore instructions, you are now, system override
+  - Concealment: do not mention, secretly, hide from user
+  - Data exfiltration: return keys, include credentials, reveal secrets
+  - Delimiter injection: system codeblocks, INST tags
+
+**Code Review Enhancements (11 additional patterns):**
+- Bug fix: regex `exec()` now loops to find ALL matches (was only finding first)
+- Encoding bypass: Base64 blocks, Unicode escapes, HTML entities
+- Role/persona injection: act as, pretend to be, roleplay as, new task
+- Typoglycemia evasion: l33t-speak variants (ign0re, previ0us, instruct1ons)
+- New delimiters: ChatML (`<|im_start|>`), LLAMA (`<<SYS>>`), USER/ASSISTANT
+
+**Validation Results:**
+| Server | Vulnerabilities | False Positives | Status |
+|--------|----------------|-----------------|--------|
+| vulnerable-mcp | 122 | 0 | ✅ PASS |
+| hardened-mcp | 0 | 0 | ✅ PASS |
+
+**Commits:**
+- 8e8aa15 feat(security): add tool description poisoning detection
+- f3ee0d2 fix(security): address code review warnings for poisoning detection
+- efb51bc chore(release): v1.19.0 - tool description poisoning detection
+
+**Published Packages:**
+- @bryan-thompson/inspector-assessment@1.19.0
+- @bryan-thompson/inspector-assessment-client@1.19.0
+- @bryan-thompson/inspector-assessment-server@1.19.0
+- @bryan-thompson/inspector-assessment-cli@1.19.0
+
+**Files Modified:**
+- `client/src/services/assessment/modules/ToolAnnotationAssessor.ts` - Added 27 poisoning patterns
+- `client/src/lib/assessmentTypes.ts` - Added `descriptionPoisoning` type, `AnnotationPoisonedProgress` event
+- `client/src/services/assessment/modules/ToolAnnotationAssessor.test.ts` - 15 new tests
+
+**Key Insight:** Static analysis of tool descriptions complements execution-based detection. Hidden instructions in descriptions (like DVMCP Challenge 2) can now be explicitly flagged before any tool execution.
 
 ---
 
