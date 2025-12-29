@@ -218,6 +218,10 @@ export interface AssessmentContext {
     usesTLS?: boolean;
     oauthEnabled?: boolean;
   };
+
+  // Tool refresh for temporal definition tracking (optional)
+  // When provided, enables detection of tool definition mutations (rug pulls)
+  listTools?: () => Promise<Tool[]>;
 }
 
 export class AssessmentOrchestrator {

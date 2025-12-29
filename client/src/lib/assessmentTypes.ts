@@ -977,7 +977,7 @@ export interface TemporalToolResult {
   firstDeviationAt: number | null;
   deviationCount: number;
   errorCount: number; // Track errors during invocations (subset of deviationCount)
-  pattern: "RUG_PULL_TEMPORAL" | null;
+  pattern: "RUG_PULL_TEMPORAL" | "RUG_PULL_DEFINITION" | null;
   severity: "HIGH" | "MEDIUM" | "NONE";
   reducedInvocations?: boolean; // True if destructive tool detection applied
   note?: string; // Additional context (e.g., stateful tool with expected variation)
@@ -985,12 +985,22 @@ export interface TemporalToolResult {
     safeResponseExample: unknown;
     maliciousResponseExample: unknown;
   };
+  // Definition mutation tracking (Issue #7)
+  definitionMutated?: boolean; // True if tool description/schema changed during invocations
+  definitionMutationAt?: number | null; // Invocation number where mutation was detected
+  definitionEvidence?: {
+    baselineDescription?: string;
+    mutatedDescription?: string;
+    baselineSchema?: unknown;
+    mutatedSchema?: unknown;
+  };
 }
 
 export interface TemporalAssessment {
   toolsTested: number;
   invocationsPerTool: number;
   rugPullsDetected: number;
+  definitionMutationsDetected: number; // Tools that changed description/schema during invocations
   details: TemporalToolResult[];
   status: AssessmentStatus;
   explanation: string;

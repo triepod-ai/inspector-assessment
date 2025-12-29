@@ -24,6 +24,25 @@ interface InvocationResult {
   timestamp: number;
 }
 
+/**
+ * Tracks tool definition snapshots across invocations to detect rug pull mutations.
+ * DVMCP Challenge 4: Tool descriptions that mutate after N calls to inject malicious instructions.
+ */
+interface DefinitionSnapshot {
+  invocation: number;
+  description: string | undefined;
+  inputSchema: unknown;
+  timestamp: number;
+}
+
+interface DefinitionMutation {
+  detectedAt: number; // Invocation number where mutation was detected
+  baselineDescription?: string;
+  mutatedDescription?: string;
+  baselineSchema?: unknown;
+  mutatedSchema?: unknown;
+}
+
 // Security: Maximum response size to prevent memory exhaustion attacks
 const MAX_RESPONSE_SIZE = 1_000_000; // 1MB
 
@@ -86,10 +105,19 @@ export class TemporalAssessor extends BaseAssessor {
   async assess(context: AssessmentContext): Promise<TemporalAssessment> {
     const results: TemporalToolResult[] = [];
     let rugPullsDetected = 0;
+    let definitionMutationsDetected = 0;
 
-    this.log(
-      `Starting temporal assessment with ${this.invocationsPerTool} invocations per tool`,
-    );
+    // Check if definition tracking is available
+    const canTrackDefinitions = typeof context.listTools === "function";
+    if (canTrackDefinitions) {
+      this.log(
+        `Starting temporal assessment with ${this.invocationsPerTool} invocations per tool (definition tracking enabled)`,
+      );
+    } else {
+      this.log(
+        `Starting temporal assessment with ${this.invocationsPerTool} invocations per tool (definition tracking unavailable)`,
+      );
+    }
 
     for (const tool of context.tools) {
       // Skip if tool selection is configured and this tool isn't selected
@@ -110,21 +138,35 @@ export class TemporalAssessor extends BaseAssessor {
         );
       }
 
+      if (result.definitionMutated) {
+        definitionMutationsDetected++;
+        this.log(
+          `DEFINITION MUTATION DETECTED: ${tool.name} changed description at invocation ${result.definitionMutationAt}`,
+        );
+      }
+
       // Respect delay between tests
       if (this.config.delayBetweenTests) {
         await this.sleep(this.config.delayBetweenTests);
       }
     }
 
-    const status = this.determineTemporalStatus(rugPullsDetected, results);
+    // Status fails if either response or definition mutations detected
+    const totalVulnerabilities = rugPullsDetected + definitionMutationsDetected;
+    const status = this.determineTemporalStatus(totalVulnerabilities, results);
 
     return {
       toolsTested: results.length,
       invocationsPerTool: this.invocationsPerTool,
       rugPullsDetected,
+      definitionMutationsDetected,
       details: results,
       status,
-      explanation: this.generateExplanation(rugPullsDetected, results),
+      explanation: this.generateExplanation(
+        rugPullsDetected,
+        definitionMutationsDetected,
+        results,
+      ),
       recommendations: this.generateRecommendations(results),
     };
   }
@@ -134,6 +176,7 @@ export class TemporalAssessor extends BaseAssessor {
     tool: Tool,
   ): Promise<TemporalToolResult> {
     const responses: InvocationResult[] = [];
+    const definitionSnapshots: DefinitionSnapshot[] = [];
     const payload = this.generateSafePayload(tool);
 
     // Reduce invocations for potentially destructive tools
@@ -142,12 +185,41 @@ export class TemporalAssessor extends BaseAssessor {
       ? Math.min(5, this.invocationsPerTool)
       : this.invocationsPerTool;
 
+    // Check if definition tracking is available
+    const canTrackDefinitions = typeof context.listTools === "function";
+
     this.log(
       `Testing ${tool.name} with ${invocations} invocations${isDestructive ? " (reduced - destructive)" : ""}`,
     );
 
     for (let i = 1; i <= invocations; i++) {
       this.testCount++;
+
+      // Track tool definition BEFORE each invocation (if available)
+      // This detects rug pulls where description mutates after N calls
+      if (canTrackDefinitions) {
+        try {
+          const currentTools = await this.executeWithTimeout(
+            context.listTools!(),
+            this.PER_INVOCATION_TIMEOUT,
+          );
+          const currentTool = currentTools.find((t) => t.name === tool.name);
+          if (currentTool) {
+            definitionSnapshots.push({
+              invocation: i,
+              description: currentTool.description,
+              inputSchema: currentTool.inputSchema,
+              timestamp: Date.now(),
+            });
+          }
+        } catch {
+          // Definition tracking failed - continue with response tracking
+          this.log(
+            `Warning: Failed to fetch tool definition for ${tool.name} at invocation ${i}`,
+          );
+        }
+      }
+
       try {
         // P2-2: Use shorter per-invocation timeout (10s vs default 30s)
         const response = await this.executeWithTimeout(
@@ -188,11 +260,72 @@ export class TemporalAssessor extends BaseAssessor {
       }
     }
 
+    // Analyze responses for temporal behavior changes
     const result = this.analyzeResponses(tool, responses);
+
+    // Analyze definitions for mutation (rug pull via description change)
+    const definitionMutation =
+      this.detectDefinitionMutation(definitionSnapshots);
+
     return {
       ...result,
       reducedInvocations: isDestructive,
+      // Add definition mutation results
+      definitionMutated: definitionMutation !== null,
+      definitionMutationAt: definitionMutation?.detectedAt ?? null,
+      definitionEvidence: definitionMutation
+        ? {
+            baselineDescription: definitionMutation.baselineDescription,
+            mutatedDescription: definitionMutation.mutatedDescription,
+            baselineSchema: definitionMutation.baselineSchema,
+            mutatedSchema: definitionMutation.mutatedSchema,
+          }
+        : undefined,
+      // If definition mutated, mark as vulnerable with DEFINITION pattern
+      vulnerable: result.vulnerable || definitionMutation !== null,
+      pattern:
+        definitionMutation !== null ? "RUG_PULL_DEFINITION" : result.pattern,
+      severity:
+        definitionMutation !== null || result.vulnerable ? "HIGH" : "NONE",
     };
+  }
+
+  /**
+   * Detect mutations in tool definition across invocation snapshots.
+   * DVMCP Challenge 4: Tool descriptions that mutate after N calls.
+   */
+  private detectDefinitionMutation(
+    snapshots: DefinitionSnapshot[],
+  ): DefinitionMutation | null {
+    if (snapshots.length < 2) return null;
+
+    const baseline = snapshots[0];
+
+    for (let i = 1; i < snapshots.length; i++) {
+      const current = snapshots[i];
+
+      // Check if description changed
+      const descriptionChanged = baseline.description !== current.description;
+
+      // Check if schema changed (deep comparison)
+      const schemaChanged =
+        JSON.stringify(baseline.inputSchema) !==
+        JSON.stringify(current.inputSchema);
+
+      if (descriptionChanged || schemaChanged) {
+        return {
+          detectedAt: current.invocation,
+          baselineDescription: baseline.description,
+          mutatedDescription: descriptionChanged
+            ? current.description
+            : undefined,
+          baselineSchema: schemaChanged ? baseline.inputSchema : undefined,
+          mutatedSchema: schemaChanged ? current.inputSchema : undefined,
+        };
+      }
+    }
+
+    return null;
   }
 
   private analyzeResponses(
@@ -484,35 +617,65 @@ export class TemporalAssessor extends BaseAssessor {
 
   private generateExplanation(
     rugPullsDetected: number,
+    definitionMutationsDetected: number,
     results: TemporalToolResult[],
   ): string {
     if (results.length === 0) {
       return "No tools were tested for temporal vulnerabilities.";
     }
 
-    if (rugPullsDetected === 0) {
-      return `All ${results.length} tools showed consistent behavior across repeated invocations.`;
+    const parts: string[] = [];
+
+    // Report response-based rug pulls
+    if (rugPullsDetected > 0) {
+      const responseVulnerableTools = results
+        .filter((r) => r.vulnerable && r.pattern === "RUG_PULL_TEMPORAL")
+        .map((r) => `${r.tool} (changed at invocation ${r.firstDeviationAt})`)
+        .join(", ");
+
+      if (responseVulnerableTools) {
+        parts.push(
+          `CRITICAL: ${rugPullsDetected} tool(s) showed temporal response changes: ${responseVulnerableTools}`,
+        );
+      }
     }
 
-    const vulnerableTools = results
-      .filter((r) => r.vulnerable)
-      .map((r) => `${r.tool} (changed at invocation ${r.firstDeviationAt})`)
-      .join(", ");
+    // Report definition mutations
+    if (definitionMutationsDetected > 0) {
+      const definitionVulnerableTools = results
+        .filter((r) => r.definitionMutated)
+        .map(
+          (r) =>
+            `${r.tool} (description changed at invocation ${r.definitionMutationAt})`,
+        )
+        .join(", ");
 
-    return `CRITICAL: ${rugPullsDetected} tool(s) showed temporal behavior changes indicating potential rug pull vulnerability: ${vulnerableTools}`;
+      parts.push(
+        `CRITICAL: ${definitionMutationsDetected} tool(s) mutated their definition/description: ${definitionVulnerableTools}`,
+      );
+    }
+
+    if (parts.length === 0) {
+      return `All ${results.length} tools showed consistent behavior and definitions across repeated invocations.`;
+    }
+
+    return parts.join(" ");
   }
 
   private generateRecommendations(results: TemporalToolResult[]): string[] {
     const recommendations: string[] = [];
 
-    const vulnerableTools = results.filter((r) => r.vulnerable);
+    // Response-based rug pulls
+    const responseVulnerableTools = results.filter(
+      (r) => r.vulnerable && r.pattern === "RUG_PULL_TEMPORAL",
+    );
 
-    if (vulnerableTools.length > 0) {
+    if (responseVulnerableTools.length > 0) {
       recommendations.push(
         "Immediately investigate tools with temporal behavior changes - this pattern is characteristic of rug pull attacks.",
       );
 
-      for (const tool of vulnerableTools) {
+      for (const tool of responseVulnerableTools) {
         recommendations.push(
           `Review ${tool.tool}: behavior changed after ${tool.firstDeviationAt} invocations. Compare safe vs malicious responses in evidence.`,
         );
@@ -523,8 +686,38 @@ export class TemporalAssessor extends BaseAssessor {
       );
     }
 
+    // Definition mutation rug pulls
+    const definitionMutatedTools = results.filter((r) => r.definitionMutated);
+
+    if (definitionMutatedTools.length > 0) {
+      recommendations.push(
+        "CRITICAL: Tool definition/description mutations detected - this is a sophisticated rug pull attack that injects malicious instructions after N calls.",
+      );
+
+      for (const tool of definitionMutatedTools) {
+        const baseline = tool.definitionEvidence?.baselineDescription
+          ? `"${tool.definitionEvidence.baselineDescription.substring(0, 100)}..."`
+          : "unknown";
+        const mutated = tool.definitionEvidence?.mutatedDescription
+          ? `"${tool.definitionEvidence.mutatedDescription.substring(0, 100)}..."`
+          : "unknown";
+
+        recommendations.push(
+          `${tool.tool}: Description changed at invocation ${tool.definitionMutationAt}. Baseline: ${baseline} → Mutated: ${mutated}`,
+        );
+      }
+
+      recommendations.push(
+        "Review tool source code for global state that mutates __doc__, description, or tool metadata based on call count.",
+      );
+    }
+
     const errorTools = results.filter((r) => r.errorCount > 0);
-    if (errorTools.length > 0 && vulnerableTools.length === 0) {
+    if (
+      errorTools.length > 0 &&
+      responseVulnerableTools.length === 0 &&
+      definitionMutatedTools.length === 0
+    ) {
       recommendations.push(
         `${errorTools.length} tool(s) had errors during repeated invocations. Review error handling and rate limiting.`,
       );
