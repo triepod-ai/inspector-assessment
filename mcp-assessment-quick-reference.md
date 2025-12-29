@@ -167,7 +167,7 @@ _Actual time depends on tool complexity and server response times_
 
 ### Representative Tools (2-3 selected):
 
-- ✓ 17 security injection tests
+- ✓ 20 security injection tests
 - ✓ 4 error handling scenarios
 - ✓ Edge case validation
 
@@ -304,4 +304,4 @@ After assessment:
 
 ## Version
 
-Quick Reference v1.0 (2025-10-04)
+Quick Reference v1.1 (2025-12-29) - Updated to 20 security patterns
