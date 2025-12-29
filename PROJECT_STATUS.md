@@ -387,3 +387,60 @@
 - v1.18.0 release includes all Phase 1 security enhancements (patterns #17-20)
 
 ---
+
+## 2025-12-29: Security Documentation Synchronized with Code Implementation
+
+**Summary:** Synchronized security documentation with actual securityPatterns.ts implementation, fixing major pattern list mismatch across 3 docs
+
+**Session Focus:** Documentation accuracy - aligning security pattern documentation with code implementation
+
+**Changes Made:**
+- `/home/bryan/inspector/mcp-assessment-instruction.md` - Replaced Phase 3 Security Testing section with accurate 20 patterns, updated to v1.2
+- `/home/bryan/inspector/mcp-assessment-quick-reference.md` - Updated "What Gets Tested" section with 6 category breakdown, updated to v1.2
+- `/home/bryan/inspector/docs/ASSESSMENT_CATALOG.md` - Updated security section from 13 to 20 patterns with full categorized table, updated to v1.8.3
+
+**Key Decisions:**
+- Organized patterns into 6 categories matching securityPatterns.ts structure: Critical Injection (6), Input Validation (3), Protocol Compliance (2), Tool-Specific (7), Resource Exhaustion (1), Deserialization (1)
+- Removed obsolete patterns from docs that never existed in code (Role Override, Confused Deputy, Rug Pull Pattern, etc.)
+- Added missing patterns that exist in code (Calculator Injection, XXE, NoSQL, Type Safety, etc.)
+
+**Next Steps:**
+- Consider adding payload examples to ASSESSMENT_CATALOG.md for each pattern
+- Review if README.md needs similar updates
+- Verify pattern documentation stays in sync when adding new patterns
+
+**Notes:**
+- Changes were already committed in 8835d9b earlier in the day
+- Documentation now accurately reflects ~100 payloads across 20 attack patterns
+- This fixes user trust issues when docs don't match actual testing behavior
+
+---
+
+## 2025-12-29: LLM Prompt Injection Testing Plan for mcp-auditor
+
+**Summary:** Designed LLM prompt injection testing plan for mcp-auditor with code review and created GitHub issue #10
+
+**Session Focus:** Investigating DVMCP Challenge 1 detection gap and extending mcp-auditor with Claude-based LLM prompt injection testing capabilities
+
+**Changes Made:**
+- `/home/bryan/.claude/plans/structured-bouncing-key.md` - Created implementation plan for LLM prompt injection testing
+- GitHub issue #10 created on triepod-ai/mcp-auditor repo (https://github.com/triepod-ai/mcp-auditor/issues/10)
+
+**Key Decisions:**
+- Challenge 1 shows 0 detections because it's LLM-layer prompt injection (tricks LLM to access resources), not API-level code execution - out of scope for Inspector's SecurityAssessor
+- Chose to extend mcp-auditor (not Inspector) for LLM prompt injection testing since it already has Claude analysis infrastructure
+- Adopted Static-Analysis-First approach (from code review) - run deterministic analysis first, then have Claude evaluate factual findings instead of hypothetical LLM behavior
+- Added cost controls (MAX_EVALUATIONS=50, batching) to prevent excessive API calls
+
+**Next Steps:**
+- Implement prompt-injection-tester.js module in mcp-auditor
+- Add promptInjection step to claude-analysis.js
+- Test against DVMCP Challenge 1 for validation
+- Consider adding LLM prompt injection section to dvmcp_validation.md
+
+**Notes:**
+- Code review by code-reviewer-pro identified 2 critical issues (circular dependency in Claude-as-Judge, missing function definition) and 4 warnings (insufficient MCP-specific payloads, broad resource patterns, no rate limiting, unclear integration)
+- This represents a new testing dimension: LLM-layer vulnerabilities vs API-layer vulnerabilities
+- Inspector handles API-layer (code execution, injection), mcp-auditor will handle LLM-layer (prompt injection, resource manipulation)
+
+---
