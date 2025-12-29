@@ -135,9 +135,10 @@ const DESCRIPTION_POISONING_PATTERNS: PoisoningPattern[] = [
     category: "exfiltration",
   },
   {
-    name: "access_internal",
-    pattern: /access\s+(the\s+)?internal/i,
-    severity: "MEDIUM",
+    name: "access_internal_secrets",
+    pattern:
+      /access\s+(the\s+)?internal\s+(api\s*)?(key|secret|credential|password|token)/i,
+    severity: "HIGH",
     category: "exfiltration",
   },
 
@@ -153,6 +154,86 @@ const DESCRIPTION_POISONING_PATTERNS: PoisoningPattern[] = [
     pattern: /\[INST\][\s\S]*?\[\/INST\]/gi,
     severity: "HIGH",
     category: "delimiter",
+  },
+  {
+    name: "chatml_system",
+    pattern: /<\|im_start\|>system/gi,
+    severity: "HIGH",
+    category: "delimiter",
+  },
+  {
+    name: "llama_sys",
+    pattern: /<<SYS>>/gi,
+    severity: "HIGH",
+    category: "delimiter",
+  },
+  {
+    name: "user_assistant_block",
+    pattern: /\[USER\][\s\S]*?\[ASSISTANT\]/gi,
+    severity: "HIGH",
+    category: "delimiter",
+  },
+
+  // Role/persona injection (Warning #4)
+  {
+    name: "act_as",
+    pattern: /act\s+(like|as)\s+(a|an|the)/i,
+    severity: "MEDIUM",
+    category: "override",
+  },
+  {
+    name: "pretend_to_be",
+    pattern: /pretend\s+(to\s+be|you\s*'?re)/i,
+    severity: "MEDIUM",
+    category: "override",
+  },
+  {
+    name: "roleplay_as",
+    pattern: /role\s*play\s+(as|like)/i,
+    severity: "MEDIUM",
+    category: "override",
+  },
+  {
+    name: "new_task",
+    pattern: /new\s+(task|instruction|objective):\s*/i,
+    severity: "HIGH",
+    category: "override",
+  },
+
+  // Encoding bypass detection (Warning #1)
+  {
+    name: "base64_encoded_block",
+    pattern: /[A-Za-z0-9+/]{50,}={0,2}/g, // Large Base64 strings (50+ chars)
+    severity: "MEDIUM",
+    category: "encoding_bypass",
+  },
+  {
+    name: "unicode_escape_sequence",
+    pattern: /(?:\\u[0-9a-fA-F]{4}){3,}/gi, // 3+ consecutive Unicode escapes
+    severity: "MEDIUM",
+    category: "encoding_bypass",
+  },
+  {
+    name: "html_entity_block",
+    pattern: /(?:&#x?[0-9a-fA-F]+;){3,}/gi, // 3+ consecutive HTML entities
+    severity: "MEDIUM",
+    category: "encoding_bypass",
+  },
+
+  // Typoglycemia/evasion patterns (Warning #2)
+  {
+    name: "ignore_instructions_typo",
+    pattern:
+      /ign[o0]r[e3]?\s+(all\s+)?(pr[e3]v[i1][o0]us|pr[i1][o0]r|ab[o0]v[e3])\s+[i1]nstruct[i1][o0]ns?/i,
+    severity: "HIGH",
+    category: "override",
+  },
+  {
+    name: "disregard_typo",
+    pattern:
+      /d[i1]sr[e3]g[a4]rd\s+(all\s+)?(pr[e3]v[i1][o0]us|pr[i1][o0]r)\s+[i1]nstruct[i1][o0]ns?/i,
+    severity: "HIGH",
+    category: "override",
   },
 ];
 
@@ -945,8 +1026,9 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         patternDef.pattern.source,
         patternDef.pattern.flags,
       );
-      const match = regex.exec(description);
-      if (match) {
+      // Loop to find all matches (not just first)
+      let match;
+      while ((match = regex.exec(description)) !== null) {
         matches.push({
           name: patternDef.name,
           pattern: patternDef.pattern.toString(),
@@ -955,6 +1037,8 @@ export class ToolAnnotationAssessor extends BaseAssessor {
           evidence:
             match[0].substring(0, 100) + (match[0].length > 100 ? "..." : ""),
         });
+        // Prevent infinite loop for patterns without 'g' flag
+        if (!regex.global) break;
       }
     }
 
