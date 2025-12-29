@@ -14,7 +14,7 @@
 - Development mode: `npm run dev` (use `npm run dev:windows` on Windows)
 - Format code: `npm run prettier-fix`
 - Client lint: `cd client && npm run lint`
-- Run tests: `npm test` (937 tests passing)
+- Run tests: `npm test` (~1000 tests passing)
 - Run assessment tests: `npm test -- assessment` (assessment module tests)
 
 ## Code Style Guidelines
@@ -121,7 +121,7 @@ npm run assess -- --server hardened-mcp --config /tmp/hardened-mcp-config.json
 
 - ✅ A/B Detection Gap: 200 vulnerabilities (vulnerable) vs 0 (hardened) with identical tool names
 - ✅ Pure Behavior Detection: 100% precision (0 false positives on both servers)
-- ✅ 18 attack patterns tested per tool (expanded from 8)
+- ✅ 20 attack patterns tested per tool (expanded from 8)
 - ✅ Real HTTP tool calls verified inspector findings
 - ✅ Ready for production MCP server assessments
 
@@ -233,7 +233,7 @@ For detailed documentation on specific features, see:
 
 - `client/src/services/__tests__/` - Service layer tests
 - `client/src/services/assessment/__tests__/` - Assessment module tests
-- Total: 937 tests across 52 test suites (100% passing)
+- Total: ~1000 tests across 52 test suites
 
 ## Development Workflow
 
