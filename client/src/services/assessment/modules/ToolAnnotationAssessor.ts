@@ -32,6 +32,131 @@ import {
 } from "../config/annotationPatterns";
 
 /**
+ * Tool description poisoning patterns (Issue #8)
+ * Detects hidden instructions and malicious content in tool descriptions
+ */
+interface PoisoningPattern {
+  name: string;
+  pattern: RegExp;
+  severity: "LOW" | "MEDIUM" | "HIGH";
+  category: string;
+}
+
+const DESCRIPTION_POISONING_PATTERNS: PoisoningPattern[] = [
+  // Hidden instruction tags
+  {
+    name: "hidden_tag",
+    pattern: /<HIDDEN>[\s\S]*?<\/HIDDEN>/gi,
+    severity: "HIGH",
+    category: "hidden_instructions",
+  },
+  {
+    name: "important_tag",
+    pattern: /<IMPORTANT>[\s\S]*?<\/IMPORTANT>/gi,
+    severity: "HIGH",
+    category: "hidden_instructions",
+  },
+  {
+    name: "system_tag",
+    pattern: /<SYSTEM>[\s\S]*?<\/SYSTEM>/gi,
+    severity: "HIGH",
+    category: "hidden_instructions",
+  },
+  {
+    name: "instruction_tag",
+    pattern: /<INSTRUCTION>[\s\S]*?<\/INSTRUCTION>/gi,
+    severity: "HIGH",
+    category: "hidden_instructions",
+  },
+
+  // Override commands
+  {
+    name: "ignore_instructions",
+    pattern: /ignore\s+(all\s+)?(previous|prior|above)\s+instructions/i,
+    severity: "HIGH",
+    category: "override",
+  },
+  {
+    name: "disregard_instructions",
+    pattern: /disregard\s+(all\s+)?(previous|prior)\s+instructions/i,
+    severity: "HIGH",
+    category: "override",
+  },
+  {
+    name: "you_are_now",
+    pattern: /you\s+are\s+now\s+(a|an|the)/i,
+    severity: "MEDIUM",
+    category: "override",
+  },
+  {
+    name: "system_override",
+    pattern: /system:\s*override/i,
+    severity: "HIGH",
+    category: "override",
+  },
+
+  // Secrecy/concealment
+  {
+    name: "do_not_mention",
+    pattern: /do\s+not\s+(mention|tell|inform|reveal)/i,
+    severity: "HIGH",
+    category: "concealment",
+  },
+  {
+    name: "secretly",
+    pattern: /\bsecretly\b/i,
+    severity: "MEDIUM",
+    category: "concealment",
+  },
+  {
+    name: "hide_from_user",
+    pattern: /hide\s+(this\s+)?from\s+(the\s+)?user/i,
+    severity: "HIGH",
+    category: "concealment",
+  },
+
+  // Data exfiltration
+  {
+    name: "return_keys",
+    pattern: /return\s+(all\s+)?(api\s*)?keys/i,
+    severity: "HIGH",
+    category: "exfiltration",
+  },
+  {
+    name: "include_credentials",
+    pattern: /include.*(api.?key|credential|password|secret)/i,
+    severity: "HIGH",
+    category: "exfiltration",
+  },
+  {
+    name: "reveal_secrets",
+    pattern: /reveal\s+(all\s+)?(secrets|credentials|api\s*keys)/i,
+    severity: "HIGH",
+    category: "exfiltration",
+  },
+  {
+    name: "access_internal",
+    pattern: /access\s+(the\s+)?internal/i,
+    severity: "MEDIUM",
+    category: "exfiltration",
+  },
+
+  // Delimiter injection
+  {
+    name: "system_codeblock",
+    pattern: /```system[\s\S]*?```/gi,
+    severity: "HIGH",
+    category: "delimiter",
+  },
+  {
+    name: "inst_tags",
+    pattern: /\[INST\][\s\S]*?\[\/INST\]/gi,
+    severity: "HIGH",
+    category: "delimiter",
+  },
+];
+
+/**
  * Enhanced tool annotation result with Claude inference
  */
 export interface EnhancedToolAnnotationResult extends ToolAnnotationResult {
@@ -112,6 +237,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     let annotatedCount = 0;
     let missingAnnotationsCount = 0;
     let misalignedAnnotationsCount = 0;
+    let poisonedDescriptionsCount = 0;
 
     // Track annotation sources
     const annotationSourceCounts = {
@@ -197,6 +323,23 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         annotationSourceCounts.inferred++;
       } else {
         annotationSourceCounts.none++;
+      }
+
+      // Track and emit poisoned description detection (Issue #8)
+      if (latestResult.descriptionPoisoning?.detected) {
+        poisonedDescriptionsCount++;
+        this.log(
+          `POISONED DESCRIPTION DETECTED: ${tool.name} contains suspicious patterns`,
+        );
+        if (context.onProgress) {
+          context.onProgress({
+            type: "annotation_poisoned",
+            tool: tool.name,
+            description: tool.description,
+            patterns: latestResult.descriptionPoisoning.patterns,
+            riskLevel: latestResult.descriptionPoisoning.riskLevel,
+          });
+        }
       }
 
       // Emit annotation_missing event with tool details
@@ -323,7 +466,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     );
 
     this.log(
-      `Assessment complete: ${annotatedCount}/${context.tools.length} tools annotated, ${misalignedAnnotationsCount} misaligned, ${alignmentBreakdown.reviewRecommended} need review`,
+      `Assessment complete: ${annotatedCount}/${context.tools.length} tools annotated, ${misalignedAnnotationsCount} misaligned, ${alignmentBreakdown.reviewRecommended} need review, ${poisonedDescriptionsCount} poisoned`,
     );
 
     // Return enhanced assessment if Claude was used
@@ -355,6 +498,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         metrics,
         alignmentBreakdown,
         annotationSources: annotationSourceCounts,
+        poisonedDescriptionsDetected: poisonedDescriptionsCount,
         claudeEnhanced: true,
         highConfidenceMisalignments,
       };
@@ -371,6 +515,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       metrics,
       alignmentBreakdown,
       annotationSources: annotationSourceCounts,
+      poisonedDescriptionsDetected: poisonedDescriptionsCount,
     };
   }
 
@@ -746,6 +891,17 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       }
     }
 
+    // Scan for description poisoning (Issue #8)
+    const descriptionPoisoning = this.scanDescriptionForPoisoning(tool);
+    if (descriptionPoisoning.detected) {
+      issues.push(
+        `Tool description contains suspicious patterns: ${descriptionPoisoning.patterns.map((p) => p.name).join(", ")}`,
+      );
+      recommendations.push(
+        `Review ${tool.name} description for potential prompt injection or hidden instructions`,
+      );
+    }
+
     return {
       toolName: tool.name,
       hasAnnotations,
@@ -755,6 +911,67 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       alignmentStatus,
       issues,
       recommendations,
+      descriptionPoisoning,
+    };
+  }
+
+  /**
+   * Scan tool description for poisoning patterns (Issue #8)
+   * Detects hidden instructions, override commands, concealment, and exfiltration attempts
+   */
+  private scanDescriptionForPoisoning(tool: Tool): {
+    detected: boolean;
+    patterns: Array<{
+      name: string;
+      pattern: string;
+      severity: "LOW" | "MEDIUM" | "HIGH";
+      category: string;
+      evidence: string;
+    }>;
+    riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH";
+  } {
+    const description = tool.description || "";
+    const matches: Array<{
+      name: string;
+      pattern: string;
+      severity: "LOW" | "MEDIUM" | "HIGH";
+      category: string;
+      evidence: string;
+    }> = [];
+
+    for (const patternDef of DESCRIPTION_POISONING_PATTERNS) {
+      // Create a fresh regex to reset lastIndex
+      const regex = new RegExp(
+        patternDef.pattern.source,
+        patternDef.pattern.flags,
+      );
+      const match = regex.exec(description);
+      if (match) {
+        matches.push({
+          name: patternDef.name,
+          pattern: patternDef.pattern.toString(),
+          severity: patternDef.severity,
+          category: patternDef.category,
+          evidence:
+            match[0].substring(0, 100) + (match[0].length > 100 ? "..." : ""),
+        });
+      }
+    }
+
+    // Determine overall risk level based on highest severity match
+    let riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH" = "NONE";
+    if (matches.some((m) => m.severity === "HIGH")) {
+      riskLevel = "HIGH";
+    } else if (matches.some((m) => m.severity === "MEDIUM")) {
+      riskLevel = "MEDIUM";
+    } else if (matches.length > 0) {
+      riskLevel = "LOW";
+    }
+
+    return {
+      detected: matches.length > 0,
+      patterns: matches,
+      riskLevel,
     };
   }
 
@@ -978,6 +1195,14 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     if (totalTools === 0) return "PASS";
 
     const annotatedCount = results.filter((r) => r.hasAnnotations).length;
+
+    // Check for poisoned descriptions (Issue #8) - critical security issue
+    const poisonedCount = results.filter(
+      (r) => r.descriptionPoisoning?.detected === true,
+    ).length;
+    if (poisonedCount > 0) {
+      return "FAIL";
+    }
 
     // Only count actual MISALIGNED, not REVIEW_RECOMMENDED
     const misalignedCount = results.filter(

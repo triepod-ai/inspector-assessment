@@ -740,6 +740,18 @@ export interface ToolAnnotationResult {
   alignmentStatus?: AlignmentStatus;
   issues: string[];
   recommendations: string[];
+  /** Description poisoning detection (Issue #8) */
+  descriptionPoisoning?: {
+    detected: boolean;
+    patterns: Array<{
+      name: string;
+      pattern: string;
+      severity: "LOW" | "MEDIUM" | "HIGH";
+      category: string;
+      evidence: string;
+    }>;
+    riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH";
+  };
 }
 
 export interface ToolAnnotationAssessment {
@@ -780,6 +792,8 @@ export interface ToolAnnotationAssessment {
     /** Count with no annotations found */
     none: number;
   };
+  /** Count of tools with poisoned descriptions detected (Issue #8) */
+  poisonedDescriptionsDetected?: number;
 }
 
 /**
@@ -1251,7 +1265,8 @@ export type ProgressEvent =
   | VulnerabilityFoundProgress
   | AnnotationMissingProgress
   | AnnotationMisalignedProgress
-  | AnnotationReviewRecommendedProgress;
+  | AnnotationReviewRecommendedProgress
+  | AnnotationPoisonedProgress;
 
 /**
  * Emitted when an assessment module begins execution.
@@ -1366,6 +1381,24 @@ export interface AnnotationReviewRecommendedProgress {
   confidence: InferenceConfidence;
   isAmbiguous: boolean;
   reason: string;
+}
+
+/**
+ * Emitted when tool description contains poisoning patterns (Issue #8).
+ * Indicates potential prompt injection or malicious instructions in tool metadata.
+ */
+export interface AnnotationPoisonedProgress {
+  type: "annotation_poisoned";
+  tool: string;
+  description?: string;
+  patterns: Array<{
+    name: string;
+    pattern: string;
+    severity: "LOW" | "MEDIUM" | "HIGH";
+    category: string;
+    evidence: string;
+  }>;
+  riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH";
 }
 
 // ============================================================================
