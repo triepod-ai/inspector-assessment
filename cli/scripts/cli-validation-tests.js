@@ -160,6 +160,45 @@ async function runTests() {
     );
   }
 
+  // Note: Null byte test (4b) removed - Node.js prevents null bytes in CLI args
+  // The isValidEnvVarValue() function is tested at the unit level instead
+
+  // Test 4c: Sensitive env var (AWS credentials) should be blocked
+  {
+    const result = await runCli(
+      ["-e", "AWS_SECRET_ACCESS_KEY=test123", "--", "echo", "test"],
+      3000,
+    );
+    const hasWarning = result.stderr.includes(
+      "Blocking potentially sensitive environment variable",
+    );
+    test(
+      "Sensitive env var (AWS_SECRET_ACCESS_KEY) should warn and block",
+      hasWarning,
+      !hasWarning
+        ? `No warning found. stderr: ${result.stderr.substring(0, 100)}`
+        : "",
+    );
+  }
+
+  // Test 4d: Sensitive env var (API key suffix) should be blocked
+  {
+    const result = await runCli(
+      ["-e", "STRIPE_API_KEY=sk_test_123", "--", "echo", "test"],
+      3000,
+    );
+    const hasWarning = result.stderr.includes(
+      "Blocking potentially sensitive environment variable",
+    );
+    test(
+      "Sensitive env var with _API_KEY suffix should warn and block",
+      hasWarning,
+      !hasWarning
+        ? `No warning found. stderr: ${result.stderr.substring(0, 100)}`
+        : "",
+    );
+  }
+
   // Test 5: Server URL validation - private IP warning
   console.log(`\n${colors.BLUE}Testing server URL validation...${colors.NC}`);
   {
@@ -205,6 +244,64 @@ async function runTests() {
       !hasWarning,
       hasWarning
         ? `Got unexpected warning: ${result.stderr.substring(0, 100)}`
+        : "",
+    );
+  }
+
+  // Test 7b: Cloud metadata endpoint (AWS/GCP) should show warning
+  {
+    const result = await runCli(
+      [
+        "--server-url",
+        "http://169.254.169.254/latest/meta-data/",
+        "--transport",
+        "http",
+      ],
+      3000,
+    );
+    const hasWarning = result.stderr.includes("private/internal address");
+    test(
+      "Cloud metadata URL (169.254.169.254) should show warning",
+      hasWarning,
+      !hasWarning
+        ? `No warning found. stderr: ${result.stderr.substring(0, 100)}`
+        : "",
+    );
+  }
+
+  // Test 7c: Google metadata endpoint should show warning
+  {
+    const result = await runCli(
+      [
+        "--server-url",
+        "http://metadata.google.internal/computeMetadata/v1/",
+        "--transport",
+        "http",
+      ],
+      3000,
+    );
+    const hasWarning = result.stderr.includes("private/internal address");
+    test(
+      "Google metadata URL (metadata.google.internal) should show warning",
+      hasWarning,
+      !hasWarning
+        ? `No warning found. stderr: ${result.stderr.substring(0, 100)}`
+        : "",
+    );
+  }
+
+  // Test 7d: 0.0.0.0 should show warning
+  {
+    const result = await runCli(
+      ["--server-url", "http://0.0.0.0:3000/mcp", "--transport", "http"],
+      3000,
+    );
+    const hasWarning = result.stderr.includes("private/internal address");
+    test(
+      "Current network URL (0.0.0.0) should show warning",
+      hasWarning,
+      !hasWarning
+        ? `No warning found. stderr: ${result.stderr.substring(0, 100)}`
         : "",
     );
   }

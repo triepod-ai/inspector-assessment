@@ -27,6 +27,22 @@ function isValidEnvVarValue(value: string): boolean {
   return !value.includes("\0");
 }
 
+// [SECURITY-ENHANCEMENT] - triepod-ai fork: Block sensitive environment variables
+const BLOCKED_ENV_VAR_PATTERNS = [
+  /^(AWS|AZURE|GCP|GOOGLE)_/i, // Cloud provider credentials
+  /^(API|AUTH|SECRET|TOKEN|KEY|PASSWORD|CREDENTIAL)_/i, // Generic secrets
+  /^(PRIVATE|SSH|PGP|GPG)_/i, // Private keys
+  /_(API_KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL)$/i, // Suffix patterns
+];
+
+/**
+ * Check if an environment variable name should be blocked
+ * Prevents accidental exposure of sensitive credentials
+ */
+function isSensitiveEnvVar(name: string): boolean {
+  return BLOCKED_ENV_VAR_PATTERNS.some((pattern) => pattern.test(name));
+}
+
 /**
  * Validate and sanitize environment variables
  * Returns filtered environment variables with invalid entries removed
@@ -49,10 +65,55 @@ function validateEnvVars(env: Record<string, string>): Record<string, string> {
       continue;
     }
 
+    // [SECURITY-ENHANCEMENT] - Block sensitive env vars
+    if (isSensitiveEnvVar(key)) {
+      console.warn(
+        `Warning: Blocking potentially sensitive environment variable: ${key}`,
+      );
+      continue;
+    }
+
     validated[key] = value;
   }
 
   return validated;
+}
+
+// [SECURITY-ENHANCEMENT] - triepod-ai fork: Unified SSRF protection patterns (matches client)
+const PRIVATE_HOSTNAME_PATTERNS = [
+  // Localhost variants
+  /^localhost$/,
+  /^localhost\./,
+
+  // IPv4 private ranges
+  /^127\./, // 127.0.0.0/8 - loopback
+  /^10\./, // 10.0.0.0/8 - private
+  /^172\.(1[6-9]|2[0-9]|3[01])\./, // 172.16.0.0/12 - private
+  /^192\.168\./, // 192.168.0.0/16 - private
+  /^169\.254\./, // 169.254.0.0/16 - link-local
+  /^0\./, // 0.0.0.0/8 - current network
+
+  // IPv6 private ranges (enclosed in brackets for URL hostname)
+  /^\[::1\]$/, // ::1 - loopback
+  /^\[::ffff:127\./, // IPv4-mapped loopback
+  /^\[fe80:/i, // fe80::/10 - link-local
+  /^\[fc/i, // fc00::/7 - unique local
+  /^\[fd/i, // fd00::/8 - unique local
+
+  // Cloud metadata endpoints (common SSRF targets)
+  /^169\.254\.169\.254$/, // AWS/GCP metadata
+  /^metadata\./, // metadata.google.internal
+];
+
+/**
+ * Check if a hostname is a private/internal IP address
+ * Used to prevent SSRF attacks by blocking requests to internal networks
+ */
+function isPrivateHostname(hostname: string): boolean {
+  const normalizedHostname = hostname.toLowerCase();
+  return PRIVATE_HOSTNAME_PATTERNS.some((pattern) =>
+    pattern.test(normalizedHostname),
+  );
 }
 
 /**
@@ -71,23 +132,10 @@ function validateServerUrl(url: string): void {
       );
     }
 
-    // Block private IPs to prevent SSRF attacks
-    const hostname = parsed.hostname.toLowerCase();
-    const privatePatterns = [
-      /^localhost$/,
-      /^127\./,
-      /^10\./,
-      /^172\.(1[6-9]|2[0-9]|3[01])\./,
-      /^192\.168\./,
-      /^169\.254\./, // Link-local
-      /^\[::1\]$/, // IPv6 localhost
-      /^\[fe80:/i, // IPv6 link-local
-    ];
-
     // Only warn for private IPs (don't block - may be intentional for local testing)
-    if (privatePatterns.some((pattern) => pattern.test(hostname))) {
+    if (isPrivateHostname(parsed.hostname)) {
       console.warn(
-        `Warning: Connecting to private/internal address: ${hostname}`,
+        `Warning: Connecting to private/internal address: ${parsed.hostname}`,
       );
     }
   } catch (error) {

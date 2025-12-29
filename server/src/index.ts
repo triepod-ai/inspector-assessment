@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import { parseArgs } from "node:util";
 import { parse as shellParseArgs } from "shell-quote";
 import nodeFetch, { Headers as NodeHeaders } from "node-fetch";
@@ -166,6 +167,40 @@ const updateHeadersInPlace = (
 
 const app = express();
 app.use(cors());
+
+// [SECURITY-ENHANCEMENT] - triepod-ai fork: Rate limiting to prevent DoS attacks
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: {
+    error: "Too many requests",
+    message: "Please try again later",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiting to all MCP endpoints
+app.use("/mcp", limiter);
+app.use("/sse", limiter);
+app.use("/stdio", limiter);
+app.use("/message", limiter);
+
+// [SECURITY-ENHANCEMENT] - triepod-ai fork: Global body size limits to prevent memory exhaustion
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
+
+// [SECURITY-ENHANCEMENT] - triepod-ai fork: Content Security Policy headers
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none'",
+  );
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  next();
+});
+
 app.use((req, res, next) => {
   res.header("Access-Control-Expose-Headers", "mcp-session-id");
   next();
