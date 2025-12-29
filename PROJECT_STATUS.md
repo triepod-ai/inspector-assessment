@@ -358,3 +358,32 @@
 - Pattern count now at 20 (was 19), maintaining zero false positive architecture
 
 ---
+
+## 2025-12-29: Published v1.18.0 with Security Fix, Phase 2/3 Research Complete
+
+**Summary:** Published v1.18.0 with security pattern fix, researched Phase 2/3 enhancements - concluded both are overengineering for MCP audits
+
+**Session Focus:** Release v1.18.0 and evaluate enhancement report phases for MCP relevance
+
+**Changes Made:**
+- `client/src/lib/securityPatterns.ts` - Fixed Insecure Deserialization evidence pattern (line 1125-1128)
+- `PROJECT_STATUS.md` - Added v1.18.0 release notes, Phase 2 and Phase 3 research decisions
+- Published: @bryan-thompson/inspector-assessment@1.18.0 (all 4 packages)
+
+**Key Decisions:**
+- Insecure Deserialization pattern: Changed from generic `/process/i` to specific `/System\..*Process|Process\.Start/i`
+- Phase 2 (second-order injection): Skip - MCP servers are stateless, no privilege escalation
+- Phase 3 (advanced evasion): Skip - Unicode bypass (#13) and deserialization (#20) already cover key patterns
+- Enhancement report phases were theoretical completeness, not practical needs
+
+**Next Steps:**
+- Inspector is feature-complete for MCP directory compliance audits
+- Focus on incremental improvements: false positive reduction, documentation, speed
+- Monitor upstream PRs #990, #991
+
+**Notes:**
+- A/B validation: 253 vulns (vulnerable), 0 (hardened), 0 false positives
+- Current 20 patterns + TemporalAssessor = sufficient coverage
+- v1.18.0 release includes all Phase 1 security enhancements (patterns #17-20)
+
+---
