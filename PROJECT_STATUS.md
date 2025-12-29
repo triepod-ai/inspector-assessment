@@ -2,54 +2,92 @@
 
 ## Current Version
 
-- **Version**: 1.16.1 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.17.1 (published to npm as "@bryan-thompson/inspector-assessment")
 
-**Changes Made:**
-- Added Privacy Policy URL Validator - validates accessibility of privacy_policies URLs in manifest
-- Added Version Comparison Mode - compare assessments with `--compare` and `--diff-only` flags
-- Added State Management - resumable assessments with `--resume` and `--no-resume` flags
-- Added Authentication Assessment Module - evaluates OAuth appropriateness for deployment model
-- Extended ManifestValidationAssessor for privacy policy URL checks (HTTP HEAD/GET validation)
-- Created assessmentDiffer.ts for regression detection between assessment runs
-- Created DiffReportFormatter.ts for markdown comparison reports
-- Created AssessmentStateManager for file-based checkpoint persistence
+**Changes Made (v1.17.1):**
+- Fixed stateful/destructive tool overlap - tools matching both patterns now get strict comparison
+- Added multi-element array sampling - `extractFieldNames()` now checks up to 3 elements to detect heterogeneous schemas
+- Added explicit failure injection test - deterministic test replaces random 5% failure rate dependency
+- Added documentation for substring pattern matching strategy
+- Added logging for stateful tool classification
+- Synced workspace package versions (were out of sync after v1.17.0 bump)
+- Fixed empty baseline edge case in schema comparison
 
 **Key Decisions:**
-- Minor version bump (1.13.1 -> 1.14.0) for Priority 3 feature additions
-- Privacy policy validation uses HTTP HEAD with GET fallback, 5-second timeout
-- Authentication detection uses regex patterns for OAuth, API key, and local resource indicators
-- State files stored at `/tmp/inspector-assessment-state-{serverName}.json`
-- Version comparison generates markdown diff reports with module-by-module breakdown
+- Patch version bump (1.17.0 → 1.17.1) for security edge case fixes from code review
+- Tools like `get_and_delete` now correctly excluded from stateful classification
+- Array sampling limited to 3 elements for performance while catching hidden malicious fields
 
-**New CLI Options:**
-```bash
-# Compare against baseline assessment
-node cli/build/assess-full.js --server <name> --config <path> --compare ./baseline.json
-
-# Only show diff (no full assessment output)
-node cli/build/assess-full.js --server <name> --config <path> --compare ./baseline.json --diff-only
-
-# Resume interrupted assessment
-node cli/build/assess-full.js --server <name> --config <path> --resume
-
-# Force fresh start (ignore any existing state)
-node cli/build/assess-full.js --server <name> --config <path> --no-resume
-```
-
-**Next Steps:**
-- Gap analysis Priority 1-3 features complete
-- Consider additional enhancements based on usage feedback
-- Monitor effectiveness of authentication appropriateness detection
+**Testing Results:**
+- 981 tests passing (4 new tests added for security edge cases)
+- All 52 test suites passing
+- Verified via `bunx @bryan-thompson/inspector-assessment@1.17.1 --help`
 
 **Notes:**
-- 857 tests passing (3 skipped)
 - All 4 npm packages published successfully
-- Package verified working with `bunx @bryan-thompson/inspector-assessment@1.14.0`
-- Completes all Priority 3 features from gap analysis plan
+- Git tag v1.17.1 pushed to origin/main
+- Addresses all 3 warnings + 4 suggestions from code-reviewer-pro analysis
 
 ---
 
+## 2025-12-28: v1.17.1 - Security Edge Case Fixes from Code Review
+
+**Summary:** Addressed 3 warnings and 4 suggestions from code-reviewer-pro analysis of the temporal stateful tool handling feature. Fixed security edge cases that could allow malicious tools to bypass detection.
+
 **Session Focus:**
+Code review of v1.17.0 temporal feature, addressing security edge cases and test coverage gaps.
+
+**Changes Made:**
+- Modified `client/src/services/assessment/modules/TemporalAssessor.ts`:
+  - `isStatefulTool()` now excludes tools that also match destructive patterns (e.g., `get_and_delete`)
+  - `extractFieldNames()` now samples up to 3 array elements instead of just first
+  - Added empty baseline edge case check in `compareSchemas()`
+  - Added documentation for substring pattern matching strategy
+  - Added logging when tools are classified as stateful
+- Modified `client/src/services/assessment/__tests__/TemporalAssessor.test.ts`:
+  - Added test for stateful/destructive overlap (8 assertions)
+  - Added test for heterogeneous array schema detection
+  - Added test for 3-element sampling limit
+- Modified `client/src/services/assessment/performance.test.ts`:
+  - Added explicit failure injection test with deterministic failures
+
+**Security Fixes:**
+1. **Stateful/Destructive Overlap**: Tools like `get_and_delete` now get strict exact comparison instead of lenient schema comparison
+2. **Array Schema Hiding**: Attackers can no longer hide malicious fields in non-first array elements
+3. **Empty Baseline Bypass**: Empty baseline (`{}`) followed by malicious content now flagged as suspicious
+
+**Code Review Results:**
+- Warnings Addressed: 3/3
+- Suggestions Addressed: 4/4
+- New Tests Added: 4
+- Total Tests: 981 (up from 977)
+
+**Notes:**
+- All 4 npm packages published successfully
+- Git tag v1.17.1 pushed to origin/main
+- Includes v1.17.0 stateful tool handling feature + edge case fixes
+
+---
+
+## 2025-12-28: v1.17.0 - Stateful Tool Handling for Temporal Assessment
+
+**Summary:** Added intelligent handling for stateful tools (search, list, query, etc.) in TemporalAssessor to prevent false positives on legitimate state-dependent tools.
+
+**Changes Made:**
+- Added `STATEFUL_TOOL_PATTERNS` for identifying state-dependent tools
+- Added `isStatefulTool()` method for pattern matching
+- Added `compareSchemas()` and `extractFieldNames()` for schema-only comparison
+- Schema growth allowed (empty → populated), schema shrinkage flagged as suspicious
+- 37 new tests for stateful tool handling
+
+**Key Decisions:**
+- Minor version bump (1.16.1 → 1.17.0) for new feature
+- Schema comparison uses recursive field name extraction with array notation
+- Stateful tools use schema comparison; non-stateful use exact comparison
+
+---
+
+**Session Focus (older):**
 - Testing and validation of Phase 7 JSONL event enhancements
 - npm package publishing (v1.11.0)
 - Slash command creation for future enhancement sessions
@@ -437,3 +475,32 @@ Standard assessments call tools with many different payloads but never call the 
 - Commit: 9e05f02 fix(tests): address code review warnings for test assertions
 
 ---
+## 2025-12-28: Inspector v1.17.0 - Stateful Tool Handling for TemporalAssessor
+
+**Summary:** Released Inspector v1.17.0 with stateful tool handling to prevent false positives on search/list/query tools while maintaining rug pull detection.
+
+**Session Focus:** Fix TemporalAssessor test expectations and publish v1.17.0 with stateful tool handling
+
+**Changes Made:**
+- `client/src/services/assessment/modules/TemporalAssessor.ts` - Added isStatefulTool(), compareSchemas(), extractFieldNames() methods
+- `client/src/services/assessment/__tests__/TemporalAssessor.test.ts` - Fixed test expectation (schema growth should PASS), added 37 new tests for stateful tool handling
+- `client/src/lib/assessmentTypes.ts` - Added note field to TemporalToolResult type
+- `package.json` - Bumped version to 1.17.0
+- `scripts/run-full-assessment.ts` - Added temporal module to full assessment
+
+**Key Decisions:**
+- Schema growth (new fields appearing) is allowed for stateful tools - only schema shrinkage flagged as suspicious
+- Stateful tool patterns: search, list, query, find, get, fetch, read, browse
+- Fix test expectation rather than implementation - design was correct
+
+**Next Steps:**
+- Monitor for any edge cases in stateful tool detection
+- Consider adding more stateful tool patterns if needed
+
+**Notes:**
+- Testbed validation: Vulnerable server detected 1 rug pull, Hardened server passed with 0 false positives
+- Published to npm: @bryan-thompson/inspector-assessment@1.17.0
+- All 977 tests passing
+
+---
+
