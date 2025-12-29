@@ -361,7 +361,7 @@ This file contains archived project timeline entries from earlier development ph
 ## npm Package Publishing & Maintenance
 
 **Package**: `@bryan-thompson/inspector-assessment`
-**Current Version**: 1.8.2
+**Current Version**: 1.17.1
 **Registry**: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
 
 ### Quick Publish Workflow
@@ -376,31 +376,22 @@ git status  # Should show no uncommitted changes to tracked files
 npm run prettier-fix
 git add . && git commit -m "style: format files"  # If any changes
 
-# 3. Bump root version (creates git tag automatically)
+# 3. Bump version (workspaces sync automatically via lifecycle hook!)
 npm version patch   # Bug fixes: 1.0.0 -> 1.0.1
 npm version minor   # New features: 1.0.0 -> 1.1.0
 npm version major   # Breaking changes: 1.0.0 -> 2.0.0
 
-# 4. CRITICAL: Sync workspace versions (npm doesn't do this automatically!)
-VERSION=$(node -p "require('./package.json').version")
-npm --workspace client version $VERSION --no-git-tag-version
-npm --workspace server version $VERSION --no-git-tag-version
-npm --workspace cli version $VERSION --no-git-tag-version
-
-# 5. CRITICAL: Update package-lock.json (prevents CI build failures!)
-npm install
-
-# 6. Publish all packages (workspaces + root)
+# 4. Publish all packages (workspaces + root)
 npm run publish-all
 
-# 7. Commit workspace version updates AND lock file, then push
-git add package.json package-lock.json client/package.json server/package.json cli/package.json
-git commit -m "chore: release v$VERSION"
+# 5. Push to origin with tags
 git push origin main --tags
 
-# 8. Verify published package
+# 6. Verify published package
 bunx @bryan-thompson/inspector-assessment --help
 ```
+
+**Note**: The `npm version` command automatically syncs all workspace versions via the `version` lifecycle script in package.json. No manual workspace syncing needed!
 
 ### Publishing Commands Reference
 
@@ -464,13 +455,15 @@ All four must be published for the package to work correctly.
 
 ### Monorepo Publishing Gotchas
 
-**Critical issues discovered during v1.8.2 release:**
+**Automated as of v1.17.1:**
 
-1. **Workspace Version Sync** (Most Common Failure)
-   - `npm version patch` only bumps the root package version
-   - Workspace packages (client, server, cli) keep their old versions
-   - Publishing fails with: `403 Forbidden - cannot publish over previously published versions`
-   - **Fix**: Always run the workspace version sync command after `npm version`
+1. **Workspace Version Sync** (Now Automated!)
+   - ~~`npm version patch` only bumps the root package version~~
+   - **Fixed**: The `version` lifecycle script in package.json now automatically syncs all workspace versions
+   - Script: `scripts/sync-workspace-versions.js`
+   - Just run `npm version patch` - everything syncs automatically!
+
+**Still requires attention:**
 
 2. **Prettier Formatting**
    - New files (especially docs) must be formatted before commit
@@ -480,12 +473,6 @@ All four must be published for the package to work correctly.
 3. **Clean Git Directory**
    - `npm version` fails if working directory has uncommitted changes
    - **Fix**: Commit or stash changes before running `npm version`
-
-4. **Package-Lock Version Mismatch** (CI Build Failure)
-   - After bumping versions, package-lock.json still references old versions
-   - GitHub CI fails with version mismatch between package.json and package-lock.json
-   - **Fix**: Run `npm install` after syncing workspace versions to update lock file
-   - **Commit**: Include `package-lock.json` in your release commit
 
 ### Testing Published Package
 
