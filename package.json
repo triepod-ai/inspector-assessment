@@ -71,7 +71,8 @@
     "prepare": "husky && npm run build",
     "publish-all": "npm publish --workspaces --access public && npm publish --access public",
     "update-version": "node scripts/update-version.js",
-    "check-version": "node scripts/check-version-consistency.js"
+    "check-version": "node scripts/check-version-consistency.js",
+    "version": "node scripts/sync-workspace-versions.js && git add ."
   },
   "publishConfig": {
     "access": "public"
