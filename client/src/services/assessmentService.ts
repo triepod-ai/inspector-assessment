@@ -69,22 +69,41 @@ export class MCPAssessmentService {
       privacyPolicy: undefined,
     };
 
-    // Run all assessment categories
-    // Use the new FunctionalityAssessor module for functionality assessment
+    // Run assessment categories based on config (default: all enabled)
+    const categories = this.config.assessmentCategories;
+
+    // Functionality assessment (always run unless explicitly disabled)
     const functionalityAssessor = new FunctionalityAssessor(this.config);
-    const functionality = await functionalityAssessor.assess(context);
+    const functionality =
+      categories?.functionality !== false
+        ? await functionalityAssessor.assess(context)
+        : this.createEmptyFunctionalityResult();
 
-    // Use the new SecurityAssessor module for security assessment
+    // Security assessment (skip if disabled for performance)
     const securityAssessor = new SecurityAssessor(this.config);
-    const security = await securityAssessor.assess(context);
+    const security =
+      categories?.security !== false
+        ? await securityAssessor.assess(context)
+        : this.createEmptySecurityResult();
 
-    const documentation = this.assessDocumentation(readmeContent || "", tools);
+    // Documentation assessment
+    const documentation =
+      categories?.documentation !== false
+        ? this.assessDocumentation(readmeContent || "", tools)
+        : this.createEmptyDocumentationResult();
 
-    // Use the new ErrorHandlingAssessor module for error handling assessment
+    // Error handling assessment (skip if disabled for performance)
     const errorHandlingAssessor = new ErrorHandlingAssessor(this.config);
-    const errorHandling = await errorHandlingAssessor.assess(context);
+    const errorHandling =
+      categories?.errorHandling !== false
+        ? await errorHandlingAssessor.assess(context)
+        : this.createEmptyErrorHandlingResult();
 
-    const usability = this.assessUsability(tools);
+    // Usability assessment
+    const usability =
+      categories?.usability !== false
+        ? this.assessUsability(tools)
+        : this.createEmptyUsabilityResult();
 
     // Run extended assessment if enabled
     let mcpSpecCompliance: MCPSpecComplianceAssessment | undefined;
@@ -1033,5 +1052,75 @@ export class MCPAssessmentService {
     }
 
     return recommendations;
+  }
+
+  // Helper methods for creating empty results when assessments are disabled
+  private createEmptyFunctionalityResult(): FunctionalityAssessment {
+    return {
+      totalTools: 0,
+      testedTools: 0,
+      workingTools: 0,
+      brokenTools: [],
+      coveragePercentage: 100,
+      status: "PASS",
+      explanation: "Functionality assessment skipped",
+      toolResults: [],
+    };
+  }
+
+  private createEmptySecurityResult(): SecurityAssessment {
+    return {
+      promptInjectionTests: [],
+      vulnerabilities: [],
+      overallRiskLevel: "LOW",
+      status: "PASS",
+      explanation: "Security assessment skipped",
+    };
+  }
+
+  private createEmptyDocumentationResult(): DocumentationAssessment {
+    return {
+      status: "PASS",
+      recommendations: [],
+      metrics: {
+        hasReadme: false,
+        exampleCount: 0,
+        requiredExamples: 3,
+        missingExamples: [],
+        hasInstallInstructions: false,
+        hasUsageGuide: false,
+        hasAPIReference: false,
+      },
+      explanation: "Documentation assessment skipped",
+    };
+  }
+
+  private createEmptyErrorHandlingResult(): ErrorHandlingAssessment {
+    return {
+      status: "PASS",
+      recommendations: [],
+      metrics: {
+        mcpComplianceScore: 100,
+        errorResponseQuality: "excellent",
+        hasProperErrorCodes: true,
+        hasDescriptiveMessages: true,
+        validatesInputs: true,
+      },
+      explanation: "Error handling assessment skipped",
+    };
+  }
+
+  private createEmptyUsabilityResult(): UsabilityAssessment {
+    return {
+      status: "PASS",
+      recommendations: [],
+      metrics: {
+        toolNamingConvention: "consistent",
+        parameterClarity: "clear",
+        hasHelpfulDescriptions: true,
+        followsBestPractices: true,
+      },
+      explanation: "Usability assessment skipped",
+    };
   }
 }

@@ -607,7 +607,19 @@ describe("MCPAssessmentService", () => {
       });
 
       it("should respect timeout configuration", async () => {
-        const slowService = new MCPAssessmentService({ testTimeout: 100 });
+        // Use minimal config to isolate timeout behavior from assessment complexity
+        const slowService = new MCPAssessmentService({
+          testTimeout: 100,
+          enableExtendedAssessment: false,
+          assessmentCategories: {
+            functionality: true,
+            security: false, // Skip expensive security assessment
+            documentation: false,
+            errorHandling: false,
+            usability: false,
+            mcpSpecCompliance: false,
+          },
+        });
         mockCallTool.mockImplementation(
           () => new Promise((resolve) => setTimeout(resolve, 500)),
         );
@@ -620,12 +632,11 @@ describe("MCPAssessmentService", () => {
         );
         const duration = Date.now() - startTime;
 
-        // Comprehensive mode tests multiple scenarios (~5-12 per tool), each timing out after 100ms
-        // Plus security tests (~15) and error handling tests (~5)
-        // Total time should be reasonable (< 60s for all scenarios with timeouts in comprehensive mode)
-        expect(duration).toBeLessThan(60000);
+        // With minimal config (functionality only), tests ~5-12 scenarios per tool
+        // Each scenario times out after 100ms, so total should be well under 30s
+        expect(duration).toBeLessThan(30000);
         expect(result.functionality.brokenTools.length).toBeGreaterThan(0);
-      }, 60000); // 60 second Jest timeout for comprehensive mode with 100ms tool timeouts
+      }, 30000); // 30 second Jest timeout for functionality-only with 100ms tool timeouts
     });
 
     describe("Large Payload Handling", () => {
