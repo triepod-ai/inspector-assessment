@@ -3,339 +3,6 @@
 ## Current Version
 
 - **Version**: 1.17.1 (published to npm as "@bryan-thompson/inspector-assessment")
-
-**Changes Made (v1.17.1):**
-- Fixed stateful/destructive tool overlap - tools matching both patterns now get strict comparison
-- Added multi-element array sampling - `extractFieldNames()` now checks up to 3 elements to detect heterogeneous schemas
-- Added explicit failure injection test - deterministic test replaces random 5% failure rate dependency
-- Added documentation for substring pattern matching strategy
-- Added logging for stateful tool classification
-- Synced workspace package versions (were out of sync after v1.17.0 bump)
-- Fixed empty baseline edge case in schema comparison
-
-**Key Decisions:**
-- Patch version bump (1.17.0 → 1.17.1) for security edge case fixes from code review
-- Tools like `get_and_delete` now correctly excluded from stateful classification
-- Array sampling limited to 3 elements for performance while catching hidden malicious fields
-
-**Testing Results:**
-- 981 tests passing (4 new tests added for security edge cases)
-- All 52 test suites passing
-- Verified via `bunx @bryan-thompson/inspector-assessment@1.17.1 --help`
-
-**Notes:**
-- All 4 npm packages published successfully
-- Git tag v1.17.1 pushed to origin/main
-- Addresses all 3 warnings + 4 suggestions from code-reviewer-pro analysis
-
----
-
-## 2025-12-28: v1.17.1 - Security Edge Case Fixes from Code Review
-
-**Summary:** Addressed 3 warnings and 4 suggestions from code-reviewer-pro analysis of the temporal stateful tool handling feature. Fixed security edge cases that could allow malicious tools to bypass detection.
-
-**Session Focus:**
-Code review of v1.17.0 temporal feature, addressing security edge cases and test coverage gaps.
-
-**Changes Made:**
-- Modified `client/src/services/assessment/modules/TemporalAssessor.ts`:
-  - `isStatefulTool()` now excludes tools that also match destructive patterns (e.g., `get_and_delete`)
-  - `extractFieldNames()` now samples up to 3 array elements instead of just first
-  - Added empty baseline edge case check in `compareSchemas()`
-  - Added documentation for substring pattern matching strategy
-  - Added logging when tools are classified as stateful
-- Modified `client/src/services/assessment/__tests__/TemporalAssessor.test.ts`:
-  - Added test for stateful/destructive overlap (8 assertions)
-  - Added test for heterogeneous array schema detection
-  - Added test for 3-element sampling limit
-- Modified `client/src/services/assessment/performance.test.ts`:
-  - Added explicit failure injection test with deterministic failures
-
-**Security Fixes:**
-1. **Stateful/Destructive Overlap**: Tools like `get_and_delete` now get strict exact comparison instead of lenient schema comparison
-2. **Array Schema Hiding**: Attackers can no longer hide malicious fields in non-first array elements
-3. **Empty Baseline Bypass**: Empty baseline (`{}`) followed by malicious content now flagged as suspicious
-
-**Code Review Results:**
-- Warnings Addressed: 3/3
-- Suggestions Addressed: 4/4
-- New Tests Added: 4
-- Total Tests: 981 (up from 977)
-
-**Notes:**
-- All 4 npm packages published successfully
-- Git tag v1.17.1 pushed to origin/main
-- Includes v1.17.0 stateful tool handling feature + edge case fixes
-
----
-
-## 2025-12-28: v1.17.0 - Stateful Tool Handling for Temporal Assessment
-
-**Summary:** Added intelligent handling for stateful tools (search, list, query, etc.) in TemporalAssessor to prevent false positives on legitimate state-dependent tools.
-
-**Changes Made:**
-- Added `STATEFUL_TOOL_PATTERNS` for identifying state-dependent tools
-- Added `isStatefulTool()` method for pattern matching
-- Added `compareSchemas()` and `extractFieldNames()` for schema-only comparison
-- Schema growth allowed (empty → populated), schema shrinkage flagged as suspicious
-- 37 new tests for stateful tool handling
-
-**Key Decisions:**
-- Minor version bump (1.16.1 → 1.17.0) for new feature
-- Schema comparison uses recursive field name extraction with array notation
-- Stateful tools use schema comparison; non-stateful use exact comparison
-
----
-
-**Session Focus (older):**
-- Testing and validation of Phase 7 JSONL event enhancements
-- npm package publishing (v1.11.0)
-- Slash command creation for future enhancement sessions
-- Documentation improvements
-
-**Changes Made:**
-- Published v1.11.0 to npm (all 4 packages: root, client, server, cli)
-- Created /prime-enhance-emit-inspector slash command at `/home/bryan/triepod-ai/.claude/commands/prime-enhance-emit-inspector.md`
-- Updated CLAUDE.md publish workflow with package-lock.json sync requirement
-- Created command documentation at `/home/bryan/inspector/docs/slash_commands/prime-enhance-emit-inspector.md`
-- Fixed CI build by updating package-lock.json after version sync
-- Verified all 35 JSONL event tests passing
-
-**Key Decisions:**
-- Two-team workflow: Inspector team handles emission, Auditor team handles consumption
-- Handoff template format for cross-team coordination (prime -> enhance -> emit pattern)
-- Package-lock.json must be committed after version sync to prevent CI failures (npm publish gotcha #4)
-- Slash command stored in both triepod-ai global commands and inspector project docs
-
-**Testing Results:**
-- 35/35 JSONL event tests passing
-- 28 vulnerability_found events validated against broken-mcp testbed
-- 0 false positives maintained (100% precision)
-- v1.11.0 version matches INSPECTOR_VERSION constant
-- Full package smoke test: `bunx @bryan-thompson/inspector-assessment --help` successful
-
-**Next Steps:**
-- Implement enhanced test_batch with currentTool/currentPattern fields (Tier 1 priority)
-- Add tool_test_complete event for per-tool visibility
-- Coordinate with auditor team on new event consumption
-- Monitor v1.11.0 adoption in mcp-auditor workflows
-
-**Notes:**
-- Publishing gotcha resolved: npm workspace version sync command critical for monorepo releases
-- Two-team workflow enables parallel development: inspector emits events, auditor consumes them
-- Slash command provides reproducible hand-off template for future enhancement sessions
-- Version 1.11.0 ready for integration into mcp-auditor v1.4.0 roadmap
-
----
-
-## 2025-12-28: v1.16.1 - Code Review Fixes & Documentation Clarification
-
-**Summary:** Addressed code review suggestions from code-reviewer-pro agent before npm publish. Fixed ordering mismatch, added JSDoc comments, and clarified testbed documentation.
-
-**Session Focus:**
-Code review of unpublished changes since v1.16.0, addressing all reviewer suggestions before release.
-
-**Changes Made:**
-- Modified `cli/src/assess-full.ts` - Aligned destructuring order with display order in displaySummary() for better maintainability
-- Modified `client/src/lib/assessmentTypes.ts` - Added JSDoc comments to new capability assessor types (resources, prompts, crossCapability)
-- Modified `docs/mcp_vulnerability_testbed.md` - Clarified tool count breakdown: 18 = 10 vulnerable + 6 safe + 2 utility (get_testbed_info, reset_testbed_state)
-
-**Key Decisions:**
-- Patch version bump (1.16.0 → 1.16.1) for non-functional improvements
-- Addressed all 3 reviewer suggestions plus 1 warning from code-reviewer-pro
-- Deferred CI/CD health check suggestion (docs only, not blocking)
-
-**Code Review Results:**
-- Critical Issues: 0
-- Warnings: 1 (fixed - ordering mismatch)
-- Suggestions: 3 (all addressed)
-- Overall: APPROVE
-
-**Notes:**
-- 948 tests passing (5 pre-existing timeout failures in documentation variation tests, unrelated to changes)
-- All 4 npm packages published successfully
-- Git tag v1.16.1 pushed to origin/main
-- Verified: `npm view @bryan-thompson/inspector-assessment version` → 1.16.1
-
----
-
-## 2025-12-26: Fixed JSONL Event Emission Inconsistencies
-
-**Summary:** Fixed JSONL event emission inconsistencies by adding version field to module_started and module_complete events in AssessmentOrchestrator.
-
-**Session Focus:**
-Mapping JSONL emit points and fixing version field inconsistency in orchestrator module events
-
-**Changes Made:**
-- Created `client/src/lib/moduleScoring.ts` - New shared module with normalizeModuleKey(), calculateModuleScore(), and INSPECTOR_VERSION constant
-- Modified `client/src/services/assessment/AssessmentOrchestrator.ts` - Import shared helpers, add version field to module event emissions
-- Modified `scripts/lib/jsonl-events.ts` - Re-export shared helpers from client module, removed duplicate definitions
-
-**Key Decisions:**
-- Created shared moduleScoring.ts in client/src/lib/ to avoid cross-package import issues with monorepo rootDir constraints
-- Kept emit functions in orchestrator but added version field directly rather than importing emit functions (simpler approach)
-- Single source of truth for scoring logic and version constant
-
-**Next Steps:**
-- Consider adding enhanced test_batch events with currentTool, currentPattern fields
-- Consider adding tool_test_complete event for per-tool summaries
-- Handoff to auditor team for UI consumption of versioned events
-
-**Notes:**
-- All 827 tests passed
-- Verified via broken-mcp testbed that all module events now include version: "1.11.0"
-- Commit 7b8ceac pushed to origin/main
-
----
-
-## 2025-12-26: Phase 2 - TestInputMetadata Emission for FunctionalityAssessor
-
-**Summary:** Implemented testInputMetadata emission for FunctionalityAssessor, enabling downstream consumers to see input generation reasoning. Published v1.11.1 to npm.
-
-**Session Focus:**
-Phase 2 implementation of smart test input generation - adding metadata emission to track how test inputs were generated (category-specific, field-name, enum, format, or default).
-
-**Changes Made:**
-- Modified `client/src/lib/assessmentTypes.ts` - Added TestInputMetadata interface with toolCategory, generationStrategy, and fieldSources
-- Modified `client/src/services/assessment/modules/FunctionalityAssessor.ts` - Added generateSmartParamValueWithMetadata(), determineStrategy(), SPECIFIC_FIELD_PATTERNS; modified generateMinimalParams and testTool
-- Modified `client/src/services/assessment/modules/FunctionalityAssessor.test.ts` - Added 7 new tests for metadata emission
-
-**Key Decisions:**
-- Field-name patterns (url, email, path) take priority over category-specific values
-- Metadata included in all ToolTestResult return paths (including failures)
-- Source types: category, field-name, enum, format, default
-
-**Next Steps:**
-- Phase 3: MCP-Auditor UI enhancements to display testInputMetadata
-- Consumer integration for metadata visualization
-
-**Notes:**
-- 839 tests passing (23 FunctionalityAssessor tests)
-- Published v1.11.1 to npm with all 4 packages
-
----
-
-## 2025-12-26: GitHub Issue #3 Complete - Tool Annotation Alignment & Pattern Config CLI Option
-
-**Summary:** Completed GitHub Issue #3 - Tool Annotation Alignment Logic Enhancement and published v1.12.0 to npm.
-
-**Session Focus:**
-Finishing the --pattern-config CLI option implementation for the tiered confidence system feature, enabling custom security pattern configurations via CLI.
-
-**Changes Made:**
-- Modified `cli/src/assess-full.ts` - Added --pattern-config CLI option for custom pattern configuration files
-- Modified `scripts/run-full-assessment.ts` - Added --pattern-config CLI option support
-- Modified `client/src/lib/assessmentTypes.ts` - Added patternConfigPath field to assessment options
-- Modified `client/src/services/assessment/AssessmentOrchestrator.ts` - Load and apply custom patterns from config file
-- Updated `package.json`, `client/package.json`, `server/package.json`, `cli/package.json` - Version 1.12.0
-
-**Key Decisions:**
-- Minor version bump (1.11.1 -> 1.12.0) for new feature addition
-- Graceful degradation: Missing pattern config file logs warning and uses defaults instead of failing
-- mcp-auditor integration: Team will update their handler to accept the new `tool` field in annotation alignment data
-
-**Next Steps:**
-- mcp-auditor can now consume the annotation alignment data with tool context
-- Monitor for any issues with the new --pattern-config option in production usage
-
-**Notes:**
-- GitHub Issue #3 auto-closed by "Fixes #3" commit message convention
-- All 846 tests passing
-- 4 npm packages published successfully (@bryan-thompson/inspector-assessment and workspaces)
-- Feature enables security pattern customization without code changes
-
----
-
-## 2025-12-27: TemporalAssessor Module - Rug Pull Detection (v1.15.0)
-
-**Summary:** Implemented TemporalAssessor module for detecting "rug pull" vulnerabilities - tools that behave safely for first N invocations then become malicious.
-
-**Problem Solved:**
-Standard assessments call tools with many different payloads but never call the same tool repeatedly with identical payloads. This means state-based temporal attacks go undetected.
-
-**Implementation:**
-- New `TemporalAssessor.ts` module (365 lines)
-- Calls each tool 25x with identical safe payload
-- Detects response changes indicating behavioral drift
-- Response normalization prevents false positives from timestamps, UUIDs, incrementing IDs
-
-**Features:**
-- `--temporal-invocations <n>`: Configure invocations per tool (default 25)
-- `--skip-temporal`: Disable temporal testing for speed
-- Destructive tool detection: Reduced invocations (5) for create/write/delete tools
-- Error tracking as potential vulnerability indicators
-- Dual output: `security.vulnerabilities[]` AND `temporal` section
-
-**Validation Results:**
-- Vulnerable testbed (port 10900): 1 rug pull detected (`vulnerable_rug_pull_tool` at invocation 8)
-- Hardened server (port 10901): 0 false positives (17/17 tools pass)
-- Test suite: 857 tests passing
-
-**Files Changed:**
-- Created: `client/src/services/assessment/modules/TemporalAssessor.ts`
-- Created: `docs/TEMPORAL-ASSESSOR-SPEC.md`
-- Modified: `client/src/lib/assessmentTypes.ts` (new types)
-- Modified: `client/src/services/assessment/AssessmentOrchestrator.ts` (registration + security integration)
-- Modified: `client/src/services/assessment/modules/index.ts` (export)
-- Modified: `cli/src/assess-full.ts` (CLI flags)
-
----
-
-## 2025-12-27: TemporalAssessor Unit Tests - 77 Comprehensive Tests
-
-**Summary:** Created 77 comprehensive unit tests for TemporalAssessor module covering rug pull detection functionality.
-
-**Session Focus:** Unit testing for TemporalAssessor module (v1.15.0 feature)
-
-**Changes Made:**
-- Created `client/src/services/assessment/__tests__/TemporalAssessor.test.ts` (740 lines, 77 tests)
-- Test coverage for all key methods:
-  - `normalizeResponse()`: 20 tests (timestamps, UUIDs, IDs, counters)
-  - `analyzeResponses()`: 8 tests (deviation detection, error handling)
-  - `generateSafePayload()`: 10 tests (schema-based payload generation)
-  - `isDestructiveTool()`: 29 tests (destructive pattern matching)
-  - `assess()` integration: 10 tests (full assessment flow, rug pull detection)
-- Fixed TypeScript config (added documentation/usability to assessmentCategories)
-
-**Key Decisions:**
-- Used type casting `(assessor as any).methodName()` to test private methods (standard TypeScript testing pattern)
-- Renamed UUID test field from 'id' to 'uuid' to avoid conflict with string ID normalizer
-- Removed undefined test case (JSON.stringify(undefined) returns undefined, not testable)
-
-**Results:**
-- All 77 new tests pass
-- Full test suite: 52 suites, 934 tests, 3 skipped
-- Commit b10f01d pushed to origin
-
-**Next Steps:**
-- Consider adding integration tests against vulnerable testbed
-- Monitor for any false positives in temporal detection
-
-**Notes:**
-- Test file follows existing patterns in `client/src/services/assessment/__tests__/`
-- Private method testing via type casting is standard practice for thorough unit test coverage
-- TemporalAssessor now has comprehensive test coverage matching other assessment modules
-
----
-
-## 2025-12-27: Security Hardening - TemporalAssessor ReDoS and Memory Exhaustion Fixes (v1.15.1)
-
-**Summary:** Security hardened TemporalAssessor module with P1 (ReDoS, memory exhaustion) and P2 (timeout, patterns, rate limiting) fixes, validated by code review and security audit agents.
-
-**Session Focus:** Security audit and hardening of TemporalAssessor rug pull detection module
-
-**Changes Made:**
-- Modified: `client/src/services/assessment/modules/TemporalAssessor.ts` (+45 lines)
-  - P1-1: Bounded ISO timestamp regex `[\d:.]{1,30}` to prevent ReDoS
-  - P1-2: Added MAX_RESPONSE_SIZE constant (1MB) and validation
-  - P2-1: Added normalization for updated_at, created_at, modified_at, nonce, token, hash, etag, session_id, correlation_id
-  - P2-2: Added PER_INVOCATION_TIMEOUT constant (10s) and usage
-  - P2-3: Expanded DESTRUCTIVE_PATTERNS with drop, truncate, clear, purge, destroy, reset
-  - P2-4: Added 50ms delay between invocations to prevent rate limiting false positives
-- Created: `docs/security/temporal_assessor_security_audit.md` (575 lines) - Full security audit report
-- Created: `docs/security/temporal_assessor_security_summary.md` (117 lines) - Executive summary
-
-**Key Decisions:**
 - Bounded regex quantifier to {1,30} - sufficient for ISO timestamps (max ~30 chars)
 - 1MB response limit - generous for legitimate responses, protective against attacks
 - 10s per-invocation timeout - covers 99%+ legitimate operations
@@ -504,3 +171,109 @@ Standard assessments call tools with many different payloads but never call the 
 
 ---
 
+
+## 2025-12-28: v1.17.1 CI Fix and Publishing Workflow Automation
+
+**Summary:** Implemented npm version lifecycle hook for automatic workspace version syncing, eliminating manual sync steps during publishing.
+
+**Session Focus:** v1.17.1 CI fix and publishing workflow automation
+
+**Changes Made:**
+- `scripts/sync-workspace-versions.js` - New ES module script that syncs all workspace package versions and root dependencies automatically
+- `package.json` - Added `"version"` lifecycle script that runs on `npm version`
+- `CLAUDE.md` - Updated publishing workflow documentation (simplified from 8 steps to 6 steps)
+- Fixed root `package.json` workspace dependencies (updated from ^1.15.3 to ^1.17.1)
+- Created GitHub release for v1.17.1
+
+**Key Commits:**
+- `c51bd9c` - fix: sync workspace dependency versions to 1.17.1
+- `dee933d` - feat: add npm version lifecycle hook for automatic workspace sync
+- `3bca12f` - docs: update CLAUDE.md publishing workflow with new automation
+
+**Key Decisions:**
+- Chose npm lifecycle hook approach over GitHub Action for version sync automation (simpler, atomic commits, standard npm pattern)
+- Used ES module syntax for sync script to match existing project scripts
+
+**Next Steps:**
+- Test automated workflow on next version bump
+- Consider adding similar automation for CHANGELOG updates
+
+**Notes:**
+- The new workflow eliminates the most common publishing failure (workspace version mismatch)
+- Publishing now requires just: `npm version patch && npm run publish-all && git push origin main --tags`
+
+---
+
+## 2025-12-29: Critical Security Improvements from Audit Review
+
+**Summary:** Implemented critical security improvements including rate limiting, CSP headers, unified SSRF protection, and sensitive environment variable blocking based on comprehensive security audit review.
+
+**Session Focus:** Security hardening based on audit review by security-auditor and code-reviewer-pro agents
+
+**Changes Made:**
+- `server/src/index.ts` - Added rate limiting (100 req/15min), global body size limits (10mb), CSP/X-Frame-Options/X-Content-Type-Options headers
+- `server/package.json` - Added express-rate-limit dependency
+- `cli/src/cli.ts` - Unified SSRF patterns (17 patterns matching client), added sensitive env var blocking
+- `cli/scripts/cli-validation-tests.js` - Added 5 new security tests (16 total)
+- `package-lock.json` - Updated dependencies
+
+**Key Decisions:**
+- Rate limit: 100 requests per 15 minutes on MCP endpoints
+- Body size limit: 10mb globally (was partial)
+- SSRF patterns: Unified CLI with client (17 patterns including cloud metadata)
+- Env var blocking: Patterns for AWS_, AZURE_, GCP_, API_KEY, SECRET_, TOKEN_, PASSWORD_
+
+**Commit:** cda8db0 - feat(security): implement critical security improvements from audit review
+
+**Test Results:**
+- 981 unit tests passing
+- 16 CLI validation tests passing (was 11)
+
+**Next Steps:**
+- Consider implementing remaining audit recommendations (structured logging, request timeouts)
+- Run testbed validation to confirm no regressions
+- Publish new npm version with security improvements
+
+**Notes:**
+- Security audit identified gaps between CLI and client security implementations
+- Rate limiting protects against DoS attacks on MCP endpoints
+- CSP headers prevent XSS and clickjacking attacks
+- Unified SSRF protection ensures consistent security across all entry points
+
+---
+
+## 2025-12-29: Insecure Deserialization Detection (Pattern #20)
+
+**Summary:** Added Insecure Deserialization detection, updated security patterns to 20 total
+
+**Session Focus:** Phase 1 Security Enhancements - Insecure Deserialization implementation and documentation updates
+
+**Changes Made:**
+- `client/src/lib/securityPatterns.ts` - Added pattern #20 with 8 payloads (Python pickle, Java serialization, YAML, JSON type confusion, PHP)
+- `client/src/services/assessment/modules/SecurityAssessor.ts` - Added 9 safe deserialization rejection patterns
+- `client/src/services/assessment/modules/SecurityAssessor.test.ts` - Added 8 unit tests for deserialization detection
+- `mcp-assessment-instruction.md` - Updated to 20 patterns, added SSRF/DoS/Deserialization, version 1.1
+- `mcp-assessment-quick-reference.md` - Updated to 20 patterns, version 1.1
+- `CLAUDE.md` - Updated test counts (~1000) and pattern counts (20)
+
+**Key Decisions:**
+- Evidence-based detection only (no timing-based) to maintain zero false positives
+- Added comprehensive safe rejection patterns for deserialization
+- Used same architecture pattern as DoS implementation for consistency
+
+**Commits:**
+- `33f9efb` docs: update CLAUDE.md with current test and pattern counts
+- `aa35b4e` docs: update security patterns count to 20 in assessment guides
+- `6361a8a` feat(security): add Insecure Deserialization detection pattern (#20)
+
+**Next Steps:**
+- Validate new patterns against testbed servers
+- Consider publishing v1.18.0 with security enhancements
+- Phase 2 enhancements (Second-Order Injection, Business Logic Flaws) require architectural changes
+
+**Notes:**
+- Deserialization attacks target multiple serialization formats: Python pickle, Java serialization, YAML, JSON type confusion, PHP
+- Safe rejection patterns detect proper deserialization library usage and input validation
+- Pattern count now at 20 (was 19), maintaining zero false positive architecture
+
+---

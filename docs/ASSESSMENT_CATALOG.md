@@ -59,28 +59,41 @@ The MCP Inspector Assessment runs **11 specialized modules** to validate MCP ser
 
 **Test Approach**:
 
-- 13 distinct attack patterns with context-aware reflection detection
+- 20 distinct attack patterns with context-aware reflection detection
 - Pure behavior-based detection (no metadata reliance)
 - Domain-specific payloads based on parameter semantics
 - Confidence levels (high/medium/low) for findings
 
-**13 Attack Patterns**:
+**20 Attack Patterns** (organized by category):
 
-| #   | Attack Type               | Risk   | Description                                                          |
-| --- | ------------------------- | ------ | -------------------------------------------------------------------- |
-| 1   | Command Injection         | HIGH   | Tests for shell command execution (`whoami`, `ls -la`, `; rm -rf /`) |
-| 2   | SQL Injection             | HIGH   | Tests for SQL command execution (`'; DROP TABLE`, `' OR '1'='1`)     |
-| 3   | Calculator Injection      | HIGH   | Tests for eval() execution (`2+2`, `__import__('os').system()`)      |
-| 4   | Path Traversal            | HIGH   | Tests for file system access (`../../../etc/passwd`, `file://`)      |
-| 5   | Type Safety               | MEDIUM | Tests parameter type validation (string vs number)                   |
-| 6   | Boundary Testing          | MEDIUM | Tests edge cases (empty strings, 10K characters, negatives)          |
-| 7   | Required Fields           | MEDIUM | Tests missing parameter handling                                     |
-| 8   | MCP Error Format          | LOW    | Verifies error responses follow MCP spec                             |
-| 9   | Timeout Handling          | LOW    | Tests long operation graceful handling                               |
-| 10  | Indirect Prompt Injection | HIGH   | Tests URL fetching and external content execution                    |
-| 11  | Unicode Bypass            | MEDIUM | Tests unicode-encoded command execution                              |
-| 12  | Nested Injection          | MEDIUM | Tests hidden instructions in nested JSON                             |
-| 13  | Package Squatting         | MEDIUM | Tests typosquatted package download attempts                         |
+| #                           | Attack Type                      | Risk   | Description                                                          |
+| --------------------------- | -------------------------------- | ------ | -------------------------------------------------------------------- |
+| **Critical Injection (6)**  |                                  |        |
+| 1                           | Command Injection                | HIGH   | Tests for shell command execution (`whoami`, `ls -la`, `; rm -rf /`) |
+| 2                           | SQL Injection                    | HIGH   | Tests for SQL command execution (`'; DROP TABLE`, `' OR '1'='1`)     |
+| 3                           | Calculator Injection             | HIGH   | Tests for eval() execution (`2+2`, `__import__('os').system()`)      |
+| 4                           | Path Traversal                   | HIGH   | Tests for file system access (`../../../etc/passwd`, `file://`)      |
+| 5                           | XXE Injection                    | HIGH   | Tests for XML External Entity attacks (file disclosure, SSRF)        |
+| 6                           | NoSQL Injection                  | HIGH   | Tests for MongoDB/Redis command execution (`$gt`, `$where`, EVAL)    |
+| **Input Validation (3)**    |                                  |        |
+| 7                           | Type Safety                      | MEDIUM | Tests parameter type validation (string vs number)                   |
+| 8                           | Boundary Testing                 | MEDIUM | Tests edge cases (empty strings, 10K characters, negatives)          |
+| 9                           | Required Fields                  | MEDIUM | Tests missing parameter handling                                     |
+| **Protocol Compliance (2)** |                                  |        |
+| 10                          | MCP Error Format                 | LOW    | Verifies error responses follow MCP spec                             |
+| 11                          | Timeout Handling                 | LOW    | Tests long operation graceful handling                               |
+| **Tool-Specific (7)**       |                                  |        |
+| 12                          | Indirect Prompt Injection / SSRF | HIGH   | Tests URL fetching, localhost, cloud metadata, internal IPs          |
+| 13                          | Unicode Bypass                   | MEDIUM | Tests unicode-encoded command execution                              |
+| 14                          | Nested Injection                 | MEDIUM | Tests hidden instructions in nested JSON                             |
+| 15                          | Package Squatting                | MEDIUM | Tests typosquatted package download attempts                         |
+| 16                          | Data Exfiltration                | HIGH   | Tests credential/secret/env var leakage attempts                     |
+| 17                          | Configuration Drift              | HIGH   | Tests privilege escalation via config (`set admin=true`)             |
+| 18                          | Tool Shadowing                   | HIGH   | Tests tool creation/override attempts                                |
+| **Resource Exhaustion (1)** |                                  |        |
+| 19                          | DoS/Resource Exhaustion          | HIGH   | Tests ReDoS, deep JSON nesting, zip bombs, XML billion laughs        |
+| **Deserialization (1)**     |                                  |        |
+| 20                          | Insecure Deserialization         | HIGH   | Tests pickle, Java serialized objects, YAML exploits                 |
 
 **Pass Criteria**:
 
@@ -431,7 +444,7 @@ These modules validate compliance with Anthropic's MCP Directory Policy requirem
 | #   | Module               | Tests               | Policy Ref     | Severity |
 | --- | -------------------- | ------------------- | -------------- | -------- |
 | 1   | Functionality        | ~10 per tool        | Core           | Medium   |
-| 2   | Security             | 13 patterns × tools | Core           | High     |
+| 2   | Security             | 20 patterns × tools | Core           | High     |
 | 3   | Error Handling       | ~20 per tool        | MCP Spec       | Medium   |
 | 4   | Documentation        | ~10 checks          | Core           | Low      |
 | 5   | Usability            | ~8 checks           | Core           | Low      |
@@ -506,5 +519,5 @@ cat /tmp/inspector-assessment-*.json | jq '.overallStatus'
 
 ---
 
-**Version**: 1.8.2
-**Last Updated**: 2025-12-25
+**Version**: 1.8.3
+**Last Updated**: 2025-12-29 (Synchronized security patterns: 13 → 20 patterns matching securityPatterns.ts)

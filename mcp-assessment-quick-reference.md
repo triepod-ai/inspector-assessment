@@ -167,8 +167,14 @@ _Actual time depends on tool complexity and server response times_
 
 ### Representative Tools (2-3 selected):
 
-- ✓ 20 security injection tests
-- ✓ 4 error handling scenarios
+- ✓ 20 security patterns across 6 categories:
+  - Critical Injection (6): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
+  - Input Validation (3): Type Safety, Boundary Testing, Required Fields
+  - Protocol Compliance (2): MCP Error Format, Timeout Handling
+  - Tool-Specific (7): SSRF, Unicode Bypass, Nested Injection, Package Squatting, Data Exfiltration, Configuration Drift, Tool Shadowing
+  - Resource Exhaustion (1): DoS/ReDoS
+  - Deserialization (1): Pickle/YAML exploits
+- ✓ Multiple payloads per pattern (~100 total payloads)
 - ✓ Edge case validation
 
 ### Documentation:
@@ -304,4 +310,4 @@ After assessment:
 
 ## Version
 
-Quick Reference v1.1 (2025-12-29) - Updated to 20 security patterns
+Quick Reference v1.2 (2025-12-29) - Synchronized security patterns with actual implementation (securityPatterns.ts)
