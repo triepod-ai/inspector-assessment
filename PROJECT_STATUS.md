@@ -54,6 +54,33 @@
 
 ---
 
+## 2025-12-29: Phase 2 Second-Order Injection - Research Decision
+
+**Summary:** Researched Phase 2 second-order injection patterns. Concluded they are **overengineering for MCP audits**.
+
+**Research Findings:**
+- "Second-order injection" = multi-tool stateful exploitation chains
+- Examples: cross-tool state poisoning, cumulative privilege escalation, stored payload retrieval
+- These patterns require shared state between tools and privilege hierarchies
+
+**Why NOT Applicable to MCP:**
+| Factor | Traditional Web Apps | MCP Servers |
+|--------|---------------------|-------------|
+| State Model | Stateful sessions | Typically stateless |
+| Privilege Model | User roles, escalation | Flat (all tools equal) |
+| Audit Goal | Enterprise security | Directory compliance |
+
+**Current Coverage is Sufficient:**
+- ✅ 20 attack patterns (injection, traversal, DoS, deserialization)
+- ✅ TemporalAssessor (rug pull detection - 40% of testbed vulns)
+- ✅ A/B validation: 253 vulns detected, 0 false positives
+
+**Decision:** Phase 2 removed from roadmap. Focus on incremental improvements to existing patterns.
+
+**Research Document:** `/home/bryan/.claude/plans/iterative-popping-petal.md`
+
+---
+
 ## 2025-12-28: ESLint CI Fixes - Unblocking Upstream PR Work
 
 **Summary:** Fixed 6 ESLint errors causing CI failures, enabling main workflow to pass
