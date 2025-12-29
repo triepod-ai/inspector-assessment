@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.1] - 2025-12-28
+
+### Fixed
+
+- **Stateful/Destructive Tool Overlap**: Tools matching both stateful patterns (e.g., "get") and destructive patterns (e.g., "delete") now correctly receive strict exact comparison instead of lenient schema comparison
+  - Prevents malicious tools like `get_and_delete` from bypassing detection
+  - `isStatefulTool()` now checks `isDestructiveTool()` first
+
+- **Array Schema Sampling**: `extractFieldNames()` now samples up to 3 array elements instead of just the first
+  - Detects heterogeneous schemas where malicious fields hide in non-first elements
+  - Prevents attackers from hiding malicious fields in array positions 2+
+
+- **Empty Baseline Edge Case**: Schema comparison now flags empty baseline (`{}`) followed by populated response as suspicious
+  - Prevents bypass where tool returns `{}` initially then switches to malicious content
+
+### Added
+
+- **Explicit Failure Injection Test**: New deterministic test in `performance.test.ts` that explicitly verifies failure handling
+  - Replaces reliance on random 5% failure rate
+  - Ensures failure detection is properly tested
+
+- **Stateful Tool Logging**: Added logging when tools are classified as stateful for better debuggability
+  - Outputs `[TemporalAssessor] {toolName} classified as stateful - using schema comparison`
+
+- **Pattern Matching Documentation**: Added comprehensive JSDoc for `STATEFUL_TOOL_PATTERNS` explaining substring matching behavior and trade-offs
+
+### Changed
+
+- **Workspace Version Sync**: All workspace packages now properly synced to 1.17.1 (were out of sync after v1.17.0 bump)
+
+## [1.17.0] - 2025-12-28
+
+### Added
+
+- **Stateful Tool Handling for Temporal Assessment**: Intelligent handling for state-dependent tools to prevent false positives
+  - New `STATEFUL_TOOL_PATTERNS` for identifying search, list, query, get, fetch, read, browse tools
+  - `isStatefulTool()` method for pattern matching
+  - `compareSchemas()` for schema-only comparison (content can vary, field names must be consistent)
+  - `extractFieldNames()` for recursive field extraction with array notation
+  - Schema growth allowed (empty → populated), schema shrinkage flagged as suspicious
+  - 37 new tests for stateful tool handling
+
+### Changed
+
+- **Temporal Assessment Logic**: Stateful tools now use schema comparison; non-stateful tools use exact comparison
+  - Reduces false positives on legitimate state-dependent tools
+  - Maintains strict detection for non-stateful tools
+
 ## [1.7.1] - 2025-12-08
 
 ### Fixed
