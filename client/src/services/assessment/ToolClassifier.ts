@@ -8,6 +8,7 @@
 export enum ToolCategory {
   CALCULATOR = "calculator",
   SYSTEM_EXEC = "system_exec",
+  CODE_EXECUTOR = "code_executor",
   DATA_ACCESS = "data_access",
   TOOL_OVERRIDE = "tool_override",
   CONFIG_MODIFIER = "config_modifier",
@@ -82,6 +83,35 @@ export class ToolClassifier {
       confidenceScores.push(95);
       reasons.push(
         "System execution pattern detected (command injection risk)",
+      );
+    }
+
+    // Code execution tools (HIGH RISK)
+    // Tools that execute arbitrary code in specific languages (Python, JavaScript, etc.)
+    // These require language-specific payloads, not shell commands
+    if (
+      this.matchesPattern(toolText, [
+        /execute.*code/i,
+        /run.*code/i,
+        /code.*execut/i,
+        /run.*script/i,
+        /exec.*script/i,
+        /\bpython.*code\b/i,
+        /\bjavascript.*code\b/i,
+        /\bjs.*code\b/i,
+        /\beval.*code\b/i,
+        /code.*runner/i,
+        /script.*runner/i,
+        /\bexec\b.*\b(python|js|javascript)\b/i,
+        /\b(python|js|javascript)\b.*\bexec\b/i,
+        /interpret/i,
+        /\brepl\b/i,
+      ])
+    ) {
+      categories.push(ToolCategory.CODE_EXECUTOR);
+      confidenceScores.push(95);
+      reasons.push(
+        "Code executor pattern detected (arbitrary code execution risk)",
       );
     }
 
@@ -392,6 +422,7 @@ export class ToolClassifier {
     const highRiskCategories = [
       ToolCategory.CALCULATOR,
       ToolCategory.SYSTEM_EXEC,
+      ToolCategory.CODE_EXECUTOR,
       ToolCategory.DATA_ACCESS,
       ToolCategory.TOOL_OVERRIDE,
       ToolCategory.CONFIG_MODIFIER,

@@ -29,8 +29,10 @@ import {
 } from "@/lib/securityPatterns";
 import { ToolClassifier, ToolCategory } from "../ToolClassifier";
 import { createConcurrencyLimit } from "../lib/concurrencyLimit";
+import { LanguageAwarePayloadGenerator } from "../LanguageAwarePayloadGenerator";
 
 export class SecurityAssessor extends BaseAssessor {
+  private languageGenerator = new LanguageAwarePayloadGenerator();
   async assess(context: AssessmentContext): Promise<SecurityAssessment> {
     // Select tools for testing first
     const toolsToTest = this.selectToolsForTesting(context.tools);
@@ -1749,8 +1751,54 @@ export class SecurityAssessor extends BaseAssessor {
     const targetParamTypes = payload.parameterTypes || [];
     let payloadInjected = false;
 
-    // Try to match payload to appropriate parameter by name
-    if (targetParamTypes.length > 0) {
+    // NEW: Check for language-specific code execution parameters first
+    // This enables detection of vulnerabilities in tools expecting Python/JS/SQL code
+    for (const [key, prop] of Object.entries(schema.properties)) {
+      const propSchema = prop as any;
+      if (propSchema.type !== "string") continue;
+
+      const detectedLanguage = this.languageGenerator.detectLanguage(
+        key,
+        tool.name,
+        tool.description,
+      );
+
+      // If we detect a specific language (not generic), use language-appropriate payloads
+      if (detectedLanguage !== "generic" && !payloadInjected) {
+        const languagePayloads =
+          this.languageGenerator.getPayloadsForLanguage(detectedLanguage);
+
+        if (languagePayloads.length > 0) {
+          // Select a payload that targets similar behavior as the current attack pattern
+          // (e.g., if testing command injection, use a command-executing payload)
+          const payloadLower = payload.payload.toLowerCase();
+          const isCommandTest =
+            payloadLower.includes("whoami") ||
+            payloadLower.includes("passwd") ||
+            payloadLower.includes("id");
+
+          // Find matching language payload based on test intent
+          let selectedPayload = languagePayloads[0]; // Default to first
+          if (isCommandTest) {
+            // Prefer command execution payloads
+            const cmdPayload = languagePayloads.find(
+              (lp) =>
+                lp.payload.includes("whoami") ||
+                lp.payload.includes("subprocess") ||
+                lp.payload.includes("execSync"),
+            );
+            if (cmdPayload) selectedPayload = cmdPayload;
+          }
+
+          params[key] = selectedPayload.payload;
+          payloadInjected = true;
+          break;
+        }
+      }
+    }
+
+    // Fall back to parameterTypes matching if no language-specific payload was used
+    if (!payloadInjected && targetParamTypes.length > 0) {
       // Payload is parameter-specific (e.g., URLs only for "url" params)
       for (const [key, prop] of Object.entries(schema.properties)) {
         const propSchema = prop as any;
@@ -1766,8 +1814,10 @@ export class SecurityAssessor extends BaseAssessor {
           break;
         }
       }
-    } else {
-      // Generic payload - inject into first string parameter (original behavior)
+    }
+
+    // Fall back to generic payload - inject into first string parameter (original behavior)
+    if (!payloadInjected) {
       for (const [key, prop] of Object.entries(schema.properties)) {
         const propSchema = prop as any;
 

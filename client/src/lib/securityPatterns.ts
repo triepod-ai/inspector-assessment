@@ -1267,6 +1267,88 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
       },
     ],
   },
+
+  // ==========================================
+  // CODE EXECUTION TESTS (Language-Aware)
+  // ==========================================
+
+  // 23. CODE EXECUTION
+  // Tests for code execution vulnerabilities in tools that expect language-specific input
+  // (Python, JavaScript, SQL) rather than shell commands
+  {
+    attackName: "Code Execution",
+    description:
+      "Test if tool executes arbitrary code in various languages (Python, JavaScript, SQL)",
+    payloads: [
+      // Python payloads
+      {
+        payload:
+          "import subprocess; print(subprocess.check_output(['whoami']).decode())",
+        evidence: /\b(root|user|admin|ubuntu|www-data|node|bryan)\b/i,
+        riskLevel: "HIGH",
+        description: "Python subprocess command execution",
+        payloadType: "injection",
+        parameterTypes: ["code", "script", "python", "source", "program"],
+      },
+      {
+        payload: "__import__('os').system('whoami')",
+        evidence: /\b(root|user|admin|ubuntu|www-data|node|bryan)\b|^0$/,
+        riskLevel: "HIGH",
+        description: "Python os.system via __import__",
+        payloadType: "injection",
+        parameterTypes: ["code", "script", "python", "expression"],
+      },
+      {
+        payload: "import os; print(os.popen('whoami').read())",
+        evidence: /\b(root|user|admin|ubuntu|www-data|node|bryan)\b/i,
+        riskLevel: "HIGH",
+        description: "Python os.popen command execution",
+        payloadType: "injection",
+        parameterTypes: ["code", "script", "python"],
+      },
+      {
+        payload: "print(open('/etc/passwd').read())",
+        evidence: /root:x:0:0|\/bin\/bash|\/bin\/sh/i,
+        riskLevel: "HIGH",
+        description: "Python file read /etc/passwd",
+        payloadType: "injection",
+        parameterTypes: ["code", "script", "python"],
+      },
+      {
+        payload: "import os; print(os.environ)",
+        evidence: /(PATH|HOME|USER|SECRET|API_KEY|DATABASE|TOKEN)/i,
+        riskLevel: "HIGH",
+        description: "Python environment dump",
+        payloadType: "injection",
+        parameterTypes: ["code", "script", "python"],
+      },
+      // JavaScript payloads
+      {
+        payload: "require('child_process').execSync('whoami').toString()",
+        evidence: /\b(root|user|admin|ubuntu|www-data|node|bryan)\b/i,
+        riskLevel: "HIGH",
+        description: "Node.js execSync command execution",
+        payloadType: "injection",
+        parameterTypes: ["code", "script", "javascript", "js"],
+      },
+      {
+        payload: "require('fs').readFileSync('/etc/passwd', 'utf8')",
+        evidence: /root:x:0:0|\/bin\/bash|\/bin\/sh/i,
+        riskLevel: "HIGH",
+        description: "Node.js file read",
+        payloadType: "injection",
+        parameterTypes: ["code", "script", "javascript", "js"],
+      },
+      {
+        payload: "JSON.stringify(process.env)",
+        evidence: /(PATH|HOME|USER|SECRET|API_KEY|DATABASE|TOKEN)/i,
+        riskLevel: "HIGH",
+        description: "Node.js env dump",
+        payloadType: "injection",
+        parameterTypes: ["code", "script", "javascript", "js"],
+      },
+    ],
+  },
 ];
 
 /**
