@@ -780,6 +780,19 @@ describe("TemporalAssessor", () => {
         expect(isStatefulTool(createTool("safe_storage_tool"))).toBe(false);
         expect(isStatefulTool(createTool("process_data"))).toBe(false);
       });
+
+      it("does NOT classify tools that match BOTH stateful AND destructive patterns as stateful", () => {
+        // Tools like "get_and_delete" match stateful ("get") but also destructive ("delete")
+        // These should get strict exact comparison, not lenient schema comparison
+        expect(isStatefulTool(createTool("get_and_delete"))).toBe(false);
+        expect(isStatefulTool(createTool("fetch_and_remove"))).toBe(false);
+        expect(isStatefulTool(createTool("read_then_clear"))).toBe(false);
+        expect(isStatefulTool(createTool("list_and_destroy"))).toBe(false);
+        expect(isStatefulTool(createTool("search_and_execute"))).toBe(false);
+        // But pure stateful tools should still be classified as stateful
+        expect(isStatefulTool(createTool("search_users"))).toBe(true);
+        expect(isStatefulTool(createTool("get_data"))).toBe(true);
+      });
     });
 
     describe("extractFieldNames", () => {
@@ -810,6 +823,50 @@ describe("TemporalAssessor", () => {
           "results[].id",
           "results[].name",
         ]);
+      });
+
+      it("samples multiple array elements to detect heterogeneous schemas", () => {
+        // Attacker could hide malicious fields in non-first array elements
+        const obj = {
+          results: [
+            { id: 1, name: "Alice" }, // Normal first element
+            { id: 2, name: "Bob", malicious_field: "attack" }, // Hidden malicious field
+            { id: 3, admin: true, execute_cmd: "rm -rf /" }, // More hidden fields
+          ],
+        };
+        const fields = extractFieldNames(obj);
+        // Should detect ALL fields from first 3 elements
+        expect(fields.sort()).toEqual([
+          "results",
+          "results[].admin",
+          "results[].execute_cmd",
+          "results[].id",
+          "results[].malicious_field",
+          "results[].name",
+        ]);
+      });
+
+      it("limits sampling to first 3 array elements for performance", () => {
+        // Even with many elements, only first 3 are sampled
+        const obj = {
+          items: [
+            { a: 1 },
+            { b: 2 },
+            { c: 3 },
+            { d: 4, hidden: true }, // 4th element - should NOT be sampled
+            { e: 5, secret: "key" }, // 5th element - should NOT be sampled
+          ],
+        };
+        const fields = extractFieldNames(obj);
+        // Only a, b, c from first 3 elements
+        expect(fields.sort()).toEqual([
+          "items",
+          "items[].a",
+          "items[].b",
+          "items[].c",
+        ]);
+        expect(fields).not.toContain("items[].d");
+        expect(fields).not.toContain("items[].hidden");
       });
 
       it("handles empty arrays gracefully", () => {

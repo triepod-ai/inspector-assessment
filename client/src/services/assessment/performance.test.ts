@@ -604,5 +604,49 @@ describe("Assessment Performance Benchmarks", () => {
         Throughput: ${throughput.toFixed(2)} tests/sec
         Memory Increase: ${memoryIncreaseMB.toFixed(2)}MB`);
     }, 240000); // 240 second timeout for stress testing in comprehensive mode
+
+    it("should handle explicit tool failures correctly (deterministic failure injection)", async () => {
+      // This test uses deterministic failures instead of random chance
+      // to explicitly verify failure handling works correctly
+      const config = createMockAssessmentConfig();
+      const orchestrator = new AssessmentOrchestrator(config);
+
+      const failingTools: Tool[] = [
+        createMockTool({ name: "always_fail_1" }),
+        createMockTool({ name: "always_fail_2" }),
+        createMockTool({ name: "working_tool_1" }),
+        createMockTool({ name: "working_tool_2" }),
+      ];
+
+      const mockCallTool = jest.fn().mockImplementation((name: string) => {
+        // First two tools always fail deterministically
+        if (name.startsWith("always_fail")) {
+          throw new Error(`Intentional failure for ${name}`);
+        }
+        return Promise.resolve(
+          createMockCallToolResponse(`Success from ${name}`, false),
+        );
+      });
+
+      const mockContext = {
+        serverName: "explicit-failure-test",
+        tools: failingTools,
+        callTool: mockCallTool,
+        config,
+      };
+
+      const result = await orchestrator.runFullAssessment(mockContext);
+
+      // Explicit assertions - these MUST detect the failures
+      expect(result.functionality.brokenTools.length).toBe(2);
+      expect(result.functionality.brokenTools).toContain("always_fail_1");
+      expect(result.functionality.brokenTools).toContain("always_fail_2");
+      expect(result.functionality.workingTools).toBe(2);
+      // Verify accounting: broken + working = total
+      expect(
+        result.functionality.brokenTools.length +
+          result.functionality.workingTools,
+      ).toBe(result.functionality.totalTools);
+    }, 30000);
   });
 });

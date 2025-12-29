@@ -392,6 +392,11 @@ export class TemporalAssessor extends BaseAssessor {
    */
   private isStatefulTool(tool: Tool): boolean {
     const toolName = tool.name.toLowerCase();
+    // Exclude tools that are ALSO destructive - they should get strict exact comparison
+    // e.g., "get_and_delete" matches both "get" (stateful) and "delete" (destructive)
+    if (this.isDestructiveTool(tool)) {
+      return false;
+    }
     return this.STATEFUL_TOOL_PATTERNS.some((pattern) =>
       toolName.includes(pattern),
     );
@@ -429,19 +434,26 @@ export class TemporalAssessor extends BaseAssessor {
 
   /**
    * Extract all field names from an object recursively.
-   * Handles arrays by sampling the first element's schema with [] notation.
+   * Handles arrays by sampling multiple elements to detect heterogeneous schemas.
    */
   private extractFieldNames(obj: unknown, prefix = ""): string[] {
     if (obj === null || obj === undefined || typeof obj !== "object") return [];
 
     const fields: string[] = [];
 
-    // Handle arrays: sample first element's schema
+    // Handle arrays: sample multiple elements to detect heterogeneous schemas
+    // An attacker could hide malicious fields in non-first array elements
     if (Array.isArray(obj)) {
-      if (obj.length > 0 && typeof obj[0] === "object" && obj[0] !== null) {
-        const arrayItemFields = this.extractFieldNames(obj[0], `${prefix}[]`);
-        fields.push(...arrayItemFields);
+      const samplesToCheck = Math.min(obj.length, 3); // Check up to 3 elements
+      const seenFields = new Set<string>();
+
+      for (let i = 0; i < samplesToCheck; i++) {
+        if (typeof obj[i] === "object" && obj[i] !== null) {
+          const itemFields = this.extractFieldNames(obj[i], `${prefix}[]`);
+          itemFields.forEach((f) => seenFields.add(f));
+        }
       }
+      fields.push(...seenFields);
       return fields;
     }
 
