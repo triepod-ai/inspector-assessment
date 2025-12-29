@@ -50,9 +50,10 @@ echo "DVMCP Security Assessment - All Challenges"
 echo "=========================================="
 echo ""
 
-# Check if DVMCP is running (SSE endpoints stream, so check for any response)
-if ! curl -s http://localhost:9001/sse -m 2 2>&1 | grep -q "event:"; then
-    echo "ERROR: DVMCP does not appear to be running on localhost:9001"
+# Check if DVMCP is running (use HTTP status code for reliable detection)
+http_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9001/sse -m 2 2>/dev/null || echo "000")
+if [ "$http_status" != "200" ]; then
+    echo "ERROR: DVMCP does not appear to be running on localhost:9001 (HTTP status: $http_status)"
     echo "Start it with: docker run -d -p 9001-9010:9001-9010 --name dvmcp dvmcp"
     exit 1
 fi

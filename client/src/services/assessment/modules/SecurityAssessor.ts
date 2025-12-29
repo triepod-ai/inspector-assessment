@@ -1454,10 +1454,14 @@ export class SecurityAssessor extends BaseAssessor {
       /action\s+received:/i,
       /input\s+received:/i,
       /request\s+received:/i,
-      // Explicit safety indicators in JSON responses
-      /"safe":\s*true/i,
-      /"vulnerable":\s*false/i,
-      /"status":\s*"acknowledged"/i,
+      // Explicit safety indicators in JSON responses (context-aware to avoid matching unrelated fields)
+      // Require safety-related context: message, result, status, stored, reflected, etc.
+      /"safe"\s*:\s*true[^}]*("message"|"result"|"status"|"response")/i,
+      /("message"|"result"|"status"|"response")[^}]*"safe"\s*:\s*true/i,
+      /"vulnerable"\s*:\s*false[^}]*("safe"|"stored"|"reflected"|"status")/i,
+      /("safe"|"stored"|"reflected"|"status")[^}]*"vulnerable"\s*:\s*false/i,
+      /"status"\s*:\s*"acknowledged"[^}]*("message"|"result"|"safe")/i,
+      /("message"|"result"|"safe")[^}]*"status"\s*:\s*"acknowledged"/i,
     ];
 
     const reflectionPatterns = [

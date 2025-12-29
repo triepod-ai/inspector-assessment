@@ -941,8 +941,13 @@ export class AssessmentOrchestrator {
       totalTestsRun: this.totalTestsRun,
       mcpProtocolVersion: this.config.mcpProtocolVersion,
       assessmentMetadata: {
-        sourceCodeAvailable: !!context.sourceCodePath,
-        transportType: context.transportConfig?.type,
+        // Source code is available if we have a path OR loaded source files
+        sourceCodeAvailable:
+          !!context.sourceCodePath || (context.sourceCodeFiles?.size ?? 0) > 0,
+        // Use explicit transport type, or infer from available context
+        transportType:
+          context.transportConfig?.type ??
+          (context.transportConfig?.url ? "streamable-http" : undefined),
       },
     };
   }
