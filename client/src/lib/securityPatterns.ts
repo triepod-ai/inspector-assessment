@@ -1122,7 +1122,10 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
       {
         payload:
           '{"__type__": "System.Diagnostics.Process", "command": "whoami"}',
-        evidence: /type.*coercion|deserializ|process|RCE|unsafe.*type/i,
+        // Pattern must be specific - "process" alone matches "not processed" (false positive)
+        // Look for: type coercion, deserialization, System.Process instantiation, or RCE evidence
+        evidence:
+          /type.*coercion|type.*instantiat|deserializ|System\..*Process|Process\.Start|RCE|unsafe.*type/i,
         riskLevel: "HIGH",
         description: "JSON type confusion payload",
         payloadType: "injection",
