@@ -444,3 +444,67 @@
 - Inspector handles API-layer (code execution, injection), mcp-auditor will handle LLM-layer (prompt injection, resource manipulation)
 
 ---
+
+## 2025-12-29: Fixed GitHub Issue #4 - N/A Logic for HTTP-Only Assessments
+
+**Summary:** Fixed GitHub issue #4 by marking DEV requirements as NOT_APPLICABLE for HTTP-only assessments, closed issue #2 (already fixed), and published v1.18.1 to npm
+
+**Session Focus:** GitHub issue triage, bug fix implementation, and npm release
+
+**Changes Made:**
+- `client/src/lib/assessmentTypes.ts` - Added assessmentMetadata field with sourceCodeAvailable and transportType
+- `client/src/services/assessment/AssessmentOrchestrator.ts` - Capture metadata in runFullAssessment()
+- `client/src/services/assessment/PolicyComplianceGenerator.ts` - Added N/A logic for DEV requirements when source code unavailable
+- `PROJECT_STATUS.md` - Session notes update
+- Removed obsolete todo/audit files
+
+**Key Decisions:**
+- Mark all 8 DEV requirements (DEV-1 through DEV-8) as NOT_APPLICABLE when sourceCodeAvailable is false
+- Close issue #2 as already fixed (parallel tool testing was implemented Dec 23)
+- Patch version bump (1.18.0 -> 1.18.1) for bug fix release
+
+**Next Steps:**
+- Monitor npm package usage
+- Consider adding more context-aware N/A logic for other requirement categories
+
+**Notes:**
+- GitHub issues closed: #4 (fixed), #2 (already fixed)
+- Compliance score for HTTP-only assessments improved from 81% to 95%
+- All 4 npm packages published: @bryan-thompson/inspector-assessment@1.18.1
+
+---
+
+## 2025-12-29: Code Review and Test Fixes - All 997 Tests Passing
+
+**Summary:** Code review and test fixes - addressed 4 code review warnings and resolved 2 flaky tests, all 997 tests now passing
+
+**Session Focus:** Code quality improvements following code review of recent DVMCP integration changes
+
+**Changes Made:**
+- `client/src/lib/securityPatterns.ts` - Improved JWT regex patterns for better token detection
+- `client/src/services/assessment/modules/SecurityAssessor.ts` - Made safety indicators context-aware
+- `client/src/services/assessment/AssessmentOrchestrator.ts` - Added transport type fallback
+- `client/src/services/assessment/performance.test.ts` - Fixed flaky scaling test
+- `client/src/services/__tests__/assessmentService.test.ts` - Fixed flaky timeout test
+- `client/src/services/assessmentService.ts` - Added assessmentCategories support with empty result helpers
+- `scripts/assess-dvmcp-all.sh` - Changed DVMCP detection to HTTP status code
+
+**Commits:**
+- `6090b0b` fix: address code review warnings for recent changes
+- `c782722` fix(tests): resolve flaky performance and timeout tests
+
+**Key Decisions:**
+- Used Option A (isolate tests) for flaky test fixes rather than just increasing timeouts
+- Enhanced MCPAssessmentService to respect assessmentCategories config for better test isolation
+- Made safety indicator patterns require context (related JSON fields) to avoid false matches
+
+**Next Steps:**
+- Continue A/B validation on vulnerable-mcp vs hardened-mcp testbeds
+- Consider adding unit tests for new security patterns #21 and #22
+
+**Notes:**
+- All 997 tests passing (previously 2 flaky failures)
+- Code review identified 4 warnings and 6 suggestions - all warnings addressed
+- MCPAssessmentService now properly skips disabled assessment modules
+
+---

@@ -1010,6 +1010,8 @@ export interface ResourceTestResult {
   securityIssues: string[];
   pathTraversalVulnerable: boolean;
   sensitiveDataExposed: boolean;
+  promptInjectionDetected: boolean;
+  promptInjectionPatterns: string[];
   validUri: boolean;
   readTime?: number;
   contentSizeBytes?: number;
@@ -1023,6 +1025,7 @@ export interface ResourceAssessment {
   securityIssuesFound: number;
   pathTraversalVulnerabilities: number;
   sensitiveDataExposures: number;
+  promptInjectionVulnerabilities: number;
   results: ResourceTestResult[];
   status: AssessmentStatus;
   explanation: string;

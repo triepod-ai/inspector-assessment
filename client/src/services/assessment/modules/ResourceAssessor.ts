@@ -59,6 +59,119 @@ const SENSITIVE_CONTENT_PATTERNS = [
   /secret\s*[:=]\s*['"][^'"]+['"]/i,
 ];
 
+// Prompt injection patterns to detect in resource content
+// These patterns indicate attempts to manipulate LLM behavior through resource content
+const PROMPT_INJECTION_PATTERNS: Array<{
+  pattern: RegExp;
+  description: string;
+}> = [
+  // Hidden instruction tags
+  {
+    pattern: /<IMPORTANT>[\s\S]*?<\/IMPORTANT>/gi,
+    description: "Hidden <IMPORTANT> instruction tag",
+  },
+  {
+    pattern: /<HIDDEN>[\s\S]*?<\/HIDDEN>/gi,
+    description: "Hidden <HIDDEN> instruction tag",
+  },
+  {
+    pattern: /<SYSTEM>[\s\S]*?<\/SYSTEM>/gi,
+    description: "Hidden <SYSTEM> instruction tag",
+  },
+  {
+    pattern: /<INSTRUCTION>[\s\S]*?<\/INSTRUCTION>/gi,
+    description: "Hidden <INSTRUCTION> tag",
+  },
+  {
+    pattern: /<SECRET>[\s\S]*?<\/SECRET>/gi,
+    description: "Hidden <SECRET> instruction tag",
+  },
+
+  // Instruction override attempts
+  {
+    pattern: /ignore\s+(all\s+)?(previous|prior|above)\s+instructions/i,
+    description: "Instruction override attempt",
+  },
+  {
+    pattern: /disregard\s+(all\s+)?(previous|prior|above)\s+instructions/i,
+    description: "Instruction disregard attempt",
+  },
+  {
+    pattern: /forget\s+(all\s+)?(previous|prior|above)\s+instructions/i,
+    description: "Instruction forget attempt",
+  },
+  {
+    pattern: /override\s+(all\s+)?(previous|prior|system)\s+instructions/i,
+    description: "Instruction override attempt",
+  },
+
+  // Role/identity hijacking
+  {
+    pattern: /you\s+are\s+now\s+(a|an|the)\s+/i,
+    description: "Role hijacking attempt",
+  },
+  {
+    pattern: /your\s+new\s+(role|identity|purpose)\s+is/i,
+    description: "Identity reassignment attempt",
+  },
+  {
+    pattern: /act\s+as\s+(a|an|if\s+you\s+were)\s+/i,
+    description: "Role impersonation instruction",
+  },
+  {
+    pattern: /pretend\s+(to\s+be|you\s+are)\s+/i,
+    description: "Pretend instruction",
+  },
+
+  // System override attempts
+  {
+    pattern: /system:\s*override/i,
+    description: "System override command",
+  },
+  { pattern: /admin:\s*execute/i, description: "Admin execute command" },
+  { pattern: /root:\s*command/i, description: "Root command injection" },
+  {
+    pattern: /\[system\][\s\S]*?\[\/system\]/gi,
+    description: "System block injection",
+  },
+
+  // Data exfiltration instructions
+  {
+    pattern: /return\s+all\s+(api\s+)?keys/i,
+    description: "API key exfiltration instruction",
+  },
+  {
+    pattern: /output\s+(all\s+)?(secrets|credentials|passwords)/i,
+    description: "Credential exfiltration instruction",
+  },
+  {
+    pattern: /reveal\s+(all\s+)?(secrets|credentials|api\s+keys)/i,
+    description: "Secret reveal instruction",
+  },
+  {
+    pattern: /print\s+(all\s+)?(environment|env)\s+variables/i,
+    description: "Environment variable exfiltration",
+  },
+
+  // Delimiter/format injection
+  {
+    pattern: /```system[\s\S]*?```/gi,
+    description: "System code block injection",
+  },
+  {
+    pattern: /\[INST\][\s\S]*?\[\/INST\]/gi,
+    description: "INST tag injection (Llama format)",
+  },
+  {
+    pattern: /<<SYS>>[\s\S]*?<<\/SYS>>/gi,
+    description: "SYS tag injection (Llama format)",
+  },
+  {
+    pattern: /<\|im_start\|>system[\s\S]*?<\|im_end\|>/gi,
+    description: "ChatML system injection",
+  },
+];
+
 export class ResourceAssessor extends BaseAssessor {
   async assess(context: AssessmentContext): Promise<ResourceAssessment> {
     const results: ResourceTestResult[] = [];
@@ -103,11 +216,15 @@ export class ResourceAssessor extends BaseAssessor {
     const sensitiveDataExposures = results.filter(
       (r) => r.sensitiveDataExposed,
     ).length;
+    const promptInjectionVulnerabilities = results.filter(
+      (r) => r.promptInjectionDetected,
+    ).length;
 
     // Determine status
     const status = this.determineResourceStatus(
       pathTraversalVulnerabilities,
       sensitiveDataExposures,
+      promptInjectionVulnerabilities,
       securityIssuesFound,
       results.length,
     );
@@ -117,6 +234,7 @@ export class ResourceAssessor extends BaseAssessor {
       results,
       pathTraversalVulnerabilities,
       sensitiveDataExposures,
+      promptInjectionVulnerabilities,
     );
     const recommendations = this.generateRecommendations(results);
 
@@ -127,6 +245,7 @@ export class ResourceAssessor extends BaseAssessor {
       securityIssuesFound,
       pathTraversalVulnerabilities,
       sensitiveDataExposures,
+      promptInjectionVulnerabilities,
       results,
       status,
       explanation,
@@ -142,6 +261,7 @@ export class ResourceAssessor extends BaseAssessor {
       securityIssuesFound: 0,
       pathTraversalVulnerabilities: 0,
       sensitiveDataExposures: 0,
+      promptInjectionVulnerabilities: 0,
       results: [],
       status: "PASS",
       explanation:
@@ -163,6 +283,8 @@ export class ResourceAssessor extends BaseAssessor {
       securityIssues: [],
       pathTraversalVulnerable: false,
       sensitiveDataExposed: false,
+      promptInjectionDetected: false,
+      promptInjectionPatterns: [],
       validUri: this.isValidUri(resource.uri),
     };
 
@@ -193,6 +315,18 @@ export class ResourceAssessor extends BaseAssessor {
           );
           result.sensitiveDataExposed = true;
         }
+
+        // Check content for prompt injection patterns
+        if (content) {
+          const injectionMatches = this.detectPromptInjection(content);
+          if (injectionMatches.length > 0) {
+            result.promptInjectionDetected = true;
+            result.promptInjectionPatterns = injectionMatches;
+            result.securityIssues.push(
+              `Prompt injection patterns detected: ${injectionMatches.join(", ")}`,
+            );
+          }
+        }
       } catch (error) {
         result.error = this.extractErrorMessage(error);
         result.accessible = false;
@@ -221,6 +355,8 @@ export class ResourceAssessor extends BaseAssessor {
       securityIssues: [],
       pathTraversalVulnerable: false,
       sensitiveDataExposed: false,
+      promptInjectionDetected: false,
+      promptInjectionPatterns: [],
       validUri: this.isValidUriTemplate(template.uriTemplate),
     };
 
@@ -251,6 +387,8 @@ export class ResourceAssessor extends BaseAssessor {
           securityIssues: [],
           pathTraversalVulnerable: false,
           sensitiveDataExposed: false,
+          promptInjectionDetected: false,
+          promptInjectionPatterns: [],
           validUri: false,
         };
 
@@ -316,6 +454,24 @@ export class ResourceAssessor extends BaseAssessor {
     return SENSITIVE_CONTENT_PATTERNS.some((pattern) => pattern.test(content));
   }
 
+  /**
+   * Detect prompt injection patterns in resource content.
+   * Returns array of matched pattern descriptions.
+   */
+  private detectPromptInjection(content: string): string[] {
+    const matches: string[] = [];
+
+    for (const { pattern, description } of PROMPT_INJECTION_PATTERNS) {
+      // Reset lastIndex for global patterns
+      pattern.lastIndex = 0;
+      if (pattern.test(content)) {
+        matches.push(description);
+      }
+    }
+
+    return matches;
+  }
+
   private injectPayloadIntoTemplate(template: string, payload: string): string {
     // Replace template variables with payload
     const result = template.replace(/\{[^}]+\}/g, payload);
@@ -331,12 +487,14 @@ export class ResourceAssessor extends BaseAssessor {
   private determineResourceStatus(
     pathTraversalVulnerabilities: number,
     sensitiveDataExposures: number,
+    promptInjectionVulnerabilities: number,
     securityIssuesFound: number,
     totalResources: number,
   ): AssessmentStatus {
     // Critical failures
     if (pathTraversalVulnerabilities > 0) return "FAIL";
     if (sensitiveDataExposures > 0) return "FAIL";
+    if (promptInjectionVulnerabilities > 0) return "FAIL";
 
     // Moderate issues
     if (securityIssuesFound > 0) return "NEED_MORE_INFO";
@@ -351,6 +509,7 @@ export class ResourceAssessor extends BaseAssessor {
     results: ResourceTestResult[],
     pathTraversalVulnerabilities: number,
     sensitiveDataExposures: number,
+    promptInjectionVulnerabilities: number,
   ): string {
     const parts: string[] = [];
 
@@ -365,6 +524,12 @@ export class ResourceAssessor extends BaseAssessor {
     if (sensitiveDataExposures > 0) {
       parts.push(
         `WARNING: ${sensitiveDataExposures} resource(s) may expose sensitive data.`,
+      );
+    }
+
+    if (promptInjectionVulnerabilities > 0) {
+      parts.push(
+        `CRITICAL: ${promptInjectionVulnerabilities} resource(s) contain prompt injection patterns.`,
       );
     }
 
@@ -395,6 +560,28 @@ export class ResourceAssessor extends BaseAssessor {
       recommendations.push(
         "Review resources for sensitive data exposure. Remove or restrict access to resources containing credentials, keys, or sensitive configuration.",
       );
+    }
+
+    // Prompt injection recommendations
+    const promptInjectionResults = results.filter(
+      (r) => r.promptInjectionDetected,
+    );
+    if (promptInjectionResults.length > 0) {
+      recommendations.push(
+        "CRITICAL: Resource content contains prompt injection patterns that could manipulate LLM behavior. Sanitize resource content or restrict access to untrusted resources.",
+      );
+      // List specific patterns found
+      const allPatterns = new Set<string>();
+      for (const r of promptInjectionResults) {
+        for (const pattern of r.promptInjectionPatterns) {
+          allPatterns.add(pattern);
+        }
+      }
+      if (allPatterns.size > 0) {
+        recommendations.push(
+          `Detected patterns: ${Array.from(allPatterns).join(", ")}`,
+        );
+      }
     }
 
     // Invalid URI recommendations
