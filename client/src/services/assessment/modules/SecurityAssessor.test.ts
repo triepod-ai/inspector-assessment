@@ -311,4 +311,169 @@ describe("SecurityAssessor", () => {
       expect(mockContext.callTool).toHaveBeenCalled();
     }, 480000); // 480 second timeout for testing 3 tools in comprehensive mode
   });
+
+  describe("DoS/Resource Exhaustion Detection", () => {
+    it("should detect memory error vulnerability", async () => {
+      // Arrange - Tool responds with memory error evidence
+      mockContext.callTool = jest
+        .fn()
+        .mockResolvedValue(
+          createMockCallToolResponse(
+            "Error: memory allocation failed, out of memory",
+            false,
+          ),
+        );
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should detect DoS vulnerability
+      const dosFindings = result.promptInjectionTests.filter(
+        (t) => t.testName.includes("DoS") || t.testName.includes("Resource"),
+      );
+      expect(dosFindings.length).toBeGreaterThan(0);
+    });
+
+    it("should detect stack overflow vulnerability", async () => {
+      // Arrange - Tool responds with stack overflow evidence
+      mockContext.callTool = jest
+        .fn()
+        .mockResolvedValue(
+          createMockCallToolResponse(
+            "Error: stack overflow, recursion depth limit exceeded",
+            false,
+          ),
+        );
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should detect DoS vulnerability
+      expect(result.promptInjectionTests.length).toBeGreaterThan(0);
+    });
+
+    it("should detect timeout vulnerability", async () => {
+      // Arrange - Tool responds with timeout evidence
+      mockContext.callTool = jest
+        .fn()
+        .mockResolvedValue(
+          createMockCallToolResponse(
+            "Error: operation timed out after 30 seconds",
+            false,
+          ),
+        );
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should detect DoS vulnerability
+      expect(result.promptInjectionTests.length).toBeGreaterThan(0);
+    });
+
+    it("should NOT flag tool with safe size limit rejection", async () => {
+      // Arrange - Tool safely rejects oversized input
+      mockContext.callTool = jest.fn().mockResolvedValue(
+        createMockCallToolResponse(
+          JSON.stringify({
+            result: "Error: input exceeds maximum size limit of 10KB",
+            rejected: true,
+          }),
+          false,
+        ),
+      );
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should NOT be flagged as vulnerable (safe rejection)
+      expect(result.vulnerabilities.length).toBe(0);
+      expect(result.status).toBe("PASS");
+    });
+
+    it("should NOT flag tool with rate limit response", async () => {
+      // Arrange - Tool returns rate limit message
+      mockContext.callTool = jest.fn().mockResolvedValue(
+        createMockCallToolResponse(
+          JSON.stringify({
+            result: "Request throttled: rate limit exceeded, try again later",
+            limited: true,
+          }),
+          false,
+        ),
+      );
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should NOT be flagged as vulnerable (safe rejection)
+      expect(result.vulnerabilities.length).toBe(0);
+      expect(result.status).toBe("PASS");
+    });
+
+    it("should NOT flag tool with MCP validation error for oversized input", async () => {
+      // Arrange - Tool returns MCP validation error
+      mockContext.callTool = jest.fn().mockResolvedValue({
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              code: -32602,
+              message:
+                "Invalid params: payload too large, exceeds maximum size",
+            }),
+          },
+        ],
+      });
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - MCP validation errors should NOT be flagged
+      expect(result.vulnerabilities.length).toBe(0);
+    });
+
+    it("should NOT flag tool that safely echoes DoS payload as data", async () => {
+      // Arrange - Tool stores/echoes payload without execution
+      mockContext.callTool = jest.fn().mockResolvedValue(
+        createMockCallToolResponse(
+          JSON.stringify({
+            result: "Stored query: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!",
+            stored: true,
+          }),
+          false,
+        ),
+      );
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Reflection should NOT be flagged
+      expect(result.vulnerabilities.length).toBe(0);
+      expect(result.status).toBe("PASS");
+    });
+
+    it("evidence regex should complete quickly on adversarial input", () => {
+      // Test that evidence patterns don't cause ReDoS in the inspector itself
+      const { SECURITY_ATTACK_PATTERNS } = require("@/lib/securityPatterns");
+      const dosPattern = SECURITY_ATTACK_PATTERNS.find(
+        (p: { attackName: string }) =>
+          p.attackName === "DoS/Resource Exhaustion",
+      );
+
+      expect(dosPattern).toBeDefined();
+
+      // Test each payload's evidence regex against adversarial input
+      const adversarialInput = "a".repeat(10000) + "!";
+
+      for (const payload of dosPattern.payloads) {
+        const startTime = Date.now();
+        payload.evidence.test(adversarialInput);
+        const elapsed = Date.now() - startTime;
+
+        // Each regex should complete in <100ms (usually <1ms)
+        expect(elapsed).toBeLessThan(100);
+      }
+    });
+  });
 });

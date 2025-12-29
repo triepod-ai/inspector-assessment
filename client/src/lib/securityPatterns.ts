@@ -1,12 +1,13 @@
 /**
  * Backend API Security Patterns
- * Tests MCP server API security with 18 focused patterns
+ * Tests MCP server API security with 19 focused patterns
  *
  * Architecture: Attack-Type with Specific Payloads
  * - Critical Injection (6 patterns): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
  * - Input Validation (3 patterns): Type Safety, Boundary Testing, Required Fields
  * - Protocol Compliance (2 patterns): MCP Error Format, Timeout Handling
  * - Tool-Specific Vulnerabilities (7 patterns): Indirect Injection, Unicode Bypass, Nested Injection, Package Squatting, Data Exfiltration, Configuration Drift, Tool Shadowing
+ * - Resource Exhaustion (1 pattern): DoS/Resource Exhaustion
  *
  * Scope: Backend API Security ONLY
  * - Tests structured data inputs to API endpoints
@@ -42,7 +43,7 @@ export interface AttackPattern {
  * BACKEND API SECURITY PATTERNS
  * ========================================
  *
- * 16 focused patterns for MCP server API security
+ * 19 focused patterns for MCP server API security
  */
 export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // ==========================================
@@ -898,6 +899,156 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
         description: "Tool behavior redefinition",
         payloadType: "injection",
         parameterTypes: ["instruction", "command", "action", "input"],
+      },
+    ],
+  },
+
+  // ==========================================
+  // RESOURCE EXHAUSTION TESTS (1)
+  // ==========================================
+
+  // 19. DOS/RESOURCE EXHAUSTION
+  {
+    attackName: "DoS/Resource Exhaustion",
+    description:
+      "Test if tool is vulnerable to denial of service through resource exhaustion (ReDoS, memory allocation, timeout abuse)",
+    payloads: [
+      // ReDoS Payloads (Catastrophic Backtracking)
+      {
+        payload: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!",
+        evidence:
+          /timeout|timed.?out|catastrophic|backtrack|hung|unresponsive|resource.?limit|regex.?timeout/i,
+        riskLevel: "HIGH",
+        description: "ReDoS via evil regex input (catastrophic backtracking)",
+        payloadType: "dos",
+        parameterTypes: [
+          "pattern",
+          "regex",
+          "search",
+          "query",
+          "filter",
+          "text",
+          "input",
+        ],
+      },
+      {
+        payload: "(a+)+b",
+        evidence:
+          /timeout|timed.?out|catastrophic|backtrack|regex.?error|pattern.?error|stack.?overflow/i,
+        riskLevel: "HIGH",
+        description: "ReDoS via nested quantifier pattern",
+        payloadType: "dos",
+        parameterTypes: ["pattern", "regex", "search", "query", "filter"],
+      },
+      {
+        payload: "a]a]a]a]a]a]a]a]a]a]a]a]a]a]a]a]",
+        evidence:
+          /timeout|backtrack|regex.?overflow|stack.?overflow|parse.?error/i,
+        riskLevel: "HIGH",
+        description: "ReDoS via character class abuse",
+        payloadType: "dos",
+        parameterTypes: ["pattern", "regex", "search", "query"],
+      },
+      {
+        payload: "^(([a-z])+.)+[A-Z]([a-z])+$",
+        evidence:
+          /timeout|catastrophic|backtrack|polynomial|exponential|regex.?complexity/i,
+        riskLevel: "HIGH",
+        description: "ReDoS via polynomial complexity pattern",
+        payloadType: "dos",
+        parameterTypes: ["pattern", "regex", "search", "query", "filter"],
+      },
+
+      // Memory Allocation Payloads
+      {
+        payload: "999999999999",
+        evidence:
+          /memory.?error|allocation.?failed|out.?of.?memory|heap|buffer.?overflow|resource.?limit|integer.?overflow/i,
+        riskLevel: "HIGH",
+        description: "Memory exhaustion via large number input",
+        payloadType: "dos",
+        parameterTypes: [
+          "size",
+          "count",
+          "length",
+          "limit",
+          "amount",
+          "quantity",
+          "number",
+        ],
+      },
+      {
+        // Pre-evaluated 10KB string
+        payload: "x".repeat(10000),
+        evidence:
+          /too.?long|exceeds.?length|maximum.?length|length.?limit|resource.?limit|payload.?too.?large|memory/i,
+        riskLevel: "MEDIUM",
+        description: "Memory exhaustion via large string payload (10KB)",
+        payloadType: "dos",
+      },
+      {
+        // 10-level deep nested JSON
+        payload:
+          '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{}}}}}}}}}}}',
+        evidence:
+          /stack.?overflow|recursion|depth.?limit|nesting.?limit|too.?deep|parse.?error|json.?depth/i,
+        riskLevel: "HIGH",
+        description: "Stack exhaustion via deep JSON nesting",
+        payloadType: "dos",
+        parameterTypes: ["data", "json", "body", "payload", "input"],
+      },
+
+      // Timeout Abuse Payloads
+      {
+        payload: "sleep(99999)",
+        evidence:
+          /timeout|timed.?out|operation.?cancelled|deadline|long.?running|sleep.?executed/i,
+        riskLevel: "HIGH",
+        description: "Timeout abuse via sleep command injection",
+        payloadType: "dos",
+        parameterTypes: ["command", "script", "code", "expression", "input"],
+      },
+      {
+        payload: "WAITFOR DELAY '00:10:00'",
+        evidence:
+          /timeout|timed.?out|sql.?timeout|query.?timeout|waitfor.?executed/i,
+        riskLevel: "HIGH",
+        description: "Timeout abuse via SQL WAITFOR",
+        payloadType: "dos",
+        parameterTypes: ["query", "sql", "command"],
+      },
+      {
+        // 20-level nested array
+        payload: "[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]",
+        evidence:
+          /stack.?overflow|recursion|depth|nesting|too.?deep|parse.?error/i,
+        riskLevel: "MEDIUM",
+        description: "Stack exhaustion via nested arrays",
+        payloadType: "dos",
+        parameterTypes: ["data", "array", "list", "items"],
+      },
+
+      // Expansion Attacks
+      {
+        // Zip bomb indicator (base64 header of compressed content)
+        payload: "UEsDBBQAAAAIAAAAAACJBAAAAAAAAQAAAAEAAABhYQAAUEsBAhQAFAAAAAgA",
+        evidence:
+          /zip.?bomb|compression|decompression.?error|expand|inflate|extraction.?limit|archive.?too.?large/i,
+        riskLevel: "HIGH",
+        description: "Zip bomb indicator via compressed content header",
+        payloadType: "dos",
+        parameterTypes: ["file", "data", "content", "upload", "attachment"],
+      },
+      {
+        // XML Billion Laughs (truncated safe version)
+        payload:
+          '<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;"><!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;">]><lolz>&lol3;</lolz>',
+        evidence:
+          /entity.?expansion|xml.?bomb|billion.?laughs|too.?many.?entities|memory|resource.?limit|xml.?depth/i,
+        riskLevel: "HIGH",
+        description: "XML entity expansion (Billion Laughs) attack",
+        payloadType: "dos",
+        parameterTypes: ["xml", "data", "body", "payload", "content"],
       },
     ],
   },

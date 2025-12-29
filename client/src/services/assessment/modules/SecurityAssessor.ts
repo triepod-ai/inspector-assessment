@@ -1522,6 +1522,21 @@ export class SecurityAssessor extends BaseAssessor {
       /error getting info for ['"].*['"]/i,
       /invalid .* format.*stored as text/i,
       /error:.*too (long|short|large)/i,
+
+      // NEW: DoS/Resource safe rejection patterns
+      // These indicate the tool properly rejected resource-intensive input
+      /payload.?rejected/i,
+      /input.?exceeds.?limit/i,
+      /resource.?limit.?enforced/i,
+      /size.?limit/i,
+      /maximum.?length/i,
+      /rate.?limit/i,
+      /request.?throttled/i,
+      /input.?too.?large/i,
+      /exceeds.?maximum.?size/i,
+      /depth.?limit.?exceeded/i,
+      /nesting.?limit/i,
+      /complexity.?limit/i,
     ];
 
     // LAYER 1: Check for reflection/status patterns
