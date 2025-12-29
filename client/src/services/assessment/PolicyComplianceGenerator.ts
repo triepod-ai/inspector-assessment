@@ -77,6 +77,24 @@ export class PolicyComplianceGenerator {
     requirement: PolicyRequirement,
     assessment: MCPDirectoryAssessment,
   ): PolicyComplianceResult {
+    // Mark DEV requirements as NOT_APPLICABLE when source code is not available
+    // These requirements (documentation, privacy policy, contact info) cannot be
+    // evaluated for HTTP-only assessments without access to the source repository
+    if (
+      requirement.category === "developer_requirements" &&
+      !assessment.assessmentMetadata?.sourceCodeAvailable
+    ) {
+      return {
+        requirement,
+        status: "NOT_APPLICABLE",
+        evidence: ["Source code not available for documentation assessment"],
+        moduleResults: [],
+        recommendation: undefined,
+        manualReviewRequired: false,
+        manualReviewGuidance: undefined,
+      };
+    }
+
     const evidence: string[] = [];
     const moduleResults: PolicyComplianceResult["moduleResults"] = [];
 

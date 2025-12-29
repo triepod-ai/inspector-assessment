@@ -641,6 +641,14 @@ export interface MCPDirectoryAssessment {
   totalTestsRun: number;
   evidenceFiles?: string[];
   mcpProtocolVersion?: string;
+
+  // Assessment context metadata (for policy compliance evaluation)
+  assessmentMetadata?: {
+    /** Whether source code was available during assessment */
+    sourceCodeAvailable: boolean;
+    /** Transport type used for the assessment */
+    transportType?: "stdio" | "sse" | "streamable-http";
+  };
 }
 
 // ============================================================================

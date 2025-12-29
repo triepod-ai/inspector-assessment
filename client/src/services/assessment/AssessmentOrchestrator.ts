@@ -940,6 +940,10 @@ export class AssessmentOrchestrator {
       executionTime,
       totalTestsRun: this.totalTestsRun,
       mcpProtocolVersion: this.config.mcpProtocolVersion,
+      assessmentMetadata: {
+        sourceCodeAvailable: !!context.sourceCodePath,
+        transportType: context.transportConfig?.type,
+      },
     };
   }
 
