@@ -77,7 +77,33 @@
 
 **Decision:** Phase 2 removed from roadmap. Focus on incremental improvements to existing patterns.
 
-**Research Document:** `/home/bryan/.claude/plans/iterative-popping-petal.md`
+---
+
+## 2025-12-29: Phase 3 Advanced Evasion - Research Decision
+
+**Summary:** Researched Phase 3 evasion patterns (encoding/obfuscation). Concluded they are **also overengineering**.
+
+**Research Findings:**
+- "Advanced evasion" = Unicode, Base64, hex encoding, case manipulation, etc.
+- Key patterns **already implemented**: Unicode Bypass (#13), Deserialization (#20)
+- The actual vulnerability is "decode + execute", not the encoding itself
+
+**Why NOT Applicable to MCP:**
+- MCP servers receive structured JSON, not raw text
+- JSON parser handles decoding before tool code runs
+- Most tools don't call `eval()`, `exec()`, or custom decoders
+- Evasion matters for WAF bypass and prompt injection, not MCP APIs
+
+**Decision:** Phase 3 removed from roadmap.
+
+**Combined Enhancement Report Decision:**
+| Phase | Category | Decision |
+|-------|----------|----------|
+| Phase 2 | Second-Order Injection | ❌ Skip |
+| Phase 2 | Business Logic Flaws | ❌ Skip |
+| Phase 3 | Advanced Evasion | ❌ Skip |
+
+**Conclusion:** Enhancement report phases were theoretical completeness, not practical needs. Current 20 patterns + TemporalAssessor = sufficient for MCP directory compliance.
 
 ---
 
