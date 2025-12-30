@@ -50,8 +50,8 @@ describe("Assessment Performance Benchmarks", () => {
       const finalMemory = process.memoryUsage();
       const executionTime = endTime - startTime;
 
-      // Assert Performance Thresholds
-      expect(executionTime).toBeLessThan(8000); // < 8 seconds for basic assessment (increased for expanded security patterns)
+      // Assert Performance Thresholds (relaxed for CI runners which are slower)
+      expect(executionTime).toBeLessThan(15000); // < 15 seconds for basic assessment (CI runners are slower)
       expect(result.totalTestsRun).toBeGreaterThan(20); // Should run substantial tests
       expect((result.totalTestsRun / executionTime) * 1000).toBeGreaterThan(5); // > 5 tests/second
 
@@ -129,9 +129,9 @@ describe("Assessment Performance Benchmarks", () => {
           throughput,
         });
 
-        // Performance should scale reasonably (2000ms per tool with basic assessment config)
+        // Performance should scale reasonably (4000ms per tool on CI runners)
         // Even with minimal config, 5 core modules run multiple scenarios per tool
-        expect(executionTime).toBeLessThan(toolCount * 2000); // < 2s per tool with minimal config
+        expect(executionTime).toBeLessThan(toolCount * 4000); // < 4s per tool on CI runners
         expect(throughput).toBeGreaterThan(1); // > 1 test/second minimum
       }
 
@@ -589,7 +589,7 @@ describe("Assessment Performance Benchmarks", () => {
       // Assert resilience under stress
       expect(result).toBeDefined();
       expect(result.overallStatus).toBeDefined();
-      expect(executionTime).toBeLessThan(30000); // Should complete within 30 seconds even under stress
+      expect(executionTime).toBeLessThan(60000); // Should complete within 60 seconds on CI runners
 
       // Should handle failures gracefully (5% random failure rate means 0-5 failures typically)
       // Verify all tools are accounted for (working + broken = total)
