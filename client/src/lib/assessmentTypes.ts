@@ -21,6 +21,19 @@ export type AlignmentStatus =
  */
 export type InferenceConfidence = "high" | "medium" | "low";
 
+/**
+ * Persistence model for MCP servers (Three-Tier Classification).
+ * Re-exported from annotationPatterns for backward compatibility.
+ *
+ * - "immediate": Write operations persist directly to storage (database, file, API)
+ * - "deferred": Write operations are in-memory until explicit save operation
+ * - "unknown": Cannot determine persistence model
+ */
+export type {
+  PersistenceModel,
+  ServerPersistenceContext,
+} from "../services/assessment/config/annotationPatterns";
+
 export interface TestInputMetadata {
   toolCategory: string; // Category from ToolClassifier (e.g., "calculator")
   generationStrategy: string; // How value was generated (e.g., "category-specific", "field-name", "default")

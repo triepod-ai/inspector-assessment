@@ -367,3 +367,219 @@ export function getDefaultCompiledPatterns(): CompiledPatterns {
   }
   return defaultCompiledPatterns;
 }
+
+// ============================================================================
+// Persistence Detection for Write Operations (Three-Tier Classification)
+// ============================================================================
+
+/**
+ * Persistence model for MCP servers.
+ * Determines whether write operations persist immediately or are deferred until explicit save.
+ */
+export type PersistenceModel = "immediate" | "deferred" | "unknown";
+
+/**
+ * Result of persistence model detection for a server.
+ */
+export interface ServerPersistenceContext {
+  model: PersistenceModel;
+  hasSaveOperations: boolean;
+  hasWriteOperations: boolean;
+  indicators: string[];
+  confidence: "high" | "medium" | "low";
+}
+
+/**
+ * Patterns indicating explicit save/persist operations.
+ * If a server has these, write operations are likely in-memory until save.
+ */
+export const SAVE_OPERATION_PATTERNS: RegExp[] = [
+  /^save[_-]/i,
+  /^persist[_-]/i,
+  /^commit[_-]/i,
+  /^flush[_-]/i,
+  /^write_to[_-]/i,
+  /^export[_-]/i,
+  /^sync_to[_-]/i,
+  /[_-]save$/i,
+  /[_-]persist$/i,
+  /[_-]commit$/i,
+];
+
+/**
+ * Patterns indicating write operations (create, add, update, etc.).
+ */
+export const WRITE_OPERATION_PATTERNS: RegExp[] = [
+  /^create[_-]/i,
+  /^add[_-]/i,
+  /^insert[_-]/i,
+  /^update[_-]/i,
+  /^modify[_-]/i,
+  /^edit[_-]/i,
+  /^set[_-]/i,
+  /^put[_-]/i,
+  /^patch[_-]/i,
+];
+
+/**
+ * Keywords in tool descriptions that indicate immediate persistence to storage.
+ * These suggest the operation writes directly to database/file/API.
+ */
+export const IMMEDIATE_PERSISTENCE_INDICATORS: RegExp[] = [
+  // Database indicators
+  /neo4j/i,
+  /mongodb/i,
+  /postgres/i,
+  /mysql/i,
+  /sqlite/i,
+  /database/i,
+  /\bdb\b/i,
+  /redis/i,
+  /dynamodb/i,
+  /firestore/i,
+  /supabase/i,
+  // File system indicators
+  /file\s*(system|storage)/i,
+  /\bdisk\b/i,
+  /storage\s*backend/i,
+  /writes?\s*to\s*(file|disk)/i,
+  // Cloud/external storage
+  /\bs3\b/i,
+  /cloud\s*storage/i,
+  /blob\s*storage/i,
+  // Persistence language
+  /primary.*fallback/i, // "(Neo4j primary, file fallback)"
+  /immediately/i,
+  /directly\s*(writes?|saves?|stores?)/i,
+  /persists?\s*(to|immediately)/i,
+  /writes?\s*directly/i,
+  /stores?\s*in\s*(database|db|file)/i,
+  // API indicators (external state change)
+  /external\s*api/i,
+  /third[- ]?party\s*(api|service)/i,
+];
+
+/**
+ * Keywords in tool descriptions that indicate deferred/in-memory operations.
+ * These suggest the operation modifies state that isn't persisted until explicit save.
+ */
+export const DEFERRED_PERSISTENCE_INDICATORS: RegExp[] = [
+  /in[- ]?memory/i,
+  /until\s*saved/i,
+  /before\s*saving/i,
+  /temporary/i,
+  /\bbuffer\b/i,
+  /\bsession\b/i,
+  /working\s*copy/i,
+  /local\s*state/i,
+  /not\s*persisted/i,
+  /changes?\s*are\s*not\s*saved/i,
+];
+
+/**
+ * Detect the persistence model of an MCP server by analyzing its tool set.
+ *
+ * Logic:
+ * - If server has write ops (create_, add_) but NO save ops (save_, persist_) → immediate
+ * - If server has write ops AND save ops → deferred (in-memory until save)
+ * - Otherwise → unknown
+ *
+ * @param toolNames - Array of tool names from the server
+ * @returns ServerPersistenceContext with model and indicators
+ */
+export function detectPersistenceModel(
+  toolNames: string[],
+): ServerPersistenceContext {
+  const indicators: string[] = [];
+
+  const hasWriteOps = toolNames.some((name) =>
+    WRITE_OPERATION_PATTERNS.some((pattern) => pattern.test(name)),
+  );
+
+  const hasSaveOps = toolNames.some((name) =>
+    SAVE_OPERATION_PATTERNS.some((pattern) => pattern.test(name)),
+  );
+
+  if (hasWriteOps) {
+    indicators.push(
+      `Write operations detected: ${toolNames
+        .filter((n) => WRITE_OPERATION_PATTERNS.some((p) => p.test(n)))
+        .join(", ")}`,
+    );
+  }
+
+  if (hasSaveOps) {
+    indicators.push(
+      `Save operations detected: ${toolNames
+        .filter((n) => SAVE_OPERATION_PATTERNS.some((p) => p.test(n)))
+        .join(", ")}`,
+    );
+  }
+
+  let model: PersistenceModel;
+  let confidence: "high" | "medium" | "low";
+
+  if (hasWriteOps && !hasSaveOps) {
+    model = "immediate";
+    confidence = "medium"; // Medium because we're inferring from absence of save ops
+    indicators.push(
+      "No save operations found → write operations likely persist immediately",
+    );
+  } else if (hasWriteOps && hasSaveOps) {
+    model = "deferred";
+    confidence = "high"; // High because presence of save ops is explicit
+    indicators.push(
+      "Save operations present → write operations likely in-memory until save",
+    );
+  } else {
+    model = "unknown";
+    confidence = "low";
+    indicators.push("Cannot determine persistence model from tool names");
+  }
+
+  return {
+    model,
+    hasSaveOperations: hasSaveOps,
+    hasWriteOperations: hasWriteOps,
+    indicators,
+    confidence,
+  };
+}
+
+/**
+ * Check if a tool description indicates immediate persistence.
+ *
+ * @param description - Tool description to analyze
+ * @returns Object with detection result and matched indicators
+ */
+export function checkDescriptionForImmediatePersistence(description: string): {
+  indicatesImmediate: boolean;
+  indicatesDeferred: boolean;
+  matchedPatterns: string[];
+} {
+  const matchedPatterns: string[] = [];
+
+  // Check for immediate persistence indicators
+  let indicatesImmediate = false;
+  for (const pattern of IMMEDIATE_PERSISTENCE_INDICATORS) {
+    if (pattern.test(description)) {
+      indicatesImmediate = true;
+      matchedPatterns.push(`immediate: ${pattern.source}`);
+    }
+  }
+
+  // Check for deferred persistence indicators
+  let indicatesDeferred = false;
+  for (const pattern of DEFERRED_PERSISTENCE_INDICATORS) {
+    if (pattern.test(description)) {
+      indicatesDeferred = true;
+      matchedPatterns.push(`deferred: ${pattern.source}`);
+    }
+  }
+
+  return {
+    indicatesImmediate,
+    indicatesDeferred,
+    matchedPatterns,
+  };
+}

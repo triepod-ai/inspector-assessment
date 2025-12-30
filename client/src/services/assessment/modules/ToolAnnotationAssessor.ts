@@ -27,8 +27,11 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { ClaudeCodeBridge } from "../lib/claudeCodeBridge";
 import {
   type CompiledPatterns,
+  type ServerPersistenceContext,
   getDefaultCompiledPatterns,
   matchToolPattern,
+  detectPersistenceModel,
+  checkDescriptionForImmediatePersistence,
 } from "../config/annotationPatterns";
 
 /**
@@ -275,11 +278,19 @@ export interface EnhancedToolAnnotationAssessment extends ToolAnnotationAssessme
 export class ToolAnnotationAssessor extends BaseAssessor {
   private claudeBridge?: ClaudeCodeBridge;
   private compiledPatterns: CompiledPatterns;
+  private persistenceContext?: ServerPersistenceContext;
 
   constructor(config: AssessmentConfiguration) {
     super(config);
     // Initialize with default patterns (can be overridden via setPatterns)
     this.compiledPatterns = getDefaultCompiledPatterns();
+  }
+
+  /**
+   * Get the detected persistence context (for testing/debugging)
+   */
+  getPersistenceContext(): ServerPersistenceContext | undefined {
+    return this.persistenceContext;
   }
 
   /**
@@ -330,6 +341,16 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       inferred: 0,
       none: 0,
     };
+
+    // Detect server persistence model from tool names (Three-Tier Classification)
+    const toolNames = context.tools.map((t) => t.name);
+    this.persistenceContext = detectPersistenceModel(toolNames);
+    this.log(
+      `Persistence model detected: ${this.persistenceContext.model} (confidence: ${this.persistenceContext.confidence})`,
+    );
+    for (const indicator of this.persistenceContext.indicators) {
+      this.log(`  - ${indicator}`);
+    }
 
     const useClaudeInference = this.isClaudeEnabled();
     if (useClaudeInference) {
@@ -1220,7 +1241,58 @@ export class ToolAnnotationAssessor extends BaseAssessor {
           isAmbiguous: false,
         };
 
-      case "write":
+      case "write": {
+        // Three-Tier Classification: Check persistence model for write operations
+        // If immediate persistence detected, write operations should be marked destructive
+        const descriptionCheck = checkDescriptionForImmediatePersistence(
+          description || "",
+        );
+
+        // Priority 1: Description explicitly indicates deferred persistence
+        if (descriptionCheck.indicatesDeferred) {
+          return {
+            expectedReadOnly: false,
+            expectedDestructive: false,
+            reason: `Tool name matches write pattern (${patternMatch.pattern}), description indicates deferred/in-memory operation`,
+            confidence: "medium",
+            isAmbiguous: false,
+          };
+        }
+
+        // Priority 2: Description explicitly indicates immediate persistence
+        if (descriptionCheck.indicatesImmediate) {
+          return {
+            expectedReadOnly: false,
+            expectedDestructive: true,
+            reason: `Tool name matches write pattern (${patternMatch.pattern}), description indicates immediate persistence to storage (${descriptionCheck.matchedPatterns.slice(0, 2).join(", ")})`,
+            confidence: "medium",
+            isAmbiguous: false,
+          };
+        }
+
+        // Priority 3: Server-level persistence model (no save operations = immediate)
+        if (this.persistenceContext?.model === "immediate") {
+          return {
+            expectedReadOnly: false,
+            expectedDestructive: true,
+            reason: `Tool name matches write pattern (${patternMatch.pattern}), server has no save operations → write operations likely persist immediately`,
+            confidence: "medium",
+            isAmbiguous: false,
+          };
+        }
+
+        // Priority 4: Server has save operations = deferred (in-memory until save)
+        if (this.persistenceContext?.model === "deferred") {
+          return {
+            expectedReadOnly: false,
+            expectedDestructive: false,
+            reason: `Tool name matches write pattern (${patternMatch.pattern}), server has save operations → write operations likely in-memory until explicit save`,
+            confidence: "medium",
+            isAmbiguous: false,
+          };
+        }
+
+        // Default: Unknown persistence model - conservative approach (not destructive)
         return {
           expectedReadOnly: false,
           expectedDestructive: false,
@@ -1228,6 +1300,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
           confidence: "medium",
           isAmbiguous: false,
         };
+      }
 
       case "unknown":
       default:
