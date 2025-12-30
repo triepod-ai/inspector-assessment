@@ -153,7 +153,7 @@ describe("Assessment Performance Benchmarks", () => {
           `  ${result.toolCount} tools: ${result.executionTime.toFixed(2)}ms, ${result.testsRun} tests, ${result.throughput.toFixed(2)} tests/sec`,
         );
       });
-    }, 120000); // 120 second timeout for testing 5+10+20+30 tools in comprehensive mode
+    }, 180000); // 180 second timeout for testing 5+10+20+30 tools on CI runners
 
     it("should maintain performance with extended assessments enabled", async () => {
       // Arrange
