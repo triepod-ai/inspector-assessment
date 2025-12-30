@@ -1516,8 +1516,8 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
     aupCompliance: true,
     toolAnnotations: true,
     prohibitedLibraries: true,
-    manifestValidation: true,
-    portability: true,
+    manifestValidation: false, // MCPB bundle-specific, disabled by default
+    portability: false, // MCPB bundle-specific, disabled by default
     externalAPIScanner: true,
     authentication: true,
     // New capability assessors - enabled in developer mode
@@ -1553,8 +1553,8 @@ export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
     aupCompliance: true,
     toolAnnotations: true,
     prohibitedLibraries: true,
-    manifestValidation: true,
-    portability: true,
+    manifestValidation: false, // MCPB bundle-specific, disabled by default
+    portability: false, // MCPB bundle-specific, disabled by default
     externalAPIScanner: true,
     authentication: true,
     // New capability assessors - enabled in audit mode
@@ -1601,8 +1601,8 @@ export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
     aupCompliance: true,
     toolAnnotations: true,
     prohibitedLibraries: true,
-    manifestValidation: true,
-    portability: true,
+    manifestValidation: false, // MCPB bundle-specific, disabled by default
+    portability: false, // MCPB bundle-specific, disabled by default
     externalAPIScanner: true,
     authentication: true,
     // New capability assessors - enabled in Claude mode

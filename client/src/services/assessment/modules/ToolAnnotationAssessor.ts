@@ -1242,8 +1242,23 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         };
 
       case "write": {
-        // Three-Tier Classification: Check persistence model for write operations
-        // If immediate persistence detected, write operations should be marked destructive
+        // CREATE operations are NEVER destructive - they only ADD new data
+        // Only UPDATE/MODIFY operations can be considered destructive when they modify existing data
+        const isCreateOperation = /^(create|add|insert|new|generate)[_-]/i.test(
+          toolName,
+        );
+        if (isCreateOperation) {
+          return {
+            expectedReadOnly: false,
+            expectedDestructive: false,
+            reason: `Tool name matches create pattern: ${patternMatch.pattern} - create operations only add data and are not destructive`,
+            confidence: "high",
+            isAmbiguous: false,
+          };
+        }
+
+        // Three-Tier Classification: Check persistence model for UPDATE/MODIFY operations
+        // If immediate persistence detected, update operations should be marked destructive
         const descriptionCheck = checkDescriptionForImmediatePersistence(
           description || "",
         );

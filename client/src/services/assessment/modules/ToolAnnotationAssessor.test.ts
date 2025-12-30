@@ -154,16 +154,18 @@ describe("ToolAnnotationAssessor", () => {
       }
     });
 
-    it("should infer write (non-destructive) behavior from tool name patterns", async () => {
-      const writeNames = [
+    it("should infer CREATE operations as non-destructive regardless of persistence model", async () => {
+      // CREATE operations only ADD new data - they should NEVER be destructive
+      // This is semantically distinct from UPDATE/MODIFY which change existing data
+      const createNames = [
         "create_item",
         "add_user",
-        "update_record",
-        "modify_setting",
-        "save_data",
+        "insert_record",
+        "new_document",
+        "generate_report",
       ];
 
-      for (const name of writeNames) {
+      for (const name of createNames) {
         mockContext.tools = [createMockTool({ name, description: "Test" })];
         const result = await assessor.assess(mockContext);
 
@@ -172,6 +174,26 @@ describe("ToolAnnotationAssessor", () => {
         );
         expect(result.toolResults[0].inferredBehavior.expectedDestructive).toBe(
           false,
+        );
+      }
+    });
+
+    it("should infer UPDATE/MODIFY operations as destructive when persistence is immediate", async () => {
+      // UPDATE/MODIFY operations change existing data - they ARE destructive when persisted immediately
+      // With only update tools and no save operations, persistence model = immediate
+      // Note: "save_data" is excluded because "save" triggers save operation detection → deferred persistence
+      const updateNames = ["update_record", "modify_setting", "set_value"];
+
+      for (const name of updateNames) {
+        mockContext.tools = [createMockTool({ name, description: "Test" })];
+        const result = await assessor.assess(mockContext);
+
+        expect(result.toolResults[0].inferredBehavior.expectedReadOnly).toBe(
+          false,
+        );
+        // These operations are correctly flagged as destructive when persistence is immediate
+        expect(result.toolResults[0].inferredBehavior.expectedDestructive).toBe(
+          true,
         );
       }
     });

@@ -5,7 +5,11 @@ import {
   CompatibilityCallToolResult,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { validateToolOutput, hasOutputSchema } from "@/utils/schemaUtils";
+import {
+  validateToolOutput,
+  hasOutputSchema,
+  tryExtractJsonFromContent,
+} from "@/utils/schemaUtils";
 
 interface ToolResultsProps {
   toolResult: CompatibilityCallToolResult | null;
@@ -94,17 +98,33 @@ const ToolResults = ({
       selectedTool && hasOutputSchema(selectedTool.name);
 
     if (toolHasOutputSchema) {
-      if (!structuredResult.structuredContent && !isError) {
-        validationResult = {
-          isValid: false,
-          error:
-            "Tool has an output schema but did not return structured content",
-        };
-      } else if (structuredResult.structuredContent) {
+      if (structuredResult.structuredContent) {
+        // Primary path: validate structuredContent
         validationResult = validateToolOutput(
           selectedTool.name,
           structuredResult.structuredContent,
         );
+      } else if (!isError) {
+        // Fallback: try to extract JSON from content[] text blocks
+        // MCP allows tools to return valid JSON in standard content blocks
+        const extractedJson = tryExtractJsonFromContent(
+          structuredResult.content as Array<{
+            type: string;
+            text?: string;
+            [key: string]: unknown;
+          }>,
+        );
+        if (extractedJson !== null) {
+          validationResult = validateToolOutput(
+            selectedTool.name,
+            extractedJson,
+          );
+        } else {
+          validationResult = {
+            isValid: false,
+            error: "Tool has output schema but response contains no valid JSON",
+          };
+        }
       }
     }
 

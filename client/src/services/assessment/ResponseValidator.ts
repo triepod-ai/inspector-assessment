@@ -8,7 +8,11 @@ import {
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { ResponseMetadata } from "@/lib/assessmentTypes";
-import { validateToolOutput, hasOutputSchema } from "@/utils/schemaUtils";
+import {
+  validateToolOutput,
+  hasOutputSchema,
+  tryExtractJsonFromContent,
+} from "@/utils/schemaUtils";
 
 export interface ValidationResult {
   isValid: boolean;
@@ -85,13 +89,8 @@ export class ResponseValidator {
     const toolHasOutputSchema = hasOutputSchema(context.tool.name);
 
     if (toolHasOutputSchema) {
-      if (!hasStructuredContent) {
-        outputSchemaValidation = {
-          hasOutputSchema: true,
-          isValid: false,
-          error: "Tool has output schema but did not return structuredContent",
-        };
-      } else {
+      if (hasStructuredContent) {
+        // Primary path: validate structuredContent
         const validation = validateToolOutput(
           context.tool.name,
           response.structuredContent,
@@ -101,6 +100,33 @@ export class ResponseValidator {
           isValid: validation.isValid,
           error: validation.error,
         };
+      } else {
+        // Fallback: try to extract JSON from content[] text blocks
+        // MCP allows tools to return valid JSON in standard content blocks
+        const extractedJson = tryExtractJsonFromContent(
+          (content as Array<{
+            type: string;
+            text?: string;
+            [key: string]: unknown;
+          }>) || [],
+        );
+        if (extractedJson !== null) {
+          const validation = validateToolOutput(
+            context.tool.name,
+            extractedJson,
+          );
+          outputSchemaValidation = {
+            hasOutputSchema: true,
+            isValid: validation.isValid,
+            error: validation.error,
+          };
+        } else {
+          outputSchemaValidation = {
+            hasOutputSchema: true,
+            isValid: false,
+            error: "Tool has output schema but response contains no valid JSON",
+          };
+        }
       }
     }
 
@@ -436,10 +462,15 @@ export class ResponseValidator {
     // Check tool operation type - resource operations are expected to validate
     const toolName = context.tool.name.toLowerCase();
     const isValidationExpected =
-      // CRUD operations
+      // CRUD operations (including add/remove variants)
       toolName.includes("create") ||
+      toolName.includes("add") ||
+      toolName.includes("insert") ||
       toolName.includes("update") ||
+      toolName.includes("modify") ||
+      toolName.includes("set") ||
       toolName.includes("delete") ||
+      toolName.includes("remove") ||
       toolName.includes("get") ||
       toolName.includes("fetch") ||
       toolName.includes("read") ||
@@ -449,6 +480,14 @@ export class ResponseValidator {
       toolName.includes("search") ||
       toolName.includes("find") ||
       toolName.includes("list") ||
+      // Entity/resource operations (knowledge graphs, databases)
+      toolName.includes("entity") ||
+      toolName.includes("entities") ||
+      toolName.includes("relation") ||
+      toolName.includes("observation") ||
+      toolName.includes("node") ||
+      toolName.includes("edge") ||
+      toolName.includes("record") ||
       // State operations
       toolName.includes("move") ||
       toolName.includes("copy") ||
@@ -514,12 +553,12 @@ export class ResponseValidator {
 
     // Determine confidence threshold based on error type and tool type
     // - Strong operational errors: 20% (very lenient, these are obvious)
-    // - Validation-expected tools: 30% (lenient)
+    // - Validation-expected tools (delete/update/etc): 20% (same as operational - these often fail on missing test data)
     // - Other tools: 50% (standard)
     const confidenceThreshold = hasStrongOperationalError
       ? 0.2
       : isValidationExpected
-        ? 0.3
+        ? 0.2
         : 0.5;
 
     return confidence >= confidenceThreshold;

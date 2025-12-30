@@ -457,23 +457,54 @@ describe("ToolsTab", () => {
       expect(screen.getByText(/Validation Error:/)).toBeInTheDocument();
     });
 
-    it("should show error when tool with output schema doesn't return structured content", () => {
-      const resultWithoutStructured = {
-        content: [{ type: "text", text: "some result" }],
+    it("should show error when tool with output schema returns non-JSON content", () => {
+      const resultWithNonJsonContent = {
+        content: [{ type: "text", text: "some result" }], // Not valid JSON
         // No structuredContent
       };
 
       renderToolsTab({
         tools: [toolWithOutputSchema],
         selectedTool: toolWithOutputSchema,
-        toolResult: resultWithoutStructured,
+        toolResult: resultWithNonJsonContent,
       });
 
       expect(
         screen.getByText(
-          /Tool has an output schema but did not return structured content/,
+          /Tool has output schema but response contains no valid JSON/,
         ),
       ).toBeInTheDocument();
+    });
+
+    it("should validate JSON from content when structuredContent is absent", () => {
+      const resultWithJsonInContent = {
+        content: [{ type: "text", text: '{"temperature": 25}' }], // Valid JSON matching schema
+        // No structuredContent
+      };
+
+      renderToolsTab({
+        tools: [toolWithOutputSchema],
+        selectedTool: toolWithOutputSchema,
+        toolResult: resultWithJsonInContent,
+      });
+
+      // Should show validation passed, not an error
+      expect(screen.queryByText(/Validation Error/)).not.toBeInTheDocument();
+    });
+
+    it("should show validation error when JSON from content doesn't match schema", () => {
+      const resultWithInvalidJsonInContent = {
+        content: [{ type: "text", text: '{"temperature": "hot"}' }], // Invalid - string instead of number
+        // No structuredContent
+      };
+
+      renderToolsTab({
+        tools: [toolWithOutputSchema],
+        selectedTool: toolWithOutputSchema,
+        toolResult: resultWithInvalidJsonInContent,
+      });
+
+      expect(screen.getByText(/Validation Error:/)).toBeInTheDocument();
     });
 
     it("should show unstructured content title when both structured and unstructured exist", () => {

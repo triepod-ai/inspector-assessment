@@ -80,6 +80,34 @@ export function hasOutputSchema(toolName: string): boolean {
 }
 
 /**
+ * Attempts to extract JSON from content[] text blocks.
+ * Used as fallback when structuredContent is not present.
+ * MCP allows tools to return valid JSON in standard content blocks
+ * even when they define an outputSchema.
+ * @param content Array of content blocks from tool response
+ * @returns Parsed JSON object or null if no valid JSON found
+ */
+export function tryExtractJsonFromContent(
+  content: Array<{ type: string; text?: string; [key: string]: unknown }>,
+): unknown | null {
+  if (!content || !Array.isArray(content)) {
+    return null;
+  }
+
+  const textBlocks = content.filter((block) => block.type === "text");
+
+  for (const block of textBlocks) {
+    if (!block.text) continue;
+    try {
+      return JSON.parse(block.text);
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+/**
  * Generates a default value based on a JSON schema type
  * @param schema The JSON schema definition
  * @param propertyName Optional property name for checking if it's required in parent schema

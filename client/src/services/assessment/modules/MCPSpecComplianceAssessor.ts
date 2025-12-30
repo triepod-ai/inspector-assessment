@@ -101,7 +101,13 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
     // Calculate score based ONLY on protocol checks (reliable)
     const checksArray = Object.values(protocolChecks);
     const passedCount = checksArray.filter((c) => c.passed).length;
-    const complianceScore = (passedCount / checksArray.length) * 100;
+    const totalChecks = checksArray.length;
+    const complianceScore = (passedCount / totalChecks) * 100;
+
+    // Log score/check consistency for debugging
+    this.log(
+      `MCP Compliance: ${passedCount}/${totalChecks} checks passed (${complianceScore.toFixed(1)}%)`,
+    );
 
     // Determine status based on protocol checks only
     let status: AssessmentStatus;
@@ -175,6 +181,7 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
 
   /**
    * Check JSON-RPC 2.0 compliance
+   * A proper JSON-RPC response should have the correct structure even for errors.
    */
   private async checkJsonRpcCompliance(
     callTool: (
@@ -186,11 +193,22 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
       // Test basic JSON-RPC structure by making a simple call
       // If we can call any tool, JSON-RPC is working
       const result = await callTool("list", {});
-      return { passed: result !== null, rawResponse: result };
+      // Check if result has valid structure (content array or isError flag)
+      const hasValidStructure =
+        result !== null &&
+        (Array.isArray(result.content) || result.isError !== undefined);
+      return { passed: hasValidStructure, rawResponse: result };
     } catch (error) {
-      // If call fails, that's actually expected for many tools
-      // The fact that we got a structured response means JSON-RPC works
-      return { passed: true, rawResponse: error };
+      // If we get a structured error with proper JSON-RPC format, that's still valid
+      // But if it's a raw exception, JSON-RPC compliance failed
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      // Structured MCP errors indicate JSON-RPC is working
+      const isStructuredError =
+        errorMessage.includes("MCP error") ||
+        errorMessage.includes("jsonrpc") ||
+        errorMessage.includes("-32");
+      return { passed: isStructuredError, rawResponse: error };
     }
   }
 
@@ -268,6 +286,7 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
 
   /**
    * Check error response compliance
+   * Validates that the server returns proper error responses for invalid inputs.
    */
   private async checkErrorResponses(
     tools: Tool[],
@@ -284,9 +303,23 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
       const testTool = tools[0];
       try {
         const result = await callTool(testTool.name, { invalid_param: "test" });
-        return { passed: true, rawResponse: result }; // Server handled gracefully
+        // Server returned a result - check if it's a proper error response
+        // or if it gracefully handled the invalid input
+        const isErrorResponse = result.isError === true;
+        const hasContent = Array.isArray(result.content);
+        // Pass if: it's marked as error with proper structure, OR it handled gracefully with content
+        const passed =
+          (isErrorResponse && hasContent) || (!isErrorResponse && hasContent);
+        return { passed, rawResponse: result };
       } catch (error) {
-        return { passed: true, rawResponse: error }; // Server provided error response
+        // Check if the error is a structured MCP error (proper error handling)
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        const isStructuredError =
+          errorMessage.includes("MCP error") ||
+          errorMessage.includes("-32") ||
+          errorMessage.includes("jsonrpc");
+        return { passed: isStructuredError, rawResponse: error };
       }
     } catch (error) {
       return { passed: false, rawResponse: error };
