@@ -45,7 +45,7 @@ export class LanguageAwarePayloadGenerator {
 
     // Python indicators (highest priority for code execution)
     if (
-      /(^|_|\s|^)(python|py|pycode)(\_|\s|$)/i.test(combined) ||
+      /(^|_|\s|^)(python|py|pycode)(_|\s|$)/i.test(combined) ||
       /exec_?python/i.test(combined) ||
       (/(^|_|\s)(code)(_|\s|$)/i.test(paramLower) &&
         /(^|_|\s)(python|py)(_|\s|$)/i.test(combined))

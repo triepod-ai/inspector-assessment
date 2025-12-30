@@ -4,10 +4,7 @@
  * Tests language detection accuracy and payload generation for code execution tools
  */
 
-import {
-  LanguageAwarePayloadGenerator,
-  TargetLanguage,
-} from "../LanguageAwarePayloadGenerator";
+import { LanguageAwarePayloadGenerator } from "../LanguageAwarePayloadGenerator";
 
 describe("LanguageAwarePayloadGenerator", () => {
   let generator: LanguageAwarePayloadGenerator;

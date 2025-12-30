@@ -6,6 +6,7 @@ import {
   createMockAssessmentConfig,
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";
+import { SECURITY_ATTACK_PATTERNS } from "@/lib/securityPatterns";
 
 describe("SecurityAssessor", () => {
   let assessor: SecurityAssessor;
@@ -455,7 +456,6 @@ describe("SecurityAssessor", () => {
 
     it("evidence regex should complete quickly on adversarial input", () => {
       // Test that evidence patterns don't cause ReDoS in the inspector itself
-      const { SECURITY_ATTACK_PATTERNS } = require("@/lib/securityPatterns");
       const dosPattern = SECURITY_ATTACK_PATTERNS.find(
         (p: { attackName: string }) =>
           p.attackName === "DoS/Resource Exhaustion",
@@ -619,7 +619,6 @@ describe("SecurityAssessor", () => {
 
     it("evidence regex should complete quickly on adversarial input", () => {
       // Test that evidence patterns don't cause ReDoS in the inspector itself
-      const { SECURITY_ATTACK_PATTERNS } = require("@/lib/securityPatterns");
       const deserializationPattern = SECURITY_ATTACK_PATTERNS.find(
         (p: { attackName: string }) =>
           p.attackName === "Insecure Deserialization",
