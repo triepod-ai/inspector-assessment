@@ -103,41 +103,24 @@ describeIntegration("SecurityAssessor - Vulnerable Testbed Integration", () => {
       };
 
       mockContext.tools = [tool];
-      mockContext.callTool = jest
-        .fn()
-        .mockImplementation((_toolName, params) => {
-          // Simulate eval() execution - returns computed result, not stored query
-          const payload = params.query;
-          if (payload.includes("__import__") || payload.includes("os.")) {
-            return Promise.resolve({
-              isError: false,
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify({
-                    result: "root", // Actual execution output
-                    vulnerable: true,
-                    evidence: "eval() executed code",
-                  }),
-                },
-              ],
-            });
-          }
-          // Calculator actually computes the result
-          return Promise.resolve({
-            isError: false,
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  result: "655", // 15 * 37 + 100 = 655
-                  vulnerable: true,
-                  evidence: "eval() computed expression",
-                }),
-              },
-            ],
-          });
+      // Mock always returns execution evidence for ALL payloads
+      // This simulates a truly vulnerable calculator that executes any input
+      mockContext.callTool = jest.fn().mockImplementation(() => {
+        return Promise.resolve({
+          isError: false,
+          content: [
+            {
+              type: "text",
+              // Return clear execution evidence matching HIGH-CONFIDENCE patterns
+              text: JSON.stringify({
+                output: "uid=0(root) gid=0(root)", // Matches /uid=\d+\([^)]+\)\s+gid=\d+/i
+                executed: true,
+                evidence: "eval() executed code",
+              }),
+            },
+          ],
         });
+      });
 
       const result = await assessor.assess(mockContext);
 

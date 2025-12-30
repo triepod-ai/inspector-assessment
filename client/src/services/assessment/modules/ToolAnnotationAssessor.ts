@@ -124,7 +124,10 @@ const DESCRIPTION_POISONING_PATTERNS: PoisoningPattern[] = [
   },
   {
     name: "include_credentials",
-    pattern: /include.*(api.?key|credential|password|secret)/i,
+    // More specific: requires directive context (in/with/when/to) to reduce false positives
+    // from legitimate documentation like "does not include credential storage"
+    pattern:
+      /include\s+(the\s+|all\s+|your\s+)?(api.?key|credential|password|secret)s?\s*(in|with|when|to)/i,
     severity: "HIGH",
     category: "exfiltration",
   },

@@ -1642,8 +1642,16 @@ export class SecurityAssessor extends BaseAssessor {
    *
    * HIGH confidence: System files, commands, directory listings
    * MEDIUM confidence: Contextual patterns (root alone, paths)
+   *
+   * IMPORTANT: Excludes patterns that appear within echoed injection payloads
+   * (e.g., /etc/passwd within an XXE entity definition is NOT execution evidence)
    */
   private detectExecutionArtifacts(responseText: string): boolean {
+    // First, check if this response contains echoed injection payload patterns
+    // If so, we need to be more careful about what we consider "execution evidence"
+    const containsEchoedPayload =
+      this.containsEchoedInjectionPayload(responseText);
+
     const executionIndicators = [
       // HIGH CONFIDENCE - System files (requires format)
       /[a-z]+:x:\d+:\d+:/i, // passwd: "root:x:0:0:"
@@ -1664,13 +1672,61 @@ export class SecurityAssessor extends BaseAssessor {
       // MEDIUM CONFIDENCE - System identity (contextual only)
       /\b(root|administrator)\s*$/im, // "root" alone on line (whoami)
       /\/root\//i, // Path: "/root/"
-      /\/etc\/passwd/i, // Sensitive file
 
       // MEDIUM CONFIDENCE - Process info
       /PID:\s*\d{3,}/i, // Process ID
     ];
 
-    return executionIndicators.some((pattern) => pattern.test(responseText));
+    // Patterns that indicate execution ONLY if NOT in an echoed payload context
+    // These patterns can appear in injection payloads (XXE, SSRF, etc.)
+    const contextSensitiveIndicators = [
+      /\/etc\/passwd/i, // Sensitive file - appears in XXE payloads
+      /\/etc\/shadow/i, // Sensitive file - appears in XXE payloads
+      /file:\/\/\//i, // File protocol - appears in XXE/SSRF payloads
+    ];
+
+    // Check high-confidence indicators first (always count as execution)
+    if (executionIndicators.some((pattern) => pattern.test(responseText))) {
+      return true;
+    }
+
+    // Check context-sensitive indicators only if NOT in echoed payload context
+    if (!containsEchoedPayload) {
+      if (
+        contextSensitiveIndicators.some((pattern) => pattern.test(responseText))
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if response contains echoed injection payload patterns
+   * These indicate the tool is safely echoing/storing input rather than executing it
+   */
+  private containsEchoedInjectionPayload(responseText: string): boolean {
+    const echoedPayloadPatterns = [
+      // XXE payload markers (echoed XML entity definitions)
+      /<!DOCTYPE\s+\w+\s+\[/i, // DOCTYPE with internal subset
+      /<!ENTITY\s+\w+\s+SYSTEM/i, // External entity definition
+      /<!ENTITY\s+%\s*\w+/i, // Parameter entity
+
+      // SSRF/URL payload markers (echoed in storage context)
+      /stored.*http:\/\//i, // "Stored query: http://..."
+      /saved.*http:\/\//i, // "Saved: http://..."
+
+      // SQL injection payload markers (echoed)
+      /stored.*union\s+select/i, // "Stored query: UNION SELECT..."
+      /stored.*drop\s+table/i, // "Stored query: DROP TABLE..."
+
+      // Common echo/storage patterns with payload content
+      /stored\s+query:\s*[<'"]/i, // "Stored query: <xml..." or "Stored query: '..."
+      /saved\s+data:\s*[<'"]/i, // "Saved data: <xml..."
+    ];
+
+    return echoedPayloadPatterns.some((pattern) => pattern.test(responseText));
   }
 
   /**
