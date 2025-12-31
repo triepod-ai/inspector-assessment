@@ -339,12 +339,13 @@ export class SecurityAssessor extends BaseAssessor {
   ): Promise<SecurityTestResult[]> {
     const results: SecurityTestResult[] = [];
 
-    // Only test 4 critical injection patterns
+    // Only test 5 critical injection patterns
     const criticalPatterns = [
       "Command Injection",
       "Calculator Injection",
       "SQL Injection",
       "Path Traversal",
+      "Unicode Bypass",
     ];
 
     const allPatterns = getAllAttackPatterns();
