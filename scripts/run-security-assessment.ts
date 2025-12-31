@@ -244,6 +244,9 @@ import {
   emitModuleStarted,
   emitModuleComplete,
   emitVulnerabilityFound,
+  emitAnnotationMissing,
+  emitAnnotationMisaligned,
+  emitAnnotationReviewRecommended,
   buildAUPEnrichment,
   calculateModuleScore,
 } from "./lib/jsonl-events.js";
@@ -813,6 +816,39 @@ async function main() {
           event.riskLevel,
           event.requiresReview,
           event.payload,
+        );
+      } else if (event.type === "annotation_missing") {
+        emitAnnotationMissing(
+          event.tool,
+          event.title,
+          event.description,
+          event.parameters || [],
+          event.inferredBehavior,
+        );
+      } else if (event.type === "annotation_misaligned") {
+        emitAnnotationMisaligned(
+          event.tool,
+          event.title,
+          event.description,
+          event.parameters || [],
+          event.field,
+          event.actual,
+          event.expected,
+          event.confidence,
+          event.reason,
+        );
+      } else if (event.type === "annotation_review_recommended") {
+        emitAnnotationReviewRecommended(
+          event.tool,
+          event.title,
+          event.description,
+          event.parameters || [],
+          event.field,
+          event.actual,
+          event.inferred,
+          event.confidence,
+          event.isAmbiguous,
+          event.reason,
         );
       }
     };
