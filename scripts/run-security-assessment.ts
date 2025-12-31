@@ -415,10 +415,14 @@ function createCallToolWrapper(client: Client) {
       });
 
       // Convert SDK response to CompatibilityCallToolResult
+      // Use type guard instead of 'as any' for type safety
       return {
         content: response.content,
         isError: response.isError || false,
-        structuredContent: (response as any).structuredContent,
+        structuredContent:
+          "structuredContent" in response
+            ? (response as { structuredContent?: unknown }).structuredContent
+            : undefined,
       };
     } catch (error) {
       // Return error as CompatibilityCallToolResult

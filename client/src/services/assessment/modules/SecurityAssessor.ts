@@ -1461,12 +1461,13 @@ export class SecurityAssessor extends BaseAssessor {
       /request\s+received:/i,
       // Explicit safety indicators in JSON responses (context-aware to avoid matching unrelated fields)
       // Require safety-related context: message, result, status, stored, reflected, etc.
-      /"safe"\s*:\s*true[^}]*("message"|"result"|"status"|"response")/i,
-      /("message"|"result"|"status"|"response")[^}]*"safe"\s*:\s*true/i,
-      /"vulnerable"\s*:\s*false[^}]*("safe"|"stored"|"reflected"|"status")/i,
-      /("safe"|"stored"|"reflected"|"status")[^}]*"vulnerable"\s*:\s*false/i,
-      /"status"\s*:\s*"acknowledged"[^}]*("message"|"result"|"safe")/i,
-      /("message"|"result"|"safe")[^}]*"status"\s*:\s*"acknowledged"/i,
+      // Bounded quantifiers prevent ReDoS attacks from malicious server responses
+      /"safe"\s*:\s*true[^}]{0,500}("message"|"result"|"status"|"response")/i,
+      /("message"|"result"|"status"|"response")[^}]{0,500}"safe"\s*:\s*true/i,
+      /"vulnerable"\s*:\s*false[^}]{0,500}("safe"|"stored"|"reflected"|"status")/i,
+      /("safe"|"stored"|"reflected"|"status")[^}]{0,500}"vulnerable"\s*:\s*false/i,
+      /"status"\s*:\s*"acknowledged"[^}]{0,500}("message"|"result"|"safe")/i,
+      /("message"|"result"|"safe")[^}]{0,500}"status"\s*:\s*"acknowledged"/i,
     ];
 
     const reflectionPatterns = [
