@@ -2,41 +2,34 @@
 
 ## Current Version
 
-- **Version**: 1.20.2 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.20.4 (published to npm as "@bryan-thompson/inspector-assessment")
 
-**Summary:** Security review findings addressed - ReDoS vulnerability fix, type safety improvements, and version constant sync.
+**Summary:** npm binary now has full JSONL event parity with local script, plus bug fix for mcpServers http transport config.
 
-**Session Focus:** Comprehensive code review using three specialized agents (code-reviewer-pro, qa-expert, security-auditor), followed by implementation of identified fixes.
+**Session Focus:** JSONL event emission alignment between npm binary and local development script, documentation updates, and config loader bug fix.
 
 **Changes Made:**
-- `client/src/services/assessment/modules/SecurityAssessor.ts` - Fixed ReDoS vulnerability by adding bounded quantifiers to 6 regex patterns (`[^}]*` → `[^}]{0,500}`)
-- `scripts/run-security-assessment.ts` - Replaced unsafe `as any` type assertion with proper type guard for structuredContent
-- `client/src/lib/moduleScoring.ts` - Synced INSPECTOR_VERSION constant to 1.20.2 (was outdated at 1.12.0)
-- `client/src/services/assessment/AssessmentOrchestrator.ts` - Removed unused eslint-disable directive
-- `.gitignore` - Added security/ directory for generated audit reports
+- `cli/src/assess-full.ts` - Added full JSONL event emission with onProgress callback
+- `cli/src/lib/jsonl-events.ts` - NEW: CLI-local JSONL event emitters
+- `scripts/run-full-assessment.ts` - Added missing annotation_review_recommended handler
+- `cli/src/assess-full.ts` & `scripts/run-full-assessment.ts` - Fixed mcpServers http transport config bug
+- `CLAUDE.md` - Added npm/local script parity rule and test server documentation
 
 **Key Decisions:**
-- Bounded regex quantifiers (`{0,500}`) prevent catastrophic backtracking from malicious MCP server responses
-- Type guards preferred over `as any` for better TypeScript safety
-- Security audit reports kept local (not committed to repo)
+- Created CLI-local jsonl-events.ts due to TypeScript rootDir constraints (can't import from scripts/)
+- Both CLI files must stay synchronized (documented in CLAUDE.md parity rule)
+- mcpServers wrapper config now properly detects http/sse transport before defaulting to stdio
 
 **Key Results:**
-- 1148 tests passing (55 test suites)
-- A/B validation: 175 vulnerabilities (vulnerable-mcp) vs 0 (hardened-mcp)
-- False positives: 0 on both servers (100% precision)
-- 0 lint errors, 133 warnings (pre-existing no-explicit-any)
-
-**Review Grades:**
-- Code Reviewer Pro: GOOD (0 critical, 5 warnings, 8 suggestions)
-- QA Expert: A- (90/100) - comprehensive test coverage
-- Security Auditor: B+ (0 critical/high, 3 medium issues fixed)
+- All 11 JSONL event types now emitted by npm binary
+- mcpServers config format works with http transport
+- Verified against vulnerable-mcp testbed
 
 **Commits:**
-- `a238ac6` fix: address security review findings and version sync
-- `9507897` chore: format docs and ignore security audit reports
-- `ade9637` chore: remove unused eslint-disable directive
-- `33d237e` 1.20.2
-- `45b2c4b` chore: sync INSPECTOR_VERSION to 1.20.2
+- `77bfb65` feat(cli): add JSONL event emission to npm binary
+- `ccaf410` docs: add npm binary / local script parity rule to CLAUDE.md
+- `2d7eba1` fix(cli): support http transport in mcpServers config wrapper
+- `72479cd` v1.20.4
 
 **Next Steps:**
 - Consider adding assessment resume capability for long-running assessments
@@ -44,9 +37,58 @@
 - Add retry logic with exponential backoff for transient failures
 
 **Notes:**
-- Security audit report saved to `/home/bryan/inspector/security/SECURITY_AUDIT_REPORT.md`
-- ReDoS fix prevents malicious servers from causing DoS on the inspector itself
-- All 134 lint warnings are pre-existing `no-explicit-any` across the codebase
+- Test servers documented in CLAUDE.md: test-server (10651), firecrawl (10777), dvmcp (9001-9006)
+- npm binary / local script parity now enforced through documentation
+
+---
+
+## 2025-12-31: v1.20.4 Release - mcpServers HTTP Transport Config Fix
+
+**Summary:** Fixed config loader bug that ignored http/sse transport when using mcpServers wrapper format.
+
+**Bug:** Configs like `{"mcpServers": {"server": {"transport": "http", "url": "..."}}}` were incorrectly treated as stdio transport.
+
+**Fix:** Check for url/transport properties inside serverConfig before defaulting to stdio.
+
+**Files Modified:**
+- `cli/src/assess-full.ts` - Lines 105-133
+- `scripts/run-full-assessment.ts` - Lines 104-132
+
+**Commits:**
+- `2d7eba1` fix(cli): support http transport in mcpServers config wrapper
+- `72479cd` v1.20.4
+
+---
+
+## 2025-12-31: v1.20.3 Release - Full JSONL Event Emission in npm Binary
+
+**Summary:** Added all 11 JSONL event types to npm binary, matching local development script functionality.
+
+**Session Focus:** JSONL event parity between `cli/src/assess-full.ts` and `scripts/run-full-assessment.ts`.
+
+**Changes Made:**
+- `cli/src/assess-full.ts` - Added onProgress callback with handlers for all event types
+- `cli/src/lib/jsonl-events.ts` - NEW: CLI-local event emitters (created due to rootDir constraints)
+- `scripts/run-full-assessment.ts` - Added missing annotation_review_recommended handler
+- `CLAUDE.md` - Added parity rule and test server documentation
+
+**JSONL Events Now Emitted:**
+1. `server_connected` - On successful connection
+2. `tool_discovered` - For each tool (replaces old `TOOL_DISCOVERED:` format)
+3. `tools_discovery_complete` - After all tools discovered
+4. `module_started` - When assessment module begins
+5. `test_batch` - Progress updates during testing
+6. `vulnerability_found` - When vulnerability detected
+7. `annotation_missing` - Missing tool annotations
+8. `annotation_misaligned` - Misaligned annotations
+9. `annotation_review_recommended` - Ambiguous annotations
+10. `module_complete` - When module finishes
+11. `assessment_complete` - Final results
+
+**Commits:**
+- `77bfb65` feat(cli): add JSONL event emission to npm binary
+- `ccaf410` docs: add npm binary / local script parity rule to CLAUDE.md
+- `3c2e19a` v1.20.3
 
 ---
 
@@ -280,5 +322,42 @@
 - annotation_missing was the only unhandled event
 - Code review found and fixed annotation_misaligned missing DB storage
 - Both projects now fully aligned on JSONL event streaming interface
+
+---
+
+## 2025-12-31: Three-Agent Code Review and v1.20.2 Release
+
+**Summary:** Comprehensive three-agent code review identified and fixed ReDoS vulnerability, type safety issues, and version sync; published v1.20.2 to npm
+
+**Session Focus:** Multi-agent code review using code-reviewer-pro, qa-expert, and security-auditor agents, followed by implementing identified fixes and releasing v1.20.2
+
+**Changes Made:**
+- `client/src/services/assessment/modules/SecurityAssessor.ts` - Fixed ReDoS vulnerability (6 regex patterns bounded with `{0,500}`)
+- `scripts/run-security-assessment.ts` - Replaced unsafe `as any` with proper type guard
+- `client/src/lib/moduleScoring.ts` - Synced INSPECTOR_VERSION from 1.12.0 to 1.20.2
+- `client/src/services/assessment/AssessmentOrchestrator.ts` - Removed unused eslint-disable directive
+- `.gitignore` - Added security/ directory
+- `CHANGELOG.md` - Added v1.20.1 and v1.20.2 entries
+
+**Key Decisions:**
+- Bounded regex quantifiers (`{0,500}`) prevent ReDoS from malicious server responses
+- Type guards preferred over `as any` for TypeScript safety
+- Security audit reports kept local (not committed)
+
+**Key Results:**
+- Review Grades: Code (GOOD), QA (A-), Security (B+)
+- Tests: 1148 passed, 0 failed
+- A/B validation: 175 vs 0 vulnerabilities
+- Published v1.20.2 to npm
+
+**Next Steps:**
+- Consider adding assessment resume capability
+- Add automated A/B comparison tool
+- Add retry logic with exponential backoff
+
+**Notes:**
+- Security audit report saved to /home/bryan/inspector/security/SECURITY_AUDIT_REPORT.md
+- All 133 lint warnings are pre-existing no-explicit-any
+- Three-agent review process provides comprehensive coverage: code quality, QA, and security
 
 ---
