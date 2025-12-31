@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0] - 2025-12-31
+
+### Added
+
+- **Module-Based Assessment Execution**: New `--module` CLI flag enables running individual assessment modules
+  - Run specific modules: `--module security`, `--module aupCompliance`, `--module functionality`
+  - Run multiple modules: `--module security,functionality,errorHandling`
+  - Run all 13 modules: `--module all`
+  - Available modules: `security`, `aupCompliance`, `functionality`, `documentation`, `errorHandling`, `usability`, `mcpSpec`, `toolAnnotations`, `prohibitedLibraries`, `manifestValidation`, `portability`, `externalAPIScanner`, `temporal`
+
+- **MODULE_REGISTRY**: Centralized registry mapping module names to assessor classes for dynamic instantiation
+
+- **JSONL Events API Documentation**: Comprehensive documentation for CLI/auditor integration
+  - Complete reference for all 11 JSONL event types with schemas
+  - TypeScript interfaces for type-safe parsing
+  - EventBatcher algorithm explanation
+  - AUP enrichment sampling documentation
+  - Integration examples for mcp-auditor
+
+### Changed
+
+- **Default Modules**: Assessment now runs both `security` and `aupCompliance` modules by default (previously security only)
+  - Ensures AUP compliance is always checked alongside security
+  - More comprehensive default assessment coverage
+
+- **CLI Script Refactor**: `scripts/run-security-assessment.ts` rewritten for module-based execution
+  - Generic `runModule()` function for executing any assessor
+  - Combined results structure for multi-module output
+  - Cleaner separation of concerns
+
+### Deprecated
+
+- **`--aup` Flag**: Use `--module security,aupCompliance` instead (flag still works for backward compatibility)
+
 ## [1.17.1] - 2025-12-28
 
 ### Fixed
