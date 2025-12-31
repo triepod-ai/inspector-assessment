@@ -294,10 +294,19 @@ function loadServerConfig(
     throw new Error(`Server config not found: ${finalPath}`);
   }
 
-  const config = safeJsonParse<Record<string, unknown>>(
+  const rawConfig = safeJsonParse<Record<string, unknown>>(
     fs.readFileSync(finalPath, "utf-8"),
     finalPath,
   );
+
+  // Support nested mcpServers structure (Claude Desktop format)
+  let config = rawConfig;
+  if (rawConfig.mcpServers && typeof rawConfig.mcpServers === "object") {
+    const mcpServers = rawConfig.mcpServers as Record<string, unknown>;
+    if (mcpServers[serverName] && typeof mcpServers[serverName] === "object") {
+      config = mcpServers[serverName] as Record<string, unknown>;
+    }
+  }
 
   // Support both stdio and HTTP/SSE transports
   if (config.url || config.transport === "http" || config.transport === "sse") {
