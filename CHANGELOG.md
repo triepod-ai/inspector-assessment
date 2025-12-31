@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.3] - 2025-12-31
+
+### Added
+
+- **Full JSONL Event Emission in npm Binary**: The `mcp-assess-full` CLI now emits all 11 JSONL event types, matching the local development script
+  - Added `server_connected`, `tool_discovered`, `tools_discovery_complete`, `assessment_complete` events
+  - Added `onProgress` callback for real-time `test_batch`, `vulnerability_found`, `annotation_missing`, `annotation_misaligned`, `annotation_review_recommended` events
+  - Created `cli/src/lib/jsonl-events.ts` for CLI-local event emitters
+
+- **npm Binary / Local Script Parity Rule**: Documented requirement in CLAUDE.md that `cli/src/assess-full.ts` must stay synchronized with `scripts/run-full-assessment.ts`
+
+- **Test Server Documentation**: Added additional test servers to CLAUDE.md
+  - `test-server` at port 10651 for general testing
+  - `firecrawl` at port 10777 (no credits, but testable)
+  - `dvmcp` at ports 9001-9006 (`~/mcp-servers/damn-vulnerable-mcp-server`)
+
+### Fixed
+
+- **Missing `annotation_review_recommended` Handler**: Added missing event handler in local development script (`scripts/run-full-assessment.ts`)
+
 ## [1.20.2] - 2025-12-31
 
 ### Fixed
