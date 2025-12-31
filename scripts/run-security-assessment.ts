@@ -114,6 +114,18 @@ import {
 // Import assessment modules WITHOUT modification
 import { SecurityAssessor } from "../client/src/services/assessment/modules/SecurityAssessor.js";
 import { AUPComplianceAssessor } from "../client/src/services/assessment/modules/AUPComplianceAssessor.js";
+import { FunctionalityAssessor } from "../client/src/services/assessment/modules/FunctionalityAssessor.js";
+import { DocumentationAssessor } from "../client/src/services/assessment/modules/DocumentationAssessor.js";
+import { ErrorHandlingAssessor } from "../client/src/services/assessment/modules/ErrorHandlingAssessor.js";
+import { UsabilityAssessor } from "../client/src/services/assessment/modules/UsabilityAssessor.js";
+import { MCPSpecComplianceAssessor } from "../client/src/services/assessment/modules/MCPSpecComplianceAssessor.js";
+import { ToolAnnotationAssessor } from "../client/src/services/assessment/modules/ToolAnnotationAssessor.js";
+import { ProhibitedLibrariesAssessor } from "../client/src/services/assessment/modules/ProhibitedLibrariesAssessor.js";
+import { ManifestValidationAssessor } from "../client/src/services/assessment/modules/ManifestValidationAssessor.js";
+import { PortabilityAssessor } from "../client/src/services/assessment/modules/PortabilityAssessor.js";
+import { ExternalAPIScannerAssessor } from "../client/src/services/assessment/modules/ExternalAPIScannerAssessor.js";
+import { TemporalAssessor } from "../client/src/services/assessment/modules/TemporalAssessor.js";
+import { BaseAssessor } from "../client/src/services/assessment/modules/BaseAssessor.js";
 import {
   AssessmentConfiguration,
   DEFAULT_ASSESSMENT_CONFIG,
@@ -121,6 +133,106 @@ import {
   AUPComplianceAssessment,
 } from "../client/src/lib/assessmentTypes.js";
 import { AssessmentContext } from "../client/src/services/assessment/AssessmentOrchestrator.js";
+
+// ============================================================================
+// MODULE REGISTRY
+// ============================================================================
+
+/**
+ * Registry of all available assessment modules
+ * Maps module names to their assessor classes
+ */
+const MODULE_REGISTRY: Record<
+  string,
+  new (config: AssessmentConfiguration) => BaseAssessor
+> = {
+  security: SecurityAssessor,
+  aupCompliance: AUPComplianceAssessor,
+  functionality: FunctionalityAssessor,
+  documentation: DocumentationAssessor,
+  errorHandling: ErrorHandlingAssessor,
+  usability: UsabilityAssessor,
+  mcpSpec: MCPSpecComplianceAssessor,
+  toolAnnotations: ToolAnnotationAssessor,
+  prohibitedLibraries: ProhibitedLibrariesAssessor,
+  manifestValidation: ManifestValidationAssessor,
+  portability: PortabilityAssessor,
+  externalAPIScanner: ExternalAPIScannerAssessor,
+  temporal: TemporalAssessor,
+};
+
+/**
+ * Default modules to run when no --module flag is specified
+ */
+const DEFAULT_MODULES = ["security", "aupCompliance"];
+
+/**
+ * Modules that require callTool (runtime testing vs static analysis)
+ */
+const RUNTIME_MODULES = new Set([
+  "security",
+  "functionality",
+  "errorHandling",
+  "mcpSpec",
+  "temporal",
+]);
+
+/**
+ * Estimate number of tests per module
+ */
+function estimateModuleTests(moduleName: string, toolCount: number): number {
+  const estimates: Record<string, number> = {
+    security: toolCount * 39, // 17 patterns × ~2.3 payloads avg
+    aupCompliance: 4, // 4 scan locations (names, descriptions, readme, source)
+    functionality: toolCount * 5, // ~5 scenarios per tool
+    documentation: 10, // Fixed checks
+    errorHandling: toolCount * 8, // ~8 error scenarios per tool
+    usability: toolCount * 3, // ~3 usability checks per tool
+    mcpSpec: toolCount * 4, // ~4 spec checks per tool
+    toolAnnotations: toolCount * 5, // ~5 annotation checks per tool
+    prohibitedLibraries: 1, // Single scan
+    manifestValidation: 1, // Single validation
+    portability: 3, // ~3 portability checks
+    externalAPIScanner: toolCount * 2, // ~2 scans per tool
+    temporal: toolCount * 3, // ~3 temporal checks per tool
+  };
+  return estimates[moduleName] || toolCount;
+}
+
+/**
+ * Module display names for console output
+ */
+const MODULE_DISPLAY_NAMES: Record<string, string> = {
+  security: "Security Assessment",
+  aupCompliance: "AUP Compliance",
+  functionality: "Functionality Testing",
+  documentation: "Documentation Quality",
+  errorHandling: "Error Handling",
+  usability: "Usability",
+  mcpSpec: "MCP Spec Compliance",
+  toolAnnotations: "Tool Annotations",
+  prohibitedLibraries: "Prohibited Libraries",
+  manifestValidation: "Manifest Validation",
+  portability: "Portability",
+  externalAPIScanner: "External API Scanner",
+  temporal: "Temporal/Rug Pull Detection",
+};
+
+/**
+ * Module status icons
+ */
+function getStatusIcon(status: string): string {
+  switch (status) {
+    case "PASS":
+      return "✅";
+    case "FAIL":
+      return "❌";
+    case "NEED_MORE_INFO":
+      return "⚠️";
+    default:
+      return "❓";
+  }
+}
 
 // Import JSONL event helpers from shared module
 import {
@@ -130,7 +242,10 @@ import {
   emitAssessmentComplete,
   emitTestBatch,
   emitModuleStarted,
+  emitModuleComplete,
   emitVulnerabilityFound,
+  buildAUPEnrichment,
+  calculateModuleScore,
 } from "./lib/jsonl-events.js";
 import type { ProgressEvent } from "../client/src/lib/assessmentTypes.js";
 
@@ -152,7 +267,8 @@ interface AssessmentOptions {
   outputPath?: string;
   toolName?: string; // Optional: test only specific tool
   verbose?: boolean;
-  runAUP?: boolean; // Optional: also run AUP compliance check
+  runAUP?: boolean; // DEPRECATED: use --module instead
+  modules?: string[]; // Optional: specific modules to run (default: security,aupCompliance)
 }
 
 /**
@@ -317,146 +433,6 @@ function createCallToolWrapper(client: Client) {
 }
 
 /**
- * Run security assessment
- */
-async function runSecurityAssessment(
-  options: AssessmentOptions,
-): Promise<SecurityAssessment> {
-  console.log(`\n🔍 Connecting to MCP server: ${options.serverName}`);
-
-  // Load server configuration
-  const serverConfig = loadServerConfig(
-    options.serverName,
-    options.serverConfigPath,
-  );
-
-  // Connect to server
-  const client = await connectToServer(serverConfig);
-  console.log("✅ Connected successfully");
-
-  // Emit server_connected JSONL event
-  emitServerConnected(options.serverName, serverConfig.transport || "stdio");
-
-  // Get tools
-  const tools = await getTools(client, options.toolName);
-  console.log(`🔧 Found ${tools.length} tool${tools.length !== 1 ? "s" : ""}`);
-
-  // Emit tool_discovered JSONL events for each tool
-  for (const tool of tools) {
-    emitToolDiscovered(tool);
-  }
-  emitToolsDiscoveryComplete(tools.length);
-
-  if (options.toolName) {
-    console.log(`   Testing only: ${options.toolName}`);
-  }
-
-  // Create assessment context
-  const config: AssessmentConfiguration = {
-    ...DEFAULT_ASSESSMENT_CONFIG,
-    securityPatternsToTest: 17, // All 17 attack patterns
-    reviewerMode: false,
-    testTimeout: 30000,
-  };
-
-  // Progress callback to emit JSONL events
-  const onProgress = (event: ProgressEvent): void => {
-    if (event.type === "test_batch") {
-      emitTestBatch(
-        event.module,
-        event.completed,
-        event.total,
-        event.batchSize,
-        event.elapsed,
-      );
-    } else if (event.type === "vulnerability_found") {
-      emitVulnerabilityFound(
-        event.tool,
-        event.pattern,
-        event.confidence,
-        event.evidence,
-        event.riskLevel,
-        event.requiresReview,
-        event.payload,
-      );
-    }
-  };
-
-  const context: AssessmentContext = {
-    serverName: options.serverName,
-    tools,
-    callTool: createCallToolWrapper(client),
-    config,
-    onProgress,
-  };
-
-  // Run security assessment
-  console.log(`🛡️  Running security assessment with 17 attack patterns...`);
-
-  // Emit module_started event for security module
-  // Estimate: ~39 tests per tool (17 patterns × ~2.3 payloads avg)
-  const estimatedTests = tools.length * 39;
-  emitModuleStarted("security", estimatedTests, tools.length);
-
-  const assessor = new SecurityAssessor(config);
-  const results = await assessor.assess(context);
-
-  // Close connection
-  await client.close();
-
-  return results;
-}
-
-/**
- * Save results to JSON file
- */
-function saveResults(
-  serverName: string,
-  results: SecurityAssessment,
-  outputPath?: string,
-): string {
-  const defaultPath = `/tmp/inspector-assessment-${serverName}.json`;
-  const finalPath = outputPath || defaultPath;
-
-  const output = {
-    timestamp: new Date().toISOString(),
-    serverName,
-    security: results,
-  };
-
-  fs.writeFileSync(finalPath, JSON.stringify(output, null, 2));
-
-  return finalPath;
-}
-
-/**
- * Run AUP compliance assessment
- */
-async function runAUPAssessment(
-  options: AssessmentOptions,
-  tools: Tool[],
-): Promise<AUPComplianceAssessment> {
-  console.log(`\n📋 Running AUP compliance check...`);
-
-  const config: AssessmentConfiguration = {
-    ...DEFAULT_ASSESSMENT_CONFIG,
-    enableSourceCodeAnalysis: false, // CLI doesn't have source code access
-  };
-
-  const context: AssessmentContext = {
-    serverName: options.serverName,
-    tools,
-    callTool: async () => ({ content: [], isError: true }), // Not needed for AUP
-    config,
-  };
-
-  const assessor = new AUPComplianceAssessor(config);
-  const results = await assessor.assess(context);
-
-  return results;
-}
-
-/**
  * Display AUP summary
  */
 function displayAUPSummary(results: AUPComplianceAssessment) {
@@ -503,41 +479,6 @@ function displayAUPSummary(results: AUPComplianceAssessment) {
 }
 
 /**
- * Display summary
- */
-function displaySummary(results: SecurityAssessment) {
-  const { promptInjectionTests, vulnerabilities, overallRiskLevel } = results;
-
-  const vulnerableCount = promptInjectionTests.filter(
-    (t) => t.vulnerable,
-  ).length;
-  const totalTests = promptInjectionTests.length;
-
-  console.log("\n" + "=".repeat(60));
-  console.log("SECURITY ASSESSMENT RESULTS");
-  console.log("=".repeat(60));
-  console.log(`Total Tests: ${totalTests}`);
-  console.log(`Vulnerabilities Found: ${vulnerableCount}`);
-  console.log(`Overall Risk Level: ${overallRiskLevel}`);
-  console.log("=".repeat(60));
-
-  if (vulnerableCount > 0) {
-    console.log("\n⚠️  VULNERABILITIES DETECTED:\n");
-
-    const vulnerableTests = promptInjectionTests.filter((t) => t.vulnerable);
-
-    for (const test of vulnerableTests) {
-      console.log(`🚨 ${test.toolName} - ${test.testName}`);
-      console.log(`   Risk: ${test.riskLevel}`);
-      console.log(`   Evidence: ${test.evidence}`);
-      console.log("");
-    }
-  } else {
-    console.log("\n✅ No vulnerabilities detected\n");
-  }
-}
-
-/**
  * Parse command-line arguments
  */
 function parseArgs(): AssessmentOptions {
@@ -569,7 +510,12 @@ function parseArgs(): AssessmentOptions {
         options.verbose = true;
         break;
       case "--aup":
+        // DEPRECATED: Keep for backward compatibility
         options.runAUP = true;
+        break;
+      case "--module":
+      case "-m":
+        options.modules = args[++i].split(",").map((m) => m.trim());
         break;
       case "--help":
       case "-h":
@@ -588,6 +534,30 @@ function parseArgs(): AssessmentOptions {
     process.exit(1);
   }
 
+  // Handle module selection
+  if (options.modules) {
+    // Handle "all" keyword
+    if (options.modules.includes("all")) {
+      options.modules = Object.keys(MODULE_REGISTRY);
+    } else {
+      // Validate module names
+      const invalidModules = options.modules.filter((m) => !MODULE_REGISTRY[m]);
+      if (invalidModules.length > 0) {
+        console.error(`Error: Unknown module(s): ${invalidModules.join(", ")}`);
+        console.error(
+          `Available modules: ${Object.keys(MODULE_REGISTRY).join(", ")}`,
+        );
+        process.exit(1);
+      }
+    }
+  } else if (options.runAUP) {
+    // DEPRECATED --aup flag: equivalent to security + aupCompliance
+    options.modules = ["security", "aupCompliance"];
+  } else {
+    // Default modules
+    options.modules = DEFAULT_MODULES;
+  }
+
   return options as AssessmentOptions;
 }
 
@@ -595,6 +565,8 @@ function parseArgs(): AssessmentOptions {
  * Print help message
  */
 function printHelp() {
+  const moduleList = Object.keys(MODULE_REGISTRY).join(", ");
+
   console.log(`
 Usage: npm run assess -- [options]
 
@@ -603,26 +575,186 @@ Options:
   --config, -c <path>      Path to server config JSON (default: ~/.config/mcp/servers/<name>.json)
   --output, -o <path>      Output JSON path (default: /tmp/inspector-assessment-<server>.json)
   --tool, -t <name>        Test only specific tool (default: test all tools)
-  --aup                    Also run AUP (Acceptable Use Policy) compliance check
+  --module, -m <names>     Modules to run, comma-separated (default: security,aupCompliance)
+                           Available: ${moduleList}
+                           Use "all" to run all modules
+  --aup                    [DEPRECATED] Use --module security,aupCompliance instead
   --verbose, -v            Enable verbose logging
   --help, -h               Show this help message
 
 Examples:
-  npm run assess -- --server broken-mcp
-  npm run assess -- --server broken-mcp --tool vulnerable_calculator_tool
-  npm run assess -- --server broken-mcp --aup
-  npm run assess -- --server my-server --output ./results.json
+  npm run assess -- --server my-server                           # default: security + aupCompliance
+  npm run assess -- --server my-server --module security         # security only
+  npm run assess -- --server my-server --module aupCompliance    # AUP only
+  npm run assess -- --server my-server --module security,functionality
+  npm run assess -- --server my-server --module all              # run all 13 modules
+  npm run assess -- --server my-server --tool calc --module functionality
   `);
+}
+
+// ============================================================================
+// MODULE EXECUTION
+// ============================================================================
+
+/**
+ * Combined assessment result structure
+ */
+interface CombinedAssessmentResults {
+  timestamp: string;
+  serverName: string;
+  modulesRun: string[];
+  modules: Record<string, unknown>;
+  summary: {
+    totalModules: number;
+    passed: number;
+    failed: number;
+    needMoreInfo: number;
+    overallStatus: "PASS" | "FAIL" | "NEED_MORE_INFO";
+    totalTests: number;
+    totalDuration: number;
+  };
+}
+
+/**
+ * Run a single assessment module
+ */
+async function runModule(
+  moduleName: string,
+  context: AssessmentContext,
+  config: AssessmentConfiguration,
+): Promise<{
+  result: unknown;
+  status: string;
+  testsRun: number;
+  duration: number;
+}> {
+  const AssessorClass = MODULE_REGISTRY[moduleName];
+  if (!AssessorClass) {
+    throw new Error(`Unknown module: ${moduleName}`);
+  }
+
+  const displayName = MODULE_DISPLAY_NAMES[moduleName] || moduleName;
+  console.log(`\n📋 Running ${displayName}...`);
+
+  // Emit module started event
+  const estimatedTests = estimateModuleTests(moduleName, context.tools.length);
+  emitModuleStarted(moduleName, estimatedTests, context.tools.length);
+
+  const startTime = Date.now();
+
+  // Create assessor and run
+  const assessor = new AssessorClass(config);
+  const result = await assessor.assess(context);
+
+  const duration = Date.now() - startTime;
+  const testsRun = assessor.getTestCount?.() || estimatedTests;
+
+  // Determine status from result
+  const status = (result as { status?: string }).status || "PASS";
+
+  // Calculate score using shared scoring logic
+  const score = calculateModuleScore(moduleName, result);
+
+  // Build enrichment for AUP module
+  let enrichment;
+  if (moduleName === "aupCompliance" && result) {
+    enrichment = buildAUPEnrichment(
+      result as Parameters<typeof buildAUPEnrichment>[0],
+    );
+  }
+
+  // Emit module complete event
+  emitModuleComplete(
+    moduleName,
+    status as "PASS" | "FAIL" | "NEED_MORE_INFO",
+    score,
+    testsRun,
+    duration,
+    enrichment,
+  );
+
+  // Display module result
+  console.log(`   ${getStatusIcon(status)} ${displayName}: ${status}`);
+
+  return { result, status, testsRun, duration };
+}
+
+/**
+ * Display summary for security results
+ */
+function displaySecuritySummary(results: SecurityAssessment) {
+  const { promptInjectionTests, vulnerabilities, overallRiskLevel } = results;
+
+  const vulnerableCount = promptInjectionTests.filter(
+    (t) => t.vulnerable,
+  ).length;
+  const totalTests = promptInjectionTests.length;
+
+  console.log("\n" + "=".repeat(60));
+  console.log("SECURITY ASSESSMENT RESULTS");
+  console.log("=".repeat(60));
+  console.log(`Total Tests: ${totalTests}`);
+  console.log(`Vulnerabilities Found: ${vulnerableCount}`);
+  console.log(`Overall Risk Level: ${overallRiskLevel}`);
+  console.log("=".repeat(60));
+
+  if (vulnerableCount > 0) {
+    console.log("\n⚠️  VULNERABILITIES DETECTED:\n");
+
+    const vulnerableTests = promptInjectionTests.filter((t) => t.vulnerable);
+
+    for (const test of vulnerableTests.slice(0, 10)) {
+      console.log(`🚨 ${test.toolName} - ${test.testName}`);
+      console.log(`   Risk: ${test.riskLevel}`);
+      console.log(`   Evidence: ${test.evidence}`);
+      console.log("");
+    }
+
+    if (vulnerableTests.length > 10) {
+      console.log(
+        `   ... and ${vulnerableTests.length - 10} more vulnerabilities\n`,
+      );
+    }
+  } else {
+    console.log("\n✅ No vulnerabilities detected\n");
+  }
+}
+
+/**
+ * Display combined assessment summary
+ */
+function displayCombinedSummary(results: CombinedAssessmentResults) {
+  console.log("\n" + "=".repeat(60));
+  console.log("ASSESSMENT SUMMARY");
+  console.log("=".repeat(60));
+  console.log(`Server: ${results.serverName}`);
+  console.log(`Modules Run: ${results.modulesRun.join(", ")}`);
+  console.log(`Total Modules: ${results.summary.totalModules}`);
+  console.log(`  Passed: ${results.summary.passed}`);
+  console.log(`  Failed: ${results.summary.failed}`);
+  console.log(`  Need More Info: ${results.summary.needMoreInfo}`);
+  console.log(
+    `Overall Status: ${getStatusIcon(results.summary.overallStatus)} ${results.summary.overallStatus}`,
+  );
+  console.log(`Total Tests: ${results.summary.totalTests}`);
+  console.log(
+    `Total Duration: ${(results.summary.totalDuration / 1000).toFixed(2)}s`,
+  );
+  console.log("=".repeat(60));
 }
 
 /**
  * Main execution
  */
 async function main() {
+  const startTime = Date.now();
+
   try {
     const options = parseArgs();
+    const modules = options.modules!; // Always set by parseArgs
 
     console.log(`\n🔍 Connecting to MCP server: ${options.serverName}`);
+    console.log(`📦 Modules to run: ${modules.join(", ")}`);
 
     // Load server configuration
     const serverConfig = loadServerConfig(
@@ -653,23 +785,16 @@ async function main() {
       console.log(`   Testing only: ${options.toolName}`);
     }
 
-    // Run AUP assessment if requested (before security to show static analysis first)
-    let aupResults: AUPComplianceAssessment | undefined;
-    if (options.runAUP) {
-      aupResults = await runAUPAssessment(options, tools);
-      displayAUPSummary(aupResults);
-    }
-
-    // Run security assessment
-    console.log(`🛡️  Running security assessment with 17 attack patterns...`);
-
+    // Create assessment configuration
     const config: AssessmentConfiguration = {
       ...DEFAULT_ASSESSMENT_CONFIG,
       securityPatternsToTest: 17,
       reviewerMode: false,
       testTimeout: 30000,
+      enableSourceCodeAnalysis: false, // CLI doesn't have source code access
     };
 
+    // Progress callback to emit JSONL events
     const onProgress = (event: ProgressEvent): void => {
       if (event.type === "test_batch") {
         emitTestBatch(
@@ -692,6 +817,7 @@ async function main() {
       }
     };
 
+    // Create assessment context
     const context: AssessmentContext = {
       serverName: options.serverName,
       tools,
@@ -700,50 +826,96 @@ async function main() {
       onProgress,
     };
 
-    const estimatedTests = tools.length * 39;
-    emitModuleStarted("security", estimatedTests, tools.length);
+    // Run each requested module
+    const moduleResults: Record<string, unknown> = {};
+    const moduleStatuses: string[] = [];
+    let totalTests = 0;
+    let totalDuration = 0;
 
-    const assessor = new SecurityAssessor(config);
-    const results = await assessor.assess(context);
+    for (const moduleName of modules) {
+      try {
+        const { result, status, testsRun, duration } = await runModule(
+          moduleName,
+          context,
+          config,
+        );
+        moduleResults[moduleName] = result;
+        moduleStatuses.push(status);
+        totalTests += testsRun;
+        totalDuration += duration;
+
+        // Display detailed results for security module
+        if (moduleName === "security" && result) {
+          displaySecuritySummary(result as SecurityAssessment);
+        }
+
+        // Display detailed results for AUP module
+        if (moduleName === "aupCompliance" && result) {
+          displayAUPSummary(result as AUPComplianceAssessment);
+        }
+      } catch (moduleError) {
+        console.error(`\n❌ Error running ${moduleName}: ${moduleError}`);
+        moduleResults[moduleName] = {
+          status: "FAIL",
+          error:
+            moduleError instanceof Error
+              ? moduleError.message
+              : String(moduleError),
+        };
+        moduleStatuses.push("FAIL");
+      }
+    }
 
     // Close connection
     await client.close();
 
-    // Display summary
-    displaySummary(results);
+    // Calculate summary
+    const passed = moduleStatuses.filter((s) => s === "PASS").length;
+    const failed = moduleStatuses.filter((s) => s === "FAIL").length;
+    const needMoreInfo = moduleStatuses.filter(
+      (s) => s === "NEED_MORE_INFO",
+    ).length;
+    const overallStatus: "PASS" | "FAIL" | "NEED_MORE_INFO" =
+      failed > 0 ? "FAIL" : needMoreInfo > 0 ? "NEED_MORE_INFO" : "PASS";
 
-    // Save results (including AUP if run)
+    // Build combined results
+    const combinedResults: CombinedAssessmentResults = {
+      timestamp: new Date().toISOString(),
+      serverName: options.serverName,
+      modulesRun: modules,
+      modules: moduleResults,
+      summary: {
+        totalModules: modules.length,
+        passed,
+        failed,
+        needMoreInfo,
+        overallStatus,
+        totalTests,
+        totalDuration,
+      },
+    };
+
+    // Display combined summary
+    displayCombinedSummary(combinedResults);
+
+    // Save results
     const defaultPath = `/tmp/inspector-assessment-${options.serverName}.json`;
     const finalPath = options.outputPath || defaultPath;
 
-    const output: Record<string, unknown> = {
-      timestamp: new Date().toISOString(),
-      serverName: options.serverName,
-      security: results,
-    };
-
-    if (aupResults) {
-      output.aup = aupResults;
-    }
-
-    fs.writeFileSync(finalPath, JSON.stringify(output, null, 2));
+    fs.writeFileSync(finalPath, JSON.stringify(combinedResults, null, 2));
 
     // Emit assessment_complete JSONL event
     emitAssessmentComplete(
-      results.status,
-      results.promptInjectionTests?.length || 0,
-      0,
+      overallStatus,
+      totalTests,
+      Date.now() - startTime,
       finalPath,
     );
 
     console.log(`📄 Results saved to: ${finalPath}\n`);
 
-    // Exit with appropriate code (fail if security OR AUP issues)
-    let exitCode = results.vulnerabilities.length > 0 ? 1 : 0;
-    if (aupResults && aupResults.status === "FAIL") {
-      exitCode = 1;
-    }
-    process.exit(exitCode);
+    // Exit with appropriate code
+    process.exit(failed > 0 ? 1 : 0);
   } catch (error) {
     console.error(
       "\n❌ Error:",

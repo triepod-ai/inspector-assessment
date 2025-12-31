@@ -397,3 +397,50 @@
 - Single-line fix with major security coverage impact
 
 ---
+
+## 2025-12-31: v1.19.6 Release - AUP Module JSONL Enrichment for Downstream Claude Analysis
+
+**Summary:** Added AUP enrichment to JSONL module_complete events enabling downstream Claude analysis of policy violations
+
+**Session Focus:** Enhancing the AUP (Acceptable Use Policy) module's JSONL output with structured violation data for downstream analysis tools.
+
+**Changes Made:**
+- `scripts/lib/jsonl-events.ts` - Added AUP types (AUPViolationSample, AUPViolationMetrics, AUPEnrichment) and buildAUPEnrichment helper function
+- `client/src/services/assessment/AssessmentOrchestrator.ts` - Emit AUP enrichment data when module=aup in module_complete events
+- `docs/REAL_TIME_PROGRESS_OUTPUT.md` - Documented new AUP event format with field descriptions
+- Version bump to 1.19.6
+- Updated CLAUDE.md version reference to 1.19.6
+- Published @bryan-thompson/inspector-assessment@1.19.6 to npm
+
+**Key Decisions:**
+- **Enriched existing event**: Extended module_complete event rather than creating a separate aup_findings event, maintaining consistency with existing JSONL event patterns
+- **Severity-prioritized sampling**: Violations sampled CRITICAL > HIGH > MEDIUM, capped at 10 samples to balance detail with payload size
+- **Comprehensive metrics**: Added violationMetrics with total/critical/high/medium counts plus byCategory breakdown
+
+**New AUP Enrichment Fields:**
+- `violationsSample` - Up to 10 sampled violations, prioritized by severity
+- `samplingNote` - Human-readable note about sampling (e.g., "10 of 17 violations shown")
+- `violationMetrics` - Aggregated counts: total, critical, high, medium, byCategory
+- `scannedLocations` - Array of locations that were scanned
+- `highRiskDomains` - Array of detected high-risk domains
+
+**Validation Results:**
+- Tested against vulnerable-mcp server
+- 17 total violations detected
+- 10 violations sampled with correct severity prioritization
+- All fields populated correctly in JSONL output
+
+**Commits:**
+- `[version bump]` chore: bump version to 1.19.6
+
+**Next Steps:**
+- Monitor downstream tool consumption of new AUP enrichment fields
+- Consider similar enrichment patterns for other assessment modules
+- Add unit tests for buildAUPEnrichment helper
+
+**Notes:**
+- This enhancement enables AI-powered analysis pipelines to process AUP findings without parsing full assessment results
+- Sampling approach prevents payload bloat while preserving high-severity findings
+- JSONL format maintains real-time streaming capability for large assessments
+
+---

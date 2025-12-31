@@ -210,6 +210,7 @@ For detailed documentation on specific features, see:
 - **Error Handling**: [README.md](README.md#assessment-categories) - MCP protocol compliance, validation quality
 - **MCP Spec Compliance**: See PROJECT_STATUS.md timeline for latest enhancements
 - **Real-Time Progress Output**: [docs/REAL_TIME_PROGRESS_OUTPUT.md](docs/REAL_TIME_PROGRESS_OUTPUT.md) - Module progress to stderr for CLI/auditor integration (v1.8.1)
+- **JSONL Events API**: [docs/JSONL_EVENTS_API.md](docs/JSONL_EVENTS_API.md) - Complete event reference for CLI/auditor integration (11 event types, TypeScript interfaces, integration examples)
 - **Recent Changes**: [PROJECT_STATUS.md](PROJECT_STATUS.md#development-timeline---october-2025)
 
 ## Key Technical Implementations
