@@ -444,3 +444,82 @@
 - JSONL format maintains real-time streaming capability for large assessments
 
 ---
+
+## 2025-12-31: v1.19.7 Release - TemporalAssessor False Positive Fix for Accumulation Operations
+
+**Summary:** Fixed TemporalAssessor false positive that flagged accumulation operations like add_observations as rug pull vulnerabilities
+
+**Session Focus:** Bug fix for TemporalAssessor - preventing false positives on stateful accumulation operations
+
+**Changes Made:**
+- `client/src/services/assessment/modules/TemporalAssessor.ts` - Added accumulation patterns to STATEFUL_TOOL_PATTERNS, implemented word-boundary regex matching, expanded normalizeResponse counter patterns
+- `client/src/services/assessment/__tests__/TemporalAssessor.test.ts` - Added tests for accumulation operations, word-boundary matching, and integration test for add_observations scenario
+
+**Key Decisions:**
+- **Word-boundary regex matching**: Used pattern `(^|_|-)pattern($|_|-)` instead of substring matching to prevent false matches (e.g., "address_validator" won't match "add")
+- **Accumulation patterns added**: 8 new patterns - add, append, store, save, log, record, push, enqueue
+- **Destructive tool priority**: Kept destructive tool check first to ensure tools like "add_and_delete" still get strict comparison
+
+**Technical Details:**
+- Root cause: Substring matching caused "add" to match any tool containing those letters
+- Fix: Word-boundary regex ensures only exact pattern matches at word boundaries
+- Counter field expansion: Added totalRecords, pendingCount, queueLength to normalizeResponse
+
+**Validation Results:**
+- All 1148 tests passing
+- Verified fix against memory-mcp server (temporal module passes)
+- Published as v1.19.7 to npm
+
+**Commits:**
+- `fix(temporal)` - Prevent false positives on accumulation operations
+
+**Next Steps:**
+- Monitor for any edge cases with new stateful patterns
+- Consider adding more counter field patterns as discovered
+
+**Notes:**
+- This fix improves precision of rug pull detection while maintaining sensitivity to actual temporal manipulation attacks
+- The word-boundary approach is more robust than maintaining an exclusion list
+- Pattern applies to tool names like add_observations, append_data, store_result, etc.
+
+---
+
+## 2025-12-31: CLI Module Flag & JSONL Events API Documentation
+
+**Summary:** Added --module flag for individual assessment module execution and created comprehensive JSONL Events API documentation
+
+**Session Focus:** CLI enhancement for module-specific testing and documentation of JSONL event streaming interface
+
+**Changes Made:**
+- `scripts/run-security-assessment.ts` - Major refactor: added MODULE_REGISTRY with 13 assessors, --module CLI flag, generic runModule() function, combined results structure
+- `docs/JSONL_EVENTS_API.md` - NEW: 1,693-line comprehensive event reference for CLI/auditor integration (11 event types, TypeScript interfaces, integration examples)
+- `CLAUDE.md` - Added JSONL API reference in Feature Documentation section
+- `/home/bryan/mcp-auditor/CLAUDE.md` - Added Inspector JSONL Output Mapping section with event-to-usage table
+
+**Key Decisions:**
+- **Default modules changed**: Now includes both security and aupCompliance (was security only)
+- **Full module names only**: No shortcuts like "sec" -> "security" for clarity
+- **Comprehensive approach**: ~3-4 hour effort chosen over minimal enhancement to provide complete module access
+
+**Technical Details:**
+- All 13 modules now individually testable via CLI:
+  - security, aupCompliance, functionality, documentation, errorHandling
+  - usability, mcpSpec, toolAnnotations, prohibitedLibraries, manifestValidation
+  - portability, externalAPIScanner, temporal
+- Backward compatibility: deprecated --aup flag still works
+- Combined results structure when running multiple modules
+
+**Commits:**
+- `8bf6813` feat(cli): add --module flag for individual assessment module execution
+
+**Next Steps:**
+- Test module combinations in CI/CD pipeline
+- Update mcp-auditor to consume new JSONL events
+- Consider adding module-specific CLI flags for common patterns
+
+**Notes:**
+- JSONL Events API doc covers all 11 event types with TypeScript interfaces
+- Module registry pattern enables easy addition of future assessment modules
+- Documentation enables third-party tool integration with inspector output stream
+
+---
