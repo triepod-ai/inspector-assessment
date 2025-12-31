@@ -93,7 +93,7 @@ function emitModuleStartedEvent(
  * Uses shared score calculator for consistent scoring logic.
  * For AUP module, includes enriched violation data for Claude analysis.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 function emitModuleProgress(
   moduleName: string,
   status: string,
