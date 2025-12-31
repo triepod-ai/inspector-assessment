@@ -78,15 +78,20 @@ export class TemporalAssessor extends BaseAssessor {
   /**
    * Tool name patterns that are expected to have state-dependent responses.
    * These tools legitimately return different results based on data state,
-   * which is NOT a rug pull vulnerability (e.g., search returning more results
-   * after other tools have stored data).
+   * which is NOT a rug pull vulnerability.
    *
-   * NOTE: Uses substring matching, so "get" matches "get_user", "forget",
-   * "target", etc. This favors recall over precision - we prefer lenient
-   * schema comparison for edge cases over false positives on legitimate tools.
-   * Consider word-boundary regex if false positives become problematic.
+   * Includes both:
+   * - READ operations: search, list, query return more results after data stored
+   * - ACCUMULATION operations: add, append, store return accumulated state (counts, IDs)
+   *
+   * NOTE: Does NOT include patterns already in DESTRUCTIVE_PATTERNS (create, write,
+   * insert, etc.) - those need strict comparison to detect real rug pulls.
+   *
+   * Uses word-boundary matching to prevent false matches.
+   * "add_observations" matches "add" but "address_validator" does not.
    */
   private readonly STATEFUL_TOOL_PATTERNS = [
+    // READ operations - results depend on current data state
     "search",
     "list",
     "query",
@@ -95,6 +100,17 @@ export class TemporalAssessor extends BaseAssessor {
     "fetch",
     "read",
     "browse",
+    // ACCUMULATION operations (non-destructive) that return accumulated state
+    // These legitimately return different counts/IDs as data accumulates
+    // NOTE: "add" is NOT in DESTRUCTIVE_PATTERNS, unlike "insert", "create", "write"
+    "add",
+    "append",
+    "store",
+    "save",
+    "log",
+    "record",
+    "push",
+    "enqueue",
   ];
 
   constructor(config: AssessmentConfiguration) {
@@ -495,6 +511,35 @@ export class TemporalAssessor extends BaseAssessor {
         .replace(/\\"sequence\\":\s*\d+/g, '\\"sequence\\": <NUMBER>')
         .replace(/"index":\s*\d+/g, '"index": <NUMBER>')
         .replace(/\\"index\\":\s*\d+/g, '\\"index\\": <NUMBER>')
+        // Additional accumulation-related counter fields (defense-in-depth)
+        .replace(
+          /"total_observations":\s*\d+/g,
+          '"total_observations": <NUMBER>',
+        )
+        .replace(
+          /\\"total_observations\\":\s*\d+/g,
+          '\\"total_observations\\": <NUMBER>',
+        )
+        .replace(
+          /"observations_count":\s*\d+/g,
+          '"observations_count": <NUMBER>',
+        )
+        .replace(
+          /\\"observations_count\\":\s*\d+/g,
+          '\\"observations_count\\": <NUMBER>',
+        )
+        .replace(/"total_records":\s*\d+/g, '"total_records": <NUMBER>')
+        .replace(/\\"total_records\\":\s*\d+/g, '\\"total_records\\": <NUMBER>')
+        .replace(/"records_added":\s*\d+/g, '"records_added": <NUMBER>')
+        .replace(/\\"records_added\\":\s*\d+/g, '\\"records_added\\": <NUMBER>')
+        .replace(/"items_added":\s*\d+/g, '"items_added": <NUMBER>')
+        .replace(/\\"items_added\\":\s*\d+/g, '\\"items_added\\": <NUMBER>')
+        .replace(/"size":\s*\d+/g, '"size": <NUMBER>')
+        .replace(/\\"size\\":\s*\d+/g, '\\"size\\": <NUMBER>')
+        .replace(/"length":\s*\d+/g, '"length": <NUMBER>')
+        .replace(/\\"length\\":\s*\d+/g, '\\"length\\": <NUMBER>')
+        .replace(/"total":\s*\d+/g, '"total": <NUMBER>')
+        .replace(/\\"total\\":\s*\d+/g, '\\"total\\": <NUMBER>')
         // String IDs
         .replace(/"id":\s*"[^"]+"/g, '"id": "<ID>"')
         // P2-1: Additional timestamp fields that vary between calls
@@ -520,8 +565,12 @@ export class TemporalAssessor extends BaseAssessor {
 
   /**
    * Check if a tool is expected to have state-dependent behavior.
-   * Stateful tools (search, list, etc.) legitimately return different
+   * Stateful tools (search, list, add, store, etc.) legitimately return different
    * results as underlying data changes - this is NOT a rug pull.
+   *
+   * Uses word-boundary matching to prevent false positives:
+   * - "add_observations" matches "add" ✓
+   * - "address_validator" does NOT match "add" ✓
    */
   private isStatefulTool(tool: Tool): boolean {
     const toolName = tool.name.toLowerCase();
@@ -530,9 +579,12 @@ export class TemporalAssessor extends BaseAssessor {
     if (this.isDestructiveTool(tool)) {
       return false;
     }
-    return this.STATEFUL_TOOL_PATTERNS.some((pattern) =>
-      toolName.includes(pattern),
-    );
+    // Use word-boundary matching: pattern must be at start/end or bounded by _ or -
+    // This prevents "address_validator" from matching "add"
+    return this.STATEFUL_TOOL_PATTERNS.some((pattern) => {
+      const wordBoundaryRegex = new RegExp(`(^|_|-)${pattern}($|_|-)`);
+      return wordBoundaryRegex.test(toolName);
+    });
   }
 
   /**

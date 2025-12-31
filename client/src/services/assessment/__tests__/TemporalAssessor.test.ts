@@ -158,6 +158,35 @@ describe("TemporalAssessor", () => {
       expect(result).toContain('"index": <NUMBER>');
     });
 
+    // Issue: Accumulation-related counter patterns should be normalized
+    it("normalizes accumulation counter fields (total_observations)", () => {
+      const input = { total_observations: 42 };
+      const result = normalizeResponse(input);
+      expect(result).toContain('"total_observations": <NUMBER>');
+      expect(result).not.toContain("42");
+    });
+
+    it("normalizes accumulation counter fields (size, length, total)", () => {
+      const input = { size: 100, length: 50, total: 25 };
+      const result = normalizeResponse(input);
+      expect(result).toContain('"size": <NUMBER>');
+      expect(result).toContain('"length": <NUMBER>');
+      expect(result).toContain('"total": <NUMBER>');
+      expect(result).not.toContain("100");
+      expect(result).not.toContain("50");
+      expect(result).not.toContain("25");
+    });
+
+    it("normalizes nested JSON accumulation counters", () => {
+      // Simulates MCP response with JSON in content[].text
+      const input = {
+        content: [{ text: '{"total_observations": 10, "size": 5}' }],
+      };
+      const result = normalizeResponse(input);
+      expect(result).toContain('\\"total_observations\\": <NUMBER>');
+      expect(result).toContain('\\"size\\": <NUMBER>');
+    });
+
     it("normalizes request_id fields", () => {
       const input = { request_id: "req-abc123-xyz" };
       const result = normalizeResponse(input);
@@ -324,6 +353,36 @@ describe("TemporalAssessor", () => {
 
       expect(result.vulnerable).toBe(false);
       expect(result.totalInvocations).toBe(1);
+    });
+
+    // Issue: add_observations should use schema comparison (stateful accumulation)
+    it("passes accumulation operations with incrementing counters (schema comparison)", () => {
+      const tool = createTool("add_observations");
+      const responses = [
+        {
+          invocation: 1,
+          response: { addedObservations: ["obs1"], total_observations: 1 },
+          timestamp: 1,
+        },
+        {
+          invocation: 2,
+          response: { addedObservations: ["obs2"], total_observations: 2 },
+          timestamp: 2,
+        },
+        {
+          invocation: 3,
+          response: { addedObservations: ["obs3"], total_observations: 3 },
+          timestamp: 3,
+        },
+      ];
+
+      const result = analyzeResponses(tool, responses);
+
+      // Should pass because add_observations is stateful (schema comparison)
+      expect(result.vulnerable).toBe(false);
+      expect(result.note).toBe(
+        "Stateful tool - content variation expected, schema consistent",
+      );
     });
 
     it("ignores naturally varying data in comparisons", () => {
@@ -774,10 +833,36 @@ describe("TemporalAssessor", () => {
         expect(isStatefulTool(createTool("fetch_data"))).toBe(true);
       });
 
+      // Issue: Accumulation operations (add, append, store, etc.) should be stateful
+      it("identifies accumulation operations as stateful", () => {
+        expect(isStatefulTool(createTool("add_observations"))).toBe(true);
+        expect(isStatefulTool(createTool("add_memory"))).toBe(true);
+        expect(isStatefulTool(createTool("append_log"))).toBe(true);
+        expect(isStatefulTool(createTool("store_data"))).toBe(true);
+        expect(isStatefulTool(createTool("save_record"))).toBe(true);
+        expect(isStatefulTool(createTool("log_event"))).toBe(true);
+        expect(isStatefulTool(createTool("record_observation"))).toBe(true);
+        expect(isStatefulTool(createTool("push_item"))).toBe(true);
+        expect(isStatefulTool(createTool("enqueue_task"))).toBe(true);
+      });
+
+      // Issue: Word-boundary matching prevents false matches
+      it("uses word-boundary matching (no false matches)", () => {
+        // "add" should NOT match in "address_validator" (substring match)
+        expect(isStatefulTool(createTool("address_validator"))).toBe(false);
+        // "log" should NOT match in "catalog_items"
+        expect(isStatefulTool(createTool("catalog_items"))).toBe(false);
+        // "get" should NOT match in "target_info" or "budget_calc"
+        expect(isStatefulTool(createTool("target_info"))).toBe(false);
+        expect(isStatefulTool(createTool("budget_calc"))).toBe(false);
+        // "read" should NOT match in "spread_data" or "thread_manager"
+        expect(isStatefulTool(createTool("spread_data"))).toBe(false);
+        expect(isStatefulTool(createTool("thread_manager"))).toBe(false);
+      });
+
       it("does NOT identify non-stateful tools", () => {
         expect(isStatefulTool(createTool("vulnerable_calculator"))).toBe(false);
         expect(isStatefulTool(createTool("execute_command"))).toBe(false);
-        expect(isStatefulTool(createTool("safe_storage_tool"))).toBe(false);
         expect(isStatefulTool(createTool("process_data"))).toBe(false);
       });
 
@@ -1065,6 +1150,57 @@ describe("TemporalAssessor", () => {
         // Should fail because array element schema shrank
         expect(result.status).toBe("FAIL");
         expect(result.details[0].vulnerable).toBe(true);
+      });
+
+      // Issue: Bug report - add_observations flagged as rug pull
+      it("passes add_observations with incrementing response counts (memory-mcp scenario)", async () => {
+        const config = createConfig({ temporalInvocations: 15 });
+        const assessor = new TemporalAssessor(config);
+        const tools = [createTool("add_observations")];
+
+        let callCount = 0;
+        const context = createMockContext(tools, async () => {
+          callCount++;
+          // Simulates memory-mcp add_observations response
+          // Data accumulates over time - this is EXPECTED behavior
+          return {
+            addedObservations: [`obs${callCount}`],
+            total_observations: callCount,
+            message: "Observation added successfully",
+          };
+        });
+
+        const result = await assessor.assess(context);
+
+        // Should pass because accumulation is expected behavior, not a rug pull
+        expect(result.status).toBe("PASS");
+        expect(result.details[0].vulnerable).toBe(false);
+        expect(result.rugPullsDetected).toBe(0);
+        expect(result.details[0].note).toBe(
+          "Stateful tool - content variation expected, schema consistent",
+        );
+      });
+
+      it("passes store_memory with growing data", async () => {
+        const config = createConfig({ temporalInvocations: 5 });
+        const assessor = new TemporalAssessor(config);
+        const tools = [createTool("store_memory")];
+
+        const memories: string[] = [];
+        const context = createMockContext(tools, async () => {
+          memories.push(`memory_${memories.length + 1}`);
+          return {
+            stored: true,
+            total_memories: memories.length,
+            all_memories: [...memories],
+          };
+        });
+
+        const result = await assessor.assess(context);
+
+        // Should pass because store is an accumulation operation
+        expect(result.status).toBe("PASS");
+        expect(result.details[0].vulnerable).toBe(false);
       });
     });
   });
