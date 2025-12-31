@@ -40,7 +40,7 @@ for (let i = 0; i < args.length; i++) {
   }
   if (arg === "--source") {
     // Skip --source and its value - reserved for future deep analysis
-    i++;  // Skip the next arg (the source path)
+    i++; // Skip the next arg (the source path)
     continue;
   }
   if (arg === "--config" || arg === "-c") {

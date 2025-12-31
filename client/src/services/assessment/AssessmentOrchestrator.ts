@@ -545,6 +545,25 @@ export class AssessmentOrchestrator {
     const assessmentPromises: Promise<any>[] = [];
     const assessmentResults: any = {};
 
+    // PHASE 0: Temporal Assessment (ALWAYS runs first, before parallel/sequential phases)
+    // This ensures temporal captures clean baseline before other modules trigger rug pulls
+    if (this.temporalAssessor) {
+      const toolCount = context.tools.length;
+      const invocationsPerTool = this.config.temporalInvocations ?? 25;
+      emitModuleStartedEvent(
+        "Temporal",
+        toolCount * invocationsPerTool,
+        toolCount,
+      );
+      assessmentResults.temporal = await this.temporalAssessor.assess(context);
+      emitModuleProgress(
+        "Temporal",
+        assessmentResults.temporal.status,
+        assessmentResults.temporal,
+        this.temporalAssessor.getTestCount(),
+      );
+    }
+
     if (this.config.parallelTesting) {
       // Calculate estimates for module_started events
       const toolCount = context.tools.length;
@@ -711,25 +730,7 @@ export class AssessmentOrchestrator {
           }),
         );
       }
-      if (this.temporalAssessor) {
-        const invocationsPerTool = this.config.temporalInvocations ?? 25;
-        emitModuleStartedEvent(
-          "Temporal",
-          toolCount * invocationsPerTool,
-          toolCount,
-        );
-        assessmentPromises.push(
-          this.temporalAssessor.assess(context).then((r) => {
-            emitModuleProgress(
-              "Temporal",
-              r.status,
-              r,
-              this.temporalAssessor!.getTestCount(),
-            );
-            return (assessmentResults.temporal = r);
-          }),
-        );
-      }
+      // NOTE: Temporal runs in PHASE 0 above, not in parallel with other modules
 
       // New capability assessors
       if (this.resourceAssessor) {
@@ -792,6 +793,8 @@ export class AssessmentOrchestrator {
       // Sequential execution with module_started events
       const toolCount = context.tools.length;
       const securityPatterns = this.config.securityPatternsToTest || 17;
+
+      // NOTE: Temporal runs in PHASE 0 above, before sequential/parallel phases
 
       // Functionality: ~10 scenarios per tool
       emitModuleStartedEvent("Functionality", toolCount * 10, toolCount);
@@ -928,22 +931,6 @@ export class AssessmentOrchestrator {
           assessmentResults.externalAPIScanner.status,
           assessmentResults.externalAPIScanner,
           this.externalAPIScannerAssessor.getTestCount(),
-        );
-      }
-      if (this.temporalAssessor) {
-        const invocationsPerTool = this.config.temporalInvocations ?? 25;
-        emitModuleStartedEvent(
-          "Temporal",
-          toolCount * invocationsPerTool,
-          toolCount,
-        );
-        assessmentResults.temporal =
-          await this.temporalAssessor.assess(context);
-        emitModuleProgress(
-          "Temporal",
-          assessmentResults.temporal.status,
-          assessmentResults.temporal,
-          this.temporalAssessor.getTestCount(),
         );
       }
 
