@@ -81,6 +81,27 @@ npm run assess -- --server <server-name> --config <config.json> --tool <tool-nam
 
 **Implementation:** `scripts/run-security-assessment.ts`
 
+## npm Binary / Local Script Parity
+
+**Critical**: The npm binary (`cli/src/assess-full.ts`) must stay in sync with the local development script (`scripts/run-full-assessment.ts`).
+
+Both files provide the same full assessment functionality but for different contexts:
+
+- **Local script**: Development and testing (`npm run assess-full` or `npx tsx scripts/run-full-assessment.ts`)
+- **npm binary**: Published package (`mcp-assess-full` CLI)
+
+**When modifying either file**:
+
+1. Check if the change applies to both files
+2. JSONL event emission must be identical in both
+3. Progress callbacks (`onProgress`) must handle the same event types
+4. AssessmentContext construction must include the same fields
+
+**Files that must stay synchronized**:
+
+- `cli/src/assess-full.ts` ↔ `scripts/run-full-assessment.ts`
+- `cli/src/lib/jsonl-events.ts` ↔ `scripts/lib/jsonl-events.ts`
+
 ## Vulnerability Testbed Validation
 
 The inspector includes comprehensive A/B comparison validation using the vulnerable-mcp and hardened-mcp testbed servers.
