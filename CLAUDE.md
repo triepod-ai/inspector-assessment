@@ -110,13 +110,13 @@ The inspector includes comprehensive A/B comparison validation using the vulnera
 
 **Server Configuration**:
 
-| Server         | Port      | Description                           |
-| -------------- | --------- | ------------------------------------- |
-| vulnerable-mcp | 10900     | 10 vulnerable + 6 safe tools          |
-| hardened-mcp   | 10901     | Same tool names, safe implementations |
-| test-server    | 10651     | General testing (not part of testbed) |
-| firecrawl      | 10777     | No credits - fails but testable       |
-| dvmcp          | 9001-9006 | Damn Vulnerable MCP test servers      |
+| Server         | Port      | Description                                                      |
+| -------------- | --------- | ---------------------------------------------------------------- |
+| vulnerable-mcp | 10900     | 10 vulnerable + 6 safe tools                                     |
+| hardened-mcp   | 10901     | Same tool names, safe implementations                            |
+| test-server    | 10651     | General testing (not part of testbed)                            |
+| firecrawl      | 10777     | No credits - fails but testable                                  |
+| dvmcp          | 9001-9006 | Damn Vulnerable MCP (`~/mcp-servers/damn-vulnerable-mcp-server`) |
 
 **Quick Usage**:
 
