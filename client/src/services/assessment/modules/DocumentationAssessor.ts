@@ -17,7 +17,24 @@ export class DocumentationAssessor extends BaseAssessor {
     this.log("Starting documentation assessment");
 
     const readmeContent = context.readmeContent || "";
-    const verbosity = this.config.documentationVerbosity || "standard";
+    const validVerbosityLevels = ["minimal", "standard", "verbose"] as const;
+    const configVerbosity = this.config.documentationVerbosity;
+    let verbosity: "minimal" | "standard" | "verbose" = "standard";
+
+    if (configVerbosity) {
+      if (
+        validVerbosityLevels.includes(
+          configVerbosity as (typeof validVerbosityLevels)[number],
+        )
+      ) {
+        verbosity = configVerbosity as "minimal" | "standard" | "verbose";
+      } else {
+        this.log(
+          `Warning: Invalid documentationVerbosity "${configVerbosity}". ` +
+            `Valid options: ${validVerbosityLevels.join(", ")}. Using "standard".`,
+        );
+      }
+    }
     const metrics = this.analyzeDocumentation(
       readmeContent,
       context.tools,

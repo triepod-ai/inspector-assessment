@@ -81,6 +81,13 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     // Prefer new selectedToolsForTesting configuration
     // Note: undefined/null means "test all" (default), empty array [] means "test none" (explicit)
     if (this.config.selectedToolsForTesting !== undefined) {
+      // Warn if deprecated maxToolsToTestForErrors is also set
+      if (this.config.maxToolsToTestForErrors !== undefined) {
+        this.log(
+          `Warning: Both selectedToolsForTesting and maxToolsToTestForErrors are set. ` +
+            `Using selectedToolsForTesting (maxToolsToTestForErrors is deprecated).`,
+        );
+      }
       const selectedNames = new Set(this.config.selectedToolsForTesting);
       const selectedTools = tools.filter((tool) =>
         selectedNames.has(tool.name),
