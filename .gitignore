@@ -32,3 +32,5 @@ inspector.code-workspace*
 *.tgz
 PROJECT_STATUS.md
 PUBLISHING_GUIDE.md
+# Generated security audit reports
+security/
