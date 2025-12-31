@@ -53,6 +53,7 @@ import {
   emitVulnerabilityFound,
   emitAnnotationMissing,
   emitAnnotationMisaligned,
+  emitAnnotationReviewRecommended,
 } from "./lib/jsonl-events.js";
 import type { ProgressEvent } from "../client/src/lib/assessmentTypes.js";
 
@@ -458,6 +459,19 @@ async function runFullAssessment(
         event.actual,
         event.expected,
         event.confidence,
+        event.reason,
+      );
+    } else if (event.type === "annotation_review_recommended") {
+      emitAnnotationReviewRecommended(
+        event.tool,
+        event.title,
+        event.description,
+        event.parameters,
+        event.field,
+        event.actual,
+        event.inferred,
+        event.confidence,
+        event.isAmbiguous,
         event.reason,
       );
     }

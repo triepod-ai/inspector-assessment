@@ -30,6 +30,7 @@ import {
   DEFAULT_ASSESSMENT_CONFIG,
   MCPDirectoryAssessment,
   ManifestJsonSchema,
+  ProgressEvent,
 } from "../../client/lib/lib/assessmentTypes.js";
 import { FULL_CLAUDE_CODE_CONFIG } from "../../client/lib/services/assessment/lib/claudeCodeBridge.js";
 import {
@@ -40,6 +41,17 @@ import { generatePolicyComplianceReport } from "../../client/lib/services/assess
 import { compareAssessments } from "../../client/lib/lib/assessmentDiffer.js";
 import { formatDiffAsMarkdown } from "../../client/lib/lib/reportFormatters/DiffReportFormatter.js";
 import { AssessmentStateManager } from "./assessmentState.js";
+import {
+  emitServerConnected,
+  emitToolDiscovered,
+  emitToolsDiscoveryComplete,
+  emitAssessmentComplete,
+  emitTestBatch,
+  emitVulnerabilityFound,
+  emitAnnotationMissing,
+  emitAnnotationMisaligned,
+  emitAnnotationReviewRecommended,
+} from "./lib/jsonl-events.js";
 
 interface ServerConfig {
   transport?: "stdio" | "http" | "sse";
@@ -405,6 +417,7 @@ async function runFullAssessment(
   }
 
   const client = await connectToServer(serverConfig);
+  emitServerConnected(options.serverName, serverConfig.transport || "stdio");
   if (!options.jsonOnly) {
     console.log("✅ Connected to MCP server");
   }
@@ -412,13 +425,11 @@ async function runFullAssessment(
   const response = await client.listTools();
   const tools = response.tools || [];
 
-  // Always emit tool discovery events to stderr for audit-worker parsing
-  // Format: TOOL_DISCOVERED:name|description|param1,param2,... (works even with --json flag)
+  // Emit JSONL tool discovery events for audit-worker parsing
   for (const tool of tools) {
-    const description = tool.description || "";
-    const params = Object.keys(tool.inputSchema?.properties || {}).join(",");
-    console.error(`TOOL_DISCOVERED:${tool.name}|${description}|${params}`);
+    emitToolDiscovered(tool);
   }
+  emitToolsDiscoveryComplete(tools.length);
 
   if (!options.jsonOnly) {
     console.log(
@@ -662,12 +673,70 @@ async function runFullAssessment(
     };
   };
 
+  // Progress callback to emit JSONL events for real-time monitoring
+  const onProgress = (event: ProgressEvent): void => {
+    if (event.type === "test_batch") {
+      emitTestBatch(
+        event.module,
+        event.completed,
+        event.total,
+        event.batchSize,
+        event.elapsed,
+      );
+    } else if (event.type === "vulnerability_found") {
+      emitVulnerabilityFound(
+        event.tool,
+        event.pattern,
+        event.confidence,
+        event.evidence,
+        event.riskLevel,
+        event.requiresReview,
+        event.payload,
+      );
+    } else if (event.type === "annotation_missing") {
+      emitAnnotationMissing(
+        event.tool,
+        event.title,
+        event.description,
+        event.parameters,
+        event.inferredBehavior,
+      );
+    } else if (event.type === "annotation_misaligned") {
+      emitAnnotationMisaligned(
+        event.tool,
+        event.title,
+        event.description,
+        event.parameters,
+        event.field,
+        event.actual,
+        event.expected,
+        event.confidence,
+        event.reason,
+      );
+    } else if (event.type === "annotation_review_recommended") {
+      emitAnnotationReviewRecommended(
+        event.tool,
+        event.title,
+        event.description,
+        event.parameters,
+        event.field,
+        event.actual,
+        event.inferred,
+        event.confidence,
+        event.isAmbiguous,
+        event.reason,
+      );
+    }
+    // module_started and module_complete are handled by orchestrator directly
+  };
+
   const context: AssessmentContext = {
     serverName: options.serverName,
     tools,
     callTool: createCallToolWrapper(client),
     config,
     sourceCodePath: options.sourceCodePath,
+    onProgress,
     ...sourceFiles,
     // New capability assessment data
     resources,
@@ -685,6 +754,15 @@ async function runFullAssessment(
   }
 
   const results = await orchestrator.runFullAssessment(context);
+
+  // Emit assessment complete event
+  const defaultOutputPath = `/tmp/inspector-full-assessment-${options.serverName}.json`;
+  emitAssessmentComplete(
+    results.overallStatus,
+    results.totalTestsRun,
+    results.executionTime,
+    options.outputPath || defaultOutputPath,
+  );
 
   await client.close();
 
