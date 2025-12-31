@@ -64,7 +64,7 @@ _\* = Optional, only emitted if conditions are met_
   "event": "server_connected",
   "serverName": "memory-mcp",
   "transport": "http",
-  "version": "1.19.5"
+  "version": "1.20.0"
 }
 ```
 
@@ -123,7 +123,7 @@ proc.stderr.on("data", (data) => {
       "description": "The memory content to store"
     }
   ],
-  "version": "1.19.5"
+  "version": "1.20.0"
 }
 ```
 
@@ -184,7 +184,7 @@ if (event.event === "tool_discovered") {
 {
   "event": "tools_discovery_complete",
   "count": 17,
-  "version": "1.19.5"
+  "version": "1.20.0"
 }
 ```
 
@@ -224,7 +224,7 @@ if (event.event === "tools_discovery_complete") {
   "module": "security",
   "estimatedTests": 240,
   "toolCount": 17,
-  "version": "1.19.5"
+  "version": "1.20.0"
 }
 ```
 
@@ -295,7 +295,7 @@ if (event.event === "module_started") {
   "total": 240,
   "batchSize": 10,
   "elapsed": 2450,
-  "version": "1.19.5"
+  "version": "1.20.0"
 }
 ```
 
@@ -363,7 +363,7 @@ if (event.event === "test_batch") {
 ```json
 {
   "event": "vulnerability_found",
-  "version": "1.19.5",
+  "version": "1.20.0",
   "tool": "system_exec_tool",
   "pattern": "Command Injection",
   "confidence": "high",
@@ -446,7 +446,7 @@ if (event.event === "vulnerability_found") {
     "expectedDestructive": true,
     "reason": "Tool modifies filesystem with write_* pattern and content parameter"
   },
-  "version": "1.19.5"
+  "version": "1.20.0"
 }
 ```
 
@@ -534,7 +534,7 @@ if (event.event === "annotation_missing") {
   "expected": true,
   "confidence": 0.95,
   "reason": "Tool name contains 'delete' and accepts ID parameter. Tool description mentions 'remove'. Inference confidence 95%.",
-  "version": "1.19.5"
+  "version": "1.20.0"
 }
 ```
 
@@ -613,7 +613,7 @@ if (event.event === "annotation_misaligned") {
   "confidence": "medium",
   "isAmbiguous": true,
   "reason": "Pattern 'cache_*' is ambiguous. Could be read-only (cache lookup) or destructive (cache invalidation). Recommend human review of implementation.",
-  "version": "1.19.5"
+  "version": "1.20.0"
 }
 ```
 
@@ -682,7 +682,7 @@ if (event.event === "annotation_review_recommended") {
   "score": 95,
   "testsRun": 234,
   "duration": 5234,
-  "version": "1.19.5"
+  "version": "1.20.0"
 }
 ```
 
@@ -696,7 +696,7 @@ if (event.event === "annotation_review_recommended") {
   "score": 60,
   "testsRun": 15,
   "duration": 3500,
-  "version": "1.19.5",
+  "version": "1.20.0",
   "violationsSample": [
     {
       "category": "B",
@@ -883,7 +883,7 @@ if (event.event === "module_complete") {
   "totalTests": 1440,
   "executionTime": 47823,
   "outputPath": "/tmp/inspector-full-assessment-memory-mcp.json",
-  "version": "1.19.5"
+  "version": "1.20.0"
 }
 ```
 
@@ -1486,7 +1486,7 @@ Use this checklist when integrating JSONL events into MCP Auditor:
 
 ## API Stability & Versioning
 
-**Current Version:** 1.19.5
+**Current Version:** 1.20.0
 
 **Stability Guarantees:**
 
