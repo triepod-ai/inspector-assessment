@@ -70,6 +70,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
     return {
       metrics,
+      errorTests: testDetails,
       status,
       explanation,
       recommendations,
