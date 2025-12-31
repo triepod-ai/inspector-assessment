@@ -91,6 +91,7 @@ function emitModuleStartedEvent(
 /**
  * Emit module_complete event with score and duration.
  * Uses shared score calculator for consistent scoring logic.
+ * For AUP module, includes enriched violation data for Claude analysis.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function emitModuleProgress(
@@ -109,18 +110,105 @@ function emitModuleProgress(
   const duration = startTime ? Date.now() - startTime : 0;
   moduleStartTimes.delete(moduleKey);
 
+  // Build base event
+  const event: Record<string, unknown> = {
+    event: "module_complete",
+    module: moduleKey,
+    status,
+    score,
+    testsRun,
+    duration,
+    version: INSPECTOR_VERSION,
+  };
+
+  // Add AUP enrichment when module is AUP
+  if (moduleKey === "aup" && result) {
+    const aupEnrichment = buildAUPEnrichment(result);
+    Object.assign(event, aupEnrichment);
+  }
+
   // Emit JSONL to stderr with version field
-  console.error(
-    JSON.stringify({
-      event: "module_complete",
-      module: moduleKey,
-      status,
-      score,
-      testsRun,
-      duration,
-      version: INSPECTOR_VERSION,
-    }),
-  );
+  console.error(JSON.stringify(event));
+}
+
+/**
+ * Build AUP enrichment data from an AUP compliance assessment result.
+ * Samples violations prioritizing by severity (CRITICAL > HIGH > MEDIUM).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildAUPEnrichment(aupResult: any, maxSamples: number = 10) {
+  const violations = aupResult.violations || [];
+
+  // Calculate metrics
+  const metrics = {
+    total: violations.length,
+    critical: violations.filter(
+      (v: { severity: string }) => v.severity === "CRITICAL",
+    ).length,
+    high: violations.filter((v: { severity: string }) => v.severity === "HIGH")
+      .length,
+    medium: violations.filter(
+      (v: { severity: string }) => v.severity === "MEDIUM",
+    ).length,
+    byCategory: {} as Record<string, number>,
+  };
+
+  // Count by category
+  for (const v of violations) {
+    metrics.byCategory[v.category] = (metrics.byCategory[v.category] || 0) + 1;
+  }
+
+  // Sample violations prioritizing by severity
+  const sampled: Array<{
+    category: string;
+    categoryName: string;
+    severity: string;
+    matchedText: string;
+    location: string;
+    confidence: string;
+  }> = [];
+  const severityOrder = ["CRITICAL", "HIGH", "MEDIUM"];
+
+  for (const severity of severityOrder) {
+    if (sampled.length >= maxSamples) break;
+    const bySeverity = violations.filter(
+      (v: { severity: string }) => v.severity === severity,
+    );
+    for (const v of bySeverity) {
+      if (sampled.length >= maxSamples) break;
+      sampled.push({
+        category: v.category,
+        categoryName: v.categoryName,
+        severity: v.severity,
+        matchedText: v.matchedText,
+        location: v.location,
+        confidence: v.confidence,
+      });
+    }
+  }
+
+  // Build sampling note
+  let samplingNote = "";
+  if (violations.length === 0) {
+    samplingNote = "No violations detected.";
+  } else if (violations.length <= maxSamples) {
+    samplingNote = `All ${violations.length} violation(s) included.`;
+  } else {
+    samplingNote = `Sampled ${sampled.length} of ${violations.length} violations, prioritized by severity (CRITICAL > HIGH > MEDIUM).`;
+  }
+
+  return {
+    violationsSample: sampled,
+    samplingNote,
+    violationMetrics: metrics,
+    scannedLocations: aupResult.scannedLocations || {
+      toolNames: false,
+      toolDescriptions: false,
+      readme: false,
+      sourceCode: false,
+    },
+    highRiskDomains: (aupResult.highRiskDomains || []).slice(0, 10),
+  };
 }
 
 /**

@@ -90,6 +90,57 @@ export interface ModuleCompleteEvent {
   score: number;
   testsRun: number;
   duration: number;
+  // AUP-specific enrichment (only present when module=aup)
+  violationsSample?: AUPViolationSample[];
+  samplingNote?: string;
+  violationMetrics?: AUPViolationMetrics;
+  scannedLocations?: AUPScannedLocations;
+  highRiskDomains?: string[];
+}
+
+/**
+ * Sampled AUP violation for JSONL output.
+ * Contains essential fields for Claude analysis without full violation details.
+ */
+export interface AUPViolationSample {
+  category: string;
+  categoryName: string;
+  severity: "CRITICAL" | "HIGH" | "MEDIUM";
+  matchedText: string;
+  location: "tool_name" | "tool_description" | "readme" | "source_code";
+  confidence: "high" | "medium" | "low";
+}
+
+/**
+ * Quantitative metrics about AUP violations for quick assessment.
+ */
+export interface AUPViolationMetrics {
+  total: number;
+  critical: number;
+  high: number;
+  medium: number;
+  byCategory: Record<string, number>;
+}
+
+/**
+ * Tracks which locations were scanned for AUP compliance.
+ */
+export interface AUPScannedLocations {
+  toolNames: boolean;
+  toolDescriptions: boolean;
+  readme: boolean;
+  sourceCode: boolean;
+}
+
+/**
+ * AUP enrichment data for module_complete events.
+ */
+export interface AUPEnrichment {
+  violationsSample: AUPViolationSample[];
+  samplingNote: string;
+  violationMetrics: AUPViolationMetrics;
+  scannedLocations: AUPScannedLocations;
+  highRiskDomains: string[];
 }
 
 // Real-time security vulnerability detection event
@@ -295,6 +346,7 @@ export function emitTestBatch(
 /**
  * Emit module_complete event with enhanced data.
  * Module name is normalized to snake_case for consistent parsing.
+ * For AUP module, enrichment can include violation samples and metrics.
  */
 export function emitModuleComplete(
   module: string,
@@ -302,6 +354,7 @@ export function emitModuleComplete(
   score: number,
   testsRun: number,
   duration: number,
+  enrichment?: AUPEnrichment,
 ): void {
   emitJSONL({
     event: "module_complete",
@@ -310,7 +363,110 @@ export function emitModuleComplete(
     score,
     testsRun,
     duration,
+    ...(enrichment && {
+      violationsSample: enrichment.violationsSample,
+      samplingNote: enrichment.samplingNote,
+      violationMetrics: enrichment.violationMetrics,
+      scannedLocations: enrichment.scannedLocations,
+      highRiskDomains: enrichment.highRiskDomains,
+    }),
   });
+}
+
+// ============================================================================
+// AUP Enrichment Helpers
+// ============================================================================
+
+/**
+ * Build AUP enrichment data from an AUP compliance assessment result.
+ * Samples violations prioritizing by severity (CRITICAL > HIGH > MEDIUM).
+ *
+ * @param aupResult - The raw AUP compliance assessment result
+ * @param maxSamples - Maximum number of violations to include (default: 10)
+ * @returns AUP enrichment data for module_complete event
+ */
+export function buildAUPEnrichment(
+  aupResult: {
+    violations?: Array<{
+      category: string;
+      categoryName: string;
+      severity: "CRITICAL" | "HIGH" | "MEDIUM";
+      matchedText: string;
+      location: "tool_name" | "tool_description" | "readme" | "source_code";
+      confidence: "high" | "medium" | "low";
+    }>;
+    highRiskDomains?: string[];
+    scannedLocations?: {
+      toolNames: boolean;
+      toolDescriptions: boolean;
+      readme: boolean;
+      sourceCode: boolean;
+    };
+  },
+  maxSamples: number = 10,
+): AUPEnrichment {
+  const violations = aupResult.violations || [];
+
+  // Calculate metrics
+  const metrics: AUPViolationMetrics = {
+    total: violations.length,
+    critical: violations.filter((v) => v.severity === "CRITICAL").length,
+    high: violations.filter((v) => v.severity === "HIGH").length,
+    medium: violations.filter((v) => v.severity === "MEDIUM").length,
+    byCategory: {},
+  };
+
+  // Count by category
+  for (const v of violations) {
+    metrics.byCategory[v.category] = (metrics.byCategory[v.category] || 0) + 1;
+  }
+
+  // Sample violations prioritizing by severity
+  const sampled: AUPViolationSample[] = [];
+  const severityOrder: Array<"CRITICAL" | "HIGH" | "MEDIUM"> = [
+    "CRITICAL",
+    "HIGH",
+    "MEDIUM",
+  ];
+
+  for (const severity of severityOrder) {
+    if (sampled.length >= maxSamples) break;
+    const bySeverity = violations.filter((v) => v.severity === severity);
+    for (const v of bySeverity) {
+      if (sampled.length >= maxSamples) break;
+      sampled.push({
+        category: v.category,
+        categoryName: v.categoryName,
+        severity: v.severity,
+        matchedText: v.matchedText,
+        location: v.location,
+        confidence: v.confidence,
+      });
+    }
+  }
+
+  // Build sampling note
+  let samplingNote = "";
+  if (violations.length === 0) {
+    samplingNote = "No violations detected.";
+  } else if (violations.length <= maxSamples) {
+    samplingNote = `All ${violations.length} violation(s) included.`;
+  } else {
+    samplingNote = `Sampled ${sampled.length} of ${violations.length} violations, prioritized by severity (CRITICAL > HIGH > MEDIUM).`;
+  }
+
+  return {
+    violationsSample: sampled,
+    samplingNote,
+    violationMetrics: metrics,
+    scannedLocations: aupResult.scannedLocations || {
+      toolNames: false,
+      toolDescriptions: false,
+      readme: false,
+      sourceCode: false,
+    },
+    highRiskDomains: (aupResult.highRiskDomains || []).slice(0, 10),
+  };
 }
 
 /**

@@ -103,6 +103,66 @@ Extended modules (6):
 - `manifest`
 - `portability`
 
+#### AUP Module Enrichment
+
+When `module=aup`, the `module_complete` event includes additional fields for Claude analysis:
+
+```json
+{
+  "event": "module_complete",
+  "module": "aup",
+  "status": "FAIL",
+  "score": 70,
+  "testsRun": 15,
+  "duration": 250,
+  "version": "1.19.5",
+  "violationsSample": [
+    {
+      "category": "B",
+      "categoryName": "Child Safety",
+      "severity": "CRITICAL",
+      "matchedText": "csam_generator",
+      "location": "tool_name",
+      "confidence": "high"
+    }
+  ],
+  "samplingNote": "Sampled 5 of 12 violations, prioritized by severity (CRITICAL > HIGH > MEDIUM).",
+  "violationMetrics": {
+    "total": 12,
+    "critical": 2,
+    "high": 5,
+    "medium": 5,
+    "byCategory": { "B": 2, "E": 5, "G": 5 }
+  },
+  "scannedLocations": {
+    "toolNames": true,
+    "toolDescriptions": true,
+    "readme": true,
+    "sourceCode": false
+  },
+  "highRiskDomains": ["weapons", "financial"]
+}
+```
+
+| Field              | Type   | Description                                                                |
+| ------------------ | ------ | -------------------------------------------------------------------------- |
+| `violationsSample` | array  | Up to 10 sampled violations, prioritized by severity                       |
+| `samplingNote`     | string | Describes sampling methodology                                             |
+| `violationMetrics` | object | Quantitative summary: total, critical, high, medium counts, and byCategory |
+| `scannedLocations` | object | Boolean flags indicating which locations were scanned                      |
+| `highRiskDomains`  | array  | Up to 10 detected high-risk domains (e.g., weapons, financial, medical)    |
+
+**Violation sample fields:**
+
+| Field          | Type   | Description                                                           |
+| -------------- | ------ | --------------------------------------------------------------------- |
+| `category`     | string | AUP category code (A-N)                                               |
+| `categoryName` | string | Human-readable category name                                          |
+| `severity`     | string | `"CRITICAL"`, `"HIGH"`, or `"MEDIUM"`                                 |
+| `matchedText`  | string | The text that triggered the violation                                 |
+| `location`     | string | Where found: `tool_name`, `tool_description`, `readme`, `source_code` |
+| `confidence`   | string | Detection confidence: `"high"`, `"medium"`, `"low"`                   |
+
 ### 5. `assessment_complete`
 
 Emitted when the entire assessment finishes.
