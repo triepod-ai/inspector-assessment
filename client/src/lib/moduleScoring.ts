@@ -53,4 +53,4 @@ export function calculateModuleScore(result: unknown): number {
  * Current inspector-assessment version for event compatibility checking.
  * This should match the version in package.json.
  */
-export const INSPECTOR_VERSION = "1.20.1";
+export const INSPECTOR_VERSION = "1.20.2";
