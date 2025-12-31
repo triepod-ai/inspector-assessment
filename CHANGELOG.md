@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.5] - 2025-12-31
+
+### Added
+
+- **DVMCP Description Poisoning Patterns**: Added 6 new detection patterns to `ToolAnnotationAssessor` for DVMCP (Damn Vulnerable MCP Server) testbed coverage
+  - `override_auth_protocol` - Detects auth bypass phrases like "override-auth-protocol-555"
+  - `internal_resource_uri` - Detects fake internal URIs like "company://confidential", "internal://credentials"
+  - `get_secrets_call` - Detects function call patterns like "get_secrets()"
+  - `master_password` - Detects credential references
+  - `access_confidential` - Detects "access the confidential" directives
+  - `hidden_trigger_phrase` - Detects conditional trigger patterns
+
+- **DVMCP Validation Test Suite**: New test file `DescriptionPoisoning-DVMCP.test.ts` with 17 tests
+  - 12 true positive tests for malicious patterns (CH2, CH5 coverage)
+  - 5 true negative tests for safe patterns (hardened-mcp coverage)
+  - Edge case tests for multiple patterns, empty descriptions
+
+- **DVMCP Testbed Documentation**: Added comprehensive DVMCP section to `CLAUDE.md`
+  - Server configuration table for all 10 challenges (ports 9001-9010)
+  - Detection status per challenge with gap analysis
+  - SSE transport config examples
+  - Quick usage commands
+
+### Changed
+
+- **Removed Unused File**: Deleted `client/src/lib/moduleScoring.js` (stale JavaScript file)
+
 ## [1.20.4] - 2025-12-31
 
 ### Fixed
