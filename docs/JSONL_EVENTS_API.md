@@ -1,6 +1,6 @@
 # JSONL Events API Reference
 
-**Version**: 1.19.5
+**Version**: 1.20.0
 **Status**: Stable
 **Target Audience**: MCP Auditor developers, assessment tool integrators, real-time progress consumers
 
