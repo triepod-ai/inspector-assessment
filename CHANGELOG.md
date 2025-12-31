@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.2] - 2025-12-31
+
+### Fixed
+
+- **ReDoS Vulnerability in Security Patterns**: Bounded 6 regex patterns in `SecurityAssessor.ts` that used unbounded `[^}]*` quantifiers
+  - Changed to `[^}]{0,500}` to prevent catastrophic backtracking from malicious MCP server responses
+  - Patterns affected: JSON safety indicator detection for `"safe"`, `"vulnerable"`, and `"status"` fields
+
+- **Type Safety in CLI Runner**: Replaced unsafe `(response as any).structuredContent` with proper type guard
+  - Uses `"structuredContent" in response` check before type assertion
+  - Improves TypeScript safety and prevents potential runtime errors
+
+- **Version Constant Sync**: Updated `INSPECTOR_VERSION` in `moduleScoring.ts` from outdated `1.12.0` to `1.20.2`
+  - Ensures JSONL events report correct version for downstream consumers
+
+### Changed
+
+- **Lint Cleanup**: Removed unused `eslint-disable` directive in `AssessmentOrchestrator.ts`
+
+### Security
+
+- **ReDoS Protection**: Malicious MCP servers can no longer cause denial-of-service on the inspector by returning specially crafted JSON responses designed to trigger exponential regex backtracking
+
+## [1.20.1] - 2025-12-31
+
+### Added
+
+- **Annotation JSONL Events**: CLI now emits `annotation_missing`, `annotation_misaligned`, and `annotation_review_recommended` events during assessment
+  - Enables downstream tools to track tool annotation quality in real-time
+  - Events include tool name, title, description, parameters, and inferred behavior
+
+### Fixed
+
+- **JSONL Events API Documentation**: Corrected version numbers throughout `docs/JSONL_EVENTS_API.md`
+
 ## [1.20.0] - 2025-12-31
 
 ### Added
