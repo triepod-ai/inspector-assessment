@@ -385,6 +385,21 @@ export class TemporalAssessor extends BaseAssessor {
             responses[0].response,
             responses[i].response,
           );
+
+          // Secondary detection: Check for content semantic changes (rug pull patterns)
+          // This catches cases where schema is same but content shifts from helpful to harmful
+          if (!isDifferent) {
+            const contentChange = this.detectStatefulContentChange(
+              responses[0].response,
+              responses[i].response,
+            );
+            if (contentChange.detected) {
+              isDifferent = true;
+              this.log(
+                `${tool.name}: Content semantic change detected at invocation ${i + 1} - ${contentChange.reason}`,
+              );
+            }
+          }
         } else {
           // Exact comparison for non-stateful tools
           const normalized = this.normalizeResponse(responses[i].response);
@@ -419,11 +434,12 @@ export class TemporalAssessor extends BaseAssessor {
               responses[deviations[0] - 1]?.response ?? null,
           }
         : undefined,
-      // Add note for stateful tools that passed schema check
-      note:
-        isStateful && !isVulnerable
-          ? "Stateful tool - content variation expected, schema consistent"
-          : undefined,
+      // Add note for stateful tools - different messages for pass vs fail
+      note: isStateful
+        ? isVulnerable
+          ? "Stateful tool - secondary content analysis detected rug pull"
+          : "Stateful tool - content variation expected, schema consistent"
+        : undefined,
     };
   }
 
@@ -652,6 +668,100 @@ export class TemporalAssessor extends BaseAssessor {
       }
     }
     return fields;
+  }
+
+  /**
+   * Secondary detection for stateful tools that pass schema comparison.
+   * Catches rug pulls that change content semantically while keeping schema intact.
+   *
+   * Examples detected:
+   * - Weather data → "Rate limit exceeded, upgrade to premium"
+   * - Stock prices → "Subscribe for $9.99/month to continue"
+   * - Search results → "Error: Service unavailable"
+   */
+  private detectStatefulContentChange(
+    baseline: unknown,
+    current: unknown,
+  ): { detected: boolean; reason: string | null } {
+    // Convert to strings for content analysis
+    const baselineText = this.extractTextContent(baseline);
+    const currentText = this.extractTextContent(current);
+
+    // Skip if both are empty or identical
+    if (!baselineText && !currentText) return { detected: false, reason: null };
+    if (baselineText === currentText) return { detected: false, reason: null };
+
+    // Check 1: Error keywords appearing in later responses (not present in baseline)
+    if (
+      this.hasErrorKeywords(currentText) &&
+      !this.hasErrorKeywords(baselineText)
+    ) {
+      return { detected: true, reason: "error_keywords_appeared" };
+    }
+
+    // Check 2: Promotional/payment keywords (rug pull monetization pattern)
+    if (
+      this.hasPromotionalKeywords(currentText) &&
+      !this.hasPromotionalKeywords(baselineText)
+    ) {
+      return { detected: true, reason: "promotional_keywords_appeared" };
+    }
+
+    // Check 3: Significant length DECREASE only (response becoming much shorter)
+    // This catches cases where helpful responses shrink to terse error messages
+    // We don't flag length increase because stateful tools legitimately accumulate data
+    if (baselineText.length > 20) {
+      // Only check if baseline has meaningful content
+      const lengthRatio = currentText.length / baselineText.length;
+      if (lengthRatio < 0.3) {
+        // Response shrunk to <30% of original
+        return { detected: true, reason: "significant_length_decrease" };
+      }
+    }
+
+    return { detected: false, reason: null };
+  }
+
+  /**
+   * Extract text content from a response for semantic analysis.
+   */
+  private extractTextContent(obj: unknown): string {
+    if (typeof obj === "string") return obj;
+    if (typeof obj !== "object" || !obj) return "";
+    return JSON.stringify(obj);
+  }
+
+  /**
+   * Check for error-related keywords that indicate service degradation.
+   */
+  private hasErrorKeywords(text: string): boolean {
+    const patterns = [
+      /\berror\b/i,
+      /\bfail(ed|ure)?\b/i,
+      /\bunavailable\b/i,
+      /\brate\s*limit/i,
+      /\bdenied\b/i,
+      /\bexpired\b/i,
+      /\btimeout\b/i,
+      /\bblocked\b/i,
+    ];
+    return patterns.some((p) => p.test(text));
+  }
+
+  /**
+   * Check for promotional/monetization keywords that indicate a monetization rug pull.
+   */
+  private hasPromotionalKeywords(text: string): boolean {
+    const patterns = [
+      /\bupgrade\b/i,
+      /\bpremium\b/i,
+      /\bsubscri(be|ption)\b/i,
+      /\$\d+(\.\d{2})?/, // Price patterns like $49.99
+      /\bpay(ment)?\s*(required|needed|now)\b/i,
+      /\bpro\s*plan\b/i,
+      /\bbuy\s*now\b/i,
+    ];
+    return patterns.some((p) => p.test(text));
   }
 
   private determineTemporalStatus(

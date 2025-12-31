@@ -753,6 +753,10 @@ async function runFullAssessment(
     serverName: options.serverName,
     tools,
     callTool: createCallToolWrapper(client),
+    listTools: async () => {
+      const response = await client.listTools();
+      return response.tools;
+    },
     config,
     sourceCodePath: options.sourceCodePath,
     onProgress,
