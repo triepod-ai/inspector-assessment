@@ -38,6 +38,11 @@ for (let i = 0; i < args.length; i++) {
     // Skip these - TS script handles output differently
     continue;
   }
+  if (arg === "--source") {
+    // Skip --source and its value - reserved for future deep analysis
+    i++;  // Skip the next arg (the source path)
+    continue;
+  }
   if (arg === "--config" || arg === "-c") {
     // Capture config path for transformation
     configPath = args[++i];
