@@ -104,6 +104,25 @@ function loadServerConfig(
 
     if (config.mcpServers && config.mcpServers[serverName]) {
       const serverConfig = config.mcpServers[serverName];
+
+      // Check if serverConfig specifies http/sse transport
+      if (
+        serverConfig.url ||
+        serverConfig.transport === "http" ||
+        serverConfig.transport === "sse"
+      ) {
+        if (!serverConfig.url) {
+          throw new Error(
+            `Invalid server config: transport is '${serverConfig.transport}' but 'url' is missing`,
+          );
+        }
+        return {
+          transport: serverConfig.transport || "http",
+          url: serverConfig.url,
+        };
+      }
+
+      // Default to stdio transport
       return {
         transport: "stdio",
         command: serverConfig.command,
