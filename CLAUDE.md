@@ -114,6 +114,7 @@ The inspector includes comprehensive A/B comparison validation using the vulnera
 | -------------- | ----- | ------------------------------------- |
 | vulnerable-mcp | 10900 | 10 vulnerable + 6 safe tools          |
 | hardened-mcp   | 10901 | Same tool names, safe implementations |
+| test-server    | 10651 | General testing (not part of testbed) |
 
 **Quick Usage**:
 
