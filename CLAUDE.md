@@ -196,56 +196,123 @@ cat /tmp/inspector-assessment-hardened-mcp.json | \
 
 ## DVMCP (Damn Vulnerable MCP) Testbed
 
-The inspector also supports validation against the DVMCP CTF-style educational project with 10 intentionally vulnerable MCP servers.
+The inspector supports validation against the DVMCP CTF-style educational project with 10 intentionally vulnerable MCP servers.
+
+**Repository**:
+
+- **Fork**: https://github.com/triepod-ai/damn-vulnerable-MCP-server
+- **Upstream**: https://github.com/harishsg993010/damn-vulnerable-MCP-server
+- **Local Path**: `/home/bryan/mcp-servers/damn-vulnerable-mcp-server/`
 
 **Server Configuration**:
 
-| Challenge | Port | Vulnerability Class                    | Detection Status            |
-| --------- | ---- | -------------------------------------- | --------------------------- |
-| CH1       | 9001 | Prompt Injection via Resources         | GAP (resources not tested)  |
-| CH2       | 9002 | Tool Description Poisoning + Cmd Inj   | DETECTED                    |
-| CH3       | 9003 | Path Traversal / Excessive Permissions | DETECTED                    |
-| CH4       | 9004 | Rug Pull (Temporal Mutation)           | GAP (needs full assessment) |
-| CH5       | 9005 | Tool Shadowing                         | GAP                         |
-| CH6       | 9006 | Indirect Prompt Injection              | GAP                         |
-| CH7       | 9007 | Token Theft via Info Disclosure        | DETECTED                    |
-| CH8       | 9008 | Arbitrary Code Execution               | Safe reflection             |
-| CH9       | 9009 | Command Injection (RCE)                | Safe reflection             |
-| CH10      | 9010 | Multi-Vector Attack Chain              | DETECTED                    |
+| Challenge | Port | Vulnerability Class                    | Detection Status (v1.20.5)          |
+| --------- | ---- | -------------------------------------- | ----------------------------------- |
+| CH1       | 9001 | Prompt Injection via Resources         | GAP (resources not tested)          |
+| CH2       | 9002 | Tool Description Poisoning + Cmd Inj   | ✅ DETECTED (7 patterns)            |
+| CH3       | 9003 | Path Traversal / Excessive Permissions | ✅ DETECTED                         |
+| CH4       | 9004 | Rug Pull (Temporal Mutation)           | GAP (stateful pattern exemption)    |
+| CH5       | 9005 | Tool Shadowing                         | GAP (FastMCP compatibility)         |
+| CH6       | 9006 | Indirect Prompt Injection              | GAP                                 |
+| CH7       | 9007 | Token Theft via Info Disclosure        | ✅ DETECTED                         |
+| CH8       | 9008 | Arbitrary Code Execution               | Safe reflection                     |
+| CH9       | 9009 | Command Injection (RCE)                | ✅ DETECTED                         |
+| CH10      | 9010 | Multi-Vector Attack Chain              | ✅ DETECTED (3 patterns + 12 vulns) |
 
-**Baseline Detection Rate**: 5/10 (50%) with basic `npm run assess`
+**Important**: SSE servers (`server_sse.py`) have different tools than stdio servers (`server.py`). The poisoned descriptions are in `server.py` only.
 
-**Config Files** (SSE transport):
+### Testing with Published npm Package
+
+**Config Files** (SSE transport - for servers already running):
 
 ```json
-// /tmp/dvmcp-ch1-config.json through /tmp/dvmcp-ch10-config.json
-{ "transport": "sse", "url": "http://localhost:900X/sse" }
+// /tmp/dvmcp-ch2-sse.json
+{ "transport": "sse", "url": "http://localhost:9002/sse" }
 ```
 
-**Quick Usage**:
+**Config Files** (STDIO transport - for poisoned description testing):
+
+```json
+// /tmp/dvmcp-ch2-stdio.json
+{
+  "command": "/home/bryan/mcp-servers/damn-vulnerable-mcp-server/.venv/bin/python",
+  "args": ["/tmp/run-ch2-stdio.py"]
+}
+```
+
+**STDIO Wrapper Script** (required for server.py which defaults to HTTP):
+
+```python
+# /tmp/run-ch2-stdio.py
+#!/usr/bin/env python
+import sys
+sys.path.insert(0, '/home/bryan/mcp-servers/damn-vulnerable-mcp-server/challenges/easy/challenge2')
+from server import mcp
+mcp.run(transport='stdio')
+```
+
+**Quick Usage with Published Package**:
 
 ```bash
-# Run assessment against DVMCP challenge
-npm run assess -- --server dvmcp-ch2 --config /tmp/dvmcp-ch2-config.json
+# Install DVMCP dependencies first
+cd /home/bryan/mcp-servers/damn-vulnerable-mcp-server
+uv venv .venv && source .venv/bin/activate && uv pip install -e .
 
-# Run full assessment (includes TemporalAssessor for CH4)
-npm run assess:full -- --server dvmcp-ch4 --config /tmp/dvmcp-ch4-config.json
+# Test via SSE (if server running)
+npx -p @bryan-thompson/inspector-assessment mcp-assess-full dvmcp-ch2 \
+  --config /tmp/dvmcp-ch2-sse.json --output /tmp/dvmcp-ch2-results.json
+
+# Test via STDIO (for poisoned descriptions in server.py)
+npx -p @bryan-thompson/inspector-assessment mcp-assess-full dvmcp-ch2 \
+  --config /tmp/dvmcp-ch2-stdio.json --output /tmp/dvmcp-ch2-results.json
 ```
 
-**Description Poisoning Patterns** (added to ToolAnnotationAssessor):
+### v1.20.5 Validation Results (2025-12-31)
 
-The following DVMCP-specific patterns were added to detect description poisoning:
+**CH2 Tool Description Poisoning** (STDIO server.py):
 
-- `override_auth_protocol` - Auth bypass phrases like "override-auth-protocol-555"
-- `internal_resource_uri` - Fake internal URIs like "company://confidential"
-- `get_secrets_call` - Function call patterns like "get_secrets()"
-- `master_password` - Credential references
-- `access_confidential` - "access the confidential" directives
-- `hidden_trigger_phrase` - Conditional trigger patterns
+- `get_company_data`: 3 patterns detected (`important_tag`, `do_not_mention`, `internal_resource_uri`)
+- `search_company_database`: 7 patterns detected (`hidden_tag`, `override_auth_protocol`, `internal_resource_uri`, `access_confidential`, `hidden_trigger_phrase` x2, `do_not_mention`)
+
+**CH10 Multi-Vector** (STDIO server.py):
+
+- `get_user_profile`: 2 patterns detected (`important_tag`, `internal_resource_uri`)
+- `malicious_check_system_status`: 1 pattern detected (`hidden_tag`)
+- Plus 12 security vulnerabilities (Command Injection, Calculator Injection, Code Execution, etc.)
+
+**Check Results**:
+
+```bash
+# View poisoning detections
+cat /tmp/dvmcp-ch2-results.json | jq '.toolAnnotations.toolResults[] | select(.descriptionPoisoning.detected == true) | {toolName, patterns: [.descriptionPoisoning.patterns[].name]}'
+
+# Count poisoned tools
+cat /tmp/dvmcp-ch2-results.json | jq '.toolAnnotations.poisonedDescriptionsDetected'
+```
+
+### Description Poisoning Patterns
+
+The following patterns are detected by ToolAnnotationAssessor (added in v1.20.5):
+
+| Pattern                  | Category             | Example                                    |
+| ------------------------ | -------------------- | ------------------------------------------ |
+| `important_tag`          | hidden_instructions  | `<IMPORTANT>...</IMPORTANT>`               |
+| `hidden_tag`             | hidden_instructions  | `<HIDDEN>...</HIDDEN>`                     |
+| `override_auth_protocol` | auth_bypass          | `override-auth-protocol-555`               |
+| `internal_resource_uri`  | resource_access      | `company://confidential`, `system://admin` |
+| `access_confidential`    | exfiltration         | `access the confidential`                  |
+| `hidden_trigger_phrase`  | hidden_trigger       | `if the query contains the exact phrase`   |
+| `do_not_mention`         | concealment          | `do not mention that you're accessing`     |
+| `master_password`        | credential_reference | `include the master password`              |
+| `get_secrets_call`       | hidden_trigger       | `get_secrets()`                            |
 
 **Test Suite**: `client/src/services/assessment/__tests__/DescriptionPoisoning-DVMCP.test.ts`
 
-**DVMCP Source**: `/home/bryan/mcp-servers/damn-vulnerable-mcp-server/`
+### Known Gaps
+
+**CH4 Rug Pull**: TemporalAssessor doesn't detect because `get_weather` matches "get" in `STATEFUL_TOOL_PATTERNS` (stateful tools use schema-only comparison).
+
+**CH5 Tool Shadowing**: FastMCP version incompatibility (`listed=False` param not supported in newer mcp package).
 
 ## Assessment Result Analysis
 
