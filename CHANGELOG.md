@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.6] - 2025-12-31
+
+### Fixed
+
+- **Temporal Assessment PHASE 0 Execution**: Fixed critical bug where rug pull detection failed on live servers
+  - Temporal now runs in PHASE 0 before parallel/sequential module execution
+  - Previously, Security's 118+ tool calls triggered rug pulls before Temporal could capture clean baseline
+  - CH4 (DVMCP rug pull challenge) now correctly detected at invocation 4
+
+### Added
+
+- **Secondary Content Detection for Stateful Tools**: Enhanced TemporalAssessor with semantic content analysis
+  - Detects `error_keywords_appeared` (rate limit, upgrade, premium, exceeded, etc.)
+  - Detects `promotional_keywords_appeared` (discount, limited time, subscribe, etc.)
+  - Detects `significant_length_decrease` (>70% content reduction)
+  - Enables rug pull detection even when schema remains consistent
+  - 24 new test cases for secondary content detection
+
+- **Definition Tracking in Assessment Scripts**: Added `listTools` to AssessmentContext
+  - Both `cli/src/assess-full.ts` and `scripts/run-full-assessment.ts` now support tool definition tracking
+  - Enables detection of tool definition mutations during temporal assessment
+
 ## [1.20.5] - 2025-12-31
 
 ### Added
