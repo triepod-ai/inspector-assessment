@@ -1,13 +1,19 @@
 /**
  * Security Assessor Module
  * Tests for backend API security vulnerabilities using 20 focused patterns
- * - Critical Injection (6): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
- * - Input Validation (3): Type Safety, Boundary Testing, Required Fields
- * - Protocol Compliance (2): MCP Error Format, Timeout Handling
- * - Tool-Specific (7): SSRF, Unicode Bypass, Nested Injection, Package Squatting,
- *                      Data Exfiltration, Configuration Drift, Tool Shadowing
- * - Resource Exhaustion (1): DoS/Resource Exhaustion
- * - Deserialization (1): Insecure Deserialization
+ *
+ * BASIC MODE (5 patterns - enableDomainTesting=false):
+ *   Command Injection, Calculator Injection, SQL Injection, Path Traversal, Unicode Bypass
+ *
+ * ADVANCED MODE (all 20 patterns - enableDomainTesting=true):
+ *   - Critical Injection (6): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
+ *   - Input Validation (3): Type Safety, Boundary Testing, Required Fields
+ *   - Protocol Compliance (2): MCP Error Format, Timeout Handling
+ *   - Tool-Specific (6): SSRF, Nested Injection, Package Squatting,
+ *                        Data Exfiltration, Configuration Drift, Tool Shadowing
+ *   - Encoding Bypass (1): Unicode Bypass
+ *   - Resource Exhaustion (1): DoS/Resource Exhaustion
+ *   - Deserialization (1): Insecure Deserialization
  */
 
 import {
