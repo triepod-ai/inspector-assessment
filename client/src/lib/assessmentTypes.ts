@@ -151,6 +151,9 @@ export interface CodeExample {
   language?: string;
   description?: string;
   lineNumber?: number;
+  // NEW: Classification fields for downstream analysis
+  lineCount?: number;
+  exampleType?: "functional" | "install" | "config" | "implementation";
 }
 
 export interface DocumentationMetrics {
@@ -164,6 +167,19 @@ export interface DocumentationMetrics {
   extractedExamples?: CodeExample[];
   installInstructions?: string;
   usageInstructions?: string;
+  // NEW: Lightweight metadata (standard+ verbosity)
+  readmeLength?: number;
+  readmeWordCount?: number;
+  sectionHeadings?: string[];
+  // NEW: Tool documentation status (standard+ verbosity)
+  toolDocumentation?: Array<{
+    name: string;
+    hasDescription: boolean;
+    descriptionLength: number;
+    documentedInReadme: boolean;
+  }>;
+  // NEW: Full content (verbose mode only, truncated to 5000 chars)
+  readmeContent?: string;
 }
 
 export interface ErrorTestDetail {
@@ -345,6 +361,8 @@ export interface DocumentationAssessment {
 
 export interface ErrorHandlingAssessment {
   metrics: ErrorHandlingMetrics;
+  /** Raw error handling test results for downstream analysis */
+  errorTests?: ErrorTestDetail[];
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
@@ -1215,6 +1233,11 @@ export interface AssessmentConfiguration {
   reviewerMode?: boolean;
   // Extended configuration for new categories
   enableExtendedAssessment?: boolean;
+  // Documentation output verbosity level
+  documentationVerbosity?: "minimal" | "standard" | "verbose";
+  // minimal: Only boolean flags (legacy behavior)
+  // standard: + metadata (readmeLength, sectionHeadings, toolDocumentation) [DEFAULT]
+  // verbose: + readmeContent (truncated to 5000 chars)
   parallelTesting?: boolean;
   maxParallelTests?: number;
   // Testing configuration (always uses comprehensive multi-scenario testing)

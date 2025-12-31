@@ -17,7 +17,12 @@ export class DocumentationAssessor extends BaseAssessor {
     this.log("Starting documentation assessment");
 
     const readmeContent = context.readmeContent || "";
-    const metrics = this.analyzeDocumentation(readmeContent, context.tools);
+    const verbosity = this.config.documentationVerbosity || "standard";
+    const metrics = this.analyzeDocumentation(
+      readmeContent,
+      context.tools,
+      verbosity,
+    );
 
     const status = this.determineDocumentationStatus(metrics);
     const explanation = this.generateExplanation(metrics);
@@ -34,6 +39,7 @@ export class DocumentationAssessor extends BaseAssessor {
   private analyzeDocumentation(
     content: string,
     tools: any[],
+    verbosity: "minimal" | "standard" | "verbose" = "standard",
   ): DocumentationMetrics {
     const hasReadme = content.length > 0;
     // Use new functional examples method that filters out configs/installs
@@ -48,12 +54,15 @@ export class DocumentationAssessor extends BaseAssessor {
     const missingExamples: string[] = [];
     let documentedToolsCount = 0;
 
+    // NEW: Build tool documentation status array for standard+ verbosity
+    const toolDocumentation: DocumentationMetrics["toolDocumentation"] = [];
+
     if (tools && tools.length > 0) {
       // Check each tool for documentation
       for (const tool of tools) {
         const toolName = tool.name;
-        const hasDescription =
-          tool.description && tool.description.trim().length > 0;
+        const description = tool.description?.trim() || "";
+        const hasDescription = description.length > 0;
 
         // Check if tool is mentioned in headings (any level) or code examples
         const headingRegex = new RegExp(`^#{1,6}\\s+${toolName}`, "mi");
@@ -61,15 +70,26 @@ export class DocumentationAssessor extends BaseAssessor {
 
         const hasHeading = headingRegex.test(content);
         const hasMention = mentionRegex.test(content);
+        const documentedInReadme = hasHeading || hasMention;
 
         // Count as documented if mentioned in README
-        if (hasHeading || hasMention) {
+        if (documentedInReadme) {
           documentedToolsCount++;
         }
 
         // Tool is missing if it has no description AND not documented in README
-        if (!hasDescription && !hasHeading && !hasMention) {
+        if (!hasDescription && !documentedInReadme) {
           missingExamples.push(toolName);
+        }
+
+        // Build tool documentation status for standard+ verbosity
+        if (verbosity !== "minimal") {
+          toolDocumentation.push({
+            name: toolName,
+            hasDescription,
+            descriptionLength: description.length,
+            documentedInReadme,
+          });
         }
       }
     } else {
@@ -99,7 +119,12 @@ export class DocumentationAssessor extends BaseAssessor {
       functionalExamples.length +
       (tools && tools.length > 0 ? documentedToolsCount : 0);
 
-    return {
+    // NEW: Extract section headings for standard+ verbosity
+    const sectionHeadings =
+      verbosity !== "minimal" ? this.extractSectionHeadings(content) : [];
+
+    // Build base metrics (always included)
+    const baseMetrics: DocumentationMetrics = {
       hasReadme,
       exampleCount: functionalExampleCount, // Use functional examples instead of all code blocks
       requiredExamples,
@@ -115,6 +140,25 @@ export class DocumentationAssessor extends BaseAssessor {
         ? this.extractSection(content, "usage")
         : undefined,
     };
+
+    // Add standard+ verbosity fields
+    if (verbosity !== "minimal") {
+      baseMetrics.readmeLength = content.length;
+      baseMetrics.readmeWordCount = content
+        .split(/\s+/)
+        .filter((w) => w.length > 0).length;
+      baseMetrics.sectionHeadings = sectionHeadings;
+      if (toolDocumentation.length > 0) {
+        baseMetrics.toolDocumentation = toolDocumentation;
+      }
+    }
+
+    // Add verbose mode fields
+    if (verbosity === "verbose" && content.length > 0) {
+      baseMetrics.readmeContent = content.substring(0, 5000);
+    }
+
+    return baseMetrics;
   }
 
   /**
@@ -321,6 +365,9 @@ export class DocumentationAssessor extends BaseAssessor {
         language,
         description,
         lineNumber,
+        // NEW: Classification fields for downstream analysis
+        lineCount: code.split("\n").length,
+        exampleType: this.classifyCodeExample(code, language),
       });
     }
 
@@ -377,6 +424,54 @@ export class DocumentationAssessor extends BaseAssessor {
 
     const match = content.match(sectionRegex);
     return match ? match[0].trim() : "";
+  }
+
+  /**
+   * Extract all section headings from README content.
+   * Returns array of heading text (without # markers).
+   */
+  private extractSectionHeadings(content: string): string[] {
+    const headingRegex = /^(#{1,6})\s+(.+)$/gm;
+    const headings: string[] = [];
+    let match;
+
+    while ((match = headingRegex.exec(content)) !== null) {
+      headings.push(match[2].trim());
+    }
+
+    return headings;
+  }
+
+  /**
+   * Classify a code example by its type.
+   * Reuses patterns from isNonFunctionalCodeBlock for consistency.
+   */
+  private classifyCodeExample(
+    code: string,
+    language?: string,
+  ): CodeExample["exampleType"] {
+    // Install commands
+    if (/^\s*(npx|npm|yarn|pnpm|pip|docker|git)\s+/i.test(code)) {
+      return "install";
+    }
+    // Configuration blocks
+    if (
+      /^\s*{\s*["']mcpServers["']/i.test(code) ||
+      /^\s*{\s*["']command["']/i.test(code) ||
+      language === "json" ||
+      language === "toml" ||
+      language === "yaml"
+    ) {
+      return "config";
+    }
+    // Implementation code (imports, declarations, class definitions)
+    if (
+      /^\s*(import|export|const|let|var|function|class)\s+/i.test(code) ||
+      /^\s*from\s+/i.test(code)
+    ) {
+      return "implementation";
+    }
+    return "functional";
   }
 
   private determineDocumentationStatus(

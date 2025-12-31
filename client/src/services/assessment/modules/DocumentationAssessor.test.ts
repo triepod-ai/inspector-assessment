@@ -602,4 +602,202 @@ describe("DocumentationAssessor", () => {
       expect(result.metrics.exampleCount).toBe(1);
     });
   });
+
+  describe("new documentation fields", () => {
+    it("should include readmeLength and readmeWordCount in standard mode", async () => {
+      // Arrange
+      mockContext.readmeContent = "Hello world this is a test";
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.readmeLength).toBe(26);
+      expect(result.metrics.readmeWordCount).toBe(6);
+    });
+
+    it("should extract section headings", async () => {
+      // Arrange
+      mockContext.readmeContent = `
+# Main Title
+## Installation
+## Usage
+### Advanced Usage
+## API Reference
+`;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.sectionHeadings).toContain("Main Title");
+      expect(result.metrics.sectionHeadings).toContain("Installation");
+      expect(result.metrics.sectionHeadings).toContain("Usage");
+      expect(result.metrics.sectionHeadings).toContain("Advanced Usage");
+      expect(result.metrics.sectionHeadings).toContain("API Reference");
+      expect(result.metrics.sectionHeadings).toHaveLength(5);
+    });
+
+    it("should include tool documentation status", async () => {
+      // Arrange
+      mockContext.tools = [
+        createMockTool({ name: "read_file", description: "Reads a file" }),
+        createMockTool({ name: "write_file", description: "" }),
+      ];
+      mockContext.readmeContent = "## read_file\nThis tool reads files.";
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.toolDocumentation).toHaveLength(2);
+      expect(result.metrics.toolDocumentation?.[0]).toMatchObject({
+        name: "read_file",
+        hasDescription: true,
+        documentedInReadme: true,
+      });
+      expect(result.metrics.toolDocumentation?.[0].descriptionLength).toBe(12);
+      expect(result.metrics.toolDocumentation?.[1]).toMatchObject({
+        name: "write_file",
+        hasDescription: false,
+        documentedInReadme: false,
+      });
+    });
+
+    it("should classify code examples by type", async () => {
+      // Arrange
+      mockContext.readmeContent = `
+\`\`\`bash
+npm install my-package
+\`\`\`
+
+\`\`\`json
+{"mcpServers": {}}
+\`\`\`
+
+\`\`\`javascript
+const client = new MCPClient();
+client.connect();
+\`\`\`
+`;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.extractedExamples?.[0].exampleType).toBe("install");
+      expect(result.metrics.extractedExamples?.[1].exampleType).toBe("config");
+      expect(result.metrics.extractedExamples?.[2].exampleType).toBe(
+        "implementation",
+      );
+    });
+
+    it("should include lineCount for code examples", async () => {
+      // Arrange
+      mockContext.readmeContent = `
+\`\`\`javascript
+const a = 1;
+const b = 2;
+const c = 3;
+\`\`\`
+`;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.extractedExamples?.[0].lineCount).toBe(3);
+    });
+
+    it("should exclude readmeContent in standard verbosity (default)", async () => {
+      // Arrange
+      mockContext.readmeContent = "Hello world";
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.readmeContent).toBeUndefined();
+      expect(result.metrics.readmeLength).toBe(11); // Standard includes metadata
+    });
+
+    it("should include readmeContent only in verbose mode", async () => {
+      // Arrange
+      const verboseConfig = createMockAssessmentConfig({
+        documentationVerbosity: "verbose",
+      });
+      const verboseAssessor = new DocumentationAssessor(verboseConfig);
+      mockContext.readmeContent = "Hello world";
+
+      // Act
+      const result = await verboseAssessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.readmeContent).toBe("Hello world");
+    });
+
+    it("should truncate readmeContent to 5000 chars in verbose mode", async () => {
+      // Arrange
+      const verboseConfig = createMockAssessmentConfig({
+        documentationVerbosity: "verbose",
+      });
+      const verboseAssessor = new DocumentationAssessor(verboseConfig);
+      mockContext.readmeContent = "x".repeat(10000);
+
+      // Act
+      const result = await verboseAssessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.readmeContent?.length).toBe(5000);
+    });
+
+    it("should exclude metadata fields in minimal verbosity", async () => {
+      // Arrange
+      const minimalConfig = createMockAssessmentConfig({
+        documentationVerbosity: "minimal",
+      });
+      const minimalAssessor = new DocumentationAssessor(minimalConfig);
+      mockContext.readmeContent = "Hello world";
+
+      // Act
+      const result = await minimalAssessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.readmeLength).toBeUndefined();
+      expect(result.metrics.sectionHeadings).toBeUndefined();
+      expect(result.metrics.toolDocumentation).toBeUndefined();
+      expect(result.metrics.readmeContent).toBeUndefined();
+    });
+
+    it("should classify functional examples correctly", async () => {
+      // Arrange
+      mockContext.readmeContent = `
+\`\`\`bash
+echo "Hello World"
+\`\`\`
+`;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - echo is functional, not install/config/implementation
+      expect(result.metrics.extractedExamples?.[0].exampleType).toBe(
+        "functional",
+      );
+    });
+
+    it("should handle empty README for new fields", async () => {
+      // Arrange
+      mockContext.readmeContent = "";
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.readmeLength).toBe(0);
+      expect(result.metrics.readmeWordCount).toBe(0);
+      expect(result.metrics.sectionHeadings).toEqual([]);
+      expect(result.metrics.readmeContent).toBeUndefined();
+    });
+  });
 });
