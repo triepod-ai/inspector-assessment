@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.4] - 2025-12-31
+
+### Fixed
+
+- **mcpServers HTTP Transport Config Bug**: Fixed config loader ignoring http/sse transport when using `mcpServers` wrapper format
+  - Previously, configs like `{"mcpServers": {"server": {"transport": "http", "url": "..."}}}` were treated as stdio
+  - Now properly detects and uses http/sse transport inside mcpServers config wrapper
+  - Fix applied to both `cli/src/assess-full.ts` and `scripts/run-full-assessment.ts`
+
 ## [1.20.3] - 2025-12-31
 
 ### Added
