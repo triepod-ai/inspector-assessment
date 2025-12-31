@@ -95,11 +95,16 @@ export const AUP_PATTERNS: AUPPatternDefinition[] = [
       /\bastroturf(ing)?\b/i,
       /\bdeepfake\s*(generator|creator)/i,
       /\bpropaganda\s*(bot|generator)/i,
+      // Political campaign content generation (AUP violation)
+      /\bpolitical\s*(campaign|content)\s*(generat|creat)/i,
+      /\bcampaign\s*(slogan|messaging|content)\s*(generat|creat)/i,
+      /\bvoter\s*(appeal|targeting|messaging)/i,
+      /\bpolitical\s*manipulation/i,
     ],
     description: "Tools for disinformation or election interference",
     requiresHumanReview: true,
     reviewGuidance:
-      "Check if tool could be used for mass disinformation campaigns.",
+      "Check if tool could be used for mass disinformation campaigns or political manipulation.",
   },
   {
     category: "E",

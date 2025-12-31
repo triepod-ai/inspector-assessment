@@ -113,10 +113,12 @@ import {
 
 // Import assessment modules WITHOUT modification
 import { SecurityAssessor } from "../client/src/services/assessment/modules/SecurityAssessor.js";
+import { AUPComplianceAssessor } from "../client/src/services/assessment/modules/AUPComplianceAssessor.js";
 import {
   AssessmentConfiguration,
   DEFAULT_ASSESSMENT_CONFIG,
   SecurityAssessment,
+  AUPComplianceAssessment,
 } from "../client/src/lib/assessmentTypes.js";
 import { AssessmentContext } from "../client/src/services/assessment/AssessmentOrchestrator.js";
 
@@ -150,6 +152,7 @@ interface AssessmentOptions {
   outputPath?: string;
   toolName?: string; // Optional: test only specific tool
   verbose?: boolean;
+  runAUP?: boolean; // Optional: also run AUP compliance check
 }
 
 /**
@@ -427,6 +430,79 @@ function saveResults(
 }
 
 /**
+ * Run AUP compliance assessment
+ */
+async function runAUPAssessment(
+  options: AssessmentOptions,
+  tools: Tool[],
+): Promise<AUPComplianceAssessment> {
+  console.log(`\n📋 Running AUP compliance check...`);
+
+  const config: AssessmentConfiguration = {
+    ...DEFAULT_ASSESSMENT_CONFIG,
+    enableSourceCodeAnalysis: false, // CLI doesn't have source code access
+  };
+
+  const context: AssessmentContext = {
+    serverName: options.serverName,
+    tools,
+    callTool: async () => ({ content: [], isError: true }), // Not needed for AUP
+    config,
+  };
+
+  const assessor = new AUPComplianceAssessor(config);
+  const results = await assessor.assess(context);
+
+  return results;
+}
+
+/**
+ * Display AUP summary
+ */
+function displayAUPSummary(results: AUPComplianceAssessment) {
+  console.log("\n" + "=".repeat(60));
+  console.log("AUP COMPLIANCE RESULTS");
+  console.log("=".repeat(60));
+  console.log(`Status: ${results.status}`);
+  console.log(`Violations Found: ${results.violations.length}`);
+  console.log(`High-Risk Domains: ${results.highRiskDomains.length}`);
+  console.log("=".repeat(60));
+
+  if (results.violations.length > 0) {
+    console.log("\n⚠️  AUP VIOLATIONS DETECTED:\n");
+
+    for (const v of results.violations) {
+      const severityIcon =
+        v.severity === "CRITICAL"
+          ? "🛑"
+          : v.severity === "HIGH"
+            ? "🚨"
+            : v.severity === "MEDIUM"
+              ? "⚠️"
+              : "📋";
+      console.log(
+        `${severityIcon} Category ${v.category} (${v.categoryName}) - ${v.severity}`,
+      );
+      console.log(`   Location: ${v.location}`);
+      console.log(`   Matched: "${v.matchedText}"`);
+      console.log(`   Pattern: ${v.pattern}`);
+      if (v.reviewGuidance) {
+        console.log(`   Guidance: ${v.reviewGuidance}`);
+      }
+      console.log("");
+    }
+  } else {
+    console.log("\n✅ No AUP violations detected\n");
+  }
+
+  if (results.highRiskDomains.length > 0) {
+    console.log(
+      `📋 High-risk domains: ${results.highRiskDomains.join(", ")}\n`,
+    );
+  }
+}
+
+/**
  * Display summary
  */
 function displaySummary(results: SecurityAssessment) {
@@ -492,6 +568,9 @@ function parseArgs(): AssessmentOptions {
       case "-v":
         options.verbose = true;
         break;
+      case "--aup":
+        options.runAUP = true;
+        break;
       case "--help":
       case "-h":
         printHelp();
@@ -524,12 +603,14 @@ Options:
   --config, -c <path>      Path to server config JSON (default: ~/.config/mcp/servers/<name>.json)
   --output, -o <path>      Output JSON path (default: /tmp/inspector-assessment-<server>.json)
   --tool, -t <name>        Test only specific tool (default: test all tools)
+  --aup                    Also run AUP (Acceptable Use Policy) compliance check
   --verbose, -v            Enable verbose logging
   --help, -h               Show this help message
 
 Examples:
   npm run assess -- --server broken-mcp
   npm run assess -- --server broken-mcp --tool vulnerable_calculator_tool
+  npm run assess -- --server broken-mcp --aup
   npm run assess -- --server my-server --output ./results.json
   `);
 }
@@ -541,31 +622,127 @@ async function main() {
   try {
     const options = parseArgs();
 
-    // Run assessment
-    const results = await runSecurityAssessment(options);
+    console.log(`\n🔍 Connecting to MCP server: ${options.serverName}`);
+
+    // Load server configuration
+    const serverConfig = loadServerConfig(
+      options.serverName,
+      options.serverConfigPath,
+    );
+
+    // Connect to server
+    const client = await connectToServer(serverConfig);
+    console.log("✅ Connected successfully");
+
+    // Emit server_connected JSONL event
+    emitServerConnected(options.serverName, serverConfig.transport || "stdio");
+
+    // Get tools
+    const tools = await getTools(client, options.toolName);
+    console.log(
+      `🔧 Found ${tools.length} tool${tools.length !== 1 ? "s" : ""}`,
+    );
+
+    // Emit tool_discovered JSONL events for each tool
+    for (const tool of tools) {
+      emitToolDiscovered(tool);
+    }
+    emitToolsDiscoveryComplete(tools.length);
+
+    if (options.toolName) {
+      console.log(`   Testing only: ${options.toolName}`);
+    }
+
+    // Run AUP assessment if requested (before security to show static analysis first)
+    let aupResults: AUPComplianceAssessment | undefined;
+    if (options.runAUP) {
+      aupResults = await runAUPAssessment(options, tools);
+      displayAUPSummary(aupResults);
+    }
+
+    // Run security assessment
+    console.log(`🛡️  Running security assessment with 17 attack patterns...`);
+
+    const config: AssessmentConfiguration = {
+      ...DEFAULT_ASSESSMENT_CONFIG,
+      securityPatternsToTest: 17,
+      reviewerMode: false,
+      testTimeout: 30000,
+    };
+
+    const onProgress = (event: ProgressEvent): void => {
+      if (event.type === "test_batch") {
+        emitTestBatch(
+          event.module,
+          event.completed,
+          event.total,
+          event.batchSize,
+          event.elapsed,
+        );
+      } else if (event.type === "vulnerability_found") {
+        emitVulnerabilityFound(
+          event.tool,
+          event.pattern,
+          event.confidence,
+          event.evidence,
+          event.riskLevel,
+          event.requiresReview,
+          event.payload,
+        );
+      }
+    };
+
+    const context: AssessmentContext = {
+      serverName: options.serverName,
+      tools,
+      callTool: createCallToolWrapper(client),
+      config,
+      onProgress,
+    };
+
+    const estimatedTests = tools.length * 39;
+    emitModuleStarted("security", estimatedTests, tools.length);
+
+    const assessor = new SecurityAssessor(config);
+    const results = await assessor.assess(context);
+
+    // Close connection
+    await client.close();
 
     // Display summary
     displaySummary(results);
 
-    // Save results
-    const outputPath = saveResults(
-      options.serverName,
-      results,
-      options.outputPath,
-    );
+    // Save results (including AUP if run)
+    const defaultPath = `/tmp/inspector-assessment-${options.serverName}.json`;
+    const finalPath = options.outputPath || defaultPath;
+
+    const output: Record<string, unknown> = {
+      timestamp: new Date().toISOString(),
+      serverName: options.serverName,
+      security: results,
+    };
+
+    if (aupResults) {
+      output.aup = aupResults;
+    }
+
+    fs.writeFileSync(finalPath, JSON.stringify(output, null, 2));
 
     // Emit assessment_complete JSONL event
     emitAssessmentComplete(
       results.status,
       results.promptInjectionTests?.length || 0,
-      0, // executionTime not tracked in security-only assessment
-      outputPath,
+      0,
+      finalPath,
     );
 
-    console.log(`📄 Results saved to: ${outputPath}\n`);
+    console.log(`📄 Results saved to: ${finalPath}\n`);
 
-    // Exit with appropriate code
-    const exitCode = results.vulnerabilities.length > 0 ? 1 : 0;
+    // Exit with appropriate code (fail if security OR AUP issues)
+    let exitCode = results.vulnerabilities.length > 0 ? 1 : 0;
+    if (aupResults && aupResults.status === "FAIL") {
+      exitCode = 1;
+    }
     process.exit(exitCode);
   } catch (error) {
     console.error(

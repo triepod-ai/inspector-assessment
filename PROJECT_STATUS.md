@@ -321,3 +321,79 @@
 - v1.19.2 successfully published to npm
 
 ---
+
+## 2025-12-31: v1.19.4 Release - Bug Fixes for Destructive Hint & Business Error Detection
+
+**Summary:** Fixed three inspector assessment bugs affecting destructiveHint detection and business error recognition, published v1.19.4 to npm.
+
+**Session Focus:** Bug fixes for inspector-assessment based on comprehensive bug report from memory-mcp testing.
+
+**Changes Made:**
+- `client/src/services/assessment/modules/ToolAnnotationAssessor.ts` - Added early return for CREATE operations before persistence detection (lines 1244-1257)
+- `client/src/services/assessment/ResponseValidator.ts` - Added missing operation patterns (add, insert, modify, set, remove, entity, entities, relation, observation, node, edge, record) to isValidationExpected
+- `client/src/services/assessment/modules/ToolAnnotationAssessor.test.ts` - Split test for CREATE vs UPDATE/MODIFY semantic distinction
+- `/home/bryan/mcp-logs/memory-mcp/inspector-assessment/bug-report-2025-12-30-142109.md` - Updated status to ALL BUGS FIXED & VERIFIED
+
+**Key Decisions:**
+- CREATE operations are NEVER destructive regardless of persistence model (only add new data)
+- Business error detection must recognize entity/relation/observation operations as validation-expected
+- Separated test cases for CREATE vs UPDATE semantics to properly validate behavior
+
+**Key Results:**
+- All 1119 tests pass
+- v1.19.4 published to npm (4 packages)
+- memory-mcp now shows 12/12 tools working after server-side fix verification
+- Bug report fully updated with fix details and verification results
+
+**Commits:**
+- `0466cdb` chore: bump version to 1.19.3
+- `e263825` feat(annotations): Add three-tier persistence detection for write operations
+
+**Next Steps:**
+- Monitor for any additional false positives in production assessments
+- Consider adding more comprehensive semantic operation detection
+
+**Notes:**
+- Bug 1 was server-side (memory-mcp missing structuredContent) - verified fixed after Docker rebuild
+- Bugs 2-4 were inspector bugs - all fixed in this session
+- Version bump included package-lock.json sync fix
+
+---
+
+## 2025-12-31: v1.19.5 Release - Unicode Bypass Security Tests Now Executing in Basic Mode
+
+**Summary:** Fixed Unicode Bypass security tests not being executed in basic mode by adding the pattern to criticalPatterns array, validated with A/B testbed comparison, and published v1.19.5 to npm.
+
+**Session Focus:** Bug investigation using code-reviewer-pro agent, root cause analysis of Unicode Bypass test gap, security assessment validation, and npm package release.
+
+**Changes Made:**
+- `client/src/services/assessment/modules/SecurityAssessor.ts` - Added "Unicode Bypass" to criticalPatterns array (lines 342-349)
+- Version bump to 1.19.5
+- Published @bryan-thompson/inspector-assessment@1.19.5 to npm
+
+**Key Decisions:**
+- **Root cause was NOT createTestParameters()**: Code review proved the parameter matching logic works correctly. The actual issue was Unicode Bypass being excluded from basic mode's criticalPatterns array.
+- **Added to basic mode**: Unicode Bypass is now the 5th critical pattern tested in basic mode (was 4)
+- **A/B validation approach**: Tested against both vulnerable-mcp (167 vulns) and hardened-mcp (0 vulns) to confirm no false positives
+
+**Key Results:**
+- Unicode Bypass tests: 0 -> 58
+- Vulnerabilities detected: 6 on unicode_processor_tool
+- False positives: 0 (A/B validated)
+- Total tests: 3422
+
+**Commits:**
+- `704ef33` fix(security): add Unicode Bypass to basic mode critical patterns
+- `4defa99` chore: bump version to 1.19.5
+
+**Next Steps:**
+- Consider adding Nested Injection to criticalPatterns (same exclusion issue)
+- Add unit tests for createTestParameters() to prevent future regressions
+- Document which patterns are tested in Basic vs Advanced mode
+
+**Notes:**
+- Bug report suspected wrong location - code review was essential to find actual root cause
+- Docker logs proved payloads were never being sent (not a detection issue)
+- Single-line fix with major security coverage impact
+
+---
