@@ -361,3 +361,38 @@
 - Three-agent review process provides comprehensive coverage: code quality, QA, and security
 
 ---
+
+## 2025-12-31: DVMCP Testbed Integration and Description Poisoning Patterns
+
+**Summary:** Implemented DVMCP testbed integration with 6 new description poisoning patterns and 17 validation tests, achieving 100% precision on hardened-mcp with zero false positives
+
+**Session Focus:** DVMCP (Damn Vulnerable MCP Server) integration - baseline assessments, pattern additions, and validation test suite creation
+
+**Changes Made:**
+- `client/src/services/assessment/modules/ToolAnnotationAssessor.ts` - Added 6 DVMCP-specific description poisoning patterns
+- `CLAUDE.md` - Added comprehensive DVMCP testbed documentation section
+- `client/src/services/assessment/__tests__/DescriptionPoisoning-DVMCP.test.ts` - Created 17 validation tests (12 true positives, 5 true negatives, 3 edge cases)
+- `/tmp/dvmcp-baseline-matrix.md` - Baseline detection results
+
+**Key Decisions:**
+- Extended existing ToolAnnotationAssessor instead of creating new ToolDescriptionAnalyzer module (per code review recommendation)
+- Used SSE transport configs for DVMCP servers (ports 9001-9010)
+- Documented baseline detection rate of 5/10 (50%) with clear gap analysis for future improvements
+
+**Technical Details:**
+- Detection Patterns Added: override_auth_protocol, internal_resource_uri, get_secrets_call, master_password, access_confidential, hidden_trigger_phrase
+- Test Results: All 1165 tests passing
+- Regression Verification: hardened-mcp - 0 vulnerabilities, 0 false positives
+
+**Next Steps:**
+- Implement resource testing to detect CH1-style resource parameter injection
+- Run full assessment (`npm run assess:full`) to test TemporalAssessor against CH4 rug pull
+- Enhance tool shadowing detection for CH5
+- Consider indirect injection patterns for document processing tools (CH6)
+
+**Notes:**
+- DVMCP SSE servers running on ports 9001-9010
+- Config files created in /tmp/dvmcp-ch{1-10}-config.json
+- Baseline matrix saved to /tmp/dvmcp-baseline-matrix.md
+
+---

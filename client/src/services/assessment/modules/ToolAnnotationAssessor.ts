@@ -241,6 +241,46 @@ const DESCRIPTION_POISONING_PATTERNS: PoisoningPattern[] = [
     severity: "HIGH",
     category: "override",
   },
+
+  // DVMCP-specific patterns (CTF testbed coverage)
+  {
+    name: "override_auth_protocol",
+    pattern: /override[-_]?auth[-_]?protocol/gi,
+    severity: "HIGH",
+    category: "auth_bypass",
+  },
+  {
+    name: "internal_resource_uri",
+    pattern:
+      /(?:internal|system|admin|secret|company|confidential):\/\/[a-z_\-\/]+/gi,
+    severity: "HIGH",
+    category: "resource_access",
+  },
+  {
+    name: "get_secrets_call",
+    pattern: /get[-_]?secrets?\s*\(/gi,
+    severity: "HIGH",
+    category: "secret_access",
+  },
+  {
+    name: "master_password",
+    pattern: /master[-_]?password/gi,
+    severity: "HIGH",
+    category: "credential_exposure",
+  },
+  {
+    name: "access_confidential",
+    pattern: /access\s+(the\s+)?confidential/gi,
+    severity: "HIGH",
+    category: "exfiltration",
+  },
+  {
+    name: "hidden_trigger_phrase",
+    pattern:
+      /if\s+(the\s+)?(query|input|text)\s+contains\s+(the\s+)?(exact\s+)?(phrase|word)/gi,
+    severity: "HIGH",
+    category: "hidden_trigger",
+  },
 ];
 
 /**

@@ -194,6 +194,59 @@ cat /tmp/inspector-assessment-hardened-mcp.json | \
 - CI/CD integration examples
 - Performance benchmarks
 
+## DVMCP (Damn Vulnerable MCP) Testbed
+
+The inspector also supports validation against the DVMCP CTF-style educational project with 10 intentionally vulnerable MCP servers.
+
+**Server Configuration**:
+
+| Challenge | Port | Vulnerability Class                    | Detection Status            |
+| --------- | ---- | -------------------------------------- | --------------------------- |
+| CH1       | 9001 | Prompt Injection via Resources         | GAP (resources not tested)  |
+| CH2       | 9002 | Tool Description Poisoning + Cmd Inj   | DETECTED                    |
+| CH3       | 9003 | Path Traversal / Excessive Permissions | DETECTED                    |
+| CH4       | 9004 | Rug Pull (Temporal Mutation)           | GAP (needs full assessment) |
+| CH5       | 9005 | Tool Shadowing                         | GAP                         |
+| CH6       | 9006 | Indirect Prompt Injection              | GAP                         |
+| CH7       | 9007 | Token Theft via Info Disclosure        | DETECTED                    |
+| CH8       | 9008 | Arbitrary Code Execution               | Safe reflection             |
+| CH9       | 9009 | Command Injection (RCE)                | Safe reflection             |
+| CH10      | 9010 | Multi-Vector Attack Chain              | DETECTED                    |
+
+**Baseline Detection Rate**: 5/10 (50%) with basic `npm run assess`
+
+**Config Files** (SSE transport):
+
+```json
+// /tmp/dvmcp-ch1-config.json through /tmp/dvmcp-ch10-config.json
+{ "transport": "sse", "url": "http://localhost:900X/sse" }
+```
+
+**Quick Usage**:
+
+```bash
+# Run assessment against DVMCP challenge
+npm run assess -- --server dvmcp-ch2 --config /tmp/dvmcp-ch2-config.json
+
+# Run full assessment (includes TemporalAssessor for CH4)
+npm run assess:full -- --server dvmcp-ch4 --config /tmp/dvmcp-ch4-config.json
+```
+
+**Description Poisoning Patterns** (added to ToolAnnotationAssessor):
+
+The following DVMCP-specific patterns were added to detect description poisoning:
+
+- `override_auth_protocol` - Auth bypass phrases like "override-auth-protocol-555"
+- `internal_resource_uri` - Fake internal URIs like "company://confidential"
+- `get_secrets_call` - Function call patterns like "get_secrets()"
+- `master_password` - Credential references
+- `access_confidential` - "access the confidential" directives
+- `hidden_trigger_phrase` - Conditional trigger patterns
+
+**Test Suite**: `client/src/services/assessment/__tests__/DescriptionPoisoning-DVMCP.test.ts`
+
+**DVMCP Source**: `/home/bryan/mcp-servers/damn-vulnerable-mcp-server/`
+
 ## Assessment Result Analysis
 
 Every assessment run automatically saves results to `/tmp/inspector-assessment-{serverName}.json` for fast CLI-based analysis.
