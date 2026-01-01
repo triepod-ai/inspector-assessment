@@ -429,18 +429,13 @@ function createCallToolWrapper(client: Client) {
         arguments: params,
       });
 
-      // Convert SDK response to CompatibilityCallToolResult
-      // Use type guard instead of 'as any' for type safety
+      // Cast to CompatibilityCallToolResult - SDK types may have evolved
       return {
         content: response.content,
         isError: response.isError || false,
-        structuredContent:
-          "structuredContent" in response
-            ? (response as { structuredContent?: unknown }).structuredContent
-            : undefined,
-      };
+        structuredContent: (response as any).structuredContent,
+      } as CompatibilityCallToolResult;
     } catch (error) {
-      // Return error as CompatibilityCallToolResult
       return {
         content: [
           {
@@ -449,7 +444,7 @@ function createCallToolWrapper(client: Client) {
           },
         ],
         isError: true,
-      };
+      } as CompatibilityCallToolResult;
     }
   };
 }
@@ -675,7 +670,7 @@ async function runModule(
   const status = (result as { status?: string }).status || "PASS";
 
   // Calculate score using shared scoring logic
-  const score = calculateModuleScore(moduleName, result);
+  const score = calculateModuleScore(result);
 
   // Build enrichment for AUP module
   let enrichment;
