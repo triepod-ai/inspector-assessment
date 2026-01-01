@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.10] - 2026-01-01
+
+### Fixed
+
+- **PortabilityAssessor Windows Path False Positives**: Removed case-insensitive flag from Windows path regex
+  - Windows drive letters are always uppercase (C:, D:, etc.)
+  - The `/i` flag caused false positives when matching lowercase letters followed by colons in strings like `"Collections:\n\n"` where `s:\n` looked like a Windows path
+  - Changed regex from `/[A-Z]:\\[a-zA-Z0-9_\-.\\]+/gi` to `/g` only
+
 ## [1.20.9] - 2026-01-01
 
 ### Fixed
