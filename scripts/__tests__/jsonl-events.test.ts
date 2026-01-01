@@ -5,6 +5,7 @@
  * Tests all 5 event types and the extractToolParams helper.
  */
 
+import { jest } from "@jest/globals";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import {
   emitJSONL,
@@ -13,10 +14,10 @@ import {
   emitToolsDiscoveryComplete,
   emitAssessmentComplete,
   extractToolParams,
-} from "../lib/jsonl-events.js";
+} from "../lib/jsonl-events";
 
 describe("JSONL Event Helpers", () => {
-  let consoleErrorSpy: jest.SpyInstance;
+  let consoleErrorSpy: ReturnType<typeof jest.spyOn>;
 
   beforeEach(() => {
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
@@ -57,7 +58,7 @@ describe("JSONL Event Helpers", () => {
       emitJSONL({ event: "test" });
 
       const output = getLastEvent();
-      expect(output.version).toBe("1.11.0");
+      expect(output.version).toBe("1.20.2");
     });
   });
 
@@ -75,7 +76,7 @@ describe("JSONL Event Helpers", () => {
         serverName: "test-server",
         transport: "http",
       });
-      expect(event.version).toBe("1.11.0");
+      expect(event.version).toBe("1.20.2");
     });
 
     it("handles stdio transport", () => {
@@ -242,7 +243,7 @@ describe("JSONL Event Helpers", () => {
         event: "tools_discovery_complete",
         count: 17,
       });
-      expect(event.version).toBe("1.11.0");
+      expect(event.version).toBe("1.20.2");
     });
 
     it("handles zero tools", () => {
@@ -276,7 +277,7 @@ describe("JSONL Event Helpers", () => {
         executionTime: 5000,
         outputPath: "/tmp/results.json",
       });
-      expect(event.version).toBe("1.11.0");
+      expect(event.version).toBe("1.20.2");
     });
 
     it("includes correct overallStatus for PASS", () => {
@@ -454,7 +455,7 @@ describe("JSONL Event Helpers", () => {
 // ============================================================================
 
 describe("Valid JSON Output", () => {
-  let consoleErrorSpy: jest.SpyInstance;
+  let consoleErrorSpy: ReturnType<typeof jest.spyOn>;
 
   beforeEach(() => {
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});

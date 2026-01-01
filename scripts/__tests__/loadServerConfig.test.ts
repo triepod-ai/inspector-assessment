@@ -3,20 +3,26 @@
  *
  * Tests for the server configuration loading function in run-security-assessment.ts.
  * Validates flat configs, nested mcpServers format, and error handling.
+ *
+ * Uses jest.unstable_mockModule for proper ESM mocking.
  */
 
-import * as fs from "fs";
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 import * as os from "os";
 import * as path from "path";
 
-// Mock fs module before importing the function
-jest.mock("fs");
+// Create mock functions BEFORE setting up the mock module
+const mockExistsSync = jest.fn<(path: string) => boolean>();
+const mockReadFileSync = jest.fn<(path: string, encoding: string) => string>();
 
-// Import after mocking
-import { loadServerConfig, ServerConfig } from "../run-security-assessment.js";
+// Use unstable_mockModule for ESM - must be before dynamic import
+jest.unstable_mockModule("fs", () => ({
+  existsSync: mockExistsSync,
+  readFileSync: mockReadFileSync,
+}));
 
-const mockExistsSync = fs.existsSync as jest.Mock;
-const mockReadFileSync = fs.readFileSync as jest.Mock;
+// Dynamic import AFTER mock setup - this is required for ESM mocking
+const { loadServerConfig } = await import("../run-security-assessment.js");
 
 describe("loadServerConfig", () => {
   beforeEach(() => {

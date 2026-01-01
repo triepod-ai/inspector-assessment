@@ -1,5 +1,5 @@
 module.exports = {
-  preset: "ts-jest",
+  preset: "ts-jest/presets/default-esm",
   testEnvironment: "node",
   roots: ["<rootDir>"],
   testMatch: ["**/__tests__/**/*.ts", "**/?(*.)+(spec|test).ts"],
@@ -9,8 +9,8 @@ module.exports = {
       {
         tsconfig: {
           target: "ES2020",
-          module: "ESNext",
-          moduleResolution: "bundler",
+          module: "ES2022",
+          moduleResolution: "node",
           esModuleInterop: true,
           skipLibCheck: true,
           strict: false,
@@ -20,8 +20,11 @@ module.exports = {
       },
     ],
   },
+  moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
+    "^@/(.*)$": "<rootDir>/../client/src/$1",
   },
   extensionsToTreatAsEsm: [".ts"],
+  transformIgnorePatterns: ["node_modules/(?!(@modelcontextprotocol)/)"],
 };

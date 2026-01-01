@@ -979,7 +979,12 @@ async function main() {
   }
 }
 
-// Run if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run if executed directly (skip during Jest testing)
+// Use require.main check which works in both CJS and ESM contexts
+if (
+  typeof process.env.JEST_WORKER_ID === "undefined" &&
+  typeof require !== "undefined" &&
+  require.main === module
+) {
   main();
 }

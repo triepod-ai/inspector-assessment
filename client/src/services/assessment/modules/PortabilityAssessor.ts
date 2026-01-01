@@ -25,11 +25,12 @@ import type {
  */
 const ISSUE_PATTERNS = {
   // Absolute Unix paths (not ${__dirname})
+  // Note: /tmp/ excluded as it's a portable Unix standard directory
   absoluteUnixPath:
-    /(?<!\$\{__dirname\}|['"])\/(?:usr|home|var|etc|opt|tmp|Users|Applications)\/[^\s'"]+/g,
+    /(?<!\$\{__dirname\}|['"])\/(?:usr|home|var|etc|opt|Users|Applications)\/[^\s'"]+/g,
 
-  // Absolute Windows paths
-  absoluteWindowsPath: /[A-Z]:\\[^\s'"]+/gi,
+  // Absolute Windows paths (requires valid path chars, excludes escape sequences like \n, \t)
+  absoluteWindowsPath: /[A-Z]:\\[a-zA-Z0-9_\-.\\]+/gi,
 
   // User home directory references
   userHomePath: /(?:~\/|\/Users\/|\/home\/)[^\s'"]+/g,
@@ -211,11 +212,12 @@ export class PortabilityAssessor extends BaseAssessor {
       const unixPathMatches = cleanLine.match(ISSUE_PATTERNS.absoluteUnixPath);
       if (unixPathMatches) {
         for (const match of unixPathMatches) {
-          // Skip if it looks like a URL or comment
+          // Skip if it looks like a URL, comment, or shebang
           if (
             match.includes("://") ||
             line.trim().startsWith("//") ||
-            line.trim().startsWith("*")
+            line.trim().startsWith("*") ||
+            line.trim().startsWith("#!")
           ) {
             continue;
           }
