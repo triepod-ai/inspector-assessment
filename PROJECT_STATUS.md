@@ -396,3 +396,75 @@
 - Baseline matrix saved to /tmp/dvmcp-baseline-matrix.md
 
 ---
+
+## 2026-01-01: Fixed README Detection for Subdirectory Source Paths
+
+**Summary:** Fixed bug where README.md wasn't detected when --source points to subdirectory, published v1.20.9
+
+**Session Focus:** Investigating and fixing documentation assessment failures when MCP server source is in a subdirectory
+
+**Changes Made:**
+- `cli/src/assess-full.ts` (lines 178-211) - Added parent directory search for README.md (up to 3 levels)
+- `scripts/run-full-assessment.ts` (lines 178-211) - Same fix for local development script
+- `CHANGELOG.md` - Added entries for v1.20.7, v1.20.8, v1.20.9
+
+**Key Decisions:**
+- Search up to 3 parent directories for README.md when --source is a subdirectory
+- Maintain npm binary / local script parity (both files updated identically)
+- Used path traversal with isAbsolute() check to prevent escaping project root
+
+**Technical Details:**
+- Root cause: When --source pointed to `src/` or `server/`, the README at repo root was never found
+- Solution: After checking --source directory, walk up parent directories looking for README.md
+- Limit: 3 levels maximum to prevent excessive traversal
+- Published versions: v1.20.7 (mcpServers config fix), v1.20.8 (version bump), v1.20.9 (README fix)
+
+**Verification:**
+- Re-ran audit on memory-system-mcp with --source pointing to server/ subdirectory
+- Documentation assessment now shows PASS (100%) instead of previous failures
+- README.md content properly detected and analyzed
+
+**Next Steps:**
+- Consider detecting other common doc files (CONTRIBUTING.md, docs/ folder) with similar parent traversal
+- Add test coverage for parent directory README detection
+- Monitor for edge cases in other MCP server audits
+
+**Notes:**
+- Version 1.20.9 published to npm and verified working
+- Fix applies to both `mcp-assess-full` CLI binary and local `npm run assess-full` script
+- Parent directory search only triggers when README not found in --source directory
+
+---
+
+## 2026-01-01: Code Review Warning Remediation
+
+**Summary:** Addressed 3 code review warnings from code-reviewer-pro: unused variable removal, helpful error message for missing servers, and unit test creation for config loading
+
+**Session Focus:** Code review warning remediation - fixing issues identified by code-reviewer-pro agent analysis of recent commits
+
+**Changes Made:**
+- `client/src/services/__tests__/assessmentService.bugReport.test.ts` - Removed unused `paramStr` variable, renamed param to `_params`
+- `scripts/run-security-assessment.ts` - Added helpful error when server not found in mcpServers (shows available servers), exported `loadServerConfig` and `ServerConfig` for testing, added type assertions for config properties
+- `scripts/__tests__/loadServerConfig.test.ts` - NEW: Created unit test file with 9 test scenarios covering flat configs, nested mcpServers format, and error handling
+
+**Key Decisions:**
+- Only `run-security-assessment.ts` needed the mcpServers fix (other implementations use multi-path loop approach)
+- Exported function and interface for direct unit testing rather than integration tests
+- Added type assertions to fix pre-existing TypeScript warnings exposed by export
+
+**Technical Details:**
+- Error message improvement: "Server 'missing-server' not found in mcpServers. Available: other-server, another-server"
+- Test coverage: 9 scenarios including flat configs, nested mcpServers format, and error handling
+- Build succeeds, client tests pass (11/13, 2 pre-existing failures)
+
+**Next Steps:**
+- Fix pre-existing TypeScript errors in scripts/run-security-assessment.ts (lines 428, 672) blocking scripts test suite
+- Commit changes when ready
+- Consider similar error message improvements for other config loaders
+
+**Notes:**
+- Manual verification confirmed helpful error message displays available servers
+- Unit tests cover both flat config format and nested mcpServers config structure
+- Changes isolated to scripts and test files - no impact on core assessment modules
+
+---

@@ -254,7 +254,7 @@ import type { ProgressEvent } from "../client/src/lib/assessmentTypes.js";
 
 // ============================================================================
 
-interface ServerConfig {
+export interface ServerConfig {
   transport?: "stdio" | "http" | "sse";
   // For stdio transport
   command?: string;
@@ -276,8 +276,9 @@ interface AssessmentOptions {
 
 /**
  * Load server configuration from Claude Code's MCP settings
+ * @exported for unit testing
  */
-function loadServerConfig(
+export function loadServerConfig(
   serverName: string,
   configPath?: string,
 ): ServerConfig {
@@ -305,6 +306,11 @@ function loadServerConfig(
     const mcpServers = rawConfig.mcpServers as Record<string, unknown>;
     if (mcpServers[serverName] && typeof mcpServers[serverName] === "object") {
       config = mcpServers[serverName] as Record<string, unknown>;
+    } else if (Object.keys(mcpServers).length > 0) {
+      const availableServers = Object.keys(mcpServers).join(", ");
+      throw new Error(
+        `Server '${serverName}' not found in mcpServers. Available: ${availableServers}`,
+      );
     }
   }
 
@@ -316,8 +322,8 @@ function loadServerConfig(
       );
     }
     return {
-      transport: config.transport || "http",
-      url: config.url,
+      transport: (config.transport as "http" | "sse") || "http",
+      url: config.url as string,
     };
   }
 
@@ -328,9 +334,9 @@ function loadServerConfig(
 
   return {
     transport: "stdio",
-    command: config.command,
-    args: config.args || [],
-    env: config.env || {},
+    command: config.command as string,
+    args: (config.args as string[]) || [],
+    env: (config.env as Record<string, string>) || {},
   };
 }
 

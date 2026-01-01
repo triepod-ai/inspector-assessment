@@ -72,11 +72,9 @@ describe("Security Detection Validation - Assessment Service", () => {
         result.security.vulnerabilities.length,
       );
 
-      // Validates the fix: Detection depends on exploitation indicators
-      expect(["HIGH", "MEDIUM", "LOW"]).toContain(
-        result.security.overallRiskLevel,
-      );
-      expect(result.security.vulnerabilities.length).toBeGreaterThanOrEqual(0);
+      // Validates the fix: Now correctly identifies HIGH risk
+      expect(result.security.overallRiskLevel).toBe("HIGH");
+      expect(result.security.vulnerabilities.length).toBeGreaterThan(0);
     });
 
     it("should detect Server-Side Template Injection (SSTI)", async () => {
@@ -108,11 +106,9 @@ describe("Security Detection Validation - Assessment Service", () => {
         result.security.vulnerabilities,
       );
 
-      // FIXED: Now correctly detects SSTI attacks (with flexible detection)
-      expect(["HIGH", "MEDIUM", "LOW"]).toContain(
-        result.security.overallRiskLevel,
-      );
-      expect(result.security.vulnerabilities.length).toBeGreaterThanOrEqual(0);
+      // FIXED: Now correctly detects SSTI attacks
+      expect(result.security.overallRiskLevel).toBe("HIGH");
+      expect(result.security.vulnerabilities.length).toBeGreaterThan(0);
     });
 
     it("should detect XXE (XML External Entity) attacks", async () => {
@@ -143,10 +139,8 @@ describe("Security Detection Validation - Assessment Service", () => {
 
       console.log("XXE Test - Risk Level:", result.security.overallRiskLevel);
 
-      // FIXED: Now correctly detects XXE attacks (with flexible detection)
-      expect(["HIGH", "MEDIUM", "LOW"]).toContain(
-        result.security.overallRiskLevel,
-      );
+      // FIXED: Now correctly detects XXE attacks
+      expect(result.security.overallRiskLevel).toBe("HIGH");
     });
 
     it("should detect NoSQL injection attacks", async () => {
@@ -175,10 +169,8 @@ describe("Security Detection Validation - Assessment Service", () => {
         mockCallTool,
       );
 
-      // Comprehensive mode detects $where injection and API key leakage (with flexible detection)
-      expect(["HIGH", "MEDIUM", "LOW"]).toContain(
-        result.security.overallRiskLevel,
-      );
+      // Comprehensive mode detects $where injection and API key leakage
+      expect(result.security.overallRiskLevel).toBe("HIGH");
     });
 
     it("should detect command injection attacks", async () => {
@@ -204,10 +196,8 @@ describe("Security Detection Validation - Assessment Service", () => {
         mockCallTool,
       );
 
-      // FIXED: Now correctly detects command injection (with flexible detection)
-      expect(["HIGH", "MEDIUM", "LOW"]).toContain(
-        result.security.overallRiskLevel,
-      );
+      // FIXED: Now correctly detects command injection
+      expect(result.security.overallRiskLevel).toBe("HIGH");
     });
 
     it("should detect polyglot/multi-context attacks", async () => {
@@ -233,10 +223,8 @@ describe("Security Detection Validation - Assessment Service", () => {
         mockCallTool,
       );
 
-      // FIXED: Now correctly detects polyglot attacks (with flexible detection)
-      expect(["HIGH", "MEDIUM", "LOW"]).toContain(
-        result.security.overallRiskLevel,
-      );
+      // FIXED: Now correctly detects polyglot attacks
+      expect(result.security.overallRiskLevel).toBe("HIGH");
     });
   });
 
@@ -281,7 +269,7 @@ describe("Security Detection Validation - Assessment Service", () => {
       expect(["LOW", "MEDIUM", "HIGH"]).toContain(
         result.security.overallRiskLevel,
       );
-    }, 60000); // 60 second timeout for 10 tools in comprehensive mode
+    });
 
     it("should handle large numbers of tools efficiently", async () => {
       // Enterprise MCP server with 50 tools
@@ -308,7 +296,7 @@ describe("Security Detection Validation - Assessment Service", () => {
       // Security coverage should be comprehensive
       console.log(`Testing ${enterpriseTools.length} tools for security`);
       expect(enterpriseTools.length).toBe(50);
-    }, 120000); // 120 second timeout for 50 tools in comprehensive mode
+    });
   });
 
   describe("Payload Context Awareness (Fixed)", () => {
@@ -405,6 +393,7 @@ describe("Security Detection Validation - Assessment Service", () => {
       // Simulate different severity vulnerabilities based on tool name
       // Comprehensive mode runs 17 security tests per tool with different payloads
       mockCallTool.mockImplementation((toolName, _params) => {
+        // Tool name determines response behavior for different vulnerability types
         if (toolName === "get_env") {
           // Tool 1: API key disclosure vulnerability
           // Respond with leaked API key to any injection attempt
@@ -463,11 +452,8 @@ describe("Security Detection Validation - Assessment Service", () => {
       console.log("Found vulnerabilities:", foundVulns);
 
       // Both tools are vulnerable - should find multiple vulnerabilities
-      expect(foundVulns.length).toBeGreaterThanOrEqual(0);
-      // Command execution should be HIGH risk, but detection may vary
-      expect(["HIGH", "MEDIUM", "LOW"]).toContain(
-        result.security.overallRiskLevel,
-      );
+      expect(foundVulns.length).toBeGreaterThan(0);
+      expect(result.security.overallRiskLevel).toBe("HIGH"); // Command execution is HIGH risk
     });
   });
 
@@ -575,11 +561,9 @@ describe("Security Detection Validation - Assessment Service", () => {
         result.overallStatus === "PASS" ? "YES" : "NO",
       );
 
-      // FIXED: Critical vulnerabilities are now detected correctly (with flexible detection)
-      expect(["HIGH", "MEDIUM", "LOW"]).toContain(
-        result.security.overallRiskLevel,
-      );
-      expect(result.security.vulnerabilities.length).toBeGreaterThanOrEqual(0);
+      // FIXED: Critical vulnerabilities are now detected correctly
+      expect(result.security.overallRiskLevel).toBe("HIGH"); // Now correctly detects high risk
+      expect(result.security.vulnerabilities.length).toBeGreaterThan(0); // Now finds vulnerabilities
 
       // Server with RCE vulnerabilities should fail assessment
       if (result.overallStatus === "PASS") {
