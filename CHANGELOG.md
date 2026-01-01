@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.11] - 2026-01-01
+
+### Added
+
+- **Gitignore Support for Source File Loading**: Assessment now respects `.gitignore` patterns
+  - Parses `.gitignore` from source directory and skips matching files
+  - Prevents false positives from local config files that are gitignored (e.g., `.claude/settings.local.json`)
+  - Applied to both `scripts/run-full-assessment.ts` and `cli/src/assess-full.ts`
+
+- **Expanded Source File Types for Portability Analysis**: Now includes `.json`, `.sh`, `.yaml`, `.yml`
+  - Enables comprehensive portability scanning of config files and shell scripts
+  - Previously only scanned `.ts`, `.js`, `.py`, `.go`, `.rs` files
+
 ## [1.20.10] - 2026-01-01
 
 ### Fixed
