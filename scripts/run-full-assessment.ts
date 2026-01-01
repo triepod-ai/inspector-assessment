@@ -175,13 +175,38 @@ function loadSourceFiles(sourcePath: string): {
 } {
   const result: any = {};
 
-  // Load README
+  // Search for README in source directory and parent directories (up to 3 levels)
+  // This handles cases where --source points to a subdirectory but README is at repo root
   const readmePaths = ["README.md", "readme.md", "Readme.md"];
+  let readmeFound = false;
+
+  // First try the source directory itself
   for (const readmePath of readmePaths) {
     const fullPath = path.join(sourcePath, readmePath);
     if (fs.existsSync(fullPath)) {
       result.readmeContent = fs.readFileSync(fullPath, "utf-8");
+      readmeFound = true;
       break;
+    }
+  }
+
+  // If not found, search parent directories (up to 3 levels)
+  if (!readmeFound) {
+    let currentDir = sourcePath;
+    for (let i = 0; i < 3; i++) {
+      const parentDir = path.dirname(currentDir);
+      if (parentDir === currentDir) break; // Reached filesystem root
+
+      for (const readmePath of readmePaths) {
+        const fullPath = path.join(parentDir, readmePath);
+        if (fs.existsSync(fullPath)) {
+          result.readmeContent = fs.readFileSync(fullPath, "utf-8");
+          readmeFound = true;
+          break;
+        }
+      }
+      if (readmeFound) break;
+      currentDir = parentDir;
     }
   }
 
