@@ -30,7 +30,8 @@ const ISSUE_PATTERNS = {
     /(?<!\$\{__dirname\}|['"])\/(?:usr|home|var|etc|opt|Users|Applications)\/[^\s'"]+/g,
 
   // Absolute Windows paths (requires valid path chars, excludes escape sequences like \n, \t)
-  absoluteWindowsPath: /[A-Z]:\\[a-zA-Z0-9_\-.\\]+/gi,
+  // Note: Windows drive letters are always uppercase, so /i flag removed to avoid false positives
+  absoluteWindowsPath: /[A-Z]:\\[a-zA-Z0-9_\-.\\]+/g,
 
   // User home directory references
   userHomePath: /(?:~\/|\/Users\/|\/home\/)[^\s'"]+/g,
