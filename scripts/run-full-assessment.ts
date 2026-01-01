@@ -229,7 +229,45 @@ function loadSourceFiles(sourcePath: string): {
 
   // Load source code files for deep analysis
   result.sourceCodeFiles = new Map<string, string>();
-  const sourceExtensions = [".ts", ".js", ".py", ".go", ".rs"];
+  // Include config files for portability analysis
+  const sourceExtensions = [
+    ".ts",
+    ".js",
+    ".py",
+    ".go",
+    ".rs",
+    ".json",
+    ".sh",
+    ".yaml",
+    ".yml",
+  ];
+
+  // Parse .gitignore patterns
+  const gitignorePatterns: RegExp[] = [];
+  const gitignorePath = path.join(sourcePath, ".gitignore");
+  if (fs.existsSync(gitignorePath)) {
+    const gitignoreContent = fs.readFileSync(gitignorePath, "utf-8");
+    for (const line of gitignoreContent.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      // Convert gitignore pattern to regex
+      const pattern = trimmed
+        .replace(/\./g, "\\.")
+        .replace(/\*\*/g, ".*")
+        .replace(/\*/g, "[^/]*")
+        .replace(/\?/g, ".");
+      try {
+        gitignorePatterns.push(new RegExp(pattern));
+      } catch {
+        // Skip invalid patterns
+      }
+    }
+  }
+
+  const isGitignored = (relativePath: string): boolean => {
+    return gitignorePatterns.some((pattern) => pattern.test(relativePath));
+  };
+
   const loadSourceDir = (dir: string, prefix: string = "") => {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
@@ -237,6 +275,9 @@ function loadSourceFiles(sourcePath: string): {
 
       const fullPath = path.join(dir, entry.name);
       const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+
+      // Skip gitignored files
+      if (isGitignored(relativePath)) continue;
 
       if (entry.isDirectory()) {
         loadSourceDir(fullPath, relativePath);
