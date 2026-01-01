@@ -156,6 +156,17 @@ export interface CodeExample {
   exampleType?: "functional" | "install" | "config" | "implementation";
 }
 
+/**
+ * Represents a tool with missing or inadequate documentation.
+ * Used to identify documentation gaps for tool descriptions.
+ */
+export interface ToolDocGap {
+  toolName: string;
+  issue: "missing" | "too_short";
+  descriptionLength: number;
+  documentedInReadme: boolean;
+}
+
 export interface DocumentationMetrics {
   hasReadme: boolean;
   exampleCount: number;
@@ -182,6 +193,13 @@ export interface DocumentationMetrics {
   }>;
   // NEW: Full content (verbose mode only, truncated to 5000 chars)
   readmeContent?: string;
+  // NEW: Always computed aggregates (not gated by verbosity)
+  /** Count of tools with descriptions >= 50 characters */
+  toolsWithDescriptions: number;
+  /** Total number of tools analyzed */
+  toolsTotal: number;
+  /** Tools with missing or inadequate (<50 chars) descriptions */
+  toolDocGaps: ToolDocGap[];
 }
 
 export interface ErrorTestDetail {

@@ -709,12 +709,28 @@ const c = 3;
       expect(result.metrics.extractedExamples?.[0].lineCount).toBe(3);
     });
 
-    it("should exclude readmeContent in standard verbosity (default)", async () => {
-      // Arrange
+    it("should include readmeContent in verbose verbosity (default)", async () => {
+      // Arrange - default verbosity is "verbose" (see DocumentationAssessor.ts line 23)
       mockContext.readmeContent = "Hello world";
 
       // Act
       const result = await assessor.assess(mockContext);
+
+      // Assert - verbose mode includes readmeContent
+      expect(result.metrics.readmeContent).toBe("Hello world");
+      expect(result.metrics.readmeLength).toBe(11);
+    });
+
+    it("should exclude readmeContent in standard verbosity", async () => {
+      // Arrange
+      const standardConfig = createMockAssessmentConfig({
+        documentationVerbosity: "standard",
+      });
+      const standardAssessor = new DocumentationAssessor(standardConfig);
+      mockContext.readmeContent = "Hello world";
+
+      // Act
+      const result = await standardAssessor.assess(mockContext);
 
       // Assert
       expect(result.metrics.readmeContent).toBeUndefined();
@@ -798,6 +814,206 @@ echo "Hello World"
       expect(result.metrics.readmeWordCount).toBe(0);
       expect(result.metrics.sectionHeadings).toEqual([]);
       expect(result.metrics.readmeContent).toBeUndefined();
+    });
+  });
+
+  describe("tool documentation aggregates", () => {
+    it("should compute toolsTotal as number of tools", async () => {
+      // Arrange
+      mockContext.tools = [
+        createMockTool({ name: "tool1" }),
+        createMockTool({ name: "tool2" }),
+        createMockTool({ name: "tool3" }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.toolsTotal).toBe(3);
+    });
+
+    it("should compute toolsWithDescriptions for adequate descriptions (>=50 chars)", async () => {
+      // Arrange - 50 chars is the threshold
+      const adequateDescription =
+        "This is a tool description that is exactly fifty characters long."; // 66 chars
+      const shortDescription = "Short desc"; // 10 chars
+
+      mockContext.tools = [
+        createMockTool({ name: "tool1", description: adequateDescription }),
+        createMockTool({ name: "tool2", description: shortDescription }),
+        createMockTool({
+          name: "tool3",
+          description:
+            "Another adequate description that meets the minimum length requirement.",
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.toolsWithDescriptions).toBe(2); // Only 2 have >=50 chars
+      expect(result.metrics.toolsTotal).toBe(3);
+    });
+
+    it("should identify missing descriptions in toolDocGaps", async () => {
+      // Arrange
+      mockContext.tools = [
+        createMockTool({ name: "tool1", description: "" }),
+        createMockTool({ name: "tool2", description: undefined }),
+        createMockTool({
+          name: "tool3",
+          description:
+            "A long enough description that meets the minimum requirement.",
+        }),
+      ];
+      mockContext.readmeContent = "# Tools\n\n## tool1\nDocumented in README.";
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.toolDocGaps).toHaveLength(2);
+      expect(result.metrics.toolDocGaps[0]).toMatchObject({
+        toolName: "tool1",
+        issue: "missing",
+        descriptionLength: 0,
+        documentedInReadme: true,
+      });
+      expect(result.metrics.toolDocGaps[1]).toMatchObject({
+        toolName: "tool2",
+        issue: "missing",
+        descriptionLength: 0,
+        documentedInReadme: false,
+      });
+    });
+
+    it("should identify too_short descriptions in toolDocGaps", async () => {
+      // Arrange
+      mockContext.tools = [
+        createMockTool({ name: "tool1", description: "Short" }), // 5 chars
+        createMockTool({
+          name: "tool2",
+          description: "A slightly longer but still too short description",
+        }), // 49 chars
+        createMockTool({
+          name: "tool3",
+          description: "A description that is exactly fifty characters!!!!", // 50 chars - should pass
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.toolDocGaps).toHaveLength(2);
+      expect(result.metrics.toolDocGaps[0]).toMatchObject({
+        toolName: "tool1",
+        issue: "too_short",
+        descriptionLength: 5,
+      });
+      expect(result.metrics.toolDocGaps[1]).toMatchObject({
+        toolName: "tool2",
+        issue: "too_short",
+        descriptionLength: 49,
+      });
+      expect(result.metrics.toolsWithDescriptions).toBe(1);
+    });
+
+    it("should compute aggregates even at minimal verbosity", async () => {
+      // Arrange
+      const minimalConfig = createMockAssessmentConfig({
+        documentationVerbosity: "minimal",
+      });
+      const minimalAssessor = new DocumentationAssessor(minimalConfig);
+      mockContext.tools = [
+        createMockTool({ name: "tool1", description: "" }),
+        createMockTool({
+          name: "tool2",
+          description:
+            "A long enough description that meets the minimum requirement.",
+        }),
+      ];
+
+      // Act
+      const result = await minimalAssessor.assess(mockContext);
+
+      // Assert - aggregates should still be computed
+      expect(result.metrics.toolsTotal).toBe(2);
+      expect(result.metrics.toolsWithDescriptions).toBe(1);
+      expect(result.metrics.toolDocGaps).toHaveLength(1);
+      // But detailed toolDocumentation should be undefined
+      expect(result.metrics.toolDocumentation).toBeUndefined();
+    });
+
+    it("should handle no tools gracefully", async () => {
+      // Arrange
+      mockContext.tools = [];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.toolsTotal).toBe(0);
+      expect(result.metrics.toolsWithDescriptions).toBe(0);
+      expect(result.metrics.toolDocGaps).toEqual([]);
+    });
+
+    it("should handle undefined tools gracefully", async () => {
+      // Arrange
+      mockContext.tools = undefined as any;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.toolsTotal).toBe(0);
+      expect(result.metrics.toolsWithDescriptions).toBe(0);
+      expect(result.metrics.toolDocGaps).toEqual([]);
+    });
+
+    it("should include documentedInReadme in toolDocGaps", async () => {
+      // Arrange
+      mockContext.tools = [
+        createMockTool({ name: "documented_tool", description: "short" }),
+        createMockTool({ name: "undocumented_tool", description: "short" }),
+      ];
+      mockContext.readmeContent =
+        "# API\n\n## documented_tool\nThis tool is documented.";
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.toolDocGaps).toHaveLength(2);
+      const documentedGap = result.metrics.toolDocGaps.find(
+        (g) => g.toolName === "documented_tool",
+      );
+      const undocumentedGap = result.metrics.toolDocGaps.find(
+        (g) => g.toolName === "undocumented_tool",
+      );
+      expect(documentedGap?.documentedInReadme).toBe(true);
+      expect(undocumentedGap?.documentedInReadme).toBe(false);
+    });
+
+    it("should count exactly 50 chars as adequate", async () => {
+      // Arrange - boundary test
+      const exactly50Chars = "x".repeat(50);
+      const exactly49Chars = "x".repeat(49);
+
+      mockContext.tools = [
+        createMockTool({ name: "tool1", description: exactly50Chars }),
+        createMockTool({ name: "tool2", description: exactly49Chars }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.metrics.toolsWithDescriptions).toBe(1);
+      expect(result.metrics.toolDocGaps).toHaveLength(1);
+      expect(result.metrics.toolDocGaps[0].toolName).toBe("tool2");
     });
   });
 });

@@ -235,6 +235,10 @@ export class MCPAssessmentService {
       extractedExamples: extractedExamples.slice(0, 5), // Limit to first 5 examples
       installInstructions: installInstructions?.substring(0, 500), // Limit length
       usageInstructions: usageInstructions?.substring(0, 500), // Limit length
+      // Tool documentation aggregates (always computed)
+      toolsWithDescriptions: 0,
+      toolsTotal: 0,
+      toolDocGaps: [] as import("@/lib/assessmentTypes").ToolDocGap[],
     };
 
     if (metrics.exampleCount < metrics.requiredExamples) {
@@ -1090,6 +1094,9 @@ export class MCPAssessmentService {
         hasInstallInstructions: false,
         hasUsageGuide: false,
         hasAPIReference: false,
+        toolsWithDescriptions: 0,
+        toolsTotal: 0,
+        toolDocGaps: [],
       },
       explanation: "Documentation assessment skipped",
     };

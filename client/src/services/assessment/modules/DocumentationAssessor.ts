@@ -8,6 +8,7 @@ import {
   DocumentationMetrics,
   CodeExample,
   AssessmentStatus,
+  ToolDocGap,
 } from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
@@ -75,12 +76,20 @@ export class DocumentationAssessor extends BaseAssessor {
     // NEW: Build tool documentation status array for standard+ verbosity
     const toolDocumentation: DocumentationMetrics["toolDocumentation"] = [];
 
+    // NEW: Always computed aggregates (not gated by verbosity)
+    const ADEQUATE_DESCRIPTION_LENGTH = 50;
+    let toolsWithDescriptions = 0;
+    const toolDocGaps: ToolDocGap[] = [];
+
     if (tools && tools.length > 0) {
       // Check each tool for documentation
       for (const tool of tools) {
         const toolName = tool.name;
         const description = tool.description?.trim() || "";
-        const hasDescription = description.length > 0;
+        const descriptionLength = description.length;
+        const hasDescription = descriptionLength > 0;
+        const hasAdequateDescription =
+          descriptionLength >= ADEQUATE_DESCRIPTION_LENGTH;
 
         // Check if tool is mentioned in headings (any level) or code examples
         const headingRegex = new RegExp(`^#{1,6}\\s+${toolName}`, "mi");
@@ -100,12 +109,24 @@ export class DocumentationAssessor extends BaseAssessor {
           missingExamples.push(toolName);
         }
 
+        // NEW: Always compute tool description aggregates (not gated by verbosity)
+        if (hasAdequateDescription) {
+          toolsWithDescriptions++;
+        } else {
+          toolDocGaps.push({
+            toolName,
+            issue: descriptionLength === 0 ? "missing" : "too_short",
+            descriptionLength,
+            documentedInReadme,
+          });
+        }
+
         // Build tool documentation status for standard+ verbosity
         if (verbosity !== "minimal") {
           toolDocumentation.push({
             name: toolName,
             hasDescription,
-            descriptionLength: description.length,
+            descriptionLength,
             documentedInReadme,
             // Include actual description text (truncated) for Claude analysis
             description: hasDescription ? description.slice(0, 200) : undefined,
@@ -159,6 +180,10 @@ export class DocumentationAssessor extends BaseAssessor {
       usageInstructions: hasUsageGuide
         ? this.extractSection(content, "usage")
         : undefined,
+      // NEW: Always computed aggregates (not gated by verbosity)
+      toolsWithDescriptions,
+      toolsTotal: tools?.length || 0,
+      toolDocGaps,
     };
 
     // Add standard+ verbosity fields
