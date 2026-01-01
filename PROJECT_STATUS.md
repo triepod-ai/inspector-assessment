@@ -2,7 +2,55 @@
 
 ## Current Version
 
-- **Version**: 1.20.4 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.21.0 (published to npm as "@bryan-thompson/inspector-assessment")
+
+---
+
+## 2026-01-01: mcp-auditor Extraction Function Property Alignment
+
+**Summary:** Fixed 8 property mismatches across 8 extraction functions in mcp-auditor that were causing empty/incorrect findings and issues arrays for Claude Stage B analysis.
+
+**Session Focus:** Audit of mcp-auditor data transformation layer against inspector TypeScript type definitions.
+
+**Root Cause:** The mcp-auditor extraction functions in `audit-worker.js` were using property names that didn't exist in inspector's `assessmentTypes.ts`, causing data extraction to silently fail.
+
+**Bugs Fixed (mcp-auditor repo):**
+
+| Commit | Function | Wrong Property | Correct Property |
+|--------|----------|----------------|------------------|
+| `a136d58a` | `extractMcpSpecComplianceFindings` | `c.status === 'PASS'` | `c.passed === true` |
+| `a136d58a` | `extractMcpSpecComplianceIssues` | `check.status !== 'PASS'` | `check.passed === false` |
+| `9cad3857` | `extractTemporalFindings` | `mod.testsRun` | `mod.toolsTested` |
+| `9cad3857` | `extractTemporalIssues` | `mod.issues` | `mod.details` |
+| `123c3e90` | `extractUsabilityIssues` | `mod.toolAnnotationResults` | `mod.toolResults` |
+| `123c3e90` | `extractUsabilityIssues` | `t.hasAnnotation` | `t.hasAnnotations` |
+| `123c3e90` | `extractManifestValidationIssues` | `result.status` | `result.valid` |
+| `123c3e90` | `extractManifestValidationIssues` | `result.message` | `result.issue` |
+| `123c3e90` | `extractPortabilityIssues` | `mod.findings` | `mod.issues` |
+| `123c3e90` | `extractResourcesIssues` | `mod.resourceResults` | `mod.results` |
+| `123c3e90` | `extractPromptsIssues` | `mod.promptResults` | `mod.results` |
+| `123c3e90` | `extractCrossCapabilityIssues` | `mod.crossCapabilityResults` | `mod.results` |
+
+**Verification:**
+- Ran full assessment against vulnerable-mcp testbed
+- All modules now correctly extract findings and issues
+- MCP Spec Compliance: 6/6 checks passed (was showing 0/6)
+- Temporal: Correctly shows `toolsTested: 29`, `rugPullsDetected: 1`
+- Tool Annotations: `toolResults` array accessible (29 items)
+- Portability: `issues` array accessible
+
+**Files Modified (mcp-auditor):**
+- `server/workers/audit-worker.js` - 8 extraction functions fixed
+
+**Key Insight:** The bug pattern was consistent - mcp-auditor was written against assumed/outdated property names rather than the actual TypeScript interfaces in inspector. A systematic audit comparing all extraction functions against `assessmentTypes.ts` revealed the full scope.
+
+**Next Steps:**
+- Consider adding TypeScript types to mcp-auditor to catch these mismatches at compile time
+- Add integration tests that validate extraction output against expected type shapes
+
+---
+
+## Previous: 1.20.4
 
 **Summary:** npm binary now has full JSONL event parity with local script, plus bug fix for mcpServers http transport config.
 
