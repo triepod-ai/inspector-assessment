@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.9] - 2026-01-01
+
+### Fixed
+
+- **README Detection for Subdirectory MCP Servers**: Fixed bug where README.md was not detected when `--source` points to a subdirectory
+  - Inspector now searches up to 3 parent directories for README files
+  - Handles common case where MCP server code is in `src/`, `server/`, or `*-mcp/` but README.md is at repo root
+  - Fix applied to both `cli/src/assess-full.ts` and `scripts/run-full-assessment.ts`
+
+## [1.20.8] - 2025-12-31
+
+### Fixed
+
+- **Nested mcpServers Config Structure**: Fixed support for nested `mcpServers` config wrapper format
+
+## [1.20.7] - 2025-12-31
+
+- Version bump release
+
 ## [1.20.6] - 2025-12-31
 
 ### Fixed
