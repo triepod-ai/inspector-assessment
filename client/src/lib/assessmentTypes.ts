@@ -177,6 +177,8 @@ export interface DocumentationMetrics {
     hasDescription: boolean;
     descriptionLength: number;
     documentedInReadme: boolean;
+    /** Actual description text (truncated to 200 chars) for Claude analysis */
+    description?: string;
   }>;
   // NEW: Full content (verbose mode only, truncated to 5000 chars)
   readmeContent?: string;

@@ -19,7 +19,8 @@ export class DocumentationAssessor extends BaseAssessor {
     const readmeContent = context.readmeContent || "";
     const validVerbosityLevels = ["minimal", "standard", "verbose"] as const;
     const configVerbosity = this.config.documentationVerbosity;
-    let verbosity: "minimal" | "standard" | "verbose" = "standard";
+    // Default to verbose to include readmeContent for Claude analysis
+    let verbosity: "minimal" | "standard" | "verbose" = "verbose";
 
     if (configVerbosity) {
       if (
@@ -31,7 +32,7 @@ export class DocumentationAssessor extends BaseAssessor {
       } else {
         this.log(
           `Warning: Invalid documentationVerbosity "${configVerbosity}". ` +
-            `Valid options: ${validVerbosityLevels.join(", ")}. Using "standard".`,
+            `Valid options: ${validVerbosityLevels.join(", ")}. Using "verbose".`,
         );
       }
     }
@@ -106,6 +107,8 @@ export class DocumentationAssessor extends BaseAssessor {
             hasDescription,
             descriptionLength: description.length,
             documentedInReadme,
+            // Include actual description text (truncated) for Claude analysis
+            description: hasDescription ? description.slice(0, 200) : undefined,
           });
         }
       }
