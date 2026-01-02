@@ -353,8 +353,13 @@ export class ResourceAssessor extends BaseAssessor {
         `Resource URI matches sensitive file pattern: ${resource.uri}`,
       );
       result.sensitiveDataExposed = true;
-      // Update classification if sensitive
-      result.dataClassification = "confidential";
+      // Update classification if sensitive (only upgrade, don't downgrade from restricted)
+      if (
+        result.dataClassification !== "restricted" &&
+        result.dataClassification !== "confidential"
+      ) {
+        result.dataClassification = "confidential";
+      }
     }
 
     // Try to read the resource if readResource function is provided
@@ -380,13 +385,18 @@ export class ResourceAssessor extends BaseAssessor {
         // NEW: Detect sensitive patterns with severity (Issue #9)
         if (content) {
           result.sensitivePatterns = this.detectSensitivePatterns(content);
-          // Upgrade classification if critical patterns found
-          if (result.sensitivePatterns.some((p) => p.severity === "critical")) {
+          // Upgrade classification if patterns found (only upgrade, never downgrade)
+          if (
+            result.sensitivePatterns.some(
+              (p) => p.detected && p.severity === "critical",
+            )
+          ) {
             result.dataClassification = "restricted";
           } else if (
             result.sensitivePatterns.some(
               (p) => p.detected && p.severity === "high",
-            )
+            ) &&
+            result.dataClassification !== "restricted"
           ) {
             result.dataClassification = "confidential";
           }
@@ -437,8 +447,6 @@ export class ResourceAssessor extends BaseAssessor {
     requiresAuth: boolean;
     authType?: string;
   } {
-    const lowerUri = uri.toLowerCase();
-
     // Check for protected/private paths
     if (/\/private\/|\/protected\/|\/secure\/|\/admin\//i.test(uri)) {
       return { requiresAuth: true, authType: "unknown" };
@@ -455,7 +463,7 @@ export class ResourceAssessor extends BaseAssessor {
     }
 
     // Check for public paths
-    if (/\/public\/|\/static\/|\/assets\//i.test(lowerUri)) {
+    if (/\/public\/|\/static\/|\/assets\//i.test(uri)) {
       return { requiresAuth: false };
     }
 
@@ -469,8 +477,6 @@ export class ResourceAssessor extends BaseAssessor {
   private inferDataClassification(
     uri: string,
   ): "public" | "internal" | "confidential" | "restricted" {
-    const lowerUri = uri.toLowerCase();
-
     // Restricted: highly sensitive
     if (/secret|credential|key|password|token|\.pem|\.key|id_rsa/i.test(uri)) {
       return "restricted";
@@ -482,7 +488,7 @@ export class ResourceAssessor extends BaseAssessor {
     }
 
     // Public: explicitly public
-    if (/\/public\/|\/static\/|\/assets\/|\/docs\//i.test(lowerUri)) {
+    if (/\/public\/|\/static\/|\/assets\/|\/docs\//i.test(uri)) {
       return "public";
     }
 

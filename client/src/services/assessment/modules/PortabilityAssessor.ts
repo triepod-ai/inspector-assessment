@@ -298,17 +298,19 @@ export class PortabilityAssessor extends BaseAssessor {
       }
     }
 
-    // Scan all content for shell commands
-    const fullContent = contentsToScan.join("\n");
+    // Scan content for shell commands with early termination per pattern
     for (const patternDef of SHELL_COMMAND_PATTERNS) {
-      // Reset lastIndex for global patterns
-      patternDef.pattern.lastIndex = 0;
-      if (patternDef.pattern.test(fullContent)) {
-        commands.set(patternDef.command, {
-          command: patternDef.command,
-          isPortable: patternDef.isPortable,
-          alternativeCommand: patternDef.alternativeCommand,
-        });
+      for (const content of contentsToScan) {
+        // Reset lastIndex for global patterns
+        patternDef.pattern.lastIndex = 0;
+        if (patternDef.pattern.test(content)) {
+          commands.set(patternDef.command, {
+            command: patternDef.command,
+            isPortable: patternDef.isPortable,
+            alternativeCommand: patternDef.alternativeCommand,
+          });
+          break; // Found once, no need to check other content pieces
+        }
       }
     }
 
@@ -367,14 +369,19 @@ export class PortabilityAssessor extends BaseAssessor {
       if (!missing.includes("macos")) missing.push("macos");
     }
 
-    // Determine supported platforms
+    // Determine supported platforms with explicit precedence
     let supported: "all" | "windows" | "macos" | "linux" = "all";
     if (missing.length > 0) {
-      // Determine the primary supported platform
-      if (hasUnixPaths || hasDarwinSpecific || hasLinuxSpecific) {
-        supported = hasLinuxSpecific ? "linux" : "macos";
-      } else if (hasWindowsPaths || hasWin32Specific) {
+      // Determine the primary supported platform (explicit precedence)
+      if (hasDarwinSpecific) {
+        supported = "macos";
+      } else if (hasLinuxSpecific) {
+        supported = "linux";
+      } else if (hasWin32Specific || hasWindowsPaths) {
         supported = "windows";
+      } else if (hasUnixPaths) {
+        // Unix paths without platform-specific code default to linux
+        supported = "linux";
       }
     }
 
