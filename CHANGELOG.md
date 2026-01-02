@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.2] - 2026-01-02
+
+### Fixed
+
+- **CLI Display Parity**: Resolved critical parity violation between npm binary and local script
+  - Added 7 missing modules to `scripts/run-full-assessment.ts`: Usability, External API Scanner, Authentication, Temporal, Resources, Prompts, Cross-Capability
+  - Added 2 missing modules to both CLI files: External API Scanner, Authentication
+  - Both `cli/src/assess-full.ts` and `scripts/run-full-assessment.ts` now display all 17 assessment categories consistently
+
+### Added
+
+- **Assessment Type Unit Tests**: New test file `client/src/lib/__tests__/assessmentTypes.test.ts`
+  - 36 tests covering `ASSESSMENT_CATEGORY_METADATA` constant
+  - Validates 17 category count, tier classification (15 core, 2 optional)
+  - Ensures required fields, no duplicate keys, and description quality
+
 ## [1.21.1] - 2026-01-01
 
 ### Added
