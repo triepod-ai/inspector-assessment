@@ -2,7 +2,7 @@
 
 ## Current Version
 
-- **Version**: 1.21.1 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.21.2 (published to npm as "@bryan-thompson/inspector-assessment")
 
 ---
 
