@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.4] - 2026-01-02
+
+### Fixed
+
+- **Unused Variable in ResourceAssessor**: Removed unused `lowerUri` variables from `inferAccessControls()` and `inferDataClassification()` methods
+  - All regex checks now consistently use `/i` flag with original `uri` parameter
+  - Eliminates code smell and potential maintenance confusion
+
+- **Regex Performance in PortabilityAssessor**: Optimized `analyzeShellCommands()` to test each content piece individually
+  - Added early termination (`break`) when pattern found, avoiding unnecessary iterations
+  - No longer joins all content into single large string before testing
+  - Improves performance for large codebases with many source files
+
+- **Platform Precedence Logic**: Clarified `analyzePlatformCoverage()` with explicit precedence order
+  - Darwin-specific → macOS
+  - Linux-specific → Linux
+  - Win32-specific/Windows paths → Windows
+  - Unix paths (without specific platform) → Linux (default)
+  - Previously, generic Unix paths incorrectly defaulted to macOS
+
+### Added
+
+- **Enrichment Field Unit Tests**: New test file `client/src/services/assessment/__tests__/EnrichmentFields.test.ts`
+  - 30 tests covering Issue #9 enrichment fields
+  - ResourceAssessor: `sensitivePatterns`, `accessControls`, `dataClassification` detection
+  - PromptAssessor: `promptTemplate`, `dynamicContent` analysis
+  - PortabilityAssessor: `shellCommands`, `platformCoverage` calculation
+  - Tests verify correct pattern names, severity levels, and edge cases
+
 ## [1.21.3] - 2026-01-02
 
 ### Fixed
