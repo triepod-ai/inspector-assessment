@@ -509,6 +509,10 @@ export class ResourceAssessor extends BaseAssessor {
       promptInjectionDetected: false,
       promptInjectionPatterns: [],
       validUri: this.isValidUriTemplate(template.uriTemplate),
+      // Issue #9: Initialize enrichment fields for template results
+      sensitivePatterns: [],
+      accessControls: this.inferAccessControls(template.uriTemplate),
+      dataClassification: this.inferDataClassification(template.uriTemplate),
     };
 
     // Check template for sensitive patterns
@@ -541,6 +545,12 @@ export class ResourceAssessor extends BaseAssessor {
           promptInjectionDetected: false,
           promptInjectionPatterns: [],
           validUri: false,
+          // Issue #9: Initialize enrichment fields for traversal results
+          sensitivePatterns: [],
+          accessControls: this.inferAccessControls(template.uriTemplate),
+          dataClassification: this.inferDataClassification(
+            template.uriTemplate,
+          ),
         };
 
         try {
