@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.1] - 2026-01-01
+
+### Added
+
+- **Assessment Category Tiers**: Added tier system to distinguish core vs optional assessment categories
+  - New `AssessmentCategoryTier` type (`"core"` | `"optional"`)
+  - New `AssessmentCategoryMetadata` interface with tier, description, and `applicableTo` fields
+  - New `ASSESSMENT_CATEGORY_METADATA` constant mapping all 17 assessment categories
+  - `manifestValidation` and `portability` marked as optional (MCPB bundle-specific)
+  - CLI output now shows `(optional)` marker for optional categories in MODULE STATUS section
+
+## [1.21.0] - 2026-01-01
+
+### Added
+
+- **Tool Documentation Aggregates in DocumentationMetrics**: Added aggregate statistics for tool documentation quality
+  - `toolsWithDescriptions`: Count of tools that have descriptions
+  - `toolsWithParameterDocs`: Count of tools with documented parameters
+  - `averageDescriptionLength`: Average length of tool descriptions
+  - Enables quick assessment of overall documentation coverage
+
 ## [1.20.12] - 2026-01-01
 
 ### Fixed
