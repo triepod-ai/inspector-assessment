@@ -790,7 +790,7 @@ if (event.event === "annotation_review_recommended") {
 
 | Module           | Score Source                 | Formula                              |
 | ---------------- | ---------------------------- | ------------------------------------ |
-| `functionality`  | `workingPercentage`          | Direct percentage of working tools   |
+| `functionality`  | `coveragePercentage`         | Direct percentage of working tools   |
 | `error_handling` | `metrics.mcpComplianceScore` | MCP compliance percentage            |
 | `mcp_spec`       | `complianceScore`            | Direct compliance score              |
 | `security`       | `vulnerabilities[]`          | `100 - (vulnCount * 10)`, min 0      |

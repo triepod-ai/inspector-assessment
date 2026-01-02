@@ -211,7 +211,7 @@ Scores are calculated differently based on module type:
 
 | Module Type         | Score Source                 | Calculation                          |
 | ------------------- | ---------------------------- | ------------------------------------ |
-| Functionality       | `workingPercentage`          | Direct percentage of working tools   |
+| Functionality       | `coveragePercentage`         | Direct percentage of working tools   |
 | Error Handling      | `metrics.mcpComplianceScore` | MCP compliance percentage            |
 | MCP Spec Compliance | `complianceScore`            | Direct compliance score              |
 | Security            | `vulnerabilities[]`          | `100 - (vulnCount * 10)`, min 0      |

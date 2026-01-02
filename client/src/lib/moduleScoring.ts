@@ -31,9 +31,9 @@ export function calculateModuleScore(result: unknown): number {
   if (r.complianceScore !== undefined) {
     return Math.round(r.complianceScore as number);
   }
-  // Functionality module - uses workingPercentage
-  if (r.workingPercentage !== undefined) {
-    return Math.round(r.workingPercentage as number);
+  // Functionality module - uses coveragePercentage
+  if (r.coveragePercentage !== undefined) {
+    return Math.round(r.coveragePercentage as number);
   }
   // Security module - 100% if no vulns, lower based on vuln count
   if (Array.isArray(r.vulnerabilities)) {
