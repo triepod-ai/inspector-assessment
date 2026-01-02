@@ -1,6 +1,6 @@
 {
   "name": "@bryan-thompson/inspector-assessment",
-  "version": "1.21.1",
+  "version": "1.21.2",
   "description": "Enhanced MCP Inspector with comprehensive assessment capabilities for server validation",
   "license": "MIT",
   "author": "Bryan Thompson <bryan@triepod.ai>",
@@ -79,9 +79,9 @@
     "access": "public"
   },
   "dependencies": {
-    "@bryan-thompson/inspector-assessment-cli": "^1.21.1",
-    "@bryan-thompson/inspector-assessment-client": "^1.21.1",
-    "@bryan-thompson/inspector-assessment-server": "^1.21.1",
+    "@bryan-thompson/inspector-assessment-cli": "^1.21.2",
+    "@bryan-thompson/inspector-assessment-client": "^1.21.2",
+    "@bryan-thompson/inspector-assessment-server": "^1.21.2",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "concurrently": "^9.2.0",
     "node-fetch": "^3.3.2",
