@@ -40,6 +40,7 @@ import {
   DEFAULT_ASSESSMENT_CONFIG,
   MCPDirectoryAssessment,
   ManifestJsonSchema,
+  ASSESSMENT_CATEGORY_METADATA,
 } from "../client/src/lib/assessmentTypes.js";
 import { FULL_CLAUDE_CODE_CONFIG } from "../client/src/services/assessment/lib/claudeCodeBridge.js";
 
@@ -648,28 +649,30 @@ function displaySummary(results: MCPDirectoryAssessment) {
 
   // Module status summary
   console.log("\n📊 MODULE STATUS:");
-  const modules: [string, any][] = [
-    ["Functionality", functionality],
-    ["Security", security],
-    ["Documentation", documentation],
-    ["Error Handling", errorHandling],
-    ["MCP Spec Compliance", mcpSpecCompliance],
-    ["AUP Compliance", aupCompliance],
-    ["Tool Annotations", toolAnnotations],
-    ["Prohibited Libraries", prohibitedLibraries],
-    ["Manifest Validation", manifestValidation],
-    ["Portability", portability],
+  const modules: [string, any, string][] = [
+    ["Functionality", functionality, "functionality"],
+    ["Security", security, "security"],
+    ["Documentation", documentation, "documentation"],
+    ["Error Handling", errorHandling, "errorHandling"],
+    ["MCP Spec Compliance", mcpSpecCompliance, "mcpSpecCompliance"],
+    ["AUP Compliance", aupCompliance, "aupCompliance"],
+    ["Tool Annotations", toolAnnotations, "toolAnnotations"],
+    ["Prohibited Libraries", prohibitedLibraries, "prohibitedLibraries"],
+    ["Manifest Validation", manifestValidation, "manifestValidation"],
+    ["Portability", portability, "portability"],
   ];
 
-  for (const [name, module] of modules) {
+  for (const [name, module, categoryKey] of modules) {
     if (module) {
+      const metadata = ASSESSMENT_CATEGORY_METADATA[categoryKey];
+      const optionalMarker = metadata?.tier === "optional" ? " (optional)" : "";
       const icon =
         module.status === "PASS"
           ? "✅"
           : module.status === "FAIL"
             ? "❌"
             : "⚠️";
-      console.log(`   ${icon} ${name}: ${module.status}`);
+      console.log(`   ${icon} ${name}${optionalMarker}: ${module.status}`);
     }
   }
 

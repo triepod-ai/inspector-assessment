@@ -31,6 +31,7 @@ import {
   MCPDirectoryAssessment,
   ManifestJsonSchema,
   ProgressEvent,
+  ASSESSMENT_CATEGORY_METADATA,
 } from "../../client/lib/lib/assessmentTypes.js";
 import { FULL_CLAUDE_CODE_CONFIG } from "../../client/lib/services/assessment/lib/claudeCodeBridge.js";
 import {
@@ -944,33 +945,35 @@ function displaySummary(results: MCPDirectoryAssessment) {
 
   console.log("\n📊 MODULE STATUS:");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const modules: [string, any][] = [
-    ["Functionality", functionality],
-    ["Security", security],
-    ["Documentation", documentation],
-    ["Error Handling", errorHandling],
-    ["Usability", usability],
-    ["MCP Spec Compliance", mcpSpecCompliance],
-    ["AUP Compliance", aupCompliance],
-    ["Tool Annotations", toolAnnotations],
-    ["Prohibited Libraries", prohibitedLibraries],
-    ["Manifest Validation", manifestValidation],
-    ["Portability", portability],
-    ["Temporal", temporal],
-    ["Resources", resources],
-    ["Prompts", prompts],
-    ["Cross-Capability", crossCapability],
+  const modules: [string, any, string][] = [
+    ["Functionality", functionality, "functionality"],
+    ["Security", security, "security"],
+    ["Documentation", documentation, "documentation"],
+    ["Error Handling", errorHandling, "errorHandling"],
+    ["Usability", usability, "usability"],
+    ["MCP Spec Compliance", mcpSpecCompliance, "mcpSpecCompliance"],
+    ["AUP Compliance", aupCompliance, "aupCompliance"],
+    ["Tool Annotations", toolAnnotations, "toolAnnotations"],
+    ["Prohibited Libraries", prohibitedLibraries, "prohibitedLibraries"],
+    ["Manifest Validation", manifestValidation, "manifestValidation"],
+    ["Portability", portability, "portability"],
+    ["Temporal", temporal, "temporal"],
+    ["Resources", resources, "resources"],
+    ["Prompts", prompts, "prompts"],
+    ["Cross-Capability", crossCapability, "crossCapability"],
   ];
 
-  for (const [name, module] of modules) {
+  for (const [name, module, categoryKey] of modules) {
     if (module) {
+      const metadata = ASSESSMENT_CATEGORY_METADATA[categoryKey];
+      const optionalMarker = metadata?.tier === "optional" ? " (optional)" : "";
       const icon =
         module.status === "PASS"
           ? "✅"
           : module.status === "FAIL"
             ? "❌"
             : "⚠️";
-      console.log(`   ${icon} ${name}: ${module.status}`);
+      console.log(`   ${icon} ${name}${optionalMarker}: ${module.status}`);
     }
   }
 

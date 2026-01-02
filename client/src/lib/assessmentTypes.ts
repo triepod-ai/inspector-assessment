@@ -22,6 +22,63 @@ export type AlignmentStatus =
 export type InferenceConfidence = "high" | "medium" | "low";
 
 /**
+ * Assessment category tier for distinguishing core vs optional assessments.
+ * - "core": Always applicable to any MCP server audit
+ * - "optional": Contextual assessments (e.g., MCPB bundle-specific)
+ */
+export type AssessmentCategoryTier = "core" | "optional";
+
+/**
+ * Metadata for assessment categories including tier and applicability info.
+ */
+export interface AssessmentCategoryMetadata {
+  tier: AssessmentCategoryTier;
+  description: string;
+  applicableTo?: string; // e.g., "MCPB bundles only"
+}
+
+/**
+ * Category metadata mapping for all assessment modules.
+ * Used for CLI output and downstream consumers to understand category context.
+ */
+export const ASSESSMENT_CATEGORY_METADATA: Record<
+  string,
+  AssessmentCategoryMetadata
+> = {
+  functionality: { tier: "core", description: "Tool functionality validation" },
+  security: { tier: "core", description: "Security vulnerability detection" },
+  documentation: { tier: "core", description: "Documentation quality" },
+  errorHandling: { tier: "core", description: "Error handling compliance" },
+  usability: { tier: "core", description: "Usability assessment" },
+  mcpSpecCompliance: { tier: "core", description: "MCP protocol compliance" },
+  aupCompliance: {
+    tier: "core",
+    description: "Acceptable use policy compliance",
+  },
+  toolAnnotations: { tier: "core", description: "Tool annotation validation" },
+  prohibitedLibraries: {
+    tier: "core",
+    description: "Prohibited library detection",
+  },
+  manifestValidation: {
+    tier: "optional",
+    description: "MCPB manifest validation",
+    applicableTo: "MCPB bundles",
+  },
+  portability: {
+    tier: "optional",
+    description: "Portability checks",
+    applicableTo: "MCPB bundles",
+  },
+  externalAPIScanner: { tier: "core", description: "External API detection" },
+  authentication: { tier: "core", description: "OAuth/auth evaluation" },
+  temporal: { tier: "core", description: "Temporal/rug pull detection" },
+  resources: { tier: "core", description: "Resource security" },
+  prompts: { tier: "core", description: "Prompt security" },
+  crossCapability: { tier: "core", description: "Cross-capability security" },
+};
+
+/**
  * Persistence model for MCP servers (Three-Tier Classification).
  * Re-exported from annotationPatterns for backward compatibility.
  *
