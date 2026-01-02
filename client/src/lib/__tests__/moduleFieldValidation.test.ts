@@ -14,6 +14,11 @@ import {
   isFunctionalityAssessment,
   isSecurityAssessment,
   isErrorHandlingAssessment,
+  isProhibitedLibrariesAssessment,
+  isManifestValidationAssessment,
+  isPortabilityAssessment,
+  isExternalAPIScannerAssessment,
+  isAuthenticationAssessment,
 } from "../moduleFieldValidator";
 import { calculateModuleScore } from "../moduleScoring";
 
@@ -255,6 +260,78 @@ describe("moduleFieldValidator", () => {
 
       expect(isErrorHandlingAssessment(valid)).toBe(true);
       expect(isErrorHandlingAssessment(invalid)).toBe(false);
+    });
+
+    it("isProhibitedLibrariesAssessment should validate correctly", () => {
+      const valid = {
+        matches: [],
+        scannedFiles: 10,
+        status: "PASS",
+      };
+      const invalid = { foo: "bar" };
+
+      expect(isProhibitedLibrariesAssessment(valid)).toBe(true);
+      expect(isProhibitedLibrariesAssessment(invalid)).toBe(false);
+      expect(isProhibitedLibrariesAssessment(null)).toBe(false);
+      expect(isProhibitedLibrariesAssessment(undefined)).toBe(false);
+    });
+
+    it("isManifestValidationAssessment should validate correctly", () => {
+      const valid = {
+        hasManifest: true,
+        validationResults: [],
+        status: "PASS",
+      };
+      const invalid = { foo: "bar" };
+
+      expect(isManifestValidationAssessment(valid)).toBe(true);
+      expect(isManifestValidationAssessment(invalid)).toBe(false);
+      expect(isManifestValidationAssessment(null)).toBe(false);
+      expect(isManifestValidationAssessment(undefined)).toBe(false);
+    });
+
+    it("isPortabilityAssessment should validate correctly", () => {
+      const valid = {
+        issues: [],
+        scannedFiles: 5,
+        status: "PASS",
+      };
+      const invalid = { foo: "bar" };
+
+      expect(isPortabilityAssessment(valid)).toBe(true);
+      expect(isPortabilityAssessment(invalid)).toBe(false);
+      expect(isPortabilityAssessment(null)).toBe(false);
+      expect(isPortabilityAssessment(undefined)).toBe(false);
+    });
+
+    it("isExternalAPIScannerAssessment should validate correctly", () => {
+      const valid = {
+        detectedAPIs: [],
+        uniqueServices: 0,
+        scannedFiles: 3,
+        status: "PASS",
+      };
+      const invalid = { foo: "bar" };
+
+      expect(isExternalAPIScannerAssessment(valid)).toBe(true);
+      expect(isExternalAPIScannerAssessment(invalid)).toBe(false);
+      expect(isExternalAPIScannerAssessment(null)).toBe(false);
+      expect(isExternalAPIScannerAssessment(undefined)).toBe(false);
+    });
+
+    it("isAuthenticationAssessment should validate correctly", () => {
+      const valid = {
+        authMethod: "none",
+        appropriateness: "appropriate",
+        detectedPatterns: [],
+        status: "PASS",
+      };
+      const invalid = { foo: "bar" };
+
+      expect(isAuthenticationAssessment(valid)).toBe(true);
+      expect(isAuthenticationAssessment(invalid)).toBe(false);
+      expect(isAuthenticationAssessment(null)).toBe(false);
+      expect(isAuthenticationAssessment(undefined)).toBe(false);
     });
   });
 

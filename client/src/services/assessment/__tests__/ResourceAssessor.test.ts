@@ -617,22 +617,83 @@ describe("ResourceAssessor", () => {
   });
 
   describe("Read Timeout Handling", () => {
-    it("should handle slow resources gracefully", async () => {
+    it("should timeout after ~5s for slow resources (not wait 10s)", async () => {
+      const startTime = Date.now();
+
       const context: Partial<AssessmentContext> = {
         resources: [{ uri: "resource://slow/resource", name: "Slow Resource" }],
         readResource: async () => {
-          // Simulate very slow resource
+          // Simulate very slow resource (10 seconds)
           await new Promise((resolve) => setTimeout(resolve, 10000));
           return "Content";
         },
       };
 
       const result = await assessor.assess(context as AssessmentContext);
+      const elapsedTime = Date.now() - startTime;
+
+      // CRITICAL: Verify timeout works - should be ~5s, NOT 10s
+      expect(elapsedTime).toBeGreaterThan(4500); // At least 4.5s (allow tolerance)
+      expect(elapsedTime).toBeLessThan(7000); // Should NOT reach 10s
 
       // Should timeout and mark as not accessible
       expect(result.results[0].accessible).toBe(false);
       expect(result.results[0].error).toBeDefined();
+
+      // Error message should indicate timeout
+      expect(result.results[0].error).toMatch(/timeout|timed out/i);
     }, 15000);
+
+    it("should complete successfully for fast resources under timeout", async () => {
+      const startTime = Date.now();
+
+      const context: Partial<AssessmentContext> = {
+        resources: [{ uri: "resource://fast/resource", name: "Fast Resource" }],
+        readResource: async () => {
+          // Fast resource (1 second, well under 5s timeout)
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          return "Fast content";
+        },
+      };
+
+      const result = await assessor.assess(context as AssessmentContext);
+      const elapsedTime = Date.now() - startTime;
+
+      // Should complete within timeout (around 1s, not 5s)
+      expect(elapsedTime).toBeGreaterThanOrEqual(900);
+      expect(elapsedTime).toBeLessThan(3000);
+
+      // Should succeed
+      expect(result.results[0].accessible).toBe(true);
+      expect(result.results[0].error).toBeUndefined();
+    }, 10000);
+
+    it("should fail quickly when resource throws error before timeout", async () => {
+      const startTime = Date.now();
+
+      const context: Partial<AssessmentContext> = {
+        resources: [
+          { uri: "resource://error/resource", name: "Error Resource" },
+        ],
+        readResource: async () => {
+          // Throw error after 1 second (before 5s timeout)
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          throw new Error("Resource read failed");
+        },
+      };
+
+      const result = await assessor.assess(context as AssessmentContext);
+      const elapsedTime = Date.now() - startTime;
+
+      // Should fail quickly (~1s), not wait for timeout
+      expect(elapsedTime).toBeGreaterThanOrEqual(900);
+      expect(elapsedTime).toBeLessThan(3000);
+
+      expect(result.results[0].accessible).toBe(false);
+      expect(result.results[0].error).toBe("Resource read failed");
+      // Should NOT be a timeout error
+      expect(result.results[0].error).not.toMatch(/timeout/i);
+    }, 10000);
   });
 
   describe("Integration Tests", () => {

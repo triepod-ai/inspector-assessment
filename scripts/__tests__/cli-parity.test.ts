@@ -6,61 +6,123 @@
  * and local development script produce identical outputs.
  *
  * Created after v1.21.2 discovered 7 missing display modules in npm binary.
+ *
+ * Uses TypeScript AST parsing instead of regex for robustness against
+ * formatting changes (fixed in v1.21.4 per code review warning W2).
  */
 
 import * as fs from "fs";
 import * as path from "path";
+import * as ts from "typescript";
 
 const CLI_PATH = path.join(__dirname, "../../cli/src/assess-full.ts");
 const SCRIPT_PATH = path.join(__dirname, "../run-full-assessment.ts");
 
 /**
- * Extract the modules array from displaySummary function.
+ * Extract the modules array from displaySummary function using AST parsing.
+ * Robust against formatting changes (whitespace, comments, type annotations).
  */
 function extractModulesList(content: string): string[] {
-  // Find the modules array definition - look for the modules array that contains tuples
-  // like ["Functionality", functionality, "functionality"]
-  const modulesMatch = content.match(
-    /const modules[^=]*:[^=]*=\s*\[([\s\S]*?)\];/,
+  const sourceFile = ts.createSourceFile(
+    "temp.ts",
+    content,
+    ts.ScriptTarget.Latest,
+    true,
   );
-  if (!modulesMatch) {
-    throw new Error("Could not find modules array in displaySummary");
-  }
-
-  // Extract module names from the array - first element of each tuple
-  const modulesBlock = modulesMatch[1];
   const moduleNames: string[] = [];
 
-  // Match patterns like ["Functionality", functionality, "functionality"]
-  // The first quoted string is the display name
-  const entryRegex = /\[\s*"([^"]+)"/g;
-  let match;
-  while ((match = entryRegex.exec(modulesBlock)) !== null) {
-    moduleNames.push(match[1]);
+  function visit(node: ts.Node) {
+    // Look for: const modules: [...] = [...];
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === "modules" &&
+      node.initializer &&
+      ts.isArrayLiteralExpression(node.initializer)
+    ) {
+      // Each element should be an array literal like ["Functionality", functionality, "functionality"]
+      for (const element of node.initializer.elements) {
+        if (
+          ts.isArrayLiteralExpression(element) &&
+          element.elements.length > 0
+        ) {
+          const firstElement = element.elements[0];
+          // Extract string literal value
+          if (ts.isStringLiteral(firstElement)) {
+            moduleNames.push(firstElement.text);
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+
+  if (moduleNames.length === 0) {
+    throw new Error("Could not find modules array in displaySummary");
   }
 
   return moduleNames;
 }
 
 /**
- * Extract destructured variables from displaySummary.
+ * Extract destructured variables from displaySummary using AST parsing.
+ * Finds: const { var1, var2, ... } = results;
  */
 function extractDestructuredVars(content: string): string[] {
-  // Find the destructuring in displaySummary - handle multiline
-  const destructMatch = content.match(
-    /function displaySummary[\s\S]*?const\s*\{([\s\S]*?)\}\s*=\s*results;/,
+  const sourceFile = ts.createSourceFile(
+    "temp.ts",
+    content,
+    ts.ScriptTarget.Latest,
+    true,
   );
-  if (!destructMatch) {
-    throw new Error("Could not find destructuring in displaySummary");
+  const vars: string[] = [];
+  let inDisplaySummary = false;
+
+  function visit(node: ts.Node) {
+    // Track when we enter displaySummary function
+    if (
+      ts.isFunctionDeclaration(node) &&
+      node.name?.text === "displaySummary"
+    ) {
+      inDisplaySummary = true;
+      ts.forEachChild(node, visit);
+      inDisplaySummary = false;
+      return;
+    }
+
+    // Look for: const { ... } = results;
+    if (
+      inDisplaySummary &&
+      ts.isVariableStatement(node) &&
+      node.declarationList.declarations.length === 1
+    ) {
+      const decl = node.declarationList.declarations[0];
+      // Check for object binding pattern assigned from 'results'
+      if (
+        ts.isObjectBindingPattern(decl.name) &&
+        decl.initializer &&
+        ts.isIdentifier(decl.initializer) &&
+        decl.initializer.text === "results"
+      ) {
+        // Extract all binding element names
+        for (const element of decl.name.elements) {
+          if (ts.isBindingElement(element) && ts.isIdentifier(element.name)) {
+            vars.push(element.name.text);
+          }
+        }
+      }
+    }
+
+    ts.forEachChild(node, visit);
   }
 
-  // Split by newlines and commas, filter out comments and empty lines
-  const vars = destructMatch[1]
-    .split(/[,\n]/)
-    .map((v) => v.trim())
-    .filter((v) => v && !v.startsWith("//"))
-    .map((v) => v.replace(/,$/, "").trim()) // Remove trailing commas
-    .filter((v) => v.length > 0 && !v.includes("/")); // Filter out comments
+  visit(sourceFile);
+
+  if (vars.length === 0) {
+    throw new Error("Could not find destructuring in displaySummary");
+  }
 
   return vars;
 }

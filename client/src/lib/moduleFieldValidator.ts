@@ -17,6 +17,11 @@ import type {
   MCPSpecComplianceAssessment,
   AUPComplianceAssessment,
   ToolAnnotationAssessment,
+  ProhibitedLibrariesAssessment,
+  ManifestValidationAssessment,
+  PortabilityAssessment,
+  ExternalAPIScannerAssessment,
+  AuthenticationAssessment,
   TemporalAssessment,
   ResourceAssessment,
   PromptAssessment,
@@ -401,5 +406,40 @@ export function isCrossCapabilityAssessment(
   result: unknown,
 ): result is CrossCapabilitySecurityAssessment {
   const validation = validateModuleOutput("crossCapability", result);
+  return validation.valid;
+}
+
+export function isProhibitedLibrariesAssessment(
+  result: unknown,
+): result is ProhibitedLibrariesAssessment {
+  const validation = validateModuleOutput("prohibitedLibraries", result);
+  return validation.valid;
+}
+
+export function isManifestValidationAssessment(
+  result: unknown,
+): result is ManifestValidationAssessment {
+  const validation = validateModuleOutput("manifestValidation", result);
+  return validation.valid;
+}
+
+export function isPortabilityAssessment(
+  result: unknown,
+): result is PortabilityAssessment {
+  const validation = validateModuleOutput("portability", result);
+  return validation.valid;
+}
+
+export function isExternalAPIScannerAssessment(
+  result: unknown,
+): result is ExternalAPIScannerAssessment {
+  const validation = validateModuleOutput("externalAPIScanner", result);
+  return validation.valid;
+}
+
+export function isAuthenticationAssessment(
+  result: unknown,
+): result is AuthenticationAssessment {
+  const validation = validateModuleOutput("authentication", result);
   return validation.valid;
 }

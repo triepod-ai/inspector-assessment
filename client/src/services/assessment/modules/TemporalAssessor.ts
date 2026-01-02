@@ -759,31 +759,17 @@ export class TemporalAssessor extends BaseAssessor {
   /**
    * Check for promotional/monetization keywords that indicate a monetization rug pull.
    * Enhanced to catch CH4-style rug pulls with limited-time offers, referral codes, etc.
+   *
+   * Combined into single regex for O(text_length) performance instead of O(18 * text_length).
    */
   private hasPromotionalKeywords(text: string): boolean {
-    const patterns = [
-      // Original patterns
-      /\bupgrade\b/i,
-      /\bpremium\b/i,
-      /\bsubscri(be|ption)\b/i,
-      /\$\d+(\.\d{2})?/, // Price patterns like $49.99
-      /\bpay(ment)?\s*(required|needed|now)\b/i,
-      /\bpro\s*plan\b/i,
-      /\bbuy\s*now\b/i,
-      // CH4-style patterns (limited-time offers, discount codes)
-      /\blimited\s*(time|offer)\b/i,
-      /\bdiscount\b/i,
-      /\bfree\s*trial\b/i,
-      /\bspecial\s*offer\b/i,
-      /\b\d+%\s*(off|discount)\b/i, // "50% off"
-      /\bexclusive\b/i,
-      /\breferral\s*code\b/i,
-      /\bpromo\s*code\b/i,
-      /\bact\s*now\b/i,
-      /\bdon't\s*miss\b/i,
-      /\bfor\s*a\s*fee\b/i,
-    ];
-    return patterns.some((p) => p.test(text));
+    // Single combined regex with alternation - matches all 18 original patterns
+    // Word-boundary patterns: upgrade, premium, discount, exclusive, subscription variants,
+    //   multi-word phrases (pro plan, buy now, limited time/offer, free trial, etc.)
+    // Non-word patterns: price ($X.XX), percentage (N% off/discount)
+    const PROMO_PATTERN =
+      /\b(?:upgrade|premium|discount|exclusive|subscri(?:be|ption)|pro\s*plan|buy\s*now|limited\s*(?:time|offer)|free\s*trial|special\s*offer|referral\s*code|promo\s*code|act\s*now|don't\s*miss|for\s*a\s*fee|pay(?:ment)?\s*(?:required|needed|now))\b|\$\d+(?:\.\d{2})?|\b\d+%\s*(?:off|discount)\b/i;
+    return PROMO_PATTERN.test(text);
   }
 
   /**
