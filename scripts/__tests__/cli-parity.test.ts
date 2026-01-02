@@ -1,0 +1,241 @@
+/**
+ * CLI Binary & Local Script Parity Test
+ *
+ * Verifies that cli/src/assess-full.ts and scripts/run-full-assessment.ts
+ * remain synchronized. These files must stay in sync to ensure npm binary
+ * and local development script produce identical outputs.
+ *
+ * Created after v1.21.2 discovered 7 missing display modules in npm binary.
+ */
+
+import * as fs from "fs";
+import * as path from "path";
+
+const CLI_PATH = path.join(__dirname, "../../cli/src/assess-full.ts");
+const SCRIPT_PATH = path.join(__dirname, "../run-full-assessment.ts");
+
+/**
+ * Extract the modules array from displaySummary function.
+ */
+function extractModulesList(content: string): string[] {
+  // Find the modules array definition - look for the modules array that contains tuples
+  // like ["Functionality", functionality, "functionality"]
+  const modulesMatch = content.match(
+    /const modules[^=]*:[^=]*=\s*\[([\s\S]*?)\];/,
+  );
+  if (!modulesMatch) {
+    throw new Error("Could not find modules array in displaySummary");
+  }
+
+  // Extract module names from the array - first element of each tuple
+  const modulesBlock = modulesMatch[1];
+  const moduleNames: string[] = [];
+
+  // Match patterns like ["Functionality", functionality, "functionality"]
+  // The first quoted string is the display name
+  const entryRegex = /\[\s*"([^"]+)"/g;
+  let match;
+  while ((match = entryRegex.exec(modulesBlock)) !== null) {
+    moduleNames.push(match[1]);
+  }
+
+  return moduleNames;
+}
+
+/**
+ * Extract destructured variables from displaySummary.
+ */
+function extractDestructuredVars(content: string): string[] {
+  // Find the destructuring in displaySummary - handle multiline
+  const destructMatch = content.match(
+    /function displaySummary[\s\S]*?const\s*\{([\s\S]*?)\}\s*=\s*results;/,
+  );
+  if (!destructMatch) {
+    throw new Error("Could not find destructuring in displaySummary");
+  }
+
+  // Split by newlines and commas, filter out comments and empty lines
+  const vars = destructMatch[1]
+    .split(/[,\n]/)
+    .map((v) => v.trim())
+    .filter((v) => v && !v.startsWith("//"))
+    .map((v) => v.replace(/,$/, "").trim()) // Remove trailing commas
+    .filter((v) => v.length > 0 && !v.includes("/")); // Filter out comments
+
+  return vars;
+}
+
+/**
+ * Extract JSONL event types emitted.
+ */
+function extractEmittedEventTypes(content: string): string[] {
+  const events: string[] = [];
+  const eventRegex = /emit\w+\([^)]*\)|type:\s*["'](\w+)["']/g;
+  let match;
+
+  // Find JSONL emit functions
+  const emitFnRegex = /function emit(\w+)/g;
+  while ((match = emitFnRegex.exec(content)) !== null) {
+    events.push(match[1]);
+  }
+
+  return [...new Set(events)].sort();
+}
+
+describe("CLI Binary & Script Parity", () => {
+  let cliContent: string;
+  let scriptContent: string;
+
+  beforeAll(() => {
+    cliContent = fs.readFileSync(CLI_PATH, "utf-8");
+    scriptContent = fs.readFileSync(SCRIPT_PATH, "utf-8");
+  });
+
+  describe("displaySummary module lists", () => {
+    it("should have identical module display lists", () => {
+      const cliModules = extractModulesList(cliContent);
+      const scriptModules = extractModulesList(scriptContent);
+
+      expect(cliModules).toEqual(scriptModules);
+    });
+
+    it("should have 17 modules in display list", () => {
+      const cliModules = extractModulesList(cliContent);
+      const expectedModules = [
+        "Functionality",
+        "Security",
+        "Documentation",
+        "Error Handling",
+        "Usability",
+        "MCP Spec Compliance",
+        "AUP Compliance",
+        "Tool Annotations",
+        "Prohibited Libraries",
+        "Manifest Validation",
+        "Portability",
+        "External API Scanner",
+        "Authentication",
+        "Temporal",
+        "Resources",
+        "Prompts",
+        "Cross-Capability",
+      ];
+
+      expect(cliModules).toEqual(expectedModules);
+    });
+  });
+
+  describe("destructured variables", () => {
+    it("should have identical destructured result variables", () => {
+      const cliVars = extractDestructuredVars(cliContent);
+      const scriptVars = extractDestructuredVars(scriptContent);
+
+      expect(cliVars).toEqual(scriptVars);
+    });
+
+    it("should include all assessment module variables", () => {
+      const cliVars = extractDestructuredVars(cliContent);
+
+      // Core modules
+      expect(cliVars).toContain("functionality");
+      expect(cliVars).toContain("security");
+      expect(cliVars).toContain("documentation");
+      expect(cliVars).toContain("errorHandling");
+      expect(cliVars).toContain("usability");
+
+      // Extended modules
+      expect(cliVars).toContain("mcpSpecCompliance");
+      expect(cliVars).toContain("aupCompliance");
+      expect(cliVars).toContain("toolAnnotations");
+      expect(cliVars).toContain("prohibitedLibraries");
+      expect(cliVars).toContain("manifestValidation");
+      expect(cliVars).toContain("portability");
+      expect(cliVars).toContain("externalAPIScanner");
+      expect(cliVars).toContain("authentication");
+      expect(cliVars).toContain("temporal");
+
+      // Capability assessors
+      expect(cliVars).toContain("resources");
+      expect(cliVars).toContain("prompts");
+      expect(cliVars).toContain("crossCapability");
+    });
+  });
+
+  describe("JSONL event emission", () => {
+    it("should have matching JSONL emit functions", () => {
+      const cliEvents = extractEmittedEventTypes(cliContent);
+      const scriptEvents = extractEmittedEventTypes(scriptContent);
+
+      expect(cliEvents).toEqual(scriptEvents);
+    });
+  });
+
+  describe("file structure consistency", () => {
+    it("should have displaySummary function in both files", () => {
+      expect(cliContent).toContain("function displaySummary");
+      expect(scriptContent).toContain("function displaySummary");
+    });
+
+    it("should have saveResults function in both files", () => {
+      expect(cliContent).toContain("function saveResults");
+      expect(scriptContent).toContain("function saveResults");
+    });
+
+    it("should import ASSESSMENT_CATEGORY_METADATA in both files", () => {
+      expect(cliContent).toContain("ASSESSMENT_CATEGORY_METADATA");
+      expect(scriptContent).toContain("ASSESSMENT_CATEGORY_METADATA");
+    });
+
+    it("should have main function in both files", () => {
+      expect(cliContent).toContain("async function main");
+      expect(scriptContent).toContain("async function main");
+    });
+  });
+
+  describe("critical sections exist", () => {
+    it("should have security vulnerabilities display in both files", () => {
+      expect(cliContent).toContain("SECURITY VULNERABILITIES");
+      expect(scriptContent).toContain("SECURITY VULNERABILITIES");
+    });
+
+    it("should have AUP findings display in both files", () => {
+      expect(cliContent).toContain("AUP FINDINGS");
+      expect(scriptContent).toContain("AUP FINDINGS");
+    });
+
+    it("should have MODULE STATUS section in both files", () => {
+      expect(cliContent).toContain("📊 MODULE STATUS:");
+      expect(scriptContent).toContain("📊 MODULE STATUS:");
+    });
+
+    it("should have optional marker handling in both files", () => {
+      expect(cliContent).toContain("(optional)");
+      expect(scriptContent).toContain("(optional)");
+    });
+  });
+});
+
+/**
+ * Utility to print differences for debugging.
+ * Uncomment to debug parity issues.
+ */
+// function printDifferences() {
+//   const cliContent = fs.readFileSync(CLI_PATH, 'utf-8');
+//   const scriptContent = fs.readFileSync(SCRIPT_PATH, 'utf-8');
+//
+//   const cliModules = extractModulesList(cliContent);
+//   const scriptModules = extractModulesList(scriptContent);
+//
+//   console.log('CLI modules:', cliModules);
+//   console.log('Script modules:', scriptModules);
+//
+//   const missingInCli = scriptModules.filter(m => !cliModules.includes(m));
+//   const missingInScript = cliModules.filter(m => !scriptModules.includes(m));
+//
+//   if (missingInCli.length > 0) {
+//     console.log('Missing in CLI:', missingInCli);
+//   }
+//   if (missingInScript.length > 0) {
+//     console.log('Missing in Script:', missingInScript);
+//   }
+// }

@@ -1029,6 +1029,18 @@ export interface PortabilityAssessment {
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
+  // NEW: Enriched fields for Claude analysis alignment (Issue #9)
+  /** Shell command portability analysis */
+  shellCommands?: Array<{
+    command: string;
+    isPortable: boolean;
+    alternativeCommand?: string;
+  }>;
+  /** Platform coverage summary */
+  platformCoverage?: {
+    supported: "all" | "windows" | "macos" | "linux";
+    missing: string[];
+  };
 }
 
 // External API Scanner Types
@@ -1148,6 +1160,20 @@ export interface ResourceTestResult {
   readTime?: number;
   contentSizeBytes?: number;
   error?: string;
+  // NEW: Enriched fields for Claude analysis alignment (Issue #9)
+  /** Sensitive data patterns detected in resource content */
+  sensitivePatterns?: Array<{
+    pattern: string;
+    severity: "critical" | "high" | "medium";
+    detected: boolean;
+  }>;
+  /** Access control information */
+  accessControls?: {
+    requiresAuth: boolean;
+    authType?: string;
+  };
+  /** Data classification based on content analysis */
+  dataClassification?: "public" | "internal" | "confidential" | "restricted";
 }
 
 export interface ResourceAssessment {
@@ -1180,6 +1206,19 @@ export interface PromptTestResult {
   argumentCount: number;
   executionTime?: number;
   error?: string;
+  // NEW: Enriched fields for Claude analysis alignment (Issue #9)
+  /** Template analysis for prompt structure */
+  promptTemplate?: {
+    templateType: string;
+    variables: string[];
+    validated: boolean;
+  };
+  /** Dynamic content analysis */
+  dynamicContent?: {
+    hasInterpolation: boolean;
+    injectionSafe: boolean;
+    escapingApplied: string[];
+  };
 }
 
 export interface PromptAssessment {
@@ -1209,6 +1248,18 @@ export interface CrossCapabilityTestResult {
   evidence?: string;
   riskLevel: SecurityRiskLevel;
   description: string;
+  // NEW: Enriched fields for Claude analysis alignment (Issue #9)
+  /** Specific privilege escalation vector if detected */
+  privilegeEscalationVector?: string;
+  /** Data exfiltration risk details */
+  dataExfiltrationRisk?: {
+    sensitiveFields: string[];
+    exfiltrationMethod: string;
+  };
+  /** Chain of capabilities that could be exploited together */
+  attackChain?: string[];
+  /** Confidence level in the detection */
+  confidence?: "high" | "medium" | "low";
 }
 
 export interface CrossCapabilitySecurityAssessment {

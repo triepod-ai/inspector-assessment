@@ -147,6 +147,10 @@ export class PromptAssessor extends BaseAssessor {
     prompt: MCPPrompt,
     context: AssessmentContext,
   ): Promise<PromptTestResult> {
+    // NEW: Analyze prompt template structure (Issue #9)
+    const templateAnalysis = this.analyzePromptTemplate(prompt);
+    const dynamicContentAnalysis = this.analyzeDynamicContent(prompt);
+
     const result: PromptTestResult = {
       promptName: prompt.name,
       description: prompt.description,
@@ -157,6 +161,9 @@ export class PromptAssessor extends BaseAssessor {
       injectionVulnerable: false,
       safetyIssues: [],
       argumentCount: prompt.arguments?.length || 0,
+      // NEW: Enrichment fields (Issue #9)
+      promptTemplate: templateAnalysis,
+      dynamicContent: dynamicContentAnalysis,
     };
 
     // Check prompt description for AUP violations
@@ -522,5 +529,93 @@ export class PromptAssessor extends BaseAssessor {
     }
 
     return recommendations;
+  }
+
+  /**
+   * Analyze prompt template structure for enrichment (Issue #9)
+   */
+  private analyzePromptTemplate(prompt: MCPPrompt): {
+    templateType: string;
+    variables: string[];
+    validated: boolean;
+  } {
+    const description = prompt.description || "";
+    const argNames = prompt.arguments?.map((a) => a.name) || [];
+
+    // Determine template type from prompt structure
+    let templateType = "static";
+    if (argNames.length > 0) {
+      templateType = "parameterized";
+    }
+    if (/\{\{.*\}\}/i.test(description) || /\$\{.*\}/i.test(description)) {
+      templateType = "template_literal";
+    }
+    if (/\{[a-zA-Z_][a-zA-Z0-9_]*\}/i.test(description)) {
+      templateType = "format_string";
+    }
+
+    // Check for validation indicators
+    const hasTypeHints =
+      prompt.arguments?.some((a) => a.description?.includes("type:")) || false;
+    const hasRequiredValidation =
+      prompt.arguments?.some((a) => a.required) || false;
+    const validated = hasTypeHints || hasRequiredValidation;
+
+    return {
+      templateType,
+      variables: argNames,
+      validated,
+    };
+  }
+
+  /**
+   * Analyze dynamic content characteristics for enrichment (Issue #9)
+   */
+  private analyzeDynamicContent(prompt: MCPPrompt): {
+    hasInterpolation: boolean;
+    injectionSafe: boolean;
+    escapingApplied: string[];
+  } {
+    const description = prompt.description || "";
+    const argDescriptions =
+      prompt.arguments?.map((a) => a.description || "").join(" ") || "";
+    const fullText = `${description} ${argDescriptions}`;
+
+    // Check for interpolation patterns
+    const hasInterpolation =
+      /\{\{.*\}\}/i.test(fullText) ||
+      /\$\{.*\}/i.test(fullText) ||
+      /\{[a-zA-Z_][a-zA-Z0-9_]*\}/i.test(fullText) ||
+      (prompt.arguments?.length || 0) > 0;
+
+    // Detect escaping mechanisms mentioned
+    const escapingApplied: string[] = [];
+    if (/sanitiz/i.test(fullText)) escapingApplied.push("sanitization");
+    if (/escap/i.test(fullText)) escapingApplied.push("escaping");
+    if (/encod/i.test(fullText)) escapingApplied.push("encoding");
+    if (/validat/i.test(fullText)) escapingApplied.push("validation");
+    if (/filter/i.test(fullText)) escapingApplied.push("filtering");
+
+    // Infer injection safety from multiple signals
+    const hasTypeChecks = prompt.arguments?.some(
+      (a) =>
+        a.description?.toLowerCase().includes("type") ||
+        a.description?.toLowerCase().includes("must be"),
+    );
+    const hasLengthLimits = prompt.arguments?.some(
+      (a) =>
+        a.description?.toLowerCase().includes("max") ||
+        a.description?.toLowerCase().includes("limit"),
+    );
+
+    // Consider injection safe if escaping is mentioned or validation exists
+    const injectionSafe =
+      escapingApplied.length > 0 || hasTypeChecks || hasLengthLimits || false;
+
+    return {
+      hasInterpolation,
+      injectionSafe,
+      escapingApplied,
+    };
   }
 }

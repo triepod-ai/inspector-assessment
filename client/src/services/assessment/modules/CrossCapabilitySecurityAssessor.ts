@@ -192,6 +192,11 @@ export class CrossCapabilitySecurityAssessor extends BaseAssessor {
             : undefined,
           riskLevel: hasPathParameter ? "HIGH" : "LOW",
           description: `Tool ${tool.name} access to resource ${resource.uri}`,
+          // NEW: Enrichment fields for Claude analysis (Issue #9)
+          confidence: hasPathParameter ? "high" : "low",
+          attackChain: hasPathParameter
+            ? [`tool:${tool.name}`, `resource:${resource.uri}`]
+            : undefined,
         });
       }
     }
@@ -240,9 +245,9 @@ export class CrossCapabilitySecurityAssessor extends BaseAssessor {
           `${prompt.name} ${prompt.description || ""} ${prompt.arguments?.map((a) => a.name).join(" ") || ""}`.toLowerCase();
         const toolName = tool.name.toLowerCase();
 
-        const couldTrigger =
-          promptText.includes(toolName) ||
-          this.promptCouldTriggerTool(prompt, tool);
+        const directReference = promptText.includes(toolName);
+        const indirectTrigger = this.promptCouldTriggerTool(prompt, tool);
+        const couldTrigger = directReference || indirectTrigger;
 
         results.push({
           testType: "prompt_to_tool",
@@ -254,6 +259,15 @@ export class CrossCapabilitySecurityAssessor extends BaseAssessor {
             : undefined,
           riskLevel: couldTrigger ? "HIGH" : "LOW",
           description: `Prompt ${prompt.name} interaction with tool ${tool.name}`,
+          // NEW: Enrichment fields for Claude analysis (Issue #9)
+          confidence: directReference
+            ? "high"
+            : indirectTrigger
+              ? "medium"
+              : "low",
+          attackChain: couldTrigger
+            ? [`prompt:${prompt.name}`, `tool:${tool.name}`]
+            : undefined,
         });
       }
     }
@@ -299,6 +313,12 @@ export class CrossCapabilitySecurityAssessor extends BaseAssessor {
         // Check if tool has parameters that could accept resource content
         const hasContentParam = this.toolHasContentParameter(tool);
 
+        // Identify sensitive fields from resource URI/name for enrichment
+        const sensitiveFields = this.extractSensitiveFields(resource);
+
+        // Determine exfiltration method from tool name/description
+        const exfiltrationMethod = this.determineExfiltrationMethod(tool);
+
         results.push({
           testType: "resource_to_tool",
           sourceCapability: `resource:${resource.uri}`,
@@ -309,11 +329,58 @@ export class CrossCapabilitySecurityAssessor extends BaseAssessor {
             : undefined,
           riskLevel: hasContentParam ? "HIGH" : "MEDIUM",
           description: `Resource ${resource.uri} data flow to tool ${tool.name}`,
+          // NEW: Enrichment fields for Claude analysis (Issue #9)
+          confidence: hasContentParam ? "high" : "low",
+          attackChain: hasContentParam
+            ? [`resource:${resource.uri}`, `tool:${tool.name}`]
+            : undefined,
+          dataExfiltrationRisk: hasContentParam
+            ? {
+                sensitiveFields,
+                exfiltrationMethod,
+              }
+            : undefined,
         });
       }
     }
 
     return results;
+  }
+
+  /**
+   * Extract sensitive field types from resource metadata
+   */
+  private extractSensitiveFields(resource: MCPResource): string[] {
+    const fields: string[] = [];
+    const text =
+      `${resource.uri} ${resource.name || ""} ${resource.description || ""}`.toLowerCase();
+
+    if (/password|passwd/i.test(text)) fields.push("password");
+    if (/token/i.test(text)) fields.push("token");
+    if (/key|apikey/i.test(text)) fields.push("api_key");
+    if (/secret/i.test(text)) fields.push("secret");
+    if (/credential/i.test(text)) fields.push("credentials");
+    if (/auth/i.test(text)) fields.push("auth_data");
+    if (/config/i.test(text)) fields.push("config");
+    if (/\.env/i.test(text)) fields.push("environment_variables");
+
+    return fields.length > 0 ? fields : ["sensitive_data"];
+  }
+
+  /**
+   * Determine exfiltration method from tool characteristics
+   */
+  private determineExfiltrationMethod(tool: Tool): string {
+    const text = `${tool.name} ${tool.description || ""}`.toLowerCase();
+
+    if (/email/i.test(text)) return "email";
+    if (/webhook/i.test(text)) return "webhook";
+    if (/http|request|api/i.test(text)) return "http_request";
+    if (/upload/i.test(text)) return "file_upload";
+    if (/send|post/i.test(text)) return "network_send";
+    if (/notify/i.test(text)) return "notification";
+
+    return "unknown";
   }
 
   /**
@@ -352,6 +419,9 @@ export class CrossCapabilitySecurityAssessor extends BaseAssessor {
       );
 
       if (hasOpenArg && writeTools.length > 0) {
+        // Build attack chain for prompt -> tool escalation
+        const affectedTools = writeTools.map((t) => t.name).slice(0, 3);
+
         results.push({
           testType: "privilege_escalation",
           sourceCapability: `prompt:${prompt.name}`,
@@ -360,6 +430,14 @@ export class CrossCapabilitySecurityAssessor extends BaseAssessor {
           evidence: `Read-only prompt ${prompt.name} has arguments that could specify write operations`,
           riskLevel: "HIGH",
           description: `Privilege escalation path from ${prompt.name} to write tools`,
+          // NEW: Enrichment fields for Claude analysis (Issue #9)
+          privilegeEscalationVector: "prompt_argument_injection",
+          attackChain: [
+            `prompt:${prompt.name}`,
+            "argument_manipulation",
+            ...affectedTools.map((t) => `tool:${t}`),
+          ],
+          confidence: "high",
         });
       }
     }
@@ -393,6 +471,15 @@ export class CrossCapabilitySecurityAssessor extends BaseAssessor {
             evidence: `Public resource ${resource.uri} content could influence admin tool ${tool.name}`,
             riskLevel: "HIGH",
             description: `Privilege escalation path from ${resource.uri} to ${tool.name}`,
+            // NEW: Enrichment fields for Claude analysis (Issue #9)
+            privilegeEscalationVector: "resource_content_injection",
+            attackChain: [
+              `resource:${resource.uri}`,
+              "content_read",
+              "data_flow",
+              `tool:${tool.name}`,
+            ],
+            confidence: "high",
           });
         }
       }

@@ -380,3 +380,38 @@
 - Build successful
 
 ---
+
+## 2026-01-02: Fixed Functionality Score Calculation Bug (v1.21.3)
+
+**Summary:** Fixed critical functionality score calculation bug and published version 1.21.3 to npm with comprehensive test coverage.
+
+**Session Focus:** Bug fix for functionality score always reporting 100 regardless of actual tool success rate, discovered via Stage A/B comparison audit.
+
+**Changes Made:**
+- `client/src/lib/moduleScoring.ts` - Fixed field name: `workingPercentage` -> `coveragePercentage`
+- `docs/JSONL_EVENTS_API.md` - Updated score calculation documentation
+- `docs/REAL_TIME_PROGRESS_OUTPUT.md` - Updated score calculation documentation
+- `client/src/lib/__tests__/moduleScoring.test.ts` - New file with 23 regression tests
+- `client/src/services/__tests__/assessmentService.test.ts` - Added integration test for partial coverage
+- `CHANGELOG.md` - Added v1.21.3 entry
+- `PROJECT_STATUS.md` - Updated version to 1.21.3
+
+**Key Decisions:**
+- Used `coveragePercentage` (existing field from FunctionalityAssessor) rather than adding new `workingPercentage` field
+- Added both unit tests (moduleScoring.ts) and integration tests (assessmentService.test.ts) for comprehensive coverage
+
+**Key Commits:**
+- f79e7b7: fix: correct functionality score calculation field name
+- 03a1c46: docs: add v1.21.3 to CHANGELOG.md and PROJECT_STATUS.md
+- 70805da: test: add integration test for partial coverage score calculation
+
+**Next Steps:**
+- Monitor for any downstream impacts from functionality scores now being actual percentages instead of binary 100/50/0
+- Consider adding similar field validation tests for other module score calculations
+
+**Notes:**
+- Bug discovered via Stage A/B comparison audit showing 15.4% discrepancy
+- v1.21.3 published to npm (all 4 packages)
+- Total test count now 1260 (was 1259)
+
+---

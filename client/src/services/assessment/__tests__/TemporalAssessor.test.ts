@@ -1624,11 +1624,88 @@ describe("TemporalAssessor", () => {
         expect(hasPromotionalKeywords("Buy now for full access")).toBe(true);
       });
 
+      // CH4-style patterns (limited-time offers, discount codes)
+      it("detects CH4-style limited time offers", () => {
+        expect(hasPromotionalKeywords("Limited time offer!")).toBe(true);
+        expect(hasPromotionalKeywords("For a limited offer only")).toBe(true);
+      });
+
+      it("detects CH4-style discount patterns", () => {
+        expect(hasPromotionalKeywords("Use code SAVE20 for a discount")).toBe(
+          true,
+        );
+        expect(hasPromotionalKeywords("50% off for new users")).toBe(true);
+      });
+
+      it("detects free trial and special offer patterns", () => {
+        expect(hasPromotionalKeywords("Start your free trial today")).toBe(
+          true,
+        );
+        expect(hasPromotionalKeywords("Special offer for you!")).toBe(true);
+      });
+
+      it("detects referral and promo codes", () => {
+        expect(hasPromotionalKeywords("Use referral code FRIEND")).toBe(true);
+        expect(hasPromotionalKeywords("Enter promo code SAVE")).toBe(true);
+      });
+
+      it("detects urgency patterns", () => {
+        expect(hasPromotionalKeywords("Act now before it's too late")).toBe(
+          true,
+        );
+        expect(hasPromotionalKeywords("Don't miss this opportunity")).toBe(
+          true,
+        );
+      });
+
+      it("detects exclusive and fee patterns", () => {
+        expect(hasPromotionalKeywords("Exclusive access available")).toBe(true);
+        expect(hasPromotionalKeywords("Available for a fee")).toBe(true);
+      });
+
       it("does NOT match on normal content", () => {
         expect(hasPromotionalKeywords("Weather: 72°F, Sunny")).toBe(false);
         expect(hasPromotionalKeywords("Data retrieved successfully")).toBe(
           false,
         );
+      });
+    });
+
+    describe("hasSuspiciousLinks", () => {
+      let hasSuspiciousLinks: (text: string) => boolean;
+
+      beforeEach(() => {
+        hasSuspiciousLinks = getPrivateMethod(assessor, "hasSuspiciousLinks");
+      });
+
+      it("detects HTTP URLs", () => {
+        expect(hasSuspiciousLinks("Visit http://malicious.com")).toBe(true);
+        expect(hasSuspiciousLinks("Click https://example.com/signup")).toBe(
+          true,
+        );
+      });
+
+      it("detects markdown links", () => {
+        expect(hasSuspiciousLinks("Check [here](http://example.com)")).toBe(
+          true,
+        );
+        expect(hasSuspiciousLinks("[Click me](signup)")).toBe(true);
+      });
+
+      it("detects URL shorteners", () => {
+        expect(hasSuspiciousLinks("See bit.ly/abc123")).toBe(true);
+        expect(hasSuspiciousLinks("Link: tinyurl.com/xyz")).toBe(true);
+      });
+
+      it("detects click-bait patterns", () => {
+        expect(hasSuspiciousLinks("Click here for more")).toBe(true);
+        expect(hasSuspiciousLinks("Visit our website for details")).toBe(true);
+        expect(hasSuspiciousLinks("Sign up here to continue")).toBe(true);
+      });
+
+      it("does NOT match on normal content", () => {
+        expect(hasSuspiciousLinks("Weather: 72°F, Sunny")).toBe(false);
+        expect(hasSuspiciousLinks("Data retrieved successfully")).toBe(false);
       });
     });
 
@@ -1649,6 +1726,33 @@ describe("TemporalAssessor", () => {
         );
         expect(result.detected).toBe(true);
         expect(result.reason).toBe("promotional_keywords_appeared");
+      });
+
+      it("detects CH4-style limited time offers appearing", () => {
+        const result = detectStatefulContentChange(
+          "Weather: 72°F, Sunny",
+          "Weather: 72°F. Limited time offer! Get premium access now.",
+        );
+        expect(result.detected).toBe(true);
+        expect(result.reason).toBe("promotional_keywords_appeared");
+      });
+
+      it("detects suspicious links being injected (URL only, no promotional words)", () => {
+        const result = detectStatefulContentChange(
+          "Weather: 72°F, Sunny",
+          "Weather: 72°F. More info at http://example.com/more-weather-data",
+        );
+        expect(result.detected).toBe(true);
+        expect(result.reason).toBe("suspicious_links_injected");
+      });
+
+      it("detects click-bait patterns being injected", () => {
+        const result = detectStatefulContentChange(
+          "Stock price: $150.00",
+          "Stock price: $150.00. Visit our website for exclusive insights!",
+        );
+        expect(result.detected).toBe(true);
+        expect(result.reason).toBe("suspicious_links_injected");
       });
 
       it("detects significant length decrease (>70%)", () => {

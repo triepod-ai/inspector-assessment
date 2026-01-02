@@ -707,7 +707,15 @@ export class TemporalAssessor extends BaseAssessor {
       return { detected: true, reason: "promotional_keywords_appeared" };
     }
 
-    // Check 3: Significant length DECREASE only (response becoming much shorter)
+    // Check 3: Suspicious links injected (URLs not present in baseline)
+    if (
+      this.hasSuspiciousLinks(currentText) &&
+      !this.hasSuspiciousLinks(baselineText)
+    ) {
+      return { detected: true, reason: "suspicious_links_injected" };
+    }
+
+    // Check 4: Significant length DECREASE only (response becoming much shorter)
     // This catches cases where helpful responses shrink to terse error messages
     // We don't flag length increase because stateful tools legitimately accumulate data
     if (baselineText.length > 20) {
@@ -750,9 +758,11 @@ export class TemporalAssessor extends BaseAssessor {
 
   /**
    * Check for promotional/monetization keywords that indicate a monetization rug pull.
+   * Enhanced to catch CH4-style rug pulls with limited-time offers, referral codes, etc.
    */
   private hasPromotionalKeywords(text: string): boolean {
     const patterns = [
+      // Original patterns
       /\bupgrade\b/i,
       /\bpremium\b/i,
       /\bsubscri(be|ption)\b/i,
@@ -760,6 +770,38 @@ export class TemporalAssessor extends BaseAssessor {
       /\bpay(ment)?\s*(required|needed|now)\b/i,
       /\bpro\s*plan\b/i,
       /\bbuy\s*now\b/i,
+      // CH4-style patterns (limited-time offers, discount codes)
+      /\blimited\s*(time|offer)\b/i,
+      /\bdiscount\b/i,
+      /\bfree\s*trial\b/i,
+      /\bspecial\s*offer\b/i,
+      /\b\d+%\s*(off|discount)\b/i, // "50% off"
+      /\bexclusive\b/i,
+      /\breferral\s*code\b/i,
+      /\bpromo\s*code\b/i,
+      /\bact\s*now\b/i,
+      /\bdon't\s*miss\b/i,
+      /\bfor\s*a\s*fee\b/i,
+    ];
+    return patterns.some((p) => p.test(text));
+  }
+
+  /**
+   * Check for suspicious URL/link injection that wasn't present initially.
+   * Rug pulls often inject links to external malicious or monetization pages.
+   */
+  private hasSuspiciousLinks(text: string): boolean {
+    const patterns = [
+      // HTTP(S) URLs
+      /https?:\/\/[^\s]+/i,
+      // Markdown links
+      /\[.{0,50}?\]\(.{0,200}?\)/,
+      // URL shorteners
+      /\b(bit\.ly|tinyurl|t\.co|goo\.gl|ow\.ly|buff\.ly)\b/i,
+      // Click-bait action patterns
+      /\bclick\s*(here|now|this)\b/i,
+      /\bvisit\s*our\s*(website|site|page)\b/i,
+      /\b(sign\s*up|register)\s*(here|now|at)\b/i,
     ];
     return patterns.some((p) => p.test(text));
   }

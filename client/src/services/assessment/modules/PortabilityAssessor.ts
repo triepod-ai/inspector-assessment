@@ -63,6 +63,85 @@ const GOOD_PATTERNS = {
   pathResolve: /path\.resolve\(/g,
 };
 
+/**
+ * Shell command patterns for enrichment (Issue #9)
+ * Maps shell commands to portability info
+ */
+const SHELL_COMMAND_PATTERNS: Array<{
+  pattern: RegExp;
+  command: string;
+  isPortable: boolean;
+  alternativeCommand?: string;
+}> = [
+  // Unix-only commands
+  {
+    pattern: /\brm\s+-rf?\s/g,
+    command: "rm -rf",
+    isPortable: false,
+    alternativeCommand: "Use rimraf or fs-extra.remove()",
+  },
+  {
+    pattern: /\bchmod\s+/g,
+    command: "chmod",
+    isPortable: false,
+    alternativeCommand: "Use fs.chmod() or skip on Windows",
+  },
+  {
+    pattern: /\bchown\s+/g,
+    command: "chown",
+    isPortable: false,
+    alternativeCommand: "Skip on Windows or use icacls",
+  },
+  {
+    pattern: /\bln\s+-s/g,
+    command: "ln -s",
+    isPortable: false,
+    alternativeCommand: "Use fs.symlink() with junction on Windows",
+  },
+  {
+    pattern: /\bsed\s+-[ie]/g,
+    command: "sed",
+    isPortable: false,
+    alternativeCommand: "Use Node.js replace or replace-in-file package",
+  },
+  {
+    pattern: /\bgrep\s+/g,
+    command: "grep",
+    isPortable: false,
+    alternativeCommand: "Use Node.js string methods or glob package",
+  },
+  {
+    pattern: /\bawk\s+/g,
+    command: "awk",
+    isPortable: false,
+    alternativeCommand: "Use Node.js string/regex methods",
+  },
+  {
+    pattern: /\btar\s+-[cxzf]/g,
+    command: "tar",
+    isPortable: false,
+    alternativeCommand: "Use node-tar or archiver package",
+  },
+  {
+    pattern: /\bcurl\s+/g,
+    command: "curl",
+    isPortable: false,
+    alternativeCommand: "Use node-fetch or axios",
+  },
+  {
+    pattern: /\bwget\s+/g,
+    command: "wget",
+    isPortable: false,
+    alternativeCommand: "Use node-fetch or axios",
+  },
+
+  // Portable commands
+  { pattern: /\bnpx\s+/g, command: "npx", isPortable: true },
+  { pattern: /\bnpm\s+run/g, command: "npm run", isPortable: true },
+  { pattern: /\bnode\s+/g, command: "node", isPortable: true },
+  { pattern: /\bpython3?\s+/g, command: "python", isPortable: true },
+];
+
 export class PortabilityAssessor extends BaseAssessor {
   /**
    * Run portability assessment
@@ -166,6 +245,10 @@ export class PortabilityAssessor extends BaseAssessor {
 
     this.log(`Assessment complete: ${issues.length} portability issues found`);
 
+    // NEW: Analyze shell commands and platform coverage (Issue #9)
+    const shellCommands = this.analyzeShellCommands(context);
+    const platformCoverage = this.analyzePlatformCoverage(issues);
+
     return {
       issues,
       scannedFiles,
@@ -176,6 +259,128 @@ export class PortabilityAssessor extends BaseAssessor {
       status,
       explanation,
       recommendations,
+      // NEW: Enrichment fields (Issue #9)
+      shellCommands,
+      platformCoverage,
+    };
+  }
+
+  /**
+   * Analyze shell commands in source files for enrichment (Issue #9)
+   */
+  private analyzeShellCommands(context: AssessmentContext): Array<{
+    command: string;
+    isPortable: boolean;
+    alternativeCommand?: string;
+  }> {
+    const commands: Map<
+      string,
+      { command: string; isPortable: boolean; alternativeCommand?: string }
+    > = new Map();
+
+    // Collect all source content to scan
+    const contentsToScan: string[] = [];
+
+    if (context.manifestRaw) {
+      contentsToScan.push(context.manifestRaw);
+    }
+
+    if (context.packageJson) {
+      const packageJson = context.packageJson as any;
+      if (packageJson.scripts) {
+        contentsToScan.push(JSON.stringify(packageJson.scripts));
+      }
+    }
+
+    if (context.sourceCodeFiles && context.config.enableSourceCodeAnalysis) {
+      for (const [, content] of context.sourceCodeFiles) {
+        contentsToScan.push(content);
+      }
+    }
+
+    // Scan all content for shell commands
+    const fullContent = contentsToScan.join("\n");
+    for (const patternDef of SHELL_COMMAND_PATTERNS) {
+      // Reset lastIndex for global patterns
+      patternDef.pattern.lastIndex = 0;
+      if (patternDef.pattern.test(fullContent)) {
+        commands.set(patternDef.command, {
+          command: patternDef.command,
+          isPortable: patternDef.isPortable,
+          alternativeCommand: patternDef.alternativeCommand,
+        });
+      }
+    }
+
+    return Array.from(commands.values());
+  }
+
+  /**
+   * Analyze platform coverage from detected issues (Issue #9)
+   */
+  private analyzePlatformCoverage(issues: PortabilityIssue[]): {
+    supported: "all" | "windows" | "macos" | "linux";
+    missing: string[];
+  } {
+    const missing: string[] = [];
+
+    // Check for platform-specific issues
+    const hasDarwinSpecific = issues.some(
+      (i) => i.type === "platform_specific" && i.matchedText.includes("darwin"),
+    );
+    const hasWin32Specific = issues.some(
+      (i) => i.type === "platform_specific" && i.matchedText.includes("win32"),
+    );
+    const hasLinuxSpecific = issues.some(
+      (i) => i.type === "platform_specific" && i.matchedText.includes("linux"),
+    );
+
+    // Check for Unix-only paths
+    const hasUnixPaths = issues.some(
+      (i) =>
+        (i.type === "absolute_path" || i.type === "user_home_path") &&
+        (i.matchedText.startsWith("/") || i.matchedText.includes("~/")),
+    );
+
+    // Check for Windows-only paths
+    const hasWindowsPaths = issues.some(
+      (i) => i.type === "absolute_path" && /^[A-Z]:\\/.test(i.matchedText),
+    );
+
+    // Determine missing platforms
+    if (hasUnixPaths && !hasWindowsPaths) {
+      missing.push("windows");
+    }
+    if (hasWindowsPaths && !hasUnixPaths) {
+      missing.push("macos", "linux");
+    }
+    if (hasDarwinSpecific && !hasWin32Specific && !hasLinuxSpecific) {
+      if (!missing.includes("windows")) missing.push("windows");
+      if (!missing.includes("linux")) missing.push("linux");
+    }
+    if (hasWin32Specific && !hasDarwinSpecific && !hasLinuxSpecific) {
+      if (!missing.includes("macos")) missing.push("macos");
+      if (!missing.includes("linux")) missing.push("linux");
+    }
+    if (hasLinuxSpecific && !hasDarwinSpecific && !hasWin32Specific) {
+      if (!missing.includes("windows")) missing.push("windows");
+      if (!missing.includes("macos")) missing.push("macos");
+    }
+
+    // Determine supported platforms
+    let supported: "all" | "windows" | "macos" | "linux" = "all";
+    if (missing.length > 0) {
+      // Determine the primary supported platform
+      if (hasUnixPaths || hasDarwinSpecific || hasLinuxSpecific) {
+        supported = hasLinuxSpecific ? "linux" : "macos";
+      } else if (hasWindowsPaths || hasWin32Specific) {
+        supported = "windows";
+      }
+    }
+
+    return {
+      supported,
+      missing,
     };
   }
 

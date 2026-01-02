@@ -59,6 +59,61 @@ const SENSITIVE_CONTENT_PATTERNS = [
   /secret\s*[:=]\s*['"][^'"]+['"]/i,
 ];
 
+// NEW: Sensitive pattern definitions with severity for enrichment (Issue #9)
+const SENSITIVE_PATTERN_DEFINITIONS: Array<{
+  name: string;
+  pattern: RegExp;
+  severity: "critical" | "high" | "medium";
+}> = [
+  {
+    name: "private_key",
+    pattern: /-----BEGIN.*PRIVATE KEY-----/i,
+    severity: "critical",
+  },
+  { name: "api_key_openai", pattern: /sk-[a-zA-Z0-9]{32,}/i, severity: "high" },
+  { name: "github_token", pattern: /ghp_[a-zA-Z0-9]{36}/i, severity: "high" },
+  {
+    name: "gitlab_token",
+    pattern: /glpat-[a-zA-Z0-9-_]{20}/i,
+    severity: "high",
+  },
+  {
+    name: "slack_token",
+    pattern: /xox[baprs]-[a-zA-Z0-9-]+/i,
+    severity: "high",
+  },
+  {
+    name: "aws_access_key",
+    pattern: /AKIA[A-Z0-9]{16}/i,
+    severity: "critical",
+  },
+  {
+    name: "password_assignment",
+    pattern: /password\s*[:=]\s*['"][^'"]+['"]/i,
+    severity: "high",
+  },
+  {
+    name: "secret_assignment",
+    pattern: /secret\s*[:=]\s*['"][^'"]+['"]/i,
+    severity: "high",
+  },
+  {
+    name: "ssn_pattern",
+    pattern: /\b\d{3}-\d{2}-\d{4}\b/,
+    severity: "critical",
+  },
+  {
+    name: "credit_card",
+    pattern: /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/,
+    severity: "critical",
+  },
+  {
+    name: "email_address",
+    pattern: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,
+    severity: "medium",
+  },
+];
+
 // Prompt injection patterns to detect in resource content
 // These patterns indicate attempts to manipulate LLM behavior through resource content
 const PROMPT_INJECTION_PATTERNS: Array<{
@@ -286,6 +341,10 @@ export class ResourceAssessor extends BaseAssessor {
       promptInjectionDetected: false,
       promptInjectionPatterns: [],
       validUri: this.isValidUri(resource.uri),
+      // NEW: Initialize enrichment fields (Issue #9)
+      sensitivePatterns: [],
+      accessControls: this.inferAccessControls(resource.uri),
+      dataClassification: this.inferDataClassification(resource.uri),
     };
 
     // Check URI for sensitive patterns
@@ -294,6 +353,8 @@ export class ResourceAssessor extends BaseAssessor {
         `Resource URI matches sensitive file pattern: ${resource.uri}`,
       );
       result.sensitiveDataExposed = true;
+      // Update classification if sensitive
+      result.dataClassification = "confidential";
     }
 
     // Try to read the resource if readResource function is provided
@@ -314,6 +375,21 @@ export class ResourceAssessor extends BaseAssessor {
             "Resource content contains sensitive data patterns (credentials, keys, etc.)",
           );
           result.sensitiveDataExposed = true;
+        }
+
+        // NEW: Detect sensitive patterns with severity (Issue #9)
+        if (content) {
+          result.sensitivePatterns = this.detectSensitivePatterns(content);
+          // Upgrade classification if critical patterns found
+          if (result.sensitivePatterns.some((p) => p.severity === "critical")) {
+            result.dataClassification = "restricted";
+          } else if (
+            result.sensitivePatterns.some(
+              (p) => p.detected && p.severity === "high",
+            )
+          ) {
+            result.dataClassification = "confidential";
+          }
         }
 
         // Check content for prompt injection patterns
@@ -337,6 +413,81 @@ export class ResourceAssessor extends BaseAssessor {
     }
 
     return result;
+  }
+
+  /**
+   * Detect sensitive patterns with severity for enrichment (Issue #9)
+   */
+  private detectSensitivePatterns(content: string): Array<{
+    pattern: string;
+    severity: "critical" | "high" | "medium";
+    detected: boolean;
+  }> {
+    return SENSITIVE_PATTERN_DEFINITIONS.map((def) => ({
+      pattern: def.name,
+      severity: def.severity,
+      detected: def.pattern.test(content),
+    }));
+  }
+
+  /**
+   * Infer access controls from resource URI (Issue #9)
+   */
+  private inferAccessControls(uri: string): {
+    requiresAuth: boolean;
+    authType?: string;
+  } {
+    const lowerUri = uri.toLowerCase();
+
+    // Check for protected/private paths
+    if (/\/private\/|\/protected\/|\/secure\/|\/admin\//i.test(uri)) {
+      return { requiresAuth: true, authType: "unknown" };
+    }
+
+    // Check for auth indicators in URI
+    if (/auth|oauth|token|bearer/i.test(uri)) {
+      return { requiresAuth: true, authType: "oauth" };
+    }
+
+    // Check for API key indicators
+    if (/api[_-]?key|apikey/i.test(uri)) {
+      return { requiresAuth: true, authType: "api_key" };
+    }
+
+    // Check for public paths
+    if (/\/public\/|\/static\/|\/assets\//i.test(lowerUri)) {
+      return { requiresAuth: false };
+    }
+
+    // Default: unknown
+    return { requiresAuth: false };
+  }
+
+  /**
+   * Infer data classification from resource URI (Issue #9)
+   */
+  private inferDataClassification(
+    uri: string,
+  ): "public" | "internal" | "confidential" | "restricted" {
+    const lowerUri = uri.toLowerCase();
+
+    // Restricted: highly sensitive
+    if (/secret|credential|key|password|token|\.pem|\.key|id_rsa/i.test(uri)) {
+      return "restricted";
+    }
+
+    // Confidential: sensitive business data
+    if (/private|confidential|sensitive|\.env|config/i.test(uri)) {
+      return "confidential";
+    }
+
+    // Public: explicitly public
+    if (/\/public\/|\/static\/|\/assets\/|\/docs\//i.test(lowerUri)) {
+      return "public";
+    }
+
+    // Internal: default for most resources
+    return "internal";
   }
 
   private async testResourceTemplate(
