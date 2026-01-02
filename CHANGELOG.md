@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.3] - 2026-01-02
+
+### Fixed
+
+- **Functionality Score Calculation Bug**: Fixed critical scoring discrepancy where functionality module always reported score of 100 regardless of actual tool success rate
+  - Root cause: `calculateModuleScore()` in `moduleScoring.ts` checked for non-existent `workingPercentage` field
+  - Fix: Changed to use `coveragePercentage` which `FunctionalityAssessor` actually returns
+  - Impact: Functionality scores now correctly reflect actual tool success rate (e.g., 84.6% working → score 85, not 100)
+  - This bug was discovered via Stage A/B comparison audit showing 15.4% score discrepancy
+
+### Changed
+
+- **Documentation**: Updated score calculation tables in `JSONL_EVENTS_API.md` and `REAL_TIME_PROGRESS_OUTPUT.md` to reference correct field name `coveragePercentage`
+
+### Added
+
+- **Module Scoring Tests**: New test file `client/src/lib/__tests__/moduleScoring.test.ts`
+  - 23 tests covering `calculateModuleScore()` and `normalizeModuleKey()` functions
+  - Regression tests to prevent future field name mismatches
+  - Tests for all module types: functionality, error handling, security, AUP, MCP spec compliance
+
 ## [1.21.2] - 2026-01-02
 
 ### Fixed

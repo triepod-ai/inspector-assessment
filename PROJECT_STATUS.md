@@ -2,7 +2,35 @@
 
 ## Current Version
 
-- **Version**: 1.21.2 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.21.3 (published to npm as "@bryan-thompson/inspector-assessment")
+
+---
+
+## 2026-01-02: Functionality Score Calculation Bug Fix
+
+**Summary:** Fixed critical bug where functionality module score always reported 100 regardless of actual tool success rate. Discovered via Stage A/B comparison audit.
+
+**Root Cause:**
+- `calculateModuleScore()` in `moduleScoring.ts:35` checked for `workingPercentage`
+- `FunctionalityAssessor` returns `coveragePercentage` (different field name)
+- This caused fallthrough to status-based scoring: `status === "PASS" ? 100`
+- Result: 84.6% tool success rate incorrectly reported as score 100
+
+**Fix Applied:**
+- Changed `moduleScoring.ts` to check `coveragePercentage` instead of `workingPercentage`
+- Updated documentation in `JSONL_EVENTS_API.md` and `REAL_TIME_PROGRESS_OUTPUT.md`
+- Added 23 regression tests in `client/src/lib/__tests__/moduleScoring.test.ts`
+
+**Files Modified:**
+- `client/src/lib/moduleScoring.ts` - Field name fix
+- `docs/JSONL_EVENTS_API.md` - Documentation update
+- `docs/REAL_TIME_PROGRESS_OUTPUT.md` - Documentation update
+- `client/src/lib/__tests__/moduleScoring.test.ts` - New test file (23 tests)
+
+**Validation:**
+- All 1259 tests pass (58 test suites)
+- Build successful
+- Published to npm as v1.21.3
 
 ---
 
