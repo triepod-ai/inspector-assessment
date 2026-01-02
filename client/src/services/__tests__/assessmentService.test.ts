@@ -639,6 +639,43 @@ describe("MCPAssessmentService", () => {
       }, 30000); // 30 second Jest timeout for functionality-only with 100ms tool timeouts
     });
 
+    describe("Partial Coverage Score Calculation", () => {
+      it("should calculate functionality score correctly with partial tool coverage", async () => {
+        // Arrange: First tool (test_tool) always works, second tool (complex-tool) always fails
+        const twoTools = [MOCK_TOOLS[0], MOCK_TOOLS[1]];
+
+        // Mock based on tool name: test_tool succeeds, complex-tool fails
+        mockCallTool.mockImplementation((toolName: string) => {
+          if (toolName === "test_tool") {
+            return Promise.resolve({
+              content: [{ type: "text", text: "success" }],
+              isError: false,
+            });
+          } else {
+            // complex-tool always fails
+            return Promise.resolve({
+              content: [{ type: "text", text: "Error: tool broken" }],
+              isError: true,
+            });
+          }
+        });
+
+        // Act
+        const result = await service.runFullAssessment(
+          "partial-coverage-server",
+          twoTools,
+          mockCallTool,
+        );
+
+        // Assert: Coverage should be 50%, not 100%
+        // This test would have caught the workingPercentage/coveragePercentage field mismatch bug
+        expect(result.functionality.coveragePercentage).toBe(50);
+        expect(result.functionality.workingTools).toBe(1);
+        expect(result.functionality.brokenTools.length).toBe(1);
+        expect(result.functionality.brokenTools).toContain("complex-tool");
+      });
+    });
+
     describe("Large Payload Handling", () => {
       it("should handle large response payloads", async () => {
         const largeResponse = {
