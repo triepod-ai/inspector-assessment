@@ -626,16 +626,24 @@ function displaySummary(results: MCPDirectoryAssessment) {
     summary,
     totalTestsRun,
     executionTime,
+    // Destructuring order matches display order below
     functionality,
     security,
-    aupCompliance,
-    toolAnnotations,
-    portability,
     documentation,
     errorHandling,
+    usability,
     mcpSpecCompliance,
+    aupCompliance,
+    toolAnnotations,
     prohibitedLibraries,
     manifestValidation,
+    portability,
+    externalAPIScanner,
+    authentication,
+    temporal,
+    resources,
+    prompts,
+    crossCapability,
   } = results;
 
   console.log("\n" + "=".repeat(70));
@@ -654,12 +662,19 @@ function displaySummary(results: MCPDirectoryAssessment) {
     ["Security", security, "security"],
     ["Documentation", documentation, "documentation"],
     ["Error Handling", errorHandling, "errorHandling"],
+    ["Usability", usability, "usability"],
     ["MCP Spec Compliance", mcpSpecCompliance, "mcpSpecCompliance"],
     ["AUP Compliance", aupCompliance, "aupCompliance"],
     ["Tool Annotations", toolAnnotations, "toolAnnotations"],
     ["Prohibited Libraries", prohibitedLibraries, "prohibitedLibraries"],
     ["Manifest Validation", manifestValidation, "manifestValidation"],
     ["Portability", portability, "portability"],
+    ["External API Scanner", externalAPIScanner, "externalAPIScanner"],
+    ["Authentication", authentication, "authentication"],
+    ["Temporal", temporal, "temporal"],
+    ["Resources", resources, "resources"],
+    ["Prompts", prompts, "prompts"],
+    ["Cross-Capability", crossCapability, "crossCapability"],
   ];
 
   for (const [name, module, categoryKey] of modules) {

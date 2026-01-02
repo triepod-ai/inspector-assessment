@@ -2,7 +2,41 @@
 
 ## Current Version
 
-- **Version**: 1.21.0 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.21.1 (published to npm as "@bryan-thompson/inspector-assessment")
+
+---
+
+## 2026-01-02: Code Review Fixes - CLI Display Parity and Test Coverage
+
+**Summary:** Fixed critical parity violation between npm binary and local script, added missing display modules, and added unit tests for assessment category types.
+
+**Issues Fixed:**
+
+1. **CLI Display Parity** (Critical)
+   - `scripts/run-full-assessment.ts` was missing 7 modules that exist in `cli/src/assess-full.ts`
+   - Added: Usability, External API Scanner, Authentication, Temporal, Resources, Prompts, Cross-Capability
+   - Both files now display all 17 assessment categories consistently
+
+2. **Missing Display Modules**
+   - Added `externalAPIScanner` and `authentication` to both CLI display summaries
+   - These were defined in `ASSESSMENT_CATEGORY_METADATA` but not shown in output
+
+3. **Version Documentation**
+   - Updated PROJECT_STATUS.md version from 1.21.0 to 1.21.1
+
+4. **Unit Test Coverage**
+   - Added `client/src/lib/__tests__/assessmentTypes.test.ts`
+   - Tests verify: 17 categories exist, optional tier marking, required fields, no duplicates
+
+**Files Modified:**
+- `scripts/run-full-assessment.ts` - Added 7 missing modules to displaySummary
+- `cli/src/assess-full.ts` - Added 2 missing modules to displaySummary
+- `PROJECT_STATUS.md` - Version update and timeline entry
+- `client/src/lib/__tests__/assessmentTypes.test.ts` - New test file
+
+**Validation:**
+- Build passes: `npm run build`
+- CLI parity verified: Both files now have identical 17-module display arrays
 
 ---
 
@@ -288,5 +322,33 @@
 **Notes:**
 - Published v1.20.10 and v1.20.11 to npm
 - mcp-server-qdrant-enhanced now shows 0 portability issues (was 12 false positives)
+
+---
+
+## 2026-01-01: Added Assessment Category Tiers for Optional Module Marking (v1.21.1)
+
+**Summary:** Added assessment category tiers to distinguish core vs optional assessment modules, marking manifestValidation and portability as optional MCPB bundle-specific categories
+
+**Session Focus:** Implementing assessment category tier system for optional module marking
+
+**Changes Made:**
+- `client/src/lib/assessmentTypes.ts` - Added AssessmentCategoryTier type, AssessmentCategoryMetadata interface, and ASSESSMENT_CATEGORY_METADATA constant
+- `scripts/run-full-assessment.ts` - Updated module status output to show "(optional)" marker
+- `cli/src/assess-full.ts` - Same updates for npm binary
+- `CHANGELOG.md` - Added v1.21.1 and v1.21.0 entries
+
+**Key Decisions:**
+- Used "core" and "optional" as tier values for clear distinction
+- manifestValidation and portability marked as optional since they only apply to MCPB bundles
+- Added applicableTo field to metadata for documenting when optional categories apply
+
+**Next Steps:**
+- When MCPB bundle auditing is added, orchestrator could auto-enable optional categories based on input type
+- UI components could visually differentiate optional vs core categories
+
+**Notes:**
+- Published as v1.21.1 to npm
+- All 1200 tests pass
+- Build successful
 
 ---
