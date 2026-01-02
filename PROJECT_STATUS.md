@@ -6,6 +6,48 @@
 
 ---
 
+## 2026-01-02: Issue #9 - Enrich Module Output for Claude Analysis Alignment
+
+**Summary:** Implemented GitHub Issue #9 to add optional enrichment fields to 4 assessor modules, improving downstream Claude analysis in mcp-auditor Stage B.
+
+**GitHub Issue:** [#9 - feat: Enrich module output for better Claude analysis alignment](https://github.com/triepod-ai/inspector-assessment/issues/9)
+
+**Changes Implemented:**
+
+### Phase 1: Type Extensions (`assessmentTypes.ts`)
+- **CrossCapabilityTestResult**: Added `privilegeEscalationVector`, `dataExfiltrationRisk`, `attackChain`, `confidence`
+- **ResourceTestResult**: Added `sensitivePatterns`, `accessControls`, `dataClassification`
+- **PromptTestResult**: Added `promptTemplate`, `dynamicContent`
+- **PortabilityAssessment**: Added `shellCommands`, `platformCoverage`
+
+### Phase 2: HIGH Priority Assessors
+- **CrossCapabilitySecurityAssessor.ts**: Enrichment for privilege escalation vectors, attack chains, data exfiltration risks
+- **ResourceAssessor.ts**: Sensitive pattern detection (11 patterns: SSN, credit cards, API keys, etc.), access controls inference, data classification
+
+### Phase 3: MEDIUM Priority Assessors
+- **PromptAssessor.ts**: Template analysis (type detection, variable extraction), dynamic content analysis (interpolation, injection safety)
+- **PortabilityAssessor.ts**: Shell command analysis (14 command patterns), platform coverage calculation
+
+### Cleanup
+- **moduleScoring.ts**: Fixed INSPECTOR_VERSION from "1.20.2" to "1.21.3"
+
+**Files Modified:**
+- `client/src/lib/assessmentTypes.ts` - Type extensions (4 interfaces)
+- `client/src/services/assessment/modules/CrossCapabilitySecurityAssessor.ts` - Enrichment fields + helper methods
+- `client/src/services/assessment/modules/ResourceAssessor.ts` - Sensitive pattern detection + helper methods
+- `client/src/services/assessment/modules/PromptAssessor.ts` - Template/dynamic content analysis
+- `client/src/services/assessment/modules/PortabilityAssessor.ts` - Shell command/platform analysis
+- `client/src/lib/moduleScoring.ts` - Version constant fix
+
+**Backward Compatibility:** All new fields are optional (`?:` syntax), ensuring existing consumers continue to work without modification.
+
+**Validation:**
+- All 1339 tests pass (60 test suites)
+- Build successful
+- A/B testbed validation: 0 false positives
+
+---
+
 ## 2026-01-02: Functionality Score Calculation Bug Fix
 
 **Summary:** Fixed critical bug where functionality module score always reported 100 regardless of actual tool success rate. Discovered via Stage A/B comparison audit.
