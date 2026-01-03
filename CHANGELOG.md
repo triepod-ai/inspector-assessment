@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-01-03
+
+### Added
+
+- **Tool Annotations in `tool_discovered` Events** (Issue #12): Include MCP tool annotations in real-time discovery events
+  - `tool_discovered` JSONL events now include `annotations` field with `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`
+  - Annotations are `null` when the server doesn't provide them
+  - Enables consumers (e.g., mcp-auditor) to display annotation values during discovery phase, not just after assessment completes
+  - Updated `emitToolDiscovered()` in both `cli/src/lib/jsonl-events.ts` and `scripts/lib/jsonl-events.ts`
+  - Updated `ToolDiscoveredEvent` interface with annotations type definition
+  - Documentation updated in `docs/JSONL_EVENTS_REFERENCE.md`
+
 ## [1.21.5] - 2026-01-03
 
 ### Added
