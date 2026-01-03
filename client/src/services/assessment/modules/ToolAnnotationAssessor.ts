@@ -45,6 +45,132 @@ interface PoisoningPattern {
   category: string;
 }
 
+/**
+ * High-confidence deception detection patterns
+ * These patterns detect obvious misalignment between annotations and tool names
+ * where keywords appear ANYWHERE in the tool name (not just as prefixes)
+ */
+
+/** Keywords that contradict readOnlyHint=true (these tools modify state) */
+const READONLY_CONTRADICTION_KEYWORDS = [
+  // Execution keywords - tools that execute code/commands are never read-only
+  "exec",
+  "execute",
+  "run",
+  "shell",
+  "command",
+  "cmd",
+  "spawn",
+  "invoke",
+  // Write/modify keywords
+  "write",
+  "create",
+  "delete",
+  "remove",
+  "modify",
+  "update",
+  "edit",
+  "change",
+  "set",
+  "put",
+  "patch",
+  // Deployment/installation keywords
+  "install",
+  "deploy",
+  "upload",
+  "push",
+  // Communication keywords (sending data)
+  "send",
+  "post",
+  "submit",
+  "publish",
+  // Destructive keywords
+  "destroy",
+  "drop",
+  "purge",
+  "wipe",
+  "clear",
+  "truncate",
+  "reset",
+  "kill",
+  "terminate",
+];
+
+/** Keywords that contradict destructiveHint=false (these tools delete/destroy data) */
+const DESTRUCTIVE_CONTRADICTION_KEYWORDS = [
+  "delete",
+  "remove",
+  "drop",
+  "destroy",
+  "purge",
+  "wipe",
+  "erase",
+  "truncate",
+  "clear",
+  "reset",
+  "kill",
+  "terminate",
+  "revoke",
+  "cancel",
+  "force",
+];
+
+/**
+ * Check if a tool name contains any of the given keywords (case-insensitive)
+ * Looks for keywords anywhere in the name, not just as prefixes
+ */
+function containsKeyword(toolName: string, keywords: string[]): string | null {
+  const lowerName = toolName.toLowerCase();
+  for (const keyword of keywords) {
+    if (lowerName.includes(keyword)) {
+      return keyword;
+    }
+  }
+  return null;
+}
+
+/**
+ * Detect high-confidence annotation deception
+ * Returns misalignment info if obvious deception detected, null otherwise
+ */
+function detectAnnotationDeception(
+  toolName: string,
+  annotations: { readOnlyHint?: boolean; destructiveHint?: boolean },
+): {
+  field: "readOnlyHint" | "destructiveHint";
+  matchedKeyword: string;
+  reason: string;
+} | null {
+  // Check readOnlyHint=true contradiction
+  if (annotations.readOnlyHint === true) {
+    const keyword = containsKeyword(toolName, READONLY_CONTRADICTION_KEYWORDS);
+    if (keyword) {
+      return {
+        field: "readOnlyHint",
+        matchedKeyword: keyword,
+        reason: `Tool name contains '${keyword}' but claims readOnlyHint=true - this is likely deceptive`,
+      };
+    }
+  }
+
+  // Check destructiveHint=false contradiction
+  if (annotations.destructiveHint === false) {
+    const keyword = containsKeyword(
+      toolName,
+      DESTRUCTIVE_CONTRADICTION_KEYWORDS,
+    );
+    if (keyword) {
+      return {
+        field: "destructiveHint",
+        matchedKeyword: keyword,
+        reason: `Tool name contains '${keyword}' but claims destructiveHint=false - this is likely deceptive`,
+      };
+    }
+  }
+
+  return null;
+}
+
 const DESCRIPTION_POISONING_PATTERNS: PoisoningPattern[] = [
   // Hidden instruction tags
   {
@@ -959,6 +1085,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
   /**
    * Assess a single tool's annotations
    * Now includes alignment status with confidence-aware logic
+   * Enhanced with high-confidence deception detection for obvious misalignments
    */
   private assessTool(tool: Tool): ToolAnnotationResult {
     const issues: string[] = [];
@@ -984,58 +1111,87 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       );
       alignmentStatus = "UNKNOWN";
     } else {
-      // Check for misaligned annotations with confidence-aware logic
-      const readOnlyMismatch =
-        annotations.readOnlyHint !== undefined &&
-        annotations.readOnlyHint !== inferredBehavior.expectedReadOnly;
+      // FIRST: Check for high-confidence deception (keywords anywhere in tool name)
+      // This catches obvious cases like "vulnerable_system_exec_tool" + readOnlyHint=true
+      const deception = detectAnnotationDeception(tool.name, {
+        readOnlyHint: annotations.readOnlyHint,
+        destructiveHint: annotations.destructiveHint,
+      });
 
-      const destructiveMismatch =
-        annotations.destructiveHint !== undefined &&
-        annotations.destructiveHint !== inferredBehavior.expectedDestructive;
+      if (deception) {
+        // High-confidence deception detected - this is MISALIGNED, not REVIEW_RECOMMENDED
+        alignmentStatus = "MISALIGNED";
+        issues.push(`DECEPTIVE ANNOTATION: ${deception.reason}`);
+        recommendations.push(
+          `CRITICAL: Fix deceptive ${deception.field} for ${tool.name} - tool name contains '${deception.matchedKeyword}' which contradicts the annotation`,
+        );
 
-      if (readOnlyMismatch || destructiveMismatch) {
-        if (
-          inferredBehavior.isAmbiguous ||
-          inferredBehavior.confidence === "low"
-        ) {
-          // Ambiguous case: REVIEW_RECOMMENDED, softer language
-          alignmentStatus = "REVIEW_RECOMMENDED";
-
-          if (readOnlyMismatch) {
-            issues.push(
-              `Review recommended: readOnlyHint=${annotations.readOnlyHint} may or may not match '${tool.name}' behavior (confidence: ${inferredBehavior.confidence})`,
-            );
-            recommendations.push(
-              `Verify readOnlyHint for ${tool.name}: pattern is ambiguous - manual review recommended`,
-            );
-          }
-          if (destructiveMismatch) {
-            issues.push(
-              `Review recommended: destructiveHint=${annotations.destructiveHint} may or may not match '${tool.name}' behavior (confidence: ${inferredBehavior.confidence})`,
-            );
-            recommendations.push(
-              `Verify destructiveHint for ${tool.name}: pattern is ambiguous - manual review recommended`,
-            );
-          }
+        // Override inferred behavior to match the detected deception
+        if (deception.field === "readOnlyHint") {
+          inferredBehavior.expectedReadOnly = false;
+          inferredBehavior.confidence = "high";
+          inferredBehavior.isAmbiguous = false;
+          inferredBehavior.reason = deception.reason;
         } else {
-          // High/medium confidence mismatch: MISALIGNED
-          alignmentStatus = "MISALIGNED";
+          inferredBehavior.expectedDestructive = true;
+          inferredBehavior.confidence = "high";
+          inferredBehavior.isAmbiguous = false;
+          inferredBehavior.reason = deception.reason;
+        }
+      } else {
+        // Normal flow: Check for misaligned annotations with confidence-aware logic
+        const readOnlyMismatch =
+          annotations.readOnlyHint !== undefined &&
+          annotations.readOnlyHint !== inferredBehavior.expectedReadOnly;
 
-          if (readOnlyMismatch) {
-            issues.push(
-              `Potentially misaligned readOnlyHint: set to ${annotations.readOnlyHint}, expected ${inferredBehavior.expectedReadOnly} based on tool name pattern`,
-            );
-            recommendations.push(
-              `Verify readOnlyHint for ${tool.name}: currently ${annotations.readOnlyHint}, tool name suggests ${inferredBehavior.expectedReadOnly}`,
-            );
-          }
-          if (destructiveMismatch) {
-            issues.push(
-              `Potentially misaligned destructiveHint: set to ${annotations.destructiveHint}, expected ${inferredBehavior.expectedDestructive} based on tool name pattern`,
-            );
-            recommendations.push(
-              `Verify destructiveHint for ${tool.name}: currently ${annotations.destructiveHint}, tool name suggests ${inferredBehavior.expectedDestructive}`,
-            );
+        const destructiveMismatch =
+          annotations.destructiveHint !== undefined &&
+          annotations.destructiveHint !== inferredBehavior.expectedDestructive;
+
+        if (readOnlyMismatch || destructiveMismatch) {
+          if (
+            inferredBehavior.isAmbiguous ||
+            inferredBehavior.confidence === "low"
+          ) {
+            // Ambiguous case: REVIEW_RECOMMENDED, softer language
+            alignmentStatus = "REVIEW_RECOMMENDED";
+
+            if (readOnlyMismatch) {
+              issues.push(
+                `Review recommended: readOnlyHint=${annotations.readOnlyHint} may or may not match '${tool.name}' behavior (confidence: ${inferredBehavior.confidence})`,
+              );
+              recommendations.push(
+                `Verify readOnlyHint for ${tool.name}: pattern is ambiguous - manual review recommended`,
+              );
+            }
+            if (destructiveMismatch) {
+              issues.push(
+                `Review recommended: destructiveHint=${annotations.destructiveHint} may or may not match '${tool.name}' behavior (confidence: ${inferredBehavior.confidence})`,
+              );
+              recommendations.push(
+                `Verify destructiveHint for ${tool.name}: pattern is ambiguous - manual review recommended`,
+              );
+            }
+          } else {
+            // High/medium confidence mismatch: MISALIGNED
+            alignmentStatus = "MISALIGNED";
+
+            if (readOnlyMismatch) {
+              issues.push(
+                `Potentially misaligned readOnlyHint: set to ${annotations.readOnlyHint}, expected ${inferredBehavior.expectedReadOnly} based on tool name pattern`,
+              );
+              recommendations.push(
+                `Verify readOnlyHint for ${tool.name}: currently ${annotations.readOnlyHint}, tool name suggests ${inferredBehavior.expectedReadOnly}`,
+              );
+            }
+            if (destructiveMismatch) {
+              issues.push(
+                `Potentially misaligned destructiveHint: set to ${annotations.destructiveHint}, expected ${inferredBehavior.expectedDestructive} based on tool name pattern`,
+              );
+              recommendations.push(
+                `Verify destructiveHint for ${tool.name}: currently ${annotations.destructiveHint}, tool name suggests ${inferredBehavior.expectedDestructive}`,
+              );
+            }
           }
         }
       }
