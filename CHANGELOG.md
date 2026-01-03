@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.5] - 2026-01-03
+
+### Added
+
+- **annotation_aligned JSONL Event** (Issue #10): New real-time event emission for tools with properly aligned annotations
+  - Emits `annotation_aligned` event when `hasAnnotations === true` AND `alignmentStatus === "ALIGNED"`
+  - Event schema includes tool name, confidence level, and annotation values (readOnlyHint, destructiveHint, openWorldHint, idempotentHint)
+  - Enables downstream consumers (e.g., mcp-auditor) to show "Aligned" status instead of "Unknown"
+  - Added `AnnotationAlignedProgress` interface to `assessmentTypes.ts`
+  - Added `AnnotationAlignedEvent` interface and `emitAnnotationAligned()` to jsonl-events modules
+  - Added event handlers to all CLI scripts (assess-full, run-full-assessment, run-security-assessment)
+
 ## [1.21.4] - 2026-01-02
 
 ### Fixed
