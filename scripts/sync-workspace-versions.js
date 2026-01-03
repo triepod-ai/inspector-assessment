@@ -34,18 +34,8 @@ for (const ws of workspaces) {
   console.log(`  ✓ ${ws}/package.json → ${version}`);
 }
 
-// Update workspace dependencies in root package.json
-const deps = rootPkg.dependencies || {};
-let updated = false;
-for (const dep of Object.keys(deps)) {
-  if (dep.startsWith("@bryan-thompson/inspector-assessment-")) {
-    deps[dep] = `^${version}`;
-    updated = true;
-  }
-}
-if (updated) {
-  fs.writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2) + "\n");
-  console.log(`  ✓ root package.json dependencies → ^${version}`);
-}
+// Note: Workspace packages are bundled directly via relative imports,
+// not listed as npm dependencies. The root package.json only contains
+// actual external dependencies like @modelcontextprotocol/sdk.
 
 console.log("✓ All versions synced");
