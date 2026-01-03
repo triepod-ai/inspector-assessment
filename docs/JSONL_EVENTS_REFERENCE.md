@@ -2,7 +2,7 @@
 
 > **Part of the JSONL Events API documentation series:**
 >
-> - **Reference** (this document) - All 11 event types and schema definitions
+> - **Reference** (this document) - All 12 event types and schema definitions
 > - [Algorithms](JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP enrichment algorithms
 > - [Integration](JSONL_EVENTS_INTEGRATION.md) - Lifecycle examples, integration checklist, testing
 
@@ -20,7 +20,7 @@ The MCP Inspector emits a comprehensive stream of structured JSONL (JSON Lines) 
 
 - **Real-time progress** with `test_batch` events during module execution
 - **Instant security alerts** via `vulnerability_found` events
-- **Annotation assessment** via three specialized annotation events
+- **Annotation assessment** via four specialized annotation events
 - **AUP enrichment** for Acceptable Use Policy violations (sampled, severity-prioritized)
 - **Automatic version tracking** - all events include `version` field for compatibility checking
 - **EventBatcher** - controls progress event volume via intelligent batch size and time-based flushing
@@ -41,8 +41,9 @@ The MCP Inspector emits a comprehensive stream of structured JSONL (JSON Lines) 
   - [7. annotation_missing](#7-annotation_missing)
   - [8. annotation_misaligned](#8-annotation_misaligned)
   - [9. annotation_review_recommended](#9-annotation_review_recommended)
-  - [10. module_complete](#10-module_complete)
-  - [11. assessment_complete](#11-assessment_complete)
+  - [10. annotation_aligned](#10-annotation_aligned)
+  - [11. module_complete](#11-module_complete)
+  - [12. assessment_complete](#12-assessment_complete)
 
 ---
 
@@ -66,6 +67,7 @@ tools_discovery_complete           (1 event)
     annotation_missing*            (real-time as detected)
     annotation_misaligned*         (real-time as detected)
     annotation_review_recommended* (real-time as detected)
+    annotation_aligned*            (real-time as detected)
     ↓
   module_complete                  (1 event, with AUP enrichment if module=aup)
   ↓
@@ -609,7 +611,72 @@ interface AnnotationReviewRecommendedEvent {
 
 ---
 
-### 10. `module_complete`
+### 10. `annotation_aligned`
+
+**When**: During annotations module assessment, when tool has annotations that match inferred behavior
+
+**Purpose**: Real-time confirmation that tool has proper safety annotations
+
+```json
+{
+  "event": "annotation_aligned",
+  "tool": "reset_testbed_state",
+  "confidence": "high",
+  "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+  },
+  "version": "1.21.5"
+}
+```
+
+**Fields:**
+
+| Field         | Type                              | Required | Description                                |
+| ------------- | --------------------------------- | -------- | ------------------------------------------ |
+| `tool`        | string                            | Yes      | Tool name                                  |
+| `confidence`  | `"high"` \| `"medium"` \| `"low"` | Yes      | Confidence of behavior inference           |
+| `annotations` | object                            | Yes      | The actual annotation values from the tool |
+| `version`     | string                            | Yes      | Inspector version (auto-added)             |
+
+**Annotations Object Fields:**
+
+| Field             | Type    | Required | Description                                                   |
+| ----------------- | ------- | -------- | ------------------------------------------------------------- |
+| `readOnlyHint`    | boolean | No       | If true, tool does not modify environment (default: false)    |
+| `destructiveHint` | boolean | No       | If true, tool may perform destructive updates (default: true) |
+| `idempotentHint`  | boolean | No       | If true, repeated identical calls have same effect            |
+| `openWorldHint`   | boolean | No       | If true, tool may interact with external systems              |
+
+**TypeScript Interface:**
+
+```typescript
+interface AnnotationAlignedEvent {
+  event: "annotation_aligned";
+  tool: string;
+  confidence: "high" | "medium" | "low";
+  annotations: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    openWorldHint?: boolean;
+    idempotentHint?: boolean;
+  };
+  version: string;
+}
+```
+
+**Difference from other annotation events:**
+
+| Event                           | Condition                                          |
+| ------------------------------- | -------------------------------------------------- |
+| `annotation_missing`            | Tool has NO annotations                            |
+| `annotation_misaligned`         | Tool HAS annotations but they contradict inference |
+| `annotation_aligned`            | Tool HAS annotations AND they match inference      |
+| `annotation_review_recommended` | Ambiguous pattern detected, human review suggested |
+
+---
+
+### 11. `module_complete`
 
 **When**: After each assessment module finishes execution
 
@@ -761,7 +828,7 @@ interface ModuleCompleteEvent {
 
 ---
 
-### 11. `assessment_complete`
+### 12. `assessment_complete`
 
 **When**: After all modules have completed and assessment finishes
 

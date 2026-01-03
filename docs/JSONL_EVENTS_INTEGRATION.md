@@ -2,7 +2,7 @@
 
 > **Part of the JSONL Events API documentation series:**
 >
-> - [Reference](JSONL_EVENTS_REFERENCE.md) - All 11 event types and schema definitions
+> - [Reference](JSONL_EVENTS_REFERENCE.md) - All 12 event types and schema definitions
 > - [Algorithms](JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP enrichment algorithms
 > - **Integration** (this document) - Lifecycle examples, integration checklist, testing
 
@@ -80,6 +80,23 @@ npm run assess:full -- --server memory-mcp --config config.json 2>&1 | while IFS
       pattern=$(echo "$line" | jq -r '.pattern')
       risk=$(echo "$line" | jq -r '.riskLevel')
       echo "  SECURITY: [$risk] $tool - $pattern"
+      ;;
+
+    annotation_missing)
+      tool=$(echo "$line" | jq -r '.tool')
+      echo "  ANNOTATION: $tool missing annotations"
+      ;;
+
+    annotation_misaligned)
+      tool=$(echo "$line" | jq -r '.tool')
+      field=$(echo "$line" | jq -r '.field')
+      echo "  ANNOTATION: $tool - $field misaligned"
+      ;;
+
+    annotation_aligned)
+      tool=$(echo "$line" | jq -r '.tool')
+      confidence=$(echo "$line" | jq -r '.confidence')
+      echo "  ANNOTATION: $tool aligned ($confidence confidence)"
       ;;
 
     module_complete)

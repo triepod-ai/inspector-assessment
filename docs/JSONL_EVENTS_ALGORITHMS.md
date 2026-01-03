@@ -2,7 +2,7 @@
 
 > **Part of the JSONL Events API documentation series:**
 >
-> - [Reference](JSONL_EVENTS_REFERENCE.md) - All 11 event types and schema definitions
+> - [Reference](JSONL_EVENTS_REFERENCE.md) - All 12 event types and schema definitions
 > - **Algorithms** (this document) - EventBatcher and AUP enrichment algorithms
 > - [Integration](JSONL_EVENTS_INTEGRATION.md) - Lifecycle examples, integration checklist, testing
 
