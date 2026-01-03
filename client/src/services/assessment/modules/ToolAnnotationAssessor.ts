@@ -1149,31 +1149,15 @@ export class ToolAnnotationAssessor extends BaseAssessor {
           annotations.destructiveHint !== inferredBehavior.expectedDestructive;
 
         if (readOnlyMismatch || destructiveMismatch) {
+          // Only flag misalignment for medium/high confidence inference
+          // When confidence is low/ambiguous, trust the explicit annotation
+          // Note: High-confidence deception detection (exec/install keywords)
+          // is handled in the `deception` block above, not here
           if (
-            inferredBehavior.isAmbiguous ||
-            inferredBehavior.confidence === "low"
+            !inferredBehavior.isAmbiguous &&
+            inferredBehavior.confidence !== "low"
           ) {
-            // Ambiguous case: REVIEW_RECOMMENDED, softer language
-            alignmentStatus = "REVIEW_RECOMMENDED";
-
-            if (readOnlyMismatch) {
-              issues.push(
-                `Review recommended: readOnlyHint=${annotations.readOnlyHint} may or may not match '${tool.name}' behavior (confidence: ${inferredBehavior.confidence})`,
-              );
-              recommendations.push(
-                `Verify readOnlyHint for ${tool.name}: pattern is ambiguous - manual review recommended`,
-              );
-            }
-            if (destructiveMismatch) {
-              issues.push(
-                `Review recommended: destructiveHint=${annotations.destructiveHint} may or may not match '${tool.name}' behavior (confidence: ${inferredBehavior.confidence})`,
-              );
-              recommendations.push(
-                `Verify destructiveHint for ${tool.name}: pattern is ambiguous - manual review recommended`,
-              );
-            }
-          } else {
-            // High/medium confidence mismatch: MISALIGNED
+            // Medium/high confidence mismatch: MISALIGNED
             alignmentStatus = "MISALIGNED";
 
             if (readOnlyMismatch) {
@@ -1193,6 +1177,8 @@ export class ToolAnnotationAssessor extends BaseAssessor {
               );
             }
           }
+          // When inference is ambiguous/low confidence, trust the explicit annotation
+          // and keep alignmentStatus as ALIGNED (no change needed)
         }
       }
     }

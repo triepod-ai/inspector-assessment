@@ -949,3 +949,32 @@
 - CLI binary works: `npx -p @bryan-thompson/inspector-assessment@1.22.3 mcp-assess-full --help`
 
 ---
+
+## 2026-01-03: Fixed Issue #15 - --skip-modules Flag Not Honored
+
+**Summary:** Fixed Issue #15 where --skip-modules CLI flag was recognized but not honored during execution, and added 5 regression tests.
+
+**Session Focus:** Bug fix for --skip-modules functionality in AssessmentOrchestrator.ts
+
+**Changes Made:**
+- Modified `client/src/services/assessment/AssessmentOrchestrator.ts` - Made core assessor properties optional, added conditional instantiation in constructor, added execution guards in parallel and sequential modes
+- Modified `client/src/services/assessment/AssessmentOrchestrator.test.ts` - Added 5 new regression tests for module skipping behavior
+
+**Key Decisions:**
+- Used same pattern as extended modules (optional properties + conditional checks) for consistency
+- Added comprehensive test coverage to prevent regression
+
+**Commits:**
+- 93ae975 - test: add regression tests for --skip-modules behavior (Issue #15)
+- (fix commit already pushed earlier in session)
+
+**Next Steps:**
+- Monitor for any edge cases in --skip-modules behavior
+- Consider adding CLI integration test
+
+**Notes:**
+- Issue #15 closed
+- All 17 orchestrator tests passing (12 existing + 5 new)
+- Fix verified against hardened-mcp server
+
+---
