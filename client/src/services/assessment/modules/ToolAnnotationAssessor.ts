@@ -507,6 +507,29 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         }
       }
 
+      // Emit annotation_aligned event when annotations correctly match behavior
+      if (
+        latestResult.hasAnnotations &&
+        latestResult.alignmentStatus === "ALIGNED"
+      ) {
+        if (context.onProgress) {
+          const annotations = latestResult.annotations;
+          const inferredConfidence =
+            latestResult.inferredBehavior?.confidence ?? "medium";
+          context.onProgress({
+            type: "annotation_aligned",
+            tool: tool.name,
+            confidence: inferredConfidence,
+            annotations: {
+              readOnlyHint: annotations?.readOnlyHint,
+              destructiveHint: annotations?.destructiveHint,
+              openWorldHint: annotations?.openWorldHint,
+              idempotentHint: annotations?.idempotentHint,
+            },
+          });
+        }
+      }
+
       // Emit appropriate event based on alignment status
       if (context.onProgress && latestResult.inferredBehavior) {
         const annotations = latestResult.annotations;

@@ -1430,7 +1430,8 @@ export type ProgressEvent =
   | AnnotationMissingProgress
   | AnnotationMisalignedProgress
   | AnnotationReviewRecommendedProgress
-  | AnnotationPoisonedProgress;
+  | AnnotationPoisonedProgress
+  | AnnotationAlignedProgress;
 
 /**
  * Emitted when an assessment module begins execution.
@@ -1563,6 +1564,22 @@ export interface AnnotationPoisonedProgress {
     evidence: string;
   }>;
   riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH";
+}
+
+/**
+ * Emitted when tool annotations correctly match inferred behavior.
+ * Provides real-time confirmation during annotation assessment.
+ */
+export interface AnnotationAlignedProgress {
+  type: "annotation_aligned";
+  tool: string;
+  confidence: "high" | "medium" | "low";
+  annotations: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    openWorldHint?: boolean;
+    idempotentHint?: boolean;
+  };
 }
 
 // ============================================================================

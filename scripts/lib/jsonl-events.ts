@@ -203,6 +203,21 @@ export interface AnnotationReviewRecommendedEvent {
   reason: string;
 }
 
+/**
+ * Event emitted when tool annotations correctly match inferred behavior.
+ */
+export interface AnnotationAlignedEvent {
+  event: "annotation_aligned";
+  tool: string;
+  confidence: "high" | "medium" | "low";
+  annotations: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    openWorldHint?: boolean;
+    idempotentHint?: boolean;
+  };
+}
+
 export type JSONLEvent =
   | ServerConnectedEvent
   | ToolDiscoveredEvent
@@ -214,7 +229,8 @@ export type JSONLEvent =
   | VulnerabilityFoundEvent
   | AnnotationMissingEvent
   | AnnotationMisalignedEvent
-  | AnnotationReviewRecommendedEvent;
+  | AnnotationReviewRecommendedEvent
+  | AnnotationAlignedEvent;
 
 // ============================================================================
 // Core Functions
@@ -577,6 +593,28 @@ export function emitAnnotationReviewRecommended(
     confidence,
     isAmbiguous,
     reason,
+  });
+}
+
+/**
+ * Emit annotation_aligned event when tool annotations correctly match behavior.
+ * This provides real-time confirmation during annotation assessment.
+ */
+export function emitAnnotationAligned(
+  tool: string,
+  confidence: "high" | "medium" | "low",
+  annotations: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    openWorldHint?: boolean;
+    idempotentHint?: boolean;
+  },
+): void {
+  emitJSONL({
+    event: "annotation_aligned",
+    tool,
+    confidence,
+    annotations,
   });
 }
 

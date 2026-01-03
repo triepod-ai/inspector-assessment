@@ -55,6 +55,7 @@ import {
   emitAnnotationMissing,
   emitAnnotationMisaligned,
   emitAnnotationReviewRecommended,
+  emitAnnotationAligned,
 } from "./lib/jsonl-events.js";
 import type { ProgressEvent } from "../client/src/lib/assessmentTypes.js";
 
@@ -560,6 +561,8 @@ async function runFullAssessment(
         event.isAmbiguous,
         event.reason,
       );
+    } else if (event.type === "annotation_aligned") {
+      emitAnnotationAligned(event.tool, event.confidence, event.annotations);
     }
     // module_started and module_complete are handled by orchestrator directly
   };

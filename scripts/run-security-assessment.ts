@@ -247,6 +247,7 @@ import {
   emitAnnotationMissing,
   emitAnnotationMisaligned,
   emitAnnotationReviewRecommended,
+  emitAnnotationAligned,
   buildAUPEnrichment,
   calculateModuleScore,
 } from "./lib/jsonl-events.js";
@@ -864,6 +865,8 @@ async function main() {
           event.isAmbiguous,
           event.reason,
         );
+      } else if (event.type === "annotation_aligned") {
+        emitAnnotationAligned(event.tool, event.confidence, event.annotations);
       }
     };
 
