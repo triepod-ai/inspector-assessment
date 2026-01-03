@@ -568,3 +568,131 @@
 - v1.21.4 published to npm successfully
 
 ---
+
+## 2026-01-03: Documentation Gap Remediation Complete - 19 Guides Created
+
+**Summary:** Completed 19-gap documentation remediation plan, creating comprehensive guides for both Inspector and Auditor projects
+
+**Session Focus:** Documentation gap remediation - finalizing and committing all planned documentation across both MCP validation projects
+
+**Changes Made:**
+- Updated `~/.claude/plans/memoized-bubbling-floyd.md` - marked all 19 gaps as COMPLETE with file paths
+- Committed 10 new docs to inspector (c40dc0a):
+  - `docs/TESTBED_SETUP_GUIDE.md` - Vulnerability testbed configuration
+  - `docs/SCORING_ALGORITHM_GUIDE.md` - Weighted scoring system documentation
+  - `docs/ASSESSMENT_MODULE_DEVELOPER_GUIDE.md` - How to create new assessor modules
+  - `docs/CLI_ASSESSMENT_GUIDE.md` - CLI runner usage and options
+  - `docs/TEST_DATA_GENERATION_GUIDE.md` - TestDataGenerator patterns
+  - `docs/PROGRESSIVE_COMPLEXITY_GUIDE.md` - Multi-scenario testing system
+  - `docs/SECURITY_PATTERNS_CATALOG.md` - All 20 attack patterns documented
+  - `docs/UPSTREAM_SYNC_WORKFLOW.md` - Upstream merge procedures
+  - `docs/RESPONSE_VALIDATION_GUIDE.md` - ResponseValidator architecture
+  - `docs/UI_COMPONENT_REFERENCE.md` - AssessmentTab component guide
+- Committed 8 new docs + postman to mcp-auditor (aeb374d0):
+  - `docs/STAGE_B_SETUP_GUIDE.md`
+  - `docs/AUDIT_WORKER_ARCHITECTURE.md`
+  - `docs/TROUBLESHOOTING_GUIDE.md`
+  - `docs/INSPECTOR_AUDITOR_DATA_CONTRACT.md`
+  - `docs/CLI_REFERENCE.md`
+  - `docs/POSTMAN_SETUP.md`
+  - `postman/` collection files
+- Pushed both repos to origin
+
+**Key Decisions:**
+- Documented all file paths in plan for future reference
+- Included Postman collection files in mcp-auditor commit
+- Added comprehensive tables to PROJECT_STATUS.md showing all 19 docs created
+
+**Next Steps:**
+- Documentation complete - ready for normal development
+- May want to cross-link docs from README files
+
+**Notes:**
+- Total: ~21,500 lines of documentation added across both projects
+- Plan file preserved at `~/.claude/plans/memoized-bubbling-floyd.md` for reference
+- Inspector docs: 10 files covering testbed, scoring, modules, CLI, testing, security, sync, validation, and UI
+- Auditor docs: 8 files covering setup, architecture, troubleshooting, data contracts, CLI, and Postman
+
+---
+
+## 2026-01-03: Documentation Reorganization - Split Large Guides into Focused Files
+
+**Summary:** Completed documentation reorganization - split 3 large guides into 8 focused files and added maintenance guidelines
+
+**Session Focus:** Documentation maintenance and reorganization to reduce file bloat and improve discoverability
+
+**Changes Made:**
+- Created 9 new documentation files:
+  - `docs/TEST_DATA_ARCHITECTURE.md` - Core architecture, field handlers, boundaries
+  - `docs/TEST_DATA_SCENARIOS.md` - Scenario categories, tool-aware generation
+  - `docs/TEST_DATA_EXTENSION.md` - Adding handlers, debugging, integration
+  - `docs/JSONL_EVENTS_REFERENCE.md` - All 11 event types and schema definitions
+  - `docs/JSONL_EVENTS_ALGORITHMS.md` - EventBatcher and AUP enrichment
+  - `docs/JSONL_EVENTS_INTEGRATION.md` - Lifecycle examples, checklist, testing
+  - `docs/RESPONSE_VALIDATION_CORE.md` - Validation logic, business error detection
+  - `docs/RESPONSE_VALIDATION_EXTENSION.md` - Adding rules, troubleshooting, API reference
+  - `docs/README.md` - Central navigation hub for all documentation
+- Modified 6 existing files:
+  - `docs/TEST_DATA_GENERATION_GUIDE.md` - Now redirect page to split docs
+  - `docs/JSONL_EVENTS_API.md` - Now redirect page to split docs
+  - `docs/RESPONSE_VALIDATION_GUIDE.md` - Now redirect page to split docs
+  - `docs/ARCHITECTURE_AND_VALUE.md` - Added Overview section
+  - `docs/REVIEWER_QUICK_START.md` - Added Overview section
+  - `CLAUDE.md` - Added Documentation Maintenance Guidelines, updated Feature Documentation section
+- Also updated `mcp-auditor/CLAUDE.md` with same maintenance guidelines
+
+**Key Decisions:**
+- Split threshold: >1000 lines triggers split consideration
+- Target size: 400-650 lines per split file
+- Backwards compatibility: Keep original files as redirect pages (don't delete)
+- Navigation hub: `docs/README.md` serves as central documentation index
+- Naming convention: `{TOPIC}_{SUBTOPIC}.md` for split files
+
+**Next Steps:**
+- Monitor documentation files for future bloat
+- Apply same reorganization patterns to mcp-auditor docs if needed
+- Consider automated line-count monitoring in CI
+
+**Notes:**
+- Inspector commit: 81572ad - docs: reorganize documentation with deprecation cleanup
+- mcp-auditor commit: 1c325d09 - docs: add documentation maintenance guidelines to CLAUDE.md
+- Split reduced average file size from ~1200 lines to ~500 lines
+- All cross-references and imports updated to use new file structure
+
+---
+
+## 2026-01-03: Implemented annotation_aligned JSONL Event Emission
+
+**Summary:** Implemented annotation_aligned JSONL event emission for real-time annotation status reporting to downstream consumers
+
+**Session Focus:** GitHub Issue #10 - Emit annotation_aligned JSONL events for aligned tools
+
+**Changes Made:**
+- Modified 7 files to implement annotation_aligned event emission:
+  - `client/src/lib/assessmentTypes.ts` - Added `AnnotationAlignedProgress` interface and updated `ProgressEvent` union
+  - `scripts/lib/jsonl-events.ts` - Added `AnnotationAlignedEvent` interface, updated `JSONLEvent` union, added `emitAnnotationAligned()` function
+  - `cli/src/lib/jsonl-events.ts` - Added `emitAnnotationAligned()` function
+  - `client/src/services/assessment/modules/ToolAnnotationAssessor.ts` - Added emission logic for aligned tools
+  - `scripts/run-full-assessment.ts` - Added import and event handler for annotation_aligned
+  - `cli/src/assess-full.ts` - Added import and event handler for annotation_aligned
+  - `scripts/run-security-assessment.ts` - Added import and event handler for annotation_aligned
+- Event emits when tool has annotations AND alignment status is "ALIGNED"
+- Includes confidence level from inferred behavior in event payload
+
+**Key Decisions:**
+- Used `tool` field (not `tool_name`) for consistency with existing annotation events
+- Emit event when `hasAnnotations === true` AND `alignmentStatus === "ALIGNED"`
+- Include confidence level from inferred behavior in event payload
+
+**Next Steps:**
+- Consider adding annotation events to documentation (JSONL_EVENTS_REFERENCE.md)
+- Monitor mcp-auditor integration for proper event consumption
+
+**Notes:**
+- Build passed successfully
+- All 1438 tests passing (4 skipped)
+- Commit: b6fea11
+- Issue #10 closed
+- Issue #11 reviewed and closed as already implemented (was based on outdated cached code)
+
+---
