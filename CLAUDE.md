@@ -701,6 +701,47 @@ The npm package consists of 4 published packages:
 
 All four must be published for the package to work correctly.
 
+### Workspace Architecture (Critical)
+
+**Why workspace packages are NOT listed as npm dependencies:**
+
+The root package bundles workspace code via the `files` array, NOT npm dependencies. This is a critical architectural decision:
+
+```json
+// CORRECT - workspace content is bundled via files array
+"files": [
+  "client/bin",
+  "client/dist",
+  "server/build",
+  "cli/build"
+]
+
+// WRONG - DO NOT add workspace packages as dependencies
+"dependencies": {
+  "@bryan-thompson/inspector-assessment-cli": "^1.22.6"  // NEVER DO THIS
+}
+```
+
+**Why this matters:**
+
+1. When users run `npx @bryan-thompson/inspector-assessment`, npm resolves dependencies from the registry
+2. If workspace packages are listed as deps with version `^X.Y.Z`, npm tries to fetch that exact version
+3. If versions mismatch (e.g., workspaces at 1.22.5 but deps require ^1.22.6), installation fails with ETARGET
+4. The `files` array physically includes the workspace builds in the tarball - no npm resolution needed
+
+**Safeguards in place:**
+
+- `npm run validate:publish` - Manual validation script
+- `prepublishOnly` hook - Runs validation automatically before publish
+- `package-structure.test.ts` - Unit test that fails if workspace deps found
+- `.github/workflows/verify-publish.yml` - Post-publish CI verification
+
+**If you see ETARGET errors during `npx` installation:**
+
+1. Check `package.json` for workspace packages in dependencies
+2. Remove any `@bryan-thompson/inspector-assessment-*` entries
+3. Run `npm run validate:publish` to verify the fix
+
 ### Monorepo Publishing Gotchas
 
 **Automated as of v1.17.1:**
