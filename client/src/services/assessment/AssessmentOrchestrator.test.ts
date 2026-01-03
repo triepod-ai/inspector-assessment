@@ -665,4 +665,150 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       expect(memoryIncrease).toBeLessThan(100 * 1024 * 1024); // Less than 100MB increase
     });
   });
+
+  describe("Module Skipping (--skip-modules behavior)", () => {
+    it("should NOT instantiate assessors when category is disabled", () => {
+      // Arrange - Simulate --skip-modules functionality,errorHandling,usability
+      const config = createMockAssessmentConfig();
+      config.assessmentCategories = {
+        functionality: false,
+        security: true,
+        documentation: true,
+        errorHandling: false,
+        usability: false,
+        mcpSpecCompliance: false,
+      };
+
+      // Act
+      const skipOrchestrator = new AssessmentOrchestrator(config);
+
+      // Assert - Access private properties via type assertion
+      const orchAny = skipOrchestrator as any;
+
+      // Verify skipped assessors are undefined
+      expect(orchAny.functionalityAssessor).toBeUndefined();
+      expect(orchAny.errorHandlingAssessor).toBeUndefined();
+      expect(orchAny.usabilityAssessor).toBeUndefined();
+      expect(orchAny.mcpSpecAssessor).toBeUndefined();
+
+      // Verify enabled assessors are instantiated
+      expect(orchAny.securityAssessor).toBeDefined();
+      expect(orchAny.documentationAssessor).toBeDefined();
+    });
+
+    it("should skip execution of disabled assessors", async () => {
+      // Arrange - Simulate --skip-modules security,errorHandling
+      const config = createMockAssessmentConfig();
+      config.assessmentCategories = {
+        functionality: true,
+        security: false,
+        documentation: true,
+        errorHandling: false,
+        usability: true,
+        mcpSpecCompliance: false,
+      };
+
+      const skipOrchestrator = new AssessmentOrchestrator(config);
+      const mockTools = [
+        createMockTool({ name: "testTool", description: "A test tool" }),
+      ];
+      const mockCallTool = jest
+        .fn()
+        .mockResolvedValue(createMockCallToolResponse("test response", false));
+
+      // Act
+      const result = await skipOrchestrator.assess(
+        "skip-test-server",
+        mockTools,
+        mockCallTool,
+      );
+
+      // Assert - Verify enabled assessments ran
+      expect(result.functionality).toBeDefined();
+      expect(result.documentation).toBeDefined();
+      expect(result.usability).toBeDefined();
+
+      // Verify skipped assessments are undefined
+      expect(result.security).toBeUndefined();
+      expect(result.errorHandling).toBeUndefined();
+      expect(result.mcpSpecCompliance).toBeUndefined();
+    });
+
+    it("should handle resetAllTestCounts with undefined assessors", () => {
+      // Arrange - All core modules disabled
+      const config = createMockAssessmentConfig();
+      config.assessmentCategories = {
+        functionality: false,
+        security: false,
+        documentation: false,
+        errorHandling: false,
+        usability: false,
+        mcpSpecCompliance: false,
+      };
+
+      const skipOrchestrator = new AssessmentOrchestrator(config);
+
+      // Act & Assert - Should not throw when calling resetAllTestCounts
+      expect(() => {
+        (skipOrchestrator as any).resetAllTestCounts();
+      }).not.toThrow();
+    });
+
+    it("should return zero test count when all core assessors are skipped", async () => {
+      // Arrange - All modules disabled
+      const config = createMockAssessmentConfig();
+      config.enableExtendedAssessment = false;
+      config.assessmentCategories = {
+        functionality: false,
+        security: false,
+        documentation: false,
+        errorHandling: false,
+        usability: false,
+        mcpSpecCompliance: false,
+      };
+
+      const skipOrchestrator = new AssessmentOrchestrator(config);
+      const mockTools = [createMockTool({ name: "testTool" })];
+      const mockCallTool = jest
+        .fn()
+        .mockResolvedValue(createMockCallToolResponse("test", false));
+
+      // Act
+      const result = await skipOrchestrator.assess(
+        "empty-assessment",
+        mockTools,
+        mockCallTool,
+      );
+
+      // Assert - totalTestsRun should be 0 or minimal
+      expect(result.totalTestsRun).toBe(0);
+    });
+
+    it("should support --only-modules behavior (whitelist)", () => {
+      // Arrange - Simulate --only-modules=security,documentation
+      const config = createMockAssessmentConfig();
+      config.assessmentCategories = {
+        functionality: false,
+        security: true,
+        documentation: true,
+        errorHandling: false,
+        usability: false,
+        mcpSpecCompliance: false,
+      };
+
+      // Act
+      const whitelistOrchestrator = new AssessmentOrchestrator(config);
+      const orchAny = whitelistOrchestrator as any;
+
+      // Assert - Only security and documentation should be instantiated
+      expect(orchAny.securityAssessor).toBeDefined();
+      expect(orchAny.documentationAssessor).toBeDefined();
+
+      // All others should be undefined
+      expect(orchAny.functionalityAssessor).toBeUndefined();
+      expect(orchAny.errorHandlingAssessor).toBeUndefined();
+      expect(orchAny.usabilityAssessor).toBeUndefined();
+      expect(orchAny.mcpSpecAssessor).toBeUndefined();
+    });
+  });
 });
