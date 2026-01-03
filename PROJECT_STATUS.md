@@ -6,6 +6,50 @@
 
 ---
 
+## 2026-01-03: Documentation Gap Remediation - All 19 Gaps Addressed
+
+**Summary:** Completed comprehensive documentation gap remediation across Inspector and Auditor projects. Created 19 new documentation guides addressing all identified gaps from testing the MCP validation system.
+
+**Documentation Created (Inspector - 11 files):**
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| `TESTBED_SETUP_GUIDE.md` | A/B validation testbed setup (vulnerable-mcp vs hardened-mcp) | 13K |
+| `SCORING_ALGORITHM_GUIDE.md` | Module scoring formulas, weights, thresholds | 20K |
+| `ASSESSMENT_MODULE_DEVELOPER_GUIDE.md` | Creating new assessment modules | 34K |
+| `CLI_ASSESSMENT_GUIDE.md` | Three CLI modes comparison and usage | 30K |
+| `TEST_DATA_GENERATION_GUIDE.md` | Test data generation patterns | 51K |
+| `PROGRESSIVE_COMPLEXITY_GUIDE.md` | 2-level testing rationale and algorithm | 32K |
+| `SECURITY_PATTERNS_CATALOG.md` | 17 attack patterns reference | 47K |
+| `UPSTREAM_SYNC_WORKFLOW.md` | Sync procedure with modelcontextprotocol/inspector | 35K |
+| `RESPONSE_VALIDATION_GUIDE.md` | Response validator confidence factors | 31K |
+| `MANIFEST_REQUIREMENTS.md` | manifest_version 0.3 requirements | 19K |
+| `UI_COMPONENT_REFERENCE.md` | Client UI component documentation | 34K |
+
+**Documentation Created (Auditor - 8 files):**
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| `STAGE_B_SETUP_GUIDE.md` | Stage B Claude analysis environment variables | 24K |
+| `AUDIT_WORKER_ARCHITECTURE.md` | 14-module audit-worker reference | 37K |
+| `API_REFERENCE.md` | Complete REST API specification | 38K |
+| `TROUBLESHOOTING_GUIDE.md` | Error catalog and debugging steps | 27K |
+| `INSPECTOR_AUDITOR_DATA_CONTRACT.md` | Inspector → Auditor property mapping | 41K |
+| `REALTIME_UPDATES_ARCHITECTURE.md` | Extended WebSocket documentation | 46K |
+| `CLI_REFERENCE.md` | audit.js and stage-ab-compare.js usage | 30K |
+| `POSTMAN_SETUP.md` | Collection import and environment setup | 35K |
+
+**Key Improvements:**
+- Stage B now has clear 2-variable setup requirement documented
+- A/B testbed can be started with 3 commands
+- 14-module audit-worker architecture fully documented
+- Property mapping table prevents future extraction bugs
+- Complete API reference with code examples
+
+**Plan File:** `~/.claude/plans/memoized-bubbling-floyd.md` (marked COMPLETE)
+
+---
+
 ## 2026-01-02: Issue #9 - Enrich Module Output for Claude Analysis Alignment
 
 **Summary:** Implemented GitHub Issue #9 to add optional enrichment fields to 4 assessor modules, improving downstream Claude analysis in mcp-auditor Stage B.
@@ -455,5 +499,72 @@
 - Bug discovered via Stage A/B comparison audit showing 15.4% discrepancy
 - v1.21.3 published to npm (all 4 packages)
 - Total test count now 1260 (was 1259)
+
+---
+
+## 2026-01-02: Fixed Code Review Warnings (4 Issues)
+
+**Summary:** Fixed 4 code review warnings including regex performance, AST parsing, timeout verification, and missing type guards.
+
+**Session Focus:** Addressing code review warnings from commit 668c200
+
+**Changes Made:**
+- `client/src/lib/moduleFieldValidator.ts` - Added 5 missing type guards (isProhibitedLibrariesAssessment, isManifestValidationAssessment, isPortabilityAssessment, isExternalAPIScannerAssessment, isAuthenticationAssessment)
+- `client/src/lib/__tests__/moduleFieldValidation.test.ts` - Added tests for all 5 new type guards
+- `client/src/services/assessment/modules/TemporalAssessor.ts` - Combined 18 regex patterns into single alternation regex for O(n) performance
+- `client/src/services/assessment/__tests__/ResourceAssessor.test.ts` - Added timing verification for 5s timeout, error message matching, edge case tests
+- `scripts/__tests__/cli-parity.test.ts` - Replaced fragile regex with TypeScript AST parsing using ts.createSourceFile()
+
+**Key Decisions:**
+- Used TypeScript compiler API (ts.createSourceFile) for robust AST parsing instead of regex
+- Combined all promotional keyword patterns into single regex with alternation for better performance
+- Added comprehensive edge case tests for timeout behavior
+
+**Key Commits:**
+- 67bbd13: fix: address code review warnings (4 issues)
+
+**Next Steps:**
+- Push changes to origin
+- Consider running full test suite validation
+
+**Notes:**
+- All tests pass: 12/12 promotional keyword tests, 13/13 CLI parity tests, type guard tests pass
+- Build passes successfully
+- Code review warnings from commit 668c200 fully addressed
+
+---
+
+## 2026-01-02: v1.21.4 Release - Issue #9 Enrichment & Code Review Fixes
+
+**Summary:** Implemented GitHub Issue #9 enrichment fields, fixed code review warnings, and published v1.21.4 to npm
+
+**Session Focus:** Enriching 4 assessor modules with optional fields for better Claude analysis alignment, plus fixing code review warnings
+
+**Changes Made:**
+- `client/src/services/assessment/modules/CrossCapabilityAssessor.ts` - Added optional enrichment fields
+- `client/src/services/assessment/modules/ResourceAssessor.ts` - Added optional enrichment fields, removed unused `lowerUri` variables
+- `client/src/services/assessment/modules/PromptsAssessor.ts` - Added optional enrichment fields
+- `client/src/services/assessment/modules/PortabilityAssessor.ts` - Added optional enrichment fields, optimized regex with early termination, fixed platform precedence logic
+- `client/src/services/assessment/__tests__/EnrichmentFields.test.ts` - New test file with 30 comprehensive tests
+- `CHANGELOG.md` - Added v1.21.4 release notes
+- Published @bryan-thompson/inspector-assessment v1.21.4 to npm
+
+**Key Decisions:**
+- Used optional fields (marked with `?`) to maintain backward compatibility
+- Added early termination to regex loops for performance optimization
+- Fixed platform precedence: Windows-first detection before Linux to handle WSL correctly
+
+**Key Commits:**
+- Enrichment fields added to all 4 assessor modules per Issue #9 requirements
+- Code review warnings fully resolved
+
+**Next Steps:**
+- Monitor Claude analysis improvements with new enrichment fields
+- Consider adding enrichment fields to remaining assessor modules
+
+**Notes:**
+- Closed GitHub Issue #9
+- All 1438 tests passing
+- v1.21.4 published to npm successfully
 
 ---
