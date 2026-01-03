@@ -321,12 +321,12 @@ export class AssessmentOrchestrator {
   private claudeBridge?: ClaudeCodeBridge;
   private claudeEnabled: boolean = false;
 
-  // Core assessors
-  private functionalityAssessor: FunctionalityAssessor;
-  private securityAssessor: SecurityAssessor;
-  private documentationAssessor: DocumentationAssessor;
-  private errorHandlingAssessor: ErrorHandlingAssessor;
-  private usabilityAssessor: UsabilityAssessor;
+  // Core assessors (optional to support --skip-modules)
+  private functionalityAssessor?: FunctionalityAssessor;
+  private securityAssessor?: SecurityAssessor;
+  private documentationAssessor?: DocumentationAssessor;
+  private errorHandlingAssessor?: ErrorHandlingAssessor;
+  private usabilityAssessor?: UsabilityAssessor;
 
   // Extended assessors
   private mcpSpecAssessor?: MCPSpecComplianceAssessor;
@@ -353,12 +353,22 @@ export class AssessmentOrchestrator {
       this.initializeClaudeBridge(this.config.claudeCode);
     }
 
-    // Initialize core assessors
-    this.functionalityAssessor = new FunctionalityAssessor(this.config);
-    this.securityAssessor = new SecurityAssessor(this.config);
-    this.documentationAssessor = new DocumentationAssessor(this.config);
-    this.errorHandlingAssessor = new ErrorHandlingAssessor(this.config);
-    this.usabilityAssessor = new UsabilityAssessor(this.config);
+    // Initialize core assessors (respects assessmentCategories config for --skip-modules)
+    if (this.config.assessmentCategories?.functionality !== false) {
+      this.functionalityAssessor = new FunctionalityAssessor(this.config);
+    }
+    if (this.config.assessmentCategories?.security !== false) {
+      this.securityAssessor = new SecurityAssessor(this.config);
+    }
+    if (this.config.assessmentCategories?.documentation !== false) {
+      this.documentationAssessor = new DocumentationAssessor(this.config);
+    }
+    if (this.config.assessmentCategories?.errorHandling !== false) {
+      this.errorHandlingAssessor = new ErrorHandlingAssessor(this.config);
+    }
+    if (this.config.assessmentCategories?.usability !== false) {
+      this.usabilityAssessor = new UsabilityAssessor(this.config);
+    }
 
     // Initialize extended assessors if enabled
     if (this.config.enableExtendedAssessment) {
@@ -495,11 +505,11 @@ export class AssessmentOrchestrator {
    * Reset test counts for all assessors
    */
   private resetAllTestCounts(): void {
-    this.functionalityAssessor.resetTestCount();
-    this.securityAssessor.resetTestCount();
-    this.documentationAssessor.resetTestCount();
-    this.errorHandlingAssessor.resetTestCount();
-    this.usabilityAssessor.resetTestCount();
+    this.functionalityAssessor?.resetTestCount();
+    this.securityAssessor?.resetTestCount();
+    this.documentationAssessor?.resetTestCount();
+    this.errorHandlingAssessor?.resetTestCount();
+    this.usabilityAssessor?.resetTestCount();
     if (this.mcpSpecAssessor) {
       this.mcpSpecAssessor.resetTestCount();
     }
@@ -569,65 +579,81 @@ export class AssessmentOrchestrator {
       const toolCount = context.tools.length;
       const securityPatterns = this.config.securityPatternsToTest || 17;
 
-      // Emit all module_started events before launching parallel assessments
-      emitModuleStartedEvent("Functionality", toolCount * 10, toolCount);
-      emitModuleStartedEvent(
-        "Security",
-        securityPatterns * toolCount,
-        toolCount,
-      );
-      emitModuleStartedEvent("Documentation", 5, toolCount);
-      emitModuleStartedEvent("Error Handling", toolCount * 5, toolCount);
-      emitModuleStartedEvent("Usability", 10, toolCount);
-
-      // Core assessments
-      assessmentPromises.push(
-        this.functionalityAssessor.assess(context).then((r) => {
-          emitModuleProgress(
-            "Functionality",
-            r.status,
-            r,
-            this.functionalityAssessor.getTestCount(),
-          );
-          return (assessmentResults.functionality = r);
-        }),
-        this.securityAssessor.assess(context).then((r) => {
-          emitModuleProgress(
-            "Security",
-            r.status,
-            r,
-            this.securityAssessor.getTestCount(),
-          );
-          return (assessmentResults.security = r);
-        }),
-        this.documentationAssessor.assess(context).then((r) => {
-          emitModuleProgress(
-            "Documentation",
-            r.status,
-            r,
-            this.documentationAssessor.getTestCount(),
-          );
-          return (assessmentResults.documentation = r);
-        }),
-        this.errorHandlingAssessor.assess(context).then((r) => {
-          emitModuleProgress(
-            "Error Handling",
-            r.status,
-            r,
-            this.errorHandlingAssessor.getTestCount(),
-          );
-          return (assessmentResults.errorHandling = r);
-        }),
-        this.usabilityAssessor.assess(context).then((r) => {
-          emitModuleProgress(
-            "Usability",
-            r.status,
-            r,
-            this.usabilityAssessor.getTestCount(),
-          );
-          return (assessmentResults.usability = r);
-        }),
-      );
+      // Core assessments - only emit and run if not skipped
+      if (this.functionalityAssessor) {
+        emitModuleStartedEvent("Functionality", toolCount * 10, toolCount);
+        assessmentPromises.push(
+          this.functionalityAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "Functionality",
+              r.status,
+              r,
+              this.functionalityAssessor!.getTestCount(),
+            );
+            return (assessmentResults.functionality = r);
+          }),
+        );
+      }
+      if (this.securityAssessor) {
+        emitModuleStartedEvent(
+          "Security",
+          securityPatterns * toolCount,
+          toolCount,
+        );
+        assessmentPromises.push(
+          this.securityAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "Security",
+              r.status,
+              r,
+              this.securityAssessor!.getTestCount(),
+            );
+            return (assessmentResults.security = r);
+          }),
+        );
+      }
+      if (this.documentationAssessor) {
+        emitModuleStartedEvent("Documentation", 5, toolCount);
+        assessmentPromises.push(
+          this.documentationAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "Documentation",
+              r.status,
+              r,
+              this.documentationAssessor!.getTestCount(),
+            );
+            return (assessmentResults.documentation = r);
+          }),
+        );
+      }
+      if (this.errorHandlingAssessor) {
+        emitModuleStartedEvent("Error Handling", toolCount * 5, toolCount);
+        assessmentPromises.push(
+          this.errorHandlingAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "Error Handling",
+              r.status,
+              r,
+              this.errorHandlingAssessor!.getTestCount(),
+            );
+            return (assessmentResults.errorHandling = r);
+          }),
+        );
+      }
+      if (this.usabilityAssessor) {
+        emitModuleStartedEvent("Usability", 10, toolCount);
+        assessmentPromises.push(
+          this.usabilityAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "Usability",
+              r.status,
+              r,
+              this.usabilityAssessor!.getTestCount(),
+            );
+            return (assessmentResults.usability = r);
+          }),
+        );
+      }
 
       // Extended assessments
       if (this.mcpSpecAssessor) {
@@ -796,63 +822,75 @@ export class AssessmentOrchestrator {
 
       // NOTE: Temporal runs in PHASE 0 above, before sequential/parallel phases
 
-      // Functionality: ~10 scenarios per tool
-      emitModuleStartedEvent("Functionality", toolCount * 10, toolCount);
-      assessmentResults.functionality =
-        await this.functionalityAssessor.assess(context);
-      emitModuleProgress(
-        "Functionality",
-        assessmentResults.functionality.status,
-        assessmentResults.functionality,
-        this.functionalityAssessor.getTestCount(),
-      );
+      // Core assessments - only emit and run if not skipped
+      if (this.functionalityAssessor) {
+        // Functionality: ~10 scenarios per tool
+        emitModuleStartedEvent("Functionality", toolCount * 10, toolCount);
+        assessmentResults.functionality =
+          await this.functionalityAssessor.assess(context);
+        emitModuleProgress(
+          "Functionality",
+          assessmentResults.functionality.status,
+          assessmentResults.functionality,
+          this.functionalityAssessor.getTestCount(),
+        );
+      }
 
-      // Security: patterns × tools
-      emitModuleStartedEvent(
-        "Security",
-        securityPatterns * toolCount,
-        toolCount,
-      );
-      assessmentResults.security = await this.securityAssessor.assess(context);
-      emitModuleProgress(
-        "Security",
-        assessmentResults.security.status,
-        assessmentResults.security,
-        this.securityAssessor.getTestCount(),
-      );
+      if (this.securityAssessor) {
+        // Security: patterns × tools
+        emitModuleStartedEvent(
+          "Security",
+          securityPatterns * toolCount,
+          toolCount,
+        );
+        assessmentResults.security =
+          await this.securityAssessor.assess(context);
+        emitModuleProgress(
+          "Security",
+          assessmentResults.security.status,
+          assessmentResults.security,
+          this.securityAssessor.getTestCount(),
+        );
+      }
 
-      // Documentation: ~5 static tests
-      emitModuleStartedEvent("Documentation", 5, toolCount);
-      assessmentResults.documentation =
-        await this.documentationAssessor.assess(context);
-      emitModuleProgress(
-        "Documentation",
-        assessmentResults.documentation.status,
-        assessmentResults.documentation,
-        this.documentationAssessor.getTestCount(),
-      );
+      if (this.documentationAssessor) {
+        // Documentation: ~5 static tests
+        emitModuleStartedEvent("Documentation", 5, toolCount);
+        assessmentResults.documentation =
+          await this.documentationAssessor.assess(context);
+        emitModuleProgress(
+          "Documentation",
+          assessmentResults.documentation.status,
+          assessmentResults.documentation,
+          this.documentationAssessor.getTestCount(),
+        );
+      }
 
-      // Error Handling: ~5 tests per tool
-      emitModuleStartedEvent("Error Handling", toolCount * 5, toolCount);
-      assessmentResults.errorHandling =
-        await this.errorHandlingAssessor.assess(context);
-      emitModuleProgress(
-        "Error Handling",
-        assessmentResults.errorHandling.status,
-        assessmentResults.errorHandling,
-        this.errorHandlingAssessor.getTestCount(),
-      );
+      if (this.errorHandlingAssessor) {
+        // Error Handling: ~5 tests per tool
+        emitModuleStartedEvent("Error Handling", toolCount * 5, toolCount);
+        assessmentResults.errorHandling =
+          await this.errorHandlingAssessor.assess(context);
+        emitModuleProgress(
+          "Error Handling",
+          assessmentResults.errorHandling.status,
+          assessmentResults.errorHandling,
+          this.errorHandlingAssessor.getTestCount(),
+        );
+      }
 
-      // Usability: ~10 static tests
-      emitModuleStartedEvent("Usability", 10, toolCount);
-      assessmentResults.usability =
-        await this.usabilityAssessor.assess(context);
-      emitModuleProgress(
-        "Usability",
-        assessmentResults.usability.status,
-        assessmentResults.usability,
-        this.usabilityAssessor.getTestCount(),
-      );
+      if (this.usabilityAssessor) {
+        // Usability: ~10 static tests
+        emitModuleStartedEvent("Usability", 10, toolCount);
+        assessmentResults.usability =
+          await this.usabilityAssessor.assess(context);
+        emitModuleProgress(
+          "Usability",
+          assessmentResults.usability.status,
+          assessmentResults.usability,
+          this.usabilityAssessor.getTestCount(),
+        );
+      }
 
       if (this.mcpSpecAssessor) {
         emitModuleStartedEvent("MCP Spec", 10, toolCount);
@@ -1061,12 +1099,12 @@ export class AssessmentOrchestrator {
   private collectTotalTestCount(): number {
     let total = 0;
 
-    // Get actual test counts from assessors
-    const functionalityCount = this.functionalityAssessor.getTestCount();
-    const securityCount = this.securityAssessor.getTestCount();
-    const documentationCount = this.documentationAssessor.getTestCount();
-    const errorHandlingCount = this.errorHandlingAssessor.getTestCount();
-    const usabilityCount = this.usabilityAssessor.getTestCount();
+    // Get actual test counts from assessors (optional for --skip-modules support)
+    const functionalityCount = this.functionalityAssessor?.getTestCount() || 0;
+    const securityCount = this.securityAssessor?.getTestCount() || 0;
+    const documentationCount = this.documentationAssessor?.getTestCount() || 0;
+    const errorHandlingCount = this.errorHandlingAssessor?.getTestCount() || 0;
+    const usabilityCount = this.usabilityAssessor?.getTestCount() || 0;
     const mcpSpecCount = this.mcpSpecAssessor?.getTestCount() || 0;
 
     // New assessor counts
