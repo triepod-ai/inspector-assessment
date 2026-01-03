@@ -696,3 +696,222 @@
 - Issue #11 reviewed and closed as already implemented (was based on outdated cached code)
 
 ---
+
+## 2026-01-03: Documented annotation_aligned JSONL Event in Reference Docs
+
+**Summary:** Documented annotation_aligned JSONL event in all three JSONL documentation files
+
+**Session Focus:** Documentation update for new annotation_aligned event (v1.21.5, Issue #10)
+
+**Changes Made:**
+- Updated `docs/JSONL_EVENTS_REFERENCE.md`:
+  - Added section 10 for annotation_aligned event
+  - Included TypeScript interface and JSON example
+  - Added field reference tables
+  - Added comparison table with annotation_warning
+- Updated `docs/JSONL_EVENTS_INTEGRATION.md`:
+  - Updated header from 11 to 12 event types
+  - Added annotation event handlers to shell script example
+- Updated `docs/JSONL_EVENTS_ALGORITHMS.md`:
+  - Updated header reference from 11 to 12 event types
+- Renumbered existing events: module_complete (11), assessment_complete (12)
+
+**Key Decisions:**
+- Added annotation_aligned as 12th event type in documentation
+- Maintained consistent section numbering (annotation events grouped together as 9/10)
+- Followed existing documentation patterns for new event type
+
+**Next Steps:**
+- None specific - documentation is complete for annotation_aligned event
+
+**Notes:**
+- Commit: a01f915 pushed to main
+- Completes documentation for Issue #10 implementation
+- All three JSONL docs now reflect 12 event types
+
+---
+
+## 2026-01-03: Implemented Tool Annotations in tool_discovered JSONL Events (v1.22.0)
+
+**Summary:** Implemented annotation_aligned JSONL events for aligned tools, released as v1.22.0
+
+**Session Focus:** GitHub Issue #12 - Include MCP tool annotations (readOnlyHint, destructiveHint, idempotentHint, openWorldHint) in tool_discovered JSONL events for real-time display during audit discovery phase
+
+**Changes Made:**
+- Modified `cli/src/lib/jsonl-events.ts` - Updated emitToolDiscovered() to extract and include annotations
+- Modified `scripts/lib/jsonl-events.ts` - Mirrored changes (interface + function) for npm binary/local script parity
+- Updated `docs/JSONL_EVENTS_REFERENCE.md` - Documented new annotations field with examples for both with/without annotation cases
+- Updated `CHANGELOG.md` - Added v1.22.0 release notes
+- Version bump: 1.21.5 -> 1.22.0 (minor bump for new feature)
+
+**Key Decisions:**
+- Use `null` for annotations field when server doesn't provide them (consistent with description field pattern)
+- Extract only the 4 standard annotation hints (readOnlyHint, destructiveHint, idempotentHint, openWorldHint)
+- Minor version bump (1.22.0) since this is a new feature, not breaking change
+
+**Next Steps:**
+- Monitor mcp-auditor integration with new annotation events
+- Consider adding title from annotations if useful for display
+
+**Notes:**
+- Tested with hardened-mcp: All 28 tools show annotations correctly
+- Tested with vulnerable-mcp: Shows both cases - tools with annotations and tools with null
+- Annotation assessor correctly flags deceptive annotations as REVIEW_RECOMMENDED
+- 1438 tests passing, all 4 npm packages published successfully
+- Issue #12 closed
+
+---
+
+## 2026-01-03: Documentation Updates for Selective Module Assessment (v1.22.1)
+
+**Summary:** Completed documentation updates for Issue #13 selective module assessment feature and published v1.22.1 to npm
+
+**Session Focus:** Documentation updates and npm release for --skip-modules/--only-modules CLI feature
+
+**Changes Made:**
+- Updated `docs/JSONL_EVENTS_REFERENCE.md` - Added modules_configured event (#11), updated event count 12->13, full schema and 3 example scenarios
+- Updated `docs/CLI_ASSESSMENT_GUIDE.md` - Added new flags to Mode 1/Mode 2 signatures, expanded "Selective Module Testing" section with examples, updated event table
+- Updated `docs/ASSESSMENT_CATALOG.md` - Added selective module testing section with usage examples
+- Updated `CHANGELOG.md` - Added Issue #13 feature documentation under v1.22.0
+
+**Key Decisions:**
+- Added modules_configured as JSONL event #11 (between tools_discovery_complete and module_started)
+- Event count updated from 12 to 13 across all documentation
+- Patch release (1.22.1) for documentation-only changes
+
+**Next Steps:**
+- Monitor npm package downloads for v1.22.1
+- Consider adding more usage examples to docs if user feedback indicates need
+
+**Notes:**
+- Commits: e04f711 (docs update), beb3acd (1.22.1 version bump)
+- All 4 npm packages published successfully (@bryan-thompson/inspector-assessment, -client, -server, -cli)
+- Prettier auto-formatted documentation during commit hooks
+
+---
+
+## 2026-01-03: Fixed Issue #14 - Hash-Based Sanitization False Positives
+
+**Summary:** Fixed GitHub Issue #14 eliminating false positives on hash-based sanitization patterns in SecurityAssessor.
+
+**Session Focus:** Issue #14 fix - False positives on safe input reflection (direct_echo pattern)
+
+**Changes Made:**
+- Modified `client/src/services/assessment/modules/SecurityAssessor.ts` - Added 10 hash-based sanitization patterns and isComputedMathResult() method
+- Added `client/src/services/assessment/__tests__/SecurityAssessor-ReflectionFalsePositives.test.ts` - 6 test cases for sanitization patterns
+- Updated `docs/CLI_ASSESSMENT_GUIDE.md` - Updated version to 1.22.0
+- Updated `docs/SECURITY_PATTERNS_CATALOG.md` - Updated version + added Issue #14 documentation section
+
+**Key Decisions:**
+- Added computed result detection as STEP 1.7 in analyzeResponse() flow
+- Hash-based sanitization patterns recognized as safe reflection (not execution)
+- Documented 3 response types: Execution, Safe Echo, Safe Sanitization
+
+**Validation Results:**
+- Hardened testbed: 0 vulnerabilities (eliminated 20 false positives)
+- Vulnerable testbed: 174 vulnerabilities (detection maintained)
+- 1444 unit tests passing, 100% precision
+
+**Next Steps:**
+- Monitor for additional false positive patterns
+- Consider adding more sanitization placeholder patterns as discovered
+
+**Notes:**
+- Issue #14 closed on GitHub with summary comment
+- Code fix was in earlier commit e04f711, docs in bf99135
+
+---
+
+## 2026-01-03: Fixed Issue #15 - Skip-Modules Flag Not Honored for Core Modules
+
+**Summary:** Fixed Issue #15 where --skip-modules flag was parsed but core assessment modules still executed.
+
+**Session Focus:** Bug fix for GitHub Issue #15 - the --skip-modules CLI flag was being parsed correctly but core modules (functionality, security, documentation, errorHandling, usability) still ran because they were unconditionally instantiated and executed in AssessmentOrchestrator.ts.
+
+**Changes Made:**
+- Modified `client/src/services/assessment/AssessmentOrchestrator.ts` - Made core assessor properties optional, added conditional instantiation in constructor, added guards in parallel and sequential execution modes (+173, -135 lines)
+
+**Key Decisions:**
+- Used same pattern as extended modules (which already had conditional logic)
+- Check `assessmentCategories?.moduleName !== false` for core modules
+- Added optional chaining in resetAllTestCounts() and collectTotalTestCount()
+
+**Next Steps:**
+- Monitor for any edge cases with skip-modules functionality
+- Consider adding unit tests specifically for skip-modules behavior
+
+**Notes:**
+- Commit: 36c78d4 "fix: honor --skip-modules flag for core assessment modules"
+- All 12 AssessmentOrchestrator tests pass
+- Issue #15 closed
+
+---
+
+## 2026-01-03: Code Review Remediation and v1.22.2 Release
+
+**Summary:** Fixed code and documentation issues identified by code-reviewer-pro and api-documenter agents, published version 1.22.2 to npm.
+
+**Session Focus:** Code review remediation and npm release - addressed issues found by parallel agent review using code-reviewer-pro and api-documenter agents.
+
+**Changes Made:**
+- Modified `cli/src/assess-full.ts` - Added missing `authentication: true` module to allModules object
+- Modified `scripts/run-full-assessment.ts` - Added authentication + externalAPIScanner modules, synced temporal logic with cli version
+- Updated `docs/JSONL_EVENTS_ALGORITHMS.md` - Corrected event count from 12 to 13
+- Updated `docs/JSONL_EVENTS_INTEGRATION.md` - Corrected event count from 12 to 13 (two locations)
+- Updated `docs/ASSESSMENT_CATALOG.md` - Updated from 11 to 17 modules, added complete module reference table
+- Updated `docs/CLI_ASSESSMENT_GUIDE.md` - Updated to 17 modules with Core/Compliance/Advanced categories
+
+**Key Decisions:**
+- Used parallel agent review (code-reviewer-pro + api-documenter) for comprehensive coverage
+- Organized modules into three categories: Core (5), Compliance (6), Advanced (6)
+- Published as patch version (1.22.1 to 1.22.2) since these are bug fixes, not new features
+
+**Validation Results:**
+- All 1444 tests passed (62 suites)
+- npm package published successfully as @bryan-thompson/inspector-assessment@1.22.2
+
+**Next Steps:**
+- Consider adding unit tests for module filtering logic (suggestion from code review)
+- Consider deriving allModules from ASSESSMENT_CATEGORY_METADATA (single source of truth)
+
+**Notes:**
+- Code review identified missing authentication module that could cause silent failures with --only-modules authentication
+- Documentation had outdated event counts (12 vs actual 13) and module counts (11 vs actual 17)
+- Binary/local script parity restored between cli/src/assess-full.ts and scripts/run-full-assessment.ts
+
+---
+
+## 2026-01-03: Code Review Remediation - CLI Parity and Test Coverage
+
+**Summary:** Fixed v1.22.1 authentication module bug, synced CLI parity, updated documentation for 17 modules, and added buildConfig completeness tests.
+
+**Session Focus:** Code review and bug fixes for v1.22.1 release, documentation accuracy, and test coverage improvements.
+
+**Changes Made:**
+- Modified `cli/src/assess-full.ts` - Added missing `authentication: true` to allModules
+- Modified `scripts/run-full-assessment.ts` - Added `authentication`, `externalAPIScanner`, synced `temporal` logic
+- Updated `docs/JSONL_EVENTS_ALGORITHMS.md` - Updated event count 12 to 13
+- Updated `docs/JSONL_EVENTS_INTEGRATION.md` - Updated event counts 12 to 13 (two locations)
+- Updated `docs/ASSESSMENT_CATALOG.md` - Updated to 17 modules with complete reference table
+- Updated `docs/CLI_ASSESSMENT_GUIDE.md` - Updated to 17 modules, reorganized into Core/Compliance/Advanced
+- Added `scripts/__tests__/cli-parity.test.ts` - Added 5 new buildConfig completeness tests using AST parsing
+
+**Key Decisions:**
+- Do not extract buildConfig() to shared module (TypeScript rootDir constraint makes it too complex)
+- Use AST-based parity tests instead (matches existing cli-parity.test.ts pattern)
+- 4-layer defense-in-depth for module configuration now in place
+
+**Commits:**
+- fix: add authentication module and sync CLI parity
+- docs: update event counts and module counts
+- test: add buildConfig completeness tests to catch missing modules (428dc36)
+
+**Next Steps:**
+- Consider publishing v1.22.2 with these fixes
+- Monitor for any additional parity drift between CLI and scripts
+
+**Notes:**
+- Used 5 specialized agents: code-reviewer-pro, api-documenter, test-automator, test-generator for analysis
+- All 1444 tests pass including 18 cli-parity tests (5 new)
+
+---
