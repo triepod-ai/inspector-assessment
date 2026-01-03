@@ -666,6 +666,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         const alignmentStatus = latestResult.alignmentStatus;
 
         // Check readOnlyHint mismatch
+        // Only emit events when inference is confident enough to contradict explicit annotations
         if (
           annotations?.readOnlyHint !== undefined &&
           annotations.readOnlyHint !== inferred.expectedReadOnly
@@ -685,8 +686,9 @@ export class ToolAnnotationAssessor extends BaseAssessor {
               isAmbiguous: inferred.isAmbiguous,
               reason: inferred.reason,
             });
-          } else {
-            // Emit misaligned for high-confidence mismatches
+          } else if (!inferred.isAmbiguous && inferred.confidence !== "low") {
+            // Emit misaligned only for medium/high-confidence mismatches
+            // When inference is low-confidence/ambiguous, trust explicit annotation
             context.onProgress({
               type: "annotation_misaligned",
               tool: tool.name,
@@ -700,9 +702,11 @@ export class ToolAnnotationAssessor extends BaseAssessor {
               reason: `Tool has readOnlyHint=${annotations.readOnlyHint}, but ${inferred.reason}`,
             });
           }
+          // When inference is ambiguous/low-confidence, trust explicit annotation - no event emitted
         }
 
         // Check destructiveHint mismatch
+        // Only emit events when inference is confident enough to contradict explicit annotations
         if (
           annotations?.destructiveHint !== undefined &&
           annotations.destructiveHint !== inferred.expectedDestructive
@@ -722,8 +726,9 @@ export class ToolAnnotationAssessor extends BaseAssessor {
               isAmbiguous: inferred.isAmbiguous,
               reason: inferred.reason,
             });
-          } else {
-            // Emit misaligned for high-confidence mismatches
+          } else if (!inferred.isAmbiguous && inferred.confidence !== "low") {
+            // Emit misaligned only for medium/high-confidence mismatches
+            // When inference is low-confidence/ambiguous, trust explicit annotation
             context.onProgress({
               type: "annotation_misaligned",
               tool: tool.name,
@@ -737,6 +742,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
               reason: `Tool has destructiveHint=${annotations.destructiveHint}, but ${inferred.reason}`,
             });
           }
+          // When inference is ambiguous/low-confidence, trust explicit annotation - no event emitted
         }
       }
     }
@@ -1557,8 +1563,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     return {
       expectedReadOnly: false,
       expectedDestructive: false,
-      reason:
-        "Could not infer from name pattern - defaulting to write operation",
+      reason: "Could not infer behavior from name pattern",
       confidence: "low",
       isAmbiguous: true,
     };
