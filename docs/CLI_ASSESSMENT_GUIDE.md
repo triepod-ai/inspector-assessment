@@ -1,6 +1,6 @@
 # MCP Inspector CLI Assessment Guide
 
-**Version**: 1.21.4
+**Version**: 1.22.0
 **Status**: Stable
 **Target Audience**: MCP developers, CI/CD engineers, automated testing systems
 

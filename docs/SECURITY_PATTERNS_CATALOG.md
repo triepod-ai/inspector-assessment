@@ -4,7 +4,7 @@
 
 This catalog documents the **23 security attack patterns** used by the MCP Inspector to assess MCP server security. Each pattern includes attack vectors, example payloads, detection logic, and validation against the vulnerability testbed.
 
-**Version**: 1.21.4
+**Version**: 1.22.0
 **Pattern Count**: 23 attack categories
 **Total Payloads**: 141 distinct payloads
 **Risk Levels**: HIGH (120), MEDIUM (15), LOW (6)
@@ -302,6 +302,42 @@ if (/\b(root|user|admin)\b/.test(response)) {
 
 - `vulnerable_calculator_tool`: 24 detections (eval enabled)
 - `safe_storage_tool_mcp`: 0 detections (stores expressions as strings)
+
+#### Enhanced Detection: Issue #14 Fix (v1.22.0)
+
+**Problem Solved**: False positives when tools safely sanitize input with hash-based identifiers.
+
+The enhanced detection distinguishes three response types:
+
+| Response Type         | Example                                  | Vulnerable? | Detection Logic                    |
+| --------------------- | ---------------------------------------- | ----------- | ---------------------------------- |
+| **Execution**         | `"The answer is 655"` (from `15*37+100`) | ✅ YES      | Computed result differs from input |
+| **Safe Echo**         | `"Expression stored: 15*37+100"`         | ❌ NO       | Original expression reflected      |
+| **Safe Sanitization** | `"Expression stored: [ref-5e8c42f1]"`    | ❌ NO       | Hash-based identifier pattern      |
+
+**Computed Result Detection** (`isComputedMathResult`):
+
+```typescript
+// Detects when math is computed vs echoed
+// Payload: "15*37+100"
+// Vulnerable: Response contains "655" but NOT "15*37+100"
+// Safe: Response contains "15*37+100" (echoed, not computed)
+```
+
+**Hash-Based Sanitization Patterns** (10 new patterns):
+
+| Pattern              | Example                          | Description                 |
+| -------------------- | -------------------------------- | --------------------------- |
+| `[ref-xxxxxxxx]`     | `"Stored: [ref-5e8c42f1]"`       | Hash identifier replacement |
+| `[sanitized]`        | `"Input: [sanitized]"`           | Sanitization placeholder    |
+| `[redacted]`         | `"Content: [redacted]"`          | Redaction placeholder       |
+| `[filtered]`         | `"Query: [filtered]"`            | Filter placeholder          |
+| `[blocked]`          | `"Command: [blocked]"`           | Block placeholder           |
+| `Expression stored:` | `"Expression stored: ..."`       | Storage prefix pattern      |
+| `Input sanitized`    | `"Input sanitized successfully"` | Sanitization confirmation   |
+| `Content replaced`   | `"Content replaced with hash"`   | Replacement confirmation    |
+
+**Implementation**: `SecurityAssessor.ts` lines 883-891 (computed result check), lines 1671-1681 (sanitization patterns)
 
 ---
 
@@ -1562,4 +1598,4 @@ All safe tools tested with **80 patterns each** (23 attack types × ~3.5 payload
 
 **Document Version**: 1.0.0
 **Last Updated**: 2026-01-03
-**Inspector Version**: 1.21.4
+**Inspector Version**: 1.22.0
