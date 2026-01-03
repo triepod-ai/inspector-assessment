@@ -1,5 +1,10 @@
 # Real-Time JSONL Progress Output (v1.9.0)
 
+> **Note**: This document describes basic JSONL output from v1.9.0.
+> For the complete JSONL Events API reference with all 11 event types,
+> EventBatcher, AUP enrichment, and advanced features, see
+> [JSONL_EVENTS_API.md](JSONL_EVENTS_API.md).
+
 ## Overview
 
 The MCP Inspector emits real-time progress events to stderr in JSONL (JSON Lines) format during assessment execution. This enables external tools (like the MCP Auditor) to parse and display live progress as each phase completes.

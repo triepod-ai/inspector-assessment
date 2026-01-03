@@ -13,6 +13,16 @@ This document explains what inspector-assessment provides, how it integrates wit
 
 **The key innovation is "pipe through"** - the ability to connect to arbitrary MCP servers via config file and run comprehensive automated assessment without code changes.
 
+### Related Documentation
+
+For detailed implementation guides, see:
+
+- **[ASSESSMENT_MODULE_DEVELOPER_GUIDE.md](ASSESSMENT_MODULE_DEVELOPER_GUIDE.md)** - Creating and extending assessment modules
+- **[SCORING_ALGORITHM_GUIDE.md](SCORING_ALGORITHM_GUIDE.md)** - Module weights, thresholds, calculations
+- **[SECURITY_PATTERNS_CATALOG.md](SECURITY_PATTERNS_CATALOG.md)** - 23 attack patterns, 141 payloads
+- **[CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md)** - Three CLI modes comparison
+- **[JSONL_EVENTS_API.md](JSONL_EVENTS_API.md)** - Real-time event streaming reference
+
 ---
 
 ## Architecture Overview

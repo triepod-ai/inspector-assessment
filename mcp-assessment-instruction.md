@@ -1,5 +1,9 @@
 # MCP Directory Assessment Project Instruction
 
+> **Note**: This guide is for **manual assessment** within Claude Desktop.
+> For **automated CLI-based assessment**, see [docs/CLI_ASSESSMENT_GUIDE.md](docs/CLI_ASSESSMENT_GUIDE.md)
+> which provides programmatic testing with 11 assessment modules and CI/CD integration.
+
 ## Purpose
 
 Systematically assess MCP servers against Anthropic's 5 core requirements for MCP directory submission. This instruction enables Claude to perform comprehensive testing and evaluation of any connected MCP server directly within Claude Desktop.

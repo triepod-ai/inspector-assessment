@@ -81,6 +81,8 @@ npm run assess -- --server <server-name> --config <config.json> --tool <tool-nam
 
 **Implementation:** `scripts/run-security-assessment.ts`
 
+**Complete Documentation:** See [docs/CLI_ASSESSMENT_GUIDE.md](docs/CLI_ASSESSMENT_GUIDE.md) for all three CLI modes, configuration options, and CI/CD integration examples.
+
 ## npm Binary / Local Script Parity
 
 **Critical**: The npm binary (`cli/src/assess-full.ts`) must stay in sync with the local development script (`scripts/run-full-assessment.ts`).
@@ -185,7 +187,7 @@ cat /tmp/inspector-assessment-hardened-mcp.json | \
 - ✅ Hardened server: 0 vulnerabilities (same tool names!)
 - ✅ No regressions in detection logic
 
-**Detailed Documentation**: See [docs/mcp_vulnerability_testbed.md](docs/mcp_vulnerability_testbed.md) for:
+**Detailed Documentation**: See [docs/TESTBED_SETUP_GUIDE.md](docs/TESTBED_SETUP_GUIDE.md) for:
 
 - Complete A/B comparison results
 - Real tool response evidence
@@ -345,16 +347,45 @@ cat /tmp/inspector-assessment-memory-mcp.json | jq '.errorHandling.metrics'
 
 ## Feature Documentation
 
-For detailed documentation on specific features, see:
+For detailed documentation on specific features:
+
+### Core Documentation
 
 - **Assessment Catalog**: [docs/ASSESSMENT_CATALOG.md](docs/ASSESSMENT_CATALOG.md) - Complete 11-point assessment reference (5 core + 6 extended modules)
 - **Reviewer Quick Start**: [docs/REVIEWER_QUICK_START.md](docs/REVIEWER_QUICK_START.md) - Fast-track guide for MCP directory reviewers (60-second screening + 5-minute detailed review)
-- **Functionality Testing**: [README.md](README.md#2-optimized-progressive-complexity-testing) - Multi-scenario validation, progressive complexity
-- **Security Assessment**: [README.md](README.md#4-context-aware-security-assessment-with-zero-false-positives) - Domain-specific patterns, zero false positives
-- **Error Handling**: [README.md](README.md#assessment-categories) - MCP protocol compliance, validation quality
-- **MCP Spec Compliance**: See PROJECT_STATUS.md timeline for latest enhancements
-- **Real-Time Progress Output**: [docs/REAL_TIME_PROGRESS_OUTPUT.md](docs/REAL_TIME_PROGRESS_OUTPUT.md) - Module progress to stderr for CLI/auditor integration (v1.8.1)
-- **JSONL Events API**: [docs/JSONL_EVENTS_API.md](docs/JSONL_EVENTS_API.md) - Complete event reference for CLI/auditor integration (11 event types, TypeScript interfaces, integration examples)
+- **JSONL Events API**: [docs/JSONL_EVENTS_API.md](docs/JSONL_EVENTS_API.md) - Complete event reference for CLI/auditor integration (11 event types, TypeScript interfaces)
+
+### Developer Guides
+
+- **Assessment Module Guide**: [docs/ASSESSMENT_MODULE_DEVELOPER_GUIDE.md](docs/ASSESSMENT_MODULE_DEVELOPER_GUIDE.md) - Creating and extending assessment modules (34K)
+- **Scoring Algorithm**: [docs/SCORING_ALGORITHM_GUIDE.md](docs/SCORING_ALGORITHM_GUIDE.md) - Module weights, thresholds, calculations
+- **Test Data Generation**: [docs/TEST_DATA_GENERATION_GUIDE.md](docs/TEST_DATA_GENERATION_GUIDE.md) - TestDataGenerator patterns (51K)
+- **Progressive Complexity**: [docs/PROGRESSIVE_COMPLEXITY_GUIDE.md](docs/PROGRESSIVE_COMPLEXITY_GUIDE.md) - 2-level testing approach
+- **Response Validation**: [docs/RESPONSE_VALIDATION_GUIDE.md](docs/RESPONSE_VALIDATION_GUIDE.md) - Confidence scoring and validation
+
+### Security Testing
+
+- **Security Patterns Catalog**: [docs/SECURITY_PATTERNS_CATALOG.md](docs/SECURITY_PATTERNS_CATALOG.md) - 23 attack patterns, 141 payloads (53K)
+- **Testbed Setup**: [docs/TESTBED_SETUP_GUIDE.md](docs/TESTBED_SETUP_GUIDE.md) - A/B validation with vulnerable-mcp/hardened-mcp
+
+### CLI & Operations
+
+- **CLI Assessment Guide**: [docs/CLI_ASSESSMENT_GUIDE.md](docs/CLI_ASSESSMENT_GUIDE.md) - Complete CLI modes comparison (30K)
+- **Upstream Sync Workflow**: [docs/UPSTREAM_SYNC_WORKFLOW.md](docs/UPSTREAM_SYNC_WORKFLOW.md) - Sync procedure with upstream
+
+### Specification & UI
+
+- **Manifest Requirements**: [docs/MANIFEST_REQUIREMENTS.md](docs/MANIFEST_REQUIREMENTS.md) - manifest_version 0.3 spec
+- **UI Component Reference**: [docs/UI_COMPONENT_REFERENCE.md](docs/UI_COMPONENT_REFERENCE.md) - Assessment UI architecture
+
+### Related Projects
+
+- **mcp-auditor**: See `../mcp-auditor/docs/` for auditor CLI usage (audit.js, stage-ab-compare.js) and Inspector integration docs
+
+### Legacy References
+
+- **Functionality Testing**: [README.md](README.md#2-optimized-progressive-complexity-testing) - Multi-scenario validation overview
+- **Security Assessment**: [README.md](README.md#4-context-aware-security-assessment-with-zero-false-positives) - Domain-specific patterns overview
 - **Recent Changes**: [PROJECT_STATUS.md](PROJECT_STATUS.md#development-timeline---october-2025)
 
 ## Key Technical Implementations
@@ -681,7 +712,7 @@ See [PUBLISHING_GUIDE.md](PUBLISHING_GUIDE.md) for detailed publishing documenta
 - **Last Sync**: 2025-12-23 (synced from v0.17.5 to v0.18.0)
 - **Fork**: triepod-ai/inspector-assessment
 - **Upstream**: modelcontextprotocol/inspector
-- **Integration Doc**: [UPSTREAM_SYNC.md](UPSTREAM_SYNC.md) - Documents all integration points
+- **Integration Doc**: [docs/UPSTREAM_SYNC_WORKFLOW.md](docs/UPSTREAM_SYNC_WORKFLOW.md) - Comprehensive sync procedure (35K)
 - See [PROJECT_STATUS.md](PROJECT_STATUS.md) for sync history
 
 ### Upstream Sync Helper Script
@@ -715,4 +746,4 @@ Our assessment enhancements are isolated from upstream code:
 - **Feature flags**: `client/src/lib/featureFlags.ts` for optional enablement
 - **~160k lines** of assessment code in dedicated directories (no upstream conflicts)
 
-See [UPSTREAM_SYNC.md](UPSTREAM_SYNC.md) for detailed integration point documentation.
+See [docs/UPSTREAM_SYNC_WORKFLOW.md](docs/UPSTREAM_SYNC_WORKFLOW.md) for detailed sync workflow and integration point documentation.
