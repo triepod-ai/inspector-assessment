@@ -6,7 +6,7 @@
 > - [Algorithms](JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP enrichment algorithms
 > - [Integration](JSONL_EVENTS_INTEGRATION.md) - Lifecycle examples, integration checklist, testing
 
-**Version**: 1.20.0
+**Version**: 1.22.0
 **Status**: Stable
 **Target Audience**: MCP Auditor developers, assessment tool integrators, real-time progress consumers
 
@@ -118,7 +118,7 @@ interface ServerConnectedEvent {
 
 **When**: For each tool found during discovery phase
 
-**Purpose**: Reports tool metadata (name, description, parameters)
+**Purpose**: Reports tool metadata (name, description, parameters, annotations)
 
 ```json
 {
@@ -133,18 +133,36 @@ interface ServerConnectedEvent {
       "description": "The memory content to store"
     }
   ],
-  "version": "1.20.0"
+  "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+  },
+  "version": "1.22.0"
+}
+```
+
+**Example without annotations:**
+
+```json
+{
+  "event": "tool_discovered",
+  "name": "legacy_tool",
+  "description": "A legacy tool without annotations",
+  "params": [],
+  "annotations": null,
+  "version": "1.22.0"
 }
 ```
 
 **Fields:**
 
-| Field         | Type           | Required | Description                           |
-| ------------- | -------------- | -------- | ------------------------------------- |
-| `name`        | string         | Yes      | Tool name from MCP manifest           |
-| `description` | string \| null | Yes      | Tool description or null if missing   |
-| `params`      | array          | Yes      | Extracted parameters from inputSchema |
-| `version`     | string         | Yes      | Inspector version (auto-added)        |
+| Field         | Type           | Required | Description                                             |
+| ------------- | -------------- | -------- | ------------------------------------------------------- |
+| `name`        | string         | Yes      | Tool name from MCP manifest                             |
+| `description` | string \| null | Yes      | Tool description or null if missing                     |
+| `params`      | array          | Yes      | Extracted parameters from inputSchema                   |
+| `annotations` | object \| null | Yes      | Tool annotations or null if server doesn't provide them |
+| `version`     | string         | Yes      | Inspector version (auto-added)                          |
 
 **Param Object Fields:**
 
@@ -154,6 +172,15 @@ interface ServerConnectedEvent {
 | `type`        | string  | Yes      | Parameter type (e.g., "string", "object")    |
 | `required`    | boolean | Yes      | Whether parameter is in inputSchema.required |
 | `description` | string  | No       | Parameter description if provided            |
+
+**Annotations Object Fields:**
+
+| Field             | Type    | Required | Description                                                   |
+| ----------------- | ------- | -------- | ------------------------------------------------------------- |
+| `readOnlyHint`    | boolean | No       | If true, tool does not modify environment (default: false)    |
+| `destructiveHint` | boolean | No       | If true, tool may perform destructive updates (default: true) |
+| `idempotentHint`  | boolean | No       | If true, repeated identical calls have same effect            |
+| `openWorldHint`   | boolean | No       | If true, tool may interact with external systems              |
 
 **TypeScript Interface:**
 
@@ -170,6 +197,12 @@ interface ToolDiscoveredEvent {
   name: string;
   description: string | null;
   params: ToolParam[];
+  annotations: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  } | null;
   version: string;
 }
 ```
@@ -778,5 +811,5 @@ interface AssessmentCompleteEvent {
 
 ---
 
-**Last Updated**: 2025-12-31
+**Last Updated**: 2026-01-03
 **Status**: Stable

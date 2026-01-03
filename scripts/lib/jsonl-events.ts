@@ -51,6 +51,12 @@ export interface ToolDiscoveredEvent {
   name: string;
   description: string | null;
   params: ToolParam[];
+  annotations: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  } | null;
 }
 
 export interface ToolsDiscoveryCompleteEvent {
@@ -256,14 +262,27 @@ export function emitServerConnected(
 
 /**
  * Emit tool_discovered event for each tool found.
+ * Includes annotations if the server provides them.
  */
 export function emitToolDiscovered(tool: Tool): void {
   const params = extractToolParams(tool.inputSchema);
+
+  // Extract annotations, null if not present
+  const annotations = tool.annotations
+    ? {
+        readOnlyHint: tool.annotations.readOnlyHint,
+        destructiveHint: tool.annotations.destructiveHint,
+        idempotentHint: tool.annotations.idempotentHint,
+        openWorldHint: tool.annotations.openWorldHint,
+      }
+    : null;
+
   emitJSONL({
     event: "tool_discovered",
     name: tool.name,
     description: tool.description || null,
     params,
+    annotations,
   });
 }
 
