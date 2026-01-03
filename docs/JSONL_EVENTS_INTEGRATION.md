@@ -2,7 +2,7 @@
 
 > **Part of the JSONL Events API documentation series:**
 >
-> - [Reference](JSONL_EVENTS_REFERENCE.md) - All 12 event types and schema definitions
+> - [Reference](JSONL_EVENTS_REFERENCE.md) - All 13 event types and schema definitions
 > - [Algorithms](JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP enrichment algorithms
 > - **Integration** (this document) - Lifecycle examples, integration checklist, testing
 
@@ -595,7 +595,7 @@ try {
 
 ## See Also
 
-- [JSONL Events Reference](JSONL_EVENTS_REFERENCE.md) - All 11 event types and schemas
+- [JSONL Events Reference](JSONL_EVENTS_REFERENCE.md) - All 13 event types and schemas
 - [JSONL Events Algorithms](JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP sampling
 - [REAL_TIME_PROGRESS_OUTPUT.md](REAL_TIME_PROGRESS_OUTPUT.md) - Legacy progress format documentation
 - [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - Complete assessment module reference

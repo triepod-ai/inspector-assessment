@@ -448,10 +448,13 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
       prohibitedLibraries: true,
       manifestValidation: true,
       portability: true,
-      temporal: true, // Rug pull / temporal behavior detection
+      externalAPIScanner: !!options.sourceCodePath,
+      temporal: !options.skipTemporal, // Rug pull / temporal behavior detection
+      // New capability assessors - always enabled in full mode
       resources: true,
       prompts: true,
       crossCapability: true,
+      authentication: true,
     };
 
     // Apply --only-modules filter (whitelist mode)

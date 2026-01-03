@@ -490,6 +490,7 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
       resources: true,
       prompts: true,
       crossCapability: true,
+      authentication: true,
     };
 
     // Apply --only-modules filter (whitelist mode)

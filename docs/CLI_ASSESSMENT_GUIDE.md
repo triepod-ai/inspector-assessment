@@ -1358,19 +1358,21 @@ mcp-assess-full --server my-server --config config.json \
   --only-modules security
 ```
 
-**Valid module names (16 total):**
+**Valid module names (17 total):**
 
-| Category          | Module Names                                                                                                                                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Core (5)**      | `functionality`, `security`, `documentation`, `errorHandling`, `usability`                                                                                                                       |
-| **Extended (11)** | `mcpSpecCompliance`, `aupCompliance`, `toolAnnotations`, `prohibitedLibraries`, `manifestValidation`, `portability`, `temporal`, `resources`, `prompts`, `crossCapability`, `externalAPIScanner` |
+| Category           | Module Names                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| **Core (5)**       | `functionality`, `security`, `documentation`, `errorHandling`, `usability`                                          |
+| **Compliance (6)** | `mcpSpecCompliance`, `aupCompliance`, `toolAnnotations`, `prohibitedLibraries`, `manifestValidation`, `portability` |
+| **Advanced (6)**   | `temporal`, `resources`, `prompts`, `crossCapability`, `authentication`, `externalAPIScanner`\*                     |
+
+\* `externalAPIScanner` only runs when `--source` path is provided
 
 **Important notes:**
 
 - `--skip-modules` and `--only-modules` are **mutually exclusive** - use one or the other
 - Invalid module names will produce an error with the list of valid names
 - Module names are case-sensitive
-- The `externalAPIScanner` module requires `--source` path to be provided
 
 ---
 

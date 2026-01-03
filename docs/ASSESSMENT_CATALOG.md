@@ -1,17 +1,30 @@
-# MCP Inspector 11-Point Assessment Catalog
+# MCP Inspector Assessment Catalog
 
 A comprehensive reference for all assessment modules in the MCP Inspector Assessment tool.
 
 ## Overview
 
-The MCP Inspector Assessment runs **11 specialized modules** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
+The MCP Inspector Assessment runs **17 specialized modules** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
 
 ### Module Organization
 
-| Category         | Modules | Purpose                               |
-| ---------------- | ------- | ------------------------------------- |
-| **Core (5)**     | #1-5    | Essential server quality validation   |
-| **Extended (6)** | #6-11   | MCP Directory compliance requirements |
+| Category           | Modules | Purpose                                    |
+| ------------------ | ------- | ------------------------------------------ |
+| **Core (5)**       | #1-5    | Essential server quality validation        |
+| **Compliance (6)** | #6-11   | MCP Directory compliance requirements      |
+| **Advanced (6)**   | #12-17  | Extended analysis (temporal, capabilities) |
+
+### All Module Names (for `--skip-modules` / `--only-modules`)
+
+```
+Core:       functionality, security, errorHandling, documentation, usability
+Compliance: mcpSpecCompliance, aupCompliance, toolAnnotations, prohibitedLibraries,
+            manifestValidation, portability
+Advanced:   temporal, resources, prompts, crossCapability, authentication,
+            externalAPIScanner*
+```
+
+\* `externalAPIScanner` only runs when `--source` flag is provided
 
 ### Scoring
 
