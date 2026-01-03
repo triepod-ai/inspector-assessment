@@ -1,6 +1,18 @@
 # Inspector-Assessment: Architecture & Value Proposition
 
-This document explains what inspector-assessment provides, how it integrates with mcp-auditor, and why behavioral testing matters compared to Claude-only reasoning.
+## Overview
+
+This document explains what inspector-assessment provides, how it integrates with mcp-auditor, and why behavioral testing matters compared to Claude-only reasoning. It covers architecture, component breakdown, and the value of behavioral testing vs static analysis.
+
+**Key Topics:**
+
+- Architecture overview and component breakdown
+- Comparison with original MCP Inspector
+- Why behavioral testing matters (behavioral proof vs speculation)
+- The 11 assessment modules
+- Integration with mcp-auditor
+
+---
 
 ## Executive Summary
 

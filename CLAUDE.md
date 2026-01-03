@@ -349,28 +349,47 @@ cat /tmp/inspector-assessment-memory-mcp.json | jq '.errorHandling.metrics'
 
 For detailed documentation on specific features:
 
+**Documentation Index**: [docs/README.md](docs/README.md) - Complete navigation hub for all documentation
+
 ### Core Documentation
 
 - **Assessment Catalog**: [docs/ASSESSMENT_CATALOG.md](docs/ASSESSMENT_CATALOG.md) - Complete 11-point assessment reference (5 core + 6 extended modules)
 - **Reviewer Quick Start**: [docs/REVIEWER_QUICK_START.md](docs/REVIEWER_QUICK_START.md) - Fast-track guide for MCP directory reviewers (60-second screening + 5-minute detailed review)
-- **JSONL Events API**: [docs/JSONL_EVENTS_API.md](docs/JSONL_EVENTS_API.md) - Complete event reference for CLI/auditor integration (11 event types, TypeScript interfaces)
+- **Architecture & Value**: [docs/ARCHITECTURE_AND_VALUE.md](docs/ARCHITECTURE_AND_VALUE.md) - What inspector-assessment provides and why
+
+### JSONL Events API
+
+- **Event Reference**: [docs/JSONL_EVENTS_REFERENCE.md](docs/JSONL_EVENTS_REFERENCE.md) - All 11 event types and schema definitions
+- **Algorithms**: [docs/JSONL_EVENTS_ALGORITHMS.md](docs/JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP enrichment
+- **Integration**: [docs/JSONL_EVENTS_INTEGRATION.md](docs/JSONL_EVENTS_INTEGRATION.md) - Lifecycle examples, checklist, testing
+
+### Test Data Generation
+
+- **Architecture**: [docs/TEST_DATA_ARCHITECTURE.md](docs/TEST_DATA_ARCHITECTURE.md) - Core architecture, field handlers, boundaries
+- **Scenarios**: [docs/TEST_DATA_SCENARIOS.md](docs/TEST_DATA_SCENARIOS.md) - Scenario categories, tool-aware generation
+- **Extension**: [docs/TEST_DATA_EXTENSION.md](docs/TEST_DATA_EXTENSION.md) - Adding handlers, debugging, integration
+
+### Response Validation
+
+- **Core**: [docs/RESPONSE_VALIDATION_CORE.md](docs/RESPONSE_VALIDATION_CORE.md) - Validation logic, business error detection
+- **Extension**: [docs/RESPONSE_VALIDATION_EXTENSION.md](docs/RESPONSE_VALIDATION_EXTENSION.md) - Adding rules, troubleshooting, API reference
 
 ### Developer Guides
 
-- **Assessment Module Guide**: [docs/ASSESSMENT_MODULE_DEVELOPER_GUIDE.md](docs/ASSESSMENT_MODULE_DEVELOPER_GUIDE.md) - Creating and extending assessment modules (34K)
+- **Assessment Module Guide**: [docs/ASSESSMENT_MODULE_DEVELOPER_GUIDE.md](docs/ASSESSMENT_MODULE_DEVELOPER_GUIDE.md) - Creating and extending assessment modules
 - **Scoring Algorithm**: [docs/SCORING_ALGORITHM_GUIDE.md](docs/SCORING_ALGORITHM_GUIDE.md) - Module weights, thresholds, calculations
-- **Test Data Generation**: [docs/TEST_DATA_GENERATION_GUIDE.md](docs/TEST_DATA_GENERATION_GUIDE.md) - TestDataGenerator patterns (51K)
 - **Progressive Complexity**: [docs/PROGRESSIVE_COMPLEXITY_GUIDE.md](docs/PROGRESSIVE_COMPLEXITY_GUIDE.md) - 2-level testing approach
-- **Response Validation**: [docs/RESPONSE_VALIDATION_GUIDE.md](docs/RESPONSE_VALIDATION_GUIDE.md) - Confidence scoring and validation
 
 ### Security Testing
 
-- **Security Patterns Catalog**: [docs/SECURITY_PATTERNS_CATALOG.md](docs/SECURITY_PATTERNS_CATALOG.md) - 23 attack patterns, 141 payloads (53K)
+- **Security Patterns Catalog**: [docs/SECURITY_PATTERNS_CATALOG.md](docs/SECURITY_PATTERNS_CATALOG.md) - 23 attack patterns, 141 payloads
 - **Testbed Setup**: [docs/TESTBED_SETUP_GUIDE.md](docs/TESTBED_SETUP_GUIDE.md) - A/B validation with vulnerable-mcp/hardened-mcp
+- **DVMCP Usage Guide**: [docs/DVMCP_USAGE_GUIDE.md](docs/DVMCP_USAGE_GUIDE.md) - Damn Vulnerable MCP testbed
+- **Security Audits**: [docs/security/](docs/security/) - Security audit reports
 
 ### CLI & Operations
 
-- **CLI Assessment Guide**: [docs/CLI_ASSESSMENT_GUIDE.md](docs/CLI_ASSESSMENT_GUIDE.md) - Complete CLI modes comparison (30K)
+- **CLI Assessment Guide**: [docs/CLI_ASSESSMENT_GUIDE.md](docs/CLI_ASSESSMENT_GUIDE.md) - Complete CLI modes comparison
 - **Upstream Sync Workflow**: [docs/UPSTREAM_SYNC_WORKFLOW.md](docs/UPSTREAM_SYNC_WORKFLOW.md) - Sync procedure with upstream
 
 ### Specification & UI
@@ -533,6 +552,59 @@ This file contains archived project timeline entries from earlier development ph
 - **Searchability**: Clear links between main and archive files
 
 **Note**: Always add new timeline entries BEFORE performing archival. Archival is a maintenance task, not a development task.
+
+## Documentation Maintenance Guidelines
+
+### File Size Thresholds
+
+**When to split**: Documentation files exceeding ~1000 lines should be split into focused documents.
+
+**Target size**: Each split file should be 400-650 lines for optimal readability and Claude context efficiency.
+
+### Split Strategy
+
+1. **Identify logical sections**: Group related content (e.g., core vs extension, reference vs examples)
+2. **Create focused files**: Name clearly (e.g., `GUIDE_CORE.md`, `GUIDE_EXTENSION.md`)
+3. **Add series navigation**: Each split file should have a header linking to related files:
+   ```markdown
+   > **Part of the [Topic] documentation series:**
+   >
+   > - **Core** (this document) - Description
+   > - [Extension](GUIDE_EXTENSION.md) - Description
+   ```
+
+### Backwards Compatibility
+
+**Convert original files to redirect pages** - Don't delete, redirect:
+
+```markdown
+# [Original Title]
+
+> **Note**: This guide has been split into focused documents for easier navigation.
+
+## Quick Links
+
+- [Document 1](link) - Description
+- [Document 2](link) - Description
+
+---
+
+_For the complete documentation index, see [docs/README.md](README.md)._
+```
+
+### Navigation Hub
+
+**Maintain `docs/README.md`** as the central navigation hub:
+
+- Update when adding/splitting documentation
+- Organize by category (Core, Security, CLI, etc.)
+- Use tables for quick scanning
+
+### Consistency Standards
+
+- **Overview section**: All major docs should have an Overview section after the title
+- **Table of Contents**: Files >500 lines should have a TOC
+- **Related Documentation**: End files with links to related docs
 
 ## npm Package Publishing & Maintenance
 

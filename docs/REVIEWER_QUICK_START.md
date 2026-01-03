@@ -1,5 +1,18 @@
 # MCP Inspector: Reviewer Quick Start Guide
 
+## Overview
+
+This guide provides fast-track assessment procedures for MCP directory reviewers. It covers two processes: a 60-second screening for quick approve/reject decisions, and a 5-minute detailed review when warnings need investigation.
+
+**Target Audience:** MCP directory reviewers making approve/reject decisions
+
+**Time Investment:**
+
+- Fast screening: ~60 seconds
+- Detailed review: ~5 minutes
+
+---
+
 ## 60-Second Fast Screening
 
 **Goal**: Make initial approve/reject decision in under 1 minute
