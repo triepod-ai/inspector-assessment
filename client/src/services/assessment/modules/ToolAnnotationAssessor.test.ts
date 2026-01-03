@@ -265,22 +265,23 @@ describe("ToolAnnotationAssessor", () => {
   });
 
   describe("Ambiguous pattern handling (GitHub Issue #3)", () => {
-    it("should NOT flag store_expression_tool with destructiveHint=true as misaligned", async () => {
+    it("should trust explicit annotation for store_expression_tool with destructiveHint=true (v1.22.5 fix)", async () => {
       // Arrange - ambiguous "store" verb with destructiveHint=true
+      // v1.22.5 fix: Trust explicit annotations when inference is ambiguous/low-confidence
       mockContext.tools = [
         createMockToolWithAnnotations({
           name: "store_expression_tool",
           description: "Stores an expression in memory",
           readOnlyHint: false,
-          destructiveHint: true, // Should NOT be flagged as misaligned
+          destructiveHint: true, // Explicit annotation - trust it
         }),
       ];
 
       // Act
       const result = await assessor.assess(mockContext);
 
-      // Assert
-      expect(result.toolResults[0].alignmentStatus).toBe("REVIEW_RECOMMENDED");
+      // Assert - v1.22.5: ALIGNED (trust explicit annotation), not REVIEW_RECOMMENDED
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
       expect(result.toolResults[0].inferredBehavior?.isAmbiguous).toBe(true);
       expect(result.toolResults[0].inferredBehavior?.confidence).toBe("low");
       expect(result.status).not.toBe("FAIL"); // Should not fail assessment
@@ -307,22 +308,23 @@ describe("ToolAnnotationAssessor", () => {
       expect(result.status).toBe("FAIL"); // Should fail assessment
     });
 
-    it("should flag process_data_tool with destructiveHint=true as review recommended", async () => {
+    it("should trust explicit annotation for process_data_tool with destructiveHint=true (v1.22.5 fix)", async () => {
       // Arrange - ambiguous "process" verb
+      // v1.22.5 fix: Trust explicit annotations when inference is ambiguous/low-confidence
       mockContext.tools = [
         createMockToolWithAnnotations({
           name: "process_data_tool",
           description: "Processes data",
           readOnlyHint: false,
-          destructiveHint: true,
+          destructiveHint: true, // Explicit annotation - trust it
         }),
       ];
 
       // Act
       const result = await assessor.assess(mockContext);
 
-      // Assert
-      expect(result.toolResults[0].alignmentStatus).toBe("REVIEW_RECOMMENDED");
+      // Assert - v1.22.5: ALIGNED (trust explicit annotation), not REVIEW_RECOMMENDED
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
       expect(result.toolResults[0].inferredBehavior?.isAmbiguous).toBe(true);
     });
 
@@ -395,28 +397,29 @@ describe("ToolAnnotationAssessor", () => {
       expect(result.alignmentBreakdown?.unknown).toBe(1); // process_data has no annotations
     });
 
-    it("should not count REVIEW_RECOMMENDED as misaligned for status determination", async () => {
-      // All tools have ambiguous patterns with annotations that don't match inferred behavior
+    it("should trust explicit annotations for ambiguous tools (v1.22.5 fix)", async () => {
+      // All tools have ambiguous patterns with explicit annotations
+      // v1.22.5 fix: Trust explicit annotations when inference is ambiguous/low-confidence
       mockContext.tools = [
         createMockToolWithAnnotations({
           name: "store_data",
           description: "Stores data",
-          readOnlyHint: true, // Mismatch - but ambiguous pattern
+          readOnlyHint: true, // Explicit annotation - trust it
           destructiveHint: false,
         }),
         createMockToolWithAnnotations({
           name: "cache_result",
           description: "Caches a result",
           readOnlyHint: false,
-          destructiveHint: true, // Mismatch - but ambiguous pattern
+          destructiveHint: true, // Explicit annotation - trust it
         }),
       ];
 
       const result = await assessor.assess(mockContext);
 
-      // Both should be REVIEW_RECOMMENDED, not MISALIGNED
-      expect(result.toolResults[0].alignmentStatus).toBe("REVIEW_RECOMMENDED");
-      expect(result.toolResults[1].alignmentStatus).toBe("REVIEW_RECOMMENDED");
+      // v1.22.5: Both should be ALIGNED (trust explicit annotations), not REVIEW_RECOMMENDED
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+      expect(result.toolResults[1].alignmentStatus).toBe("ALIGNED");
       // Assessment should NOT fail
       expect(result.status).not.toBe("FAIL");
     });
@@ -771,6 +774,295 @@ describe("ToolAnnotationAssessor", () => {
           (p) => p.name === "new_task",
         ),
       ).toBe(true);
+    });
+  });
+
+  describe("High-Confidence Deception Detection", () => {
+    it("should flag MISALIGNED when tool name contains 'exec' with readOnlyHint=true", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "system_exec_command",
+          description: "Executes a system command",
+          readOnlyHint: true, // Deceptive - exec is never read-only
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.toolResults[0].alignmentStatus).toBe("MISALIGNED");
+      expect(result.toolResults[0].issues).toContainEqual(
+        expect.stringContaining("DECEPTIVE"),
+      );
+      expect(result.toolResults[0].issues).toContainEqual(
+        expect.stringContaining("exec"),
+      );
+    });
+
+    it("should flag MISALIGNED when tool name contains 'install' with readOnlyHint=true", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "package_installer",
+          description: "Installs packages",
+          readOnlyHint: true, // Deceptive - install modifies system
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.toolResults[0].alignmentStatus).toBe("MISALIGNED");
+      expect(result.toolResults[0].issues).toContainEqual(
+        expect.stringContaining("DECEPTIVE"),
+      );
+    });
+
+    it("should flag MISALIGNED when tool name contains 'delete' with destructiveHint=false", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "file_delete_helper",
+          description: "Deletes files",
+          readOnlyHint: false,
+          destructiveHint: false, // Deceptive - delete is destructive
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.toolResults[0].alignmentStatus).toBe("MISALIGNED");
+      expect(result.toolResults[0].issues).toContainEqual(
+        expect.stringContaining("DECEPTIVE"),
+      );
+    });
+
+    it("should detect deceptive keyword anywhere in name, not just prefix", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "safe_looking_exec_tool",
+          description: "A harmless looking tool that executes code",
+          readOnlyHint: true, // Deceptive
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.toolResults[0].alignmentStatus).toBe("MISALIGNED");
+      expect(result.toolResults[0].issues).toContainEqual(
+        expect.stringContaining("exec"),
+      );
+    });
+
+    it("should detect deceptive keywords case-insensitively", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "SYSTEM_EXEC",
+          description: "Executes system commands",
+          readOnlyHint: true, // Deceptive
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.toolResults[0].alignmentStatus).toBe("MISALIGNED");
+    });
+
+    it("should allow exec keyword with readOnlyHint=false (correct annotation)", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "system_exec_command",
+          description: "Executes a system command",
+          readOnlyHint: false, // Correct - exec is not read-only
+          destructiveHint: true,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+    });
+
+    it("should allow delete keyword with destructiveHint=true (correct annotation)", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "delete_user_account",
+          description: "Permanently deletes a user account",
+          readOnlyHint: false,
+          destructiveHint: true, // Correct - delete is destructive
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+    });
+  });
+
+  describe("Low-Confidence Annotation Trust (Issue Fix)", () => {
+    it("should trust explicit annotation when inference is low-confidence", async () => {
+      // Tool with generic name (can't infer behavior) but explicit annotation
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "vulnerable_calculator_tool",
+          description: "A calculator tool",
+          readOnlyHint: true, // Explicit annotation
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      // Should NOT flag REVIEW_RECOMMENDED despite inference being uncertain
+      expect(result.toolResults[0].alignmentStatus).not.toBe(
+        "REVIEW_RECOMMENDED",
+      );
+      // Should be ALIGNED since we trust the explicit annotation
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+    });
+
+    it("should flag MISALIGNED for medium-confidence mismatch", async () => {
+      // Tool with name pattern suggesting write but annotation says read
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "data_writer_tool",
+          description: "Writes data to storage",
+          readOnlyHint: true, // Wrong - "writer" suggests write operation
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.toolResults[0].alignmentStatus).toBe("MISALIGNED");
+    });
+
+    it("should flag ALIGNED for tools with proper annotations and no deceptive keywords", async () => {
+      // Tools that would have low-confidence inference but have correct annotations
+      const genericTools = [
+        "vulnerable_data_leak_tool",
+        "vulnerable_unicode_processor_tool",
+        "vulnerable_nested_parser_tool",
+        "vulnerable_rug_pull_tool",
+      ];
+
+      for (const name of genericTools) {
+        mockContext.tools = [
+          createMockToolWithAnnotations({
+            name,
+            description: "A hardened tool that stores data safely",
+            readOnlyHint: true,
+            destructiveHint: false,
+          }),
+        ];
+
+        const result = await assessor.assess(mockContext);
+
+        // Should be ALIGNED, not REVIEW_RECOMMENDED
+        expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+      }
+    });
+  });
+
+  describe("Regression: Fix for False REVIEW_RECOMMENDED (v1.22.5)", () => {
+    it("should not flag REVIEW_RECOMMENDED for properly annotated ambiguous tools", async () => {
+      // These are the exact tools from the hardened testbed that were
+      // incorrectly flagged as REVIEW_RECOMMENDED before v1.22.5 fix
+      const ambiguousToolNames = [
+        "vulnerable_calculator_tool",
+        "vulnerable_data_leak_tool",
+        "vulnerable_tool_override_tool",
+        "vulnerable_config_modifier_tool",
+        "vulnerable_fetcher_tool",
+        "vulnerable_unicode_processor_tool",
+        "vulnerable_nested_parser_tool",
+        "vulnerable_rug_pull_tool",
+        "vulnerable_deserializer_tool",
+      ];
+
+      for (const name of ambiguousToolNames) {
+        mockContext.tools = [
+          createMockToolWithAnnotations({
+            name,
+            description: `Hardened version of ${name}`,
+            readOnlyHint: true,
+            destructiveHint: false,
+          }),
+        ];
+
+        const result = await assessor.assess(mockContext);
+
+        expect(result.toolResults[0].alignmentStatus).not.toBe(
+          "REVIEW_RECOMMENDED",
+        );
+      }
+    });
+
+    it("deception detection should override low-confidence inference", async () => {
+      // Even though "vulnerable_system_exec_tool" has an ambiguous "vulnerable_" prefix,
+      // the "exec" keyword should trigger MISALIGNED via deception detection
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "vulnerable_system_exec_tool",
+          description: "A hardened exec tool (but still contains exec keyword)",
+          readOnlyHint: true, // Deceptive despite "hardened" description
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.toolResults[0].alignmentStatus).toBe("MISALIGNED");
+      expect(result.toolResults[0].issues).toContainEqual(
+        expect.stringContaining("exec"),
+      );
+    });
+
+    it("should correctly handle the hardened testbed scenario", async () => {
+      // Simulate the exact hardened testbed scenario that was failing before
+      mockContext.tools = [
+        // Properly annotated tools with ambiguous names - should be ALIGNED
+        createMockToolWithAnnotations({
+          name: "vulnerable_calculator_tool",
+          description: "HARDENED: Stores queries without executing",
+          readOnlyHint: true,
+          destructiveHint: false,
+        }),
+        createMockToolWithAnnotations({
+          name: "vulnerable_data_leak_tool",
+          description: "HARDENED: Queues queries without leaking",
+          readOnlyHint: true,
+          destructiveHint: false,
+        }),
+        // Deceptive tools - should be MISALIGNED
+        createMockToolWithAnnotations({
+          name: "vulnerable_system_exec_tool",
+          description: "HARDENED: Logs commands (but name still has exec)",
+          readOnlyHint: true, // Deceptive
+          destructiveHint: false,
+        }),
+        createMockToolWithAnnotations({
+          name: "vulnerable_package_installer_tool",
+          description: "HARDENED: Validates against allowlist",
+          readOnlyHint: true, // Deceptive - install keyword
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      // First two should be ALIGNED (trusted annotations, no deceptive keywords)
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+      expect(result.toolResults[1].alignmentStatus).toBe("ALIGNED");
+
+      // Last two should be MISALIGNED (deceptive keywords detected)
+      expect(result.toolResults[2].alignmentStatus).toBe("MISALIGNED");
+      expect(result.toolResults[3].alignmentStatus).toBe("MISALIGNED");
+
+      // Verify alignment breakdown
+      expect(result.alignmentBreakdown?.aligned).toBe(2);
+      expect(result.alignmentBreakdown?.misaligned).toBe(2);
+      expect(result.alignmentBreakdown?.reviewRecommended).toBe(0);
     });
   });
 });
