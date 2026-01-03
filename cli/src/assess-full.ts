@@ -53,7 +53,39 @@ import {
   emitAnnotationMisaligned,
   emitAnnotationReviewRecommended,
   emitAnnotationAligned,
+  emitModulesConfigured,
 } from "./lib/jsonl-events.js";
+
+// Valid module names derived from ASSESSMENT_CATEGORY_METADATA
+const VALID_MODULE_NAMES = Object.keys(
+  ASSESSMENT_CATEGORY_METADATA,
+) as (keyof typeof ASSESSMENT_CATEGORY_METADATA)[];
+
+/**
+ * Validate module names from CLI input
+ */
+function validateModuleNames(input: string, flagName: string): string[] {
+  const names = input
+    .split(",")
+    .map((n) => n.trim())
+    .filter(Boolean);
+  const invalid = names.filter(
+    (n) =>
+      !VALID_MODULE_NAMES.includes(
+        n as keyof typeof ASSESSMENT_CATEGORY_METADATA,
+      ),
+  );
+
+  if (invalid.length > 0) {
+    console.error(
+      `Error: Invalid module name(s) for ${flagName}: ${invalid.join(", ")}`,
+    );
+    console.error(`Valid modules: ${VALID_MODULE_NAMES.join(", ")}`);
+    setTimeout(() => process.exit(1), 10);
+    return [];
+  }
+  return names;
+}
 
 interface ServerConfig {
   transport?: "stdio" | "http" | "sse";
@@ -84,6 +116,8 @@ interface AssessmentOptions {
   noResume?: boolean;
   temporalInvocations?: number;
   skipTemporal?: boolean;
+  skipModules?: string[];
+  onlyModules?: string[];
 }
 
 /**
@@ -437,7 +471,8 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
   };
 
   if (options.fullAssessment !== false) {
-    config.assessmentCategories = {
+    // Start with all modules enabled by default
+    const allModules: Record<string, boolean> = {
       functionality: true,
       security: true,
       documentation: true,
@@ -456,6 +491,26 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
       prompts: true,
       crossCapability: true,
     };
+
+    // Apply --only-modules filter (whitelist mode)
+    if (options.onlyModules?.length) {
+      for (const key of Object.keys(allModules)) {
+        // Disable all modules except those in the whitelist
+        allModules[key] = options.onlyModules.includes(key);
+      }
+    }
+
+    // Apply --skip-modules filter (blacklist mode)
+    if (options.skipModules?.length) {
+      for (const module of options.skipModules) {
+        if (module in allModules) {
+          allModules[module] = false;
+        }
+      }
+    }
+
+    config.assessmentCategories =
+      allModules as AssessmentConfiguration["assessmentCategories"];
   }
 
   // Temporal/rug pull detection configuration
@@ -711,6 +766,26 @@ async function runFullAssessment(
   }
 
   const config = buildConfig(options);
+
+  // Emit modules_configured event for consumer progress tracking
+  if (config.assessmentCategories) {
+    const enabled: string[] = [];
+    const skipped: string[] = [];
+    for (const [key, value] of Object.entries(config.assessmentCategories)) {
+      if (value) {
+        enabled.push(key);
+      } else {
+        skipped.push(key);
+      }
+    }
+    const reason = options.onlyModules?.length
+      ? "only-modules"
+      : options.skipModules?.length
+        ? "skip-modules"
+        : "default";
+    emitModulesConfigured(enabled, skipped, reason);
+  }
+
   const orchestrator = new AssessmentOrchestrator(config);
 
   if (!options.jsonOnly) {
@@ -1123,6 +1198,40 @@ function parseArgs(): AssessmentOptions {
       case "--skip-temporal":
         options.skipTemporal = true;
         break;
+      case "--skip-modules": {
+        const skipValue = args[++i];
+        if (!skipValue) {
+          console.error(
+            "Error: --skip-modules requires a comma-separated list",
+          );
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        options.skipModules = validateModuleNames(skipValue, "--skip-modules");
+        if (options.skipModules.length === 0 && skipValue) {
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        break;
+      }
+      case "--only-modules": {
+        const onlyValue = args[++i];
+        if (!onlyValue) {
+          console.error(
+            "Error: --only-modules requires a comma-separated list",
+          );
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        options.onlyModules = validateModuleNames(onlyValue, "--only-modules");
+        if (options.onlyModules.length === 0 && onlyValue) {
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        break;
+      }
       case "--help":
       case "-h":
         printHelp();
@@ -1141,6 +1250,16 @@ function parseArgs(): AssessmentOptions {
           return options as AssessmentOptions;
         }
     }
+  }
+
+  // Validate mutual exclusivity of --skip-modules and --only-modules
+  if (options.skipModules?.length && options.onlyModules?.length) {
+    console.error(
+      "Error: --skip-modules and --only-modules are mutually exclusive",
+    );
+    setTimeout(() => process.exit(1), 10);
+    options.helpRequested = true;
+    return options as AssessmentOptions;
   }
 
   if (!options.serverName) {
@@ -1180,11 +1299,23 @@ Options:
   --full                 Enable all assessment modules (default)
   --temporal-invocations <n>  Number of invocations per tool for rug pull detection (default: 25)
   --skip-temporal        Skip temporal/rug pull testing (faster assessment)
+  --skip-modules <list>  Skip specific modules (comma-separated)
+  --only-modules <list>  Run only specific modules (comma-separated)
   --json                 Output only JSON path (no console summary)
   --verbose, -v          Enable verbose logging
   --help, -h             Show this help message
 
-Assessment Modules (12 total):
+Module Selection:
+  --skip-modules and --only-modules are mutually exclusive.
+  Use --skip-modules for faster runs by disabling expensive modules.
+  Use --only-modules to focus on specific areas (e.g., tool annotation PRs).
+
+  Valid module names:
+    functionality, security, documentation, errorHandling, usability,
+    mcpSpecCompliance, aupCompliance, toolAnnotations, prohibitedLibraries,
+    manifestValidation, portability, temporal, resources, prompts, crossCapability
+
+Assessment Modules (16 total):
   • Functionality      - Tests all tools work correctly
   • Security           - Prompt injection & vulnerability testing
   • Documentation      - README completeness checks
@@ -1205,6 +1336,10 @@ Examples:
   mcp-assess-full --server my-server --format markdown --include-policy
   mcp-assess-full --server my-server --compare ./baseline.json
   mcp-assess-full --server my-server --compare ./baseline.json --diff-only --format markdown
+
+  # Module selection examples:
+  mcp-assess-full my-server --skip-modules security,aupCompliance    # Fast CI run
+  mcp-assess-full my-server --only-modules functionality,toolAnnotations  # Annotation PR review
   `);
 }
 

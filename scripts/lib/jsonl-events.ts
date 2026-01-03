@@ -637,6 +637,23 @@ export function emitAnnotationAligned(
   });
 }
 
+/**
+ * Emit modules_configured event to inform consumers which modules are enabled.
+ * Useful for accurate progress tracking when using --skip-modules or --only-modules.
+ */
+export function emitModulesConfigured(
+  enabled: string[],
+  skipped: string[],
+  reason: "skip-modules" | "only-modules" | "default",
+): void {
+  emitJSONL({
+    event: "modules_configured",
+    enabled,
+    skipped,
+    reason,
+  });
+}
+
 // ============================================================================
 // EventBatcher - Batches test progress events for volume control
 // ============================================================================
