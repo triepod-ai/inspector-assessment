@@ -83,6 +83,8 @@ Options:
   --pattern-config <path> Custom annotation patterns
   --claude-enabled        Enable Claude Code integration
   --full                  Enable all modules (default)
+  --skip-modules <list>   Skip specific modules (comma-separated)
+  --only-modules <list>   Run only specific modules (comma-separated)
   --json                  Output only JSON path (no console summary)
   --verbose, -v           Enable verbose logging
   --help, -h              Show help
@@ -134,6 +136,8 @@ All local script options, plus:
   --no-resume                 Force fresh start
   --temporal-invocations <n>  Rug pull detection invocations (default: 25)
   --skip-temporal             Skip temporal/rug pull testing
+  --skip-modules <list>       Skip specific modules (comma-separated)
+  --only-modules <list>       Run only specific modules (comma-separated)
 ```
 
 ### Mode 3: Security-Only Assessment
@@ -732,18 +736,20 @@ mcp-assess-full --server my-server --config config.json 2>&1 | \
 
 ### Event Types
 
-11 distinct event types are emitted in sequence:
+13 distinct event types are emitted in sequence:
 
 | Event Type                      | When                   | Purpose                      |
 | ------------------------------- | ---------------------- | ---------------------------- |
 | `server_connected`              | Connection established | Server is reachable          |
 | `tool_discovered`               | Each tool found        | Tool metadata (name, params) |
 | `tools_discovery_complete`      | After all tools        | Total tool count             |
+| `modules_configured`            | Before modules run     | Enabled/skipped modules      |
 | `module_started`                | Before each module     | Test count estimate          |
 | `test_batch`                    | During execution       | Real-time progress           |
 | `vulnerability_found`           | Security detections    | Security alerts              |
 | `annotation_missing`            | Tool lacks hints       | Missing annotations          |
 | `annotation_misaligned`         | Hint conflicts         | Annotation conflicts         |
+| `annotation_aligned`            | Annotations match      | Proper annotations confirmed |
 | `annotation_review_recommended` | Ambiguous patterns     | Manual review suggested      |
 | `module_complete`               | Module finishes        | Module result + score        |
 | `assessment_complete`           | End of assessment      | Final summary                |
@@ -1326,22 +1332,62 @@ The inspector runs 11 assessment modules covering different aspects:
 
 ### Selective Module Testing
 
-Currently, you cannot run individual modules via CLI. The `--full` flag enables all modules (default behavior).
+You can run specific modules or skip modules using the `--skip-modules` and `--only-modules` flags.
+
+**Skip specific modules (blacklist mode):**
+
+```bash
+# Skip security and AUP modules for faster iteration
+mcp-assess-full --server my-server --config config.json \
+  --skip-modules security,aupCompliance
+
+# Skip temporal testing (also available via --skip-temporal)
+mcp-assess-full --server my-server --config config.json \
+  --skip-modules temporal
+```
+
+**Run only specific modules (whitelist mode):**
+
+```bash
+# Run only functionality and tool annotations checks
+mcp-assess-full --server my-server --config config.json \
+  --only-modules functionality,toolAnnotations
+
+# Quick security-only scan
+mcp-assess-full --server my-server --config config.json \
+  --only-modules security
+```
+
+**Valid module names (16 total):**
+
+| Category          | Module Names                                                                                                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Core (5)**      | `functionality`, `security`, `documentation`, `errorHandling`, `usability`                                                                                                                       |
+| **Extended (11)** | `mcpSpecCompliance`, `aupCompliance`, `toolAnnotations`, `prohibitedLibraries`, `manifestValidation`, `portability`, `temporal`, `resources`, `prompts`, `crossCapability`, `externalAPIScanner` |
+
+**Important notes:**
+
+- `--skip-modules` and `--only-modules` are **mutually exclusive** - use one or the other
+- Invalid module names will produce an error with the list of valid names
+- Module names are case-sensitive
+- The `externalAPIScanner` module requires `--source` path to be provided
 
 ---
 
 ## Summary
 
-| Task                 | Command                                                         |
-| -------------------- | --------------------------------------------------------------- |
-| Quick security audit | `npm run assess -- --server S`                                  |
-| Full assessment      | `mcp-assess-full --server S --config C`                         |
-| Pre-flight check     | `mcp-assess-full --server S --config C --preflight`             |
-| Markdown report      | `mcp-assess-full --server S --config C --format markdown`       |
-| Baseline comparison  | `mcp-assess-full --server S --config C --compare baseline.json` |
-| CI/CD integration    | Exit code: 0=PASS, 1=FAIL                                       |
-| Real-time progress   | Capture stderr, parse JSONL events                              |
-| Resume assessment    | `mcp-assess-full --server S --resume`                           |
+| Task                 | Command                                                                   |
+| -------------------- | ------------------------------------------------------------------------- |
+| Quick security audit | `npm run assess -- --server S`                                            |
+| Full assessment      | `mcp-assess-full --server S --config C`                                   |
+| Pre-flight check     | `mcp-assess-full --server S --config C --preflight`                       |
+| Markdown report      | `mcp-assess-full --server S --config C --format markdown`                 |
+| Baseline comparison  | `mcp-assess-full --server S --config C --compare baseline.json`           |
+| Skip modules         | `mcp-assess-full --server S --skip-modules security,aupCompliance`        |
+| Run specific modules | `mcp-assess-full --server S --only-modules functionality,toolAnnotations` |
+| CI/CD integration    | Exit code: 0=PASS, 1=FAIL                                                 |
+| Real-time progress   | Capture stderr, parse JSONL events                                        |
+| Resume assessment    | `mcp-assess-full --server S --resume`                                     |
 
 ---
 
@@ -1356,7 +1402,7 @@ Currently, you cannot run individual modules via CLI. The `--full` flag enables 
 
 ---
 
-**Version**: 1.21.4
-**Last Updated**: 2025-01-03
+**Version**: 1.22.0
+**Last Updated**: 2026-01-03
 **Status**: Stable
 **Maintainer**: Bryan Thompson (triepod-ai)

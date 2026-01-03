@@ -11,13 +11,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Selective Module Assessment** (Issue #13): Add `--skip-modules` and `--only-modules` CLI flags
+  - `--skip-modules <list>` - Blacklist mode: skip specific modules (comma-separated)
+  - `--only-modules <list>` - Whitelist mode: run only specified modules (comma-separated)
+  - Flags are mutually exclusive with helpful error messages
+  - Validates module names against 16 available modules
+  - New `modules_configured` JSONL event emitted with enabled/skipped module lists
+  - Implemented in both `cli/src/assess-full.ts` and `scripts/run-full-assessment.ts` (parity maintained)
+
 - **Tool Annotations in `tool_discovered` Events** (Issue #12): Include MCP tool annotations in real-time discovery events
   - `tool_discovered` JSONL events now include `annotations` field with `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`
   - Annotations are `null` when the server doesn't provide them
   - Enables consumers (e.g., mcp-auditor) to display annotation values during discovery phase, not just after assessment completes
   - Updated `emitToolDiscovered()` in both `cli/src/lib/jsonl-events.ts` and `scripts/lib/jsonl-events.ts`
   - Updated `ToolDiscoveredEvent` interface with annotations type definition
-  - Documentation updated in `docs/JSONL_EVENTS_REFERENCE.md`
+
+### Changed
+
+- **Documentation Updates** (Issue #13):
+  - `docs/JSONL_EVENTS_REFERENCE.md` - Added `modules_configured` event (#11), updated event count from 12 to 13
+  - `docs/CLI_ASSESSMENT_GUIDE.md` - Added new flags to command signatures, expanded "Selective Module Testing" section with examples
+  - `docs/ASSESSMENT_CATALOG.md` - Added selective module testing section with usage examples
 
 ## [1.21.5] - 2026-01-03
 

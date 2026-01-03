@@ -880,6 +880,16 @@ export class SecurityAssessor extends BaseAssessor {
     // Response doesn't match reflection patterns - continue checking
     // Falls through - might be execution (with or without echo of input)
 
+    // ✅ STEP 1.7: Check for computed math results (Issue #14 fix)
+    // If payload is a math expression and response contains the computed result
+    // (but NOT the original expression), that's evidence of execution
+    if (this.isComputedMathResult(payload.payload, responseText)) {
+      return {
+        isVulnerable: true,
+        evidence: `Tool computed math expression result instead of storing/echoing it (payload: ${payload.payload})`,
+      };
+    }
+
     // ✅ STEP 2: Check if tool explicitly rejected the input (SAFE)
     // CRITICAL: Check this BEFORE evidence matching to prevent false positives
     // Tools that reject invalid input are secure, regardless of error message content
@@ -1115,6 +1125,94 @@ export class SecurityAssessor extends BaseAssessor {
     ];
 
     return executionIndicators.some((pattern) => pattern.test(responseText));
+  }
+
+  /**
+   * Check if a math expression payload was computed (execution evidence)
+   * Returns true if the response contains the computed result but NOT the original expression.
+   *
+   * This is key evidence of execution:
+   * - VULNERABLE: payload "15*37+100" → response contains "655" (computed result)
+   * - SAFE: payload "15*37+100" → response contains "15*37+100" (echoed, not computed)
+   *
+   * Added for Issue #14: False positives on safe input reflection
+   */
+  private isComputedMathResult(payload: string, responseText: string): boolean {
+    // Check if payload looks like a simple math expression
+    // Matches: "2+2", "15*37+100", "10/2", "5-3", etc.
+    const simpleMathPattern =
+      /^\s*(\d+)\s*([+\-*\/])\s*(\d+)(?:\s*([+\-*\/])\s*(\d+))?\s*$/;
+    const match = payload.match(simpleMathPattern);
+
+    if (!match) {
+      return false; // Not a simple math expression
+    }
+
+    // Try to safely evaluate the expression
+    try {
+      // Parse numbers and operators manually (avoid eval)
+      const num1 = parseInt(match[1], 10);
+      const op1 = match[2];
+      const num2 = parseInt(match[3], 10);
+      const op2 = match[4];
+      const num3 = match[5] ? parseInt(match[5], 10) : undefined;
+
+      let result: number;
+
+      // Calculate first operation
+      switch (op1) {
+        case "+":
+          result = num1 + num2;
+          break;
+        case "-":
+          result = num1 - num2;
+          break;
+        case "*":
+          result = num1 * num2;
+          break;
+        case "/":
+          result = Math.floor(num1 / num2);
+          break;
+        default:
+          return false;
+      }
+
+      // Calculate second operation if present (left-to-right, no precedence)
+      if (op2 && num3 !== undefined) {
+        switch (op2) {
+          case "+":
+            result = result + num3;
+            break;
+          case "-":
+            result = result - num3;
+            break;
+          case "*":
+            result = result * num3;
+            break;
+          case "/":
+            result = Math.floor(result / num3);
+            break;
+          default:
+            return false;
+        }
+      }
+
+      // Check if response contains the computed result
+      const resultStr = result.toString();
+      const hasComputedResult = responseText.includes(resultStr);
+
+      // Check if response also contains the original expression (reflection)
+      const normalizedPayload = payload.replace(/\s+/g, "");
+      const hasOriginalExpression =
+        responseText.includes(payload) ||
+        responseText.includes(normalizedPayload);
+
+      // Vulnerable if: has computed result AND does NOT have original expression
+      // This means the tool executed the expression instead of just echoing it
+      return hasComputedResult && !hasOriginalExpression;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -1569,6 +1667,18 @@ export class SecurityAssessor extends BaseAssessor {
       /without.?deserialization/i,
       /no.?pickle/i,
       /stored.?without.?deserializ/i,
+
+      // NEW: Hash-based sanitization patterns (Issue #14 fix)
+      // These indicate the tool replaced dangerous input with safe hash identifiers
+      /\[ref-[a-f0-9]+\]/i, // Hash-based sanitization: [ref-a1b2c3d4]
+      /stored.*\[ref-/i, // "Expression stored: [ref-...]"
+      /\[sanitized\]/i, // [sanitized] placeholder
+      /\[redacted\]/i, // [redacted] placeholder
+      /\[filtered\]/i, // [filtered] placeholder
+      /\[blocked\]/i, // [blocked] placeholder
+      /expression.*stored:/i, // "Expression stored:" prefix
+      /input.*sanitized/i, // "Input sanitized"
+      /content.*replaced/i, // "Content replaced with hash"
     ];
 
     // LAYER 1: Check for reflection/status patterns

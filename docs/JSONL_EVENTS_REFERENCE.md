@@ -2,7 +2,7 @@
 
 > **Part of the JSONL Events API documentation series:**
 >
-> - **Reference** (this document) - All 12 event types and schema definitions
+> - **Reference** (this document) - All 13 event types and schema definitions
 > - [Algorithms](JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP enrichment algorithms
 > - [Integration](JSONL_EVENTS_INTEGRATION.md) - Lifecycle examples, integration checklist, testing
 
@@ -42,8 +42,9 @@ The MCP Inspector emits a comprehensive stream of structured JSONL (JSON Lines) 
   - [8. annotation_misaligned](#8-annotation_misaligned)
   - [9. annotation_review_recommended](#9-annotation_review_recommended)
   - [10. annotation_aligned](#10-annotation_aligned)
-  - [11. module_complete](#11-module_complete)
-  - [12. assessment_complete](#12-assessment_complete)
+  - [11. modules_configured](#11-modules_configured)
+  - [12. module_complete](#12-module_complete)
+  - [13. assessment_complete](#13-assessment_complete)
 
 ---
 
@@ -57,6 +58,8 @@ server_connected                   (1 event)
 tool_discovered                    (N events, 1 per tool)
   ↓
 tools_discovery_complete           (1 event)
+  ↓
+modules_configured                 (1 event, if --skip-modules or --only-modules used)
   ↓
 [For each module:]
   module_started                   (1 event)
@@ -676,7 +679,149 @@ interface AnnotationAlignedEvent {
 
 ---
 
-### 11. `module_complete`
+### 11. `modules_configured`
+
+**When**: After tools discovery, before module execution begins (only when `--skip-modules` or `--only-modules` flags are used)
+
+**Purpose**: Informs consumers which assessment modules are enabled/skipped for accurate progress tracking
+
+```json
+{
+  "event": "modules_configured",
+  "enabled": ["functionality", "toolAnnotations"],
+  "skipped": [
+    "security",
+    "aupCompliance",
+    "documentation",
+    "errorHandling",
+    "usability",
+    "mcpSpecCompliance",
+    "prohibitedLibraries",
+    "manifestValidation",
+    "portability",
+    "temporal",
+    "resources",
+    "prompts",
+    "crossCapability"
+  ],
+  "reason": "only-modules",
+  "version": "1.22.0"
+}
+```
+
+**Fields:**
+
+| Field     | Type                                                | Required | Description                            |
+| --------- | --------------------------------------------------- | -------- | -------------------------------------- |
+| `enabled` | string[]                                            | Yes      | List of module names that will run     |
+| `skipped` | string[]                                            | Yes      | List of module names that are disabled |
+| `reason`  | `"skip-modules"` \| `"only-modules"` \| `"default"` | Yes      | Why modules were configured this way   |
+| `version` | string                                              | Yes      | Inspector version (auto-added)         |
+
+**Valid Module Names (16 total):**
+
+- **Core (5):** `functionality`, `security`, `documentation`, `errorHandling`, `usability`
+- **Extended (11):** `mcpSpecCompliance`, `aupCompliance`, `toolAnnotations`, `prohibitedLibraries`, `manifestValidation`, `portability`, `temporal`, `resources`, `prompts`, `crossCapability`, `externalAPIScanner`
+
+**Example Scenarios:**
+
+**Default (all modules enabled):**
+
+```json
+{
+  "event": "modules_configured",
+  "enabled": [
+    "functionality",
+    "security",
+    "documentation",
+    "errorHandling",
+    "usability",
+    "mcpSpecCompliance",
+    "aupCompliance",
+    "toolAnnotations",
+    "prohibitedLibraries",
+    "manifestValidation",
+    "portability",
+    "temporal",
+    "resources",
+    "prompts",
+    "crossCapability"
+  ],
+  "skipped": [],
+  "reason": "default",
+  "version": "1.22.0"
+}
+```
+
+**Using `--skip-modules security,aupCompliance`:**
+
+```json
+{
+  "event": "modules_configured",
+  "enabled": [
+    "functionality",
+    "documentation",
+    "errorHandling",
+    "usability",
+    "mcpSpecCompliance",
+    "toolAnnotations",
+    "prohibitedLibraries",
+    "manifestValidation",
+    "portability",
+    "temporal",
+    "resources",
+    "prompts",
+    "crossCapability"
+  ],
+  "skipped": ["security", "aupCompliance"],
+  "reason": "skip-modules",
+  "version": "1.22.0"
+}
+```
+
+**Using `--only-modules functionality,toolAnnotations`:**
+
+```json
+{
+  "event": "modules_configured",
+  "enabled": ["functionality", "toolAnnotations"],
+  "skipped": [
+    "security",
+    "documentation",
+    "errorHandling",
+    "usability",
+    "mcpSpecCompliance",
+    "aupCompliance",
+    "prohibitedLibraries",
+    "manifestValidation",
+    "portability",
+    "temporal",
+    "resources",
+    "prompts",
+    "crossCapability"
+  ],
+  "reason": "only-modules",
+  "version": "1.22.0"
+}
+```
+
+**TypeScript Interface:**
+
+```typescript
+interface ModulesConfiguredEvent {
+  event: "modules_configured";
+  enabled: string[];
+  skipped: string[];
+  reason: "skip-modules" | "only-modules" | "default";
+  version: string;
+}
+```
+
+**Integration Note:** This event is useful for MCP Auditor and other consumers to calculate accurate progress percentages. When modules are skipped, the total expected `module_started`/`module_complete` events will be fewer than the full 16 modules.
+
+---
+
+### 12. `module_complete`
 
 **When**: After each assessment module finishes execution
 
@@ -828,7 +973,7 @@ interface ModuleCompleteEvent {
 
 ---
 
-### 12. `assessment_complete`
+### 13. `assessment_complete`
 
 **When**: After all modules have completed and assessment finishes
 

@@ -470,7 +470,24 @@ npx @bryan-thompson/inspector-assessment assess:security --config config.json
 
 # Specific server
 npm run assess -- --server my-mcp --config /path/to/config.json
+
+# Selective module testing - skip specific modules
+mcp-assess-full --server my-mcp --skip-modules security,aupCompliance
+
+# Selective module testing - run only specific modules
+mcp-assess-full --server my-mcp --only-modules functionality,toolAnnotations
 ```
+
+### Selective Module Testing
+
+You can run specific modules or skip modules for faster, targeted assessments:
+
+| Flag                    | Mode      | Example                                        |
+| ----------------------- | --------- | ---------------------------------------------- |
+| `--skip-modules <list>` | Blacklist | `--skip-modules security,temporal`             |
+| `--only-modules <list>` | Whitelist | `--only-modules functionality,toolAnnotations` |
+
+**Note:** These flags are mutually exclusive. See [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md#selective-module-testing) for the full list of valid module names.
 
 ### Config File Format
 
@@ -519,5 +536,5 @@ cat /tmp/inspector-assessment-*.json | jq '.overallStatus'
 
 ---
 
-**Version**: 1.8.3
-**Last Updated**: 2025-12-29 (Synchronized security patterns: 13 → 20 patterns matching securityPatterns.ts)
+**Version**: 1.9.0
+**Last Updated**: 2026-01-03 (Added selective module testing documentation)
