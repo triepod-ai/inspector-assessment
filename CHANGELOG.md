@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.3] - 2026-01-03
+
+### Fixed
+
+- **Missing `authentication` Module** (Issue #15): Fixed critical bug where `authentication` module was missing from `allModules` in `buildConfig()`
+  - Users could specify `--only-modules authentication` (validated successfully) but the module would never run
+  - Added `authentication: true` to both `cli/src/assess-full.ts` and `scripts/run-full-assessment.ts`
+
+- **CLI/Script Parity Violation**: Synchronized `allModules` configuration between CLI and local script
+  - Added missing `externalAPIScanner: !!options.sourceCodePath` to scripts version
+  - Synchronized `temporal: !options.skipTemporal` logic in both files
+  - Both files now have identical 17-module configurations
+
+- **Documentation Event Count**: Updated JSONL event counts from 12 to 13 in documentation
+  - `docs/JSONL_EVENTS_ALGORITHMS.md` - Fixed navigation header
+  - `docs/JSONL_EVENTS_INTEGRATION.md` - Fixed navigation header and "See Also" section
+
+- **Documentation Module Count**: Updated module counts from 11 to 17 across documentation
+  - `docs/ASSESSMENT_CATALOG.md` - Updated title, overview, and added complete module reference table
+  - `docs/CLI_ASSESSMENT_GUIDE.md` - Updated module count and reorganized into Core/Compliance/Advanced categories
+
+### Added
+
+- **buildConfig Completeness Tests**: New regression tests to prevent future missing module bugs
+  - Added `extractAllModulesKeys()` AST parsing function to `scripts/__tests__/cli-parity.test.ts`
+  - 5 new tests verifying all 17 modules from `ASSESSMENT_CATEGORY_METADATA` are in `allModules`
+  - Specific regression test for `authentication` module (v1.22.2 bug)
+  - Tests ensure 1:1 mapping between metadata and configuration
+  - 4-layer defense-in-depth: display lists → destructured vars → JSONL events → buildConfig completeness
+
 ## [1.22.0] - 2026-01-03
 
 ### Added
