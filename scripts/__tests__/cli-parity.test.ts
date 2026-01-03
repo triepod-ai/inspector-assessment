@@ -128,6 +128,62 @@ function extractDestructuredVars(content: string): string[] {
 }
 
 /**
+ * Extract allModules object keys from buildConfig() function using AST parsing.
+ * This catches missing modules like the authentication bug fixed in v1.22.2.
+ */
+function extractAllModulesKeys(content: string): string[] {
+  const sourceFile = ts.createSourceFile(
+    "temp.ts",
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const moduleKeys: string[] = [];
+  let inBuildConfig = false;
+
+  function visit(node: ts.Node) {
+    // Track when we enter buildConfig function
+    if (ts.isFunctionDeclaration(node) && node.name?.text === "buildConfig") {
+      inBuildConfig = true;
+      ts.forEachChild(node, visit);
+      inBuildConfig = false;
+      return;
+    }
+
+    // Look for: const allModules: Record<string, boolean> = { ... }
+    if (
+      inBuildConfig &&
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === "allModules" &&
+      node.initializer &&
+      ts.isObjectLiteralExpression(node.initializer)
+    ) {
+      // Extract all property names from the object literal
+      for (const prop of node.initializer.properties) {
+        if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name)) {
+          moduleKeys.push(prop.name.text);
+        }
+        // Handle shorthand properties like { foo } instead of { foo: true }
+        if (ts.isShorthandPropertyAssignment(prop)) {
+          moduleKeys.push(prop.name.text);
+        }
+      }
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+
+  if (moduleKeys.length === 0) {
+    throw new Error("Could not find allModules object in buildConfig");
+  }
+
+  return moduleKeys.sort();
+}
+
+/**
  * Extract JSONL event types emitted.
  */
 function extractEmittedEventTypes(content: string): string[] {
@@ -273,6 +329,74 @@ describe("CLI Binary & Script Parity", () => {
     it("should have optional marker handling in both files", () => {
       expect(cliContent).toContain("(optional)");
       expect(scriptContent).toContain("(optional)");
+    });
+  });
+
+  describe("buildConfig allModules completeness", () => {
+    // All modules from ASSESSMENT_CATEGORY_METADATA (source of truth)
+    // This list should match Object.keys(ASSESSMENT_CATEGORY_METADATA) from assessmentTypes.ts
+    const EXPECTED_MODULES = [
+      "functionality",
+      "security",
+      "documentation",
+      "errorHandling",
+      "usability",
+      "mcpSpecCompliance",
+      "aupCompliance",
+      "toolAnnotations",
+      "prohibitedLibraries",
+      "manifestValidation",
+      "portability",
+      "externalAPIScanner",
+      "authentication",
+      "temporal",
+      "resources",
+      "prompts",
+      "crossCapability",
+    ].sort();
+
+    it("should have identical allModules keys in buildConfig", () => {
+      const cliModules = extractAllModulesKeys(cliContent);
+      const scriptModules = extractAllModulesKeys(scriptContent);
+
+      expect(cliModules).toEqual(scriptModules);
+    });
+
+    it("should have all 17 modules in allModules (regression test for authentication bug)", () => {
+      const cliModules = extractAllModulesKeys(cliContent);
+
+      expect(cliModules.length).toBe(17);
+      expect(cliModules).toEqual(EXPECTED_MODULES);
+    });
+
+    it("should include authentication module (v1.22.2 regression)", () => {
+      const cliModules = extractAllModulesKeys(cliContent);
+      const scriptModules = extractAllModulesKeys(scriptContent);
+
+      expect(cliModules).toContain("authentication");
+      expect(scriptModules).toContain("authentication");
+    });
+
+    it("should include externalAPIScanner in both files", () => {
+      const cliModules = extractAllModulesKeys(cliContent);
+      const scriptModules = extractAllModulesKeys(scriptContent);
+
+      expect(cliModules).toContain("externalAPIScanner");
+      expect(scriptModules).toContain("externalAPIScanner");
+    });
+
+    it("should have 1:1 mapping with ASSESSMENT_CATEGORY_METADATA", () => {
+      const cliModules = extractAllModulesKeys(cliContent);
+
+      // Every expected module should be in allModules
+      for (const module of EXPECTED_MODULES) {
+        expect(cliModules).toContain(module);
+      }
+
+      // allModules should not have extra modules not in metadata
+      for (const module of cliModules) {
+        expect(EXPECTED_MODULES).toContain(module);
+      }
     });
   });
 });
