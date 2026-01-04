@@ -98,13 +98,13 @@ For detailed implementation guides, see:
 
 ### Component Breakdown
 
-| Component              | Location                                  | Purpose                                |
-| ---------------------- | ----------------------------------------- | -------------------------------------- |
-| **CLI Entry Points**   | `cli/src/*.ts`                            | Command-line interface for assessments |
-| **Transport Layer**    | `cli/src/transport.ts`                    | STDIO/HTTP/SSE connection abstraction  |
-| **Assessment Modules** | `client/src/services/assessment/modules/` | 11 specialized assessors               |
-| **JSONL Events**       | `scripts/lib/jsonl-events.ts`             | Real-time progress streaming           |
-| **Scripts**            | `scripts/run-*.ts`                        | Standalone assessment runners          |
+| Component              | Location                                  | Purpose                               |
+| ---------------------- | ----------------------------------------- | ------------------------------------- |
+| **CLI Entry Points**   | `cli/src/*.ts`                            | Command-line interface (primary)      |
+| **Transport Layer**    | `cli/src/transport.ts`                    | STDIO/HTTP/SSE connection abstraction |
+| **Assessment Modules** | `client/src/services/assessment/modules/` | 11 specialized assessors              |
+| **JSONL Events**       | `scripts/lib/jsonl-events.ts`             | Real-time progress streaming          |
+| **Legacy Scripts**     | `scripts/run-*.ts`                        | Deprecated fallback runners (v1 only) |
 
 ---
 

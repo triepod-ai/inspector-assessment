@@ -253,11 +253,14 @@ If developing locally without publishing to npm:
 # Build the project first
 npm run build
 
-# Test Challenge 2
+# Full assessment (primary workflow)
+npm run assess:full -- --server dvmcp-ch2 --config /tmp/dvmcp-ch2-sse.json
+
+# Or security assessment only
 npm run assess -- --server dvmcp-ch2 --config /tmp/dvmcp-ch2-sse.json
 
-# Or with the full assessment runner
-npx tsx scripts/run-full-assessment.ts dvmcp-ch2 /tmp/dvmcp-ch2-sse.json
+# Legacy script (deprecated, will be removed in v2.0.0)
+npm run assess:full:legacy -- --server dvmcp-ch2 --config /tmp/dvmcp-ch2-sse.json
 ```
 
 ---

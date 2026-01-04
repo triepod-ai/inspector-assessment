@@ -226,7 +226,12 @@ Scores are calculated differently based on module type:
 ## Implementation Details
 
 - **Orchestrator**: `client/src/services/assessment/AssessmentOrchestrator.ts`
-- **CLI Scripts**: `scripts/run-full-assessment.ts`, `scripts/run-security-assessment.ts`
+- **CLI Entries** (Primary):
+  - `cli/src/assess-full.ts` - Full assessment with all modules
+  - `cli/src/assess-security.ts` - Security assessment only
+- **Legacy Scripts** (Deprecated v1 only, removed in v2.0.0):
+  - `scripts/run-full-assessment.ts` - Via `npm run assess:full:legacy`
+  - `scripts/run-security-assessment.ts` - Via `npm run assess`
 - **Output Stream**: stderr (doesn't interfere with JSON stdout)
 
 ## Usage

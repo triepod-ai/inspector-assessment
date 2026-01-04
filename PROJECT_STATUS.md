@@ -2,11 +2,83 @@
 
 ## Current Version
 
-- **Version**: 1.22.12 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.22.14 (published to npm as "@bryan-thompson/inspector-assessment")
 
 **Recent Changes:**
+- v1.22.14: Issue #19 - Deprecate local script in favor of unified CLI
 - v1.22.12: Issue #18 - Run+analysis tool exemption (runAccessibilityAudit, etc.)
 - v1.22.11: Issue #17 - Annotation and portability false positives
+
+---
+
+## 2026-01-04: Issue #19 - Deprecate Local Script & Unify CLI Workflow (v1.22.14)
+
+**Summary:** Consolidated full assessment workflow by deprecating duplicate local development script and making `npm run assess:full` use the single-source-of-truth CLI binary.
+
+**Session Focus:** Code consolidation and workflow simplification - GitHub Issue #19 aimed to eliminate ~400 lines of duplicated CLI code that had been maintained in parallel since v1.17.0.
+
+**Problem Solved:**
+- **Before**: Two separate implementations of full assessment (`cli/src/assess-full.ts` and `scripts/run-full-assessment.ts`)
+- **Required**: Maintaining CLI/script parity tests and synchronized changes across both files
+- **Risk**: Divergence between implementations, accidental omissions in one file or the other
+- **After**: Single source of truth - CLI binary is authoritative, local script is deprecated
+
+**Changes Made:**
+- Modified `package.json`:
+  - `npm run assess:full` now builds and runs CLI binary: `test -f cli/build/assess-full.js || npm run build-cli --silent && node cli/build/assess-full.js`
+  - Added `npm run assess:full:legacy` for transition period (runs local script via tsx)
+- Modified `scripts/run-full-assessment.ts`:
+  - Added deprecation warning: "This script is deprecated. Use 'npm run assess:full' instead."
+  - Added timeline: "Will be removed in v2.0.0. Migrate to 'npm run assess:full'."
+  - Added TODO comment for cleanup task
+- Updated `CLAUDE.md`:
+  - Removed "npm Binary / Local Script Parity" section (was heavily referencing parity maintenance)
+  - Replaced with "Full Assessment CLI" section explaining unified workflow
+  - Documents both local development and published package usage
+  - Notes legacy script availability during transition
+- Updated `docs/CLI_ASSESSMENT_GUIDE.md`:
+  - Added migration note to Mode 1 (Full Assessment): "Primary workflow is now unified under single CLI binary"
+  - Updated source code references from `scripts/run-full-assessment.ts` to `cli/src/assess-full.ts`
+  - Clarified that legacy script is available via `npm run assess:full:legacy`
+
+**Key Benefits:**
+- Eliminates 400 lines of duplicate code
+- Single source of truth for full assessment logic
+- No more CLI/script parity maintenance burden
+- Simpler development workflow - changes go in one place
+- Seamless transition - local dev script still works via legacy command
+- Auto-build convenience - `npm run assess:full` builds if needed
+
+**Backwards Compatibility:**
+- `npm run assess:full:legacy` continues to work during transition
+- Removal scheduled for v2.0.0 (clear 6+ month timeline)
+- Deprecation warning guides users to new workflow
+
+**Testing & Validation:**
+- Both commit history reviewed (f230dc8, bd18e8e)
+- Code review addressed auto-build and deprecation timeline concerns
+- No new tests needed (functionality unchanged, just consolidated)
+
+**Commits:**
+- `f230dc8` refactor: deprecate local script in favor of unified CLI (closes #19)
+- `bd18e8e` fix: address code review warnings for #19 (auto-build check, deprecation timeline)
+
+**Files Modified:**
+- `/home/bryan/inspector/package.json` - Updated npm script and added legacy command
+- `/home/bryan/inspector/scripts/run-full-assessment.ts` - Added deprecation warning
+- `/home/bryan/inspector/CLAUDE.md` - Replaced parity section with unified CLI docs
+- `/home/bryan/inspector/docs/CLI_ASSESSMENT_GUIDE.md` - Updated Mode 1 with migration note
+
+**Next Steps:**
+- Plan v2.0.0 release (v1.25.0 or later) for removal of legacy script
+- Update migration guide in v2.0.0 release notes
+- Monitor for user feedback on deprecation timeline
+- Consider adding deprecation warning to npm package README
+
+**Notes:**
+- Issue #19 closed on GitHub
+- Related to earlier work on CLI/script parity (Issue #13, v1.22.1-1.22.3)
+- Removes 340 lines from scripts/run-full-assessment.ts responsibility (still ~400 lines as fallback)
 
 ---
 
@@ -436,5 +508,73 @@
 - Demonstrates value of dual-agent code review for finding gaps that single-pass review might miss
 - Cross-file consistency is critical when applying similar fixes to multiple locations
 - The fix ensures parity between AssessmentOrchestrator.ts and run-security-assessment.ts
+
+---
+
+## 2026-01-04: Published v1.22.14 to npm
+
+**Summary:** Published v1.22.14 to npm with all workspace packages synced and tests passing
+
+**Session Focus:** Version bump, npm publish, and verification
+
+**Changes Made:**
+- Updated all package.json files to version 1.22.14 (root, client, server, cli)
+- Published all 4 packages to npm registry
+- Created git tag v1.22.14
+
+**Key Decisions:**
+- Used manual version sync after discovering npm version patch only bumped client
+- Rebased to resolve branch divergence from earlier partial publish attempt
+
+**Next Steps:**
+- Continue with any pending feature work
+- Monitor npm package downloads
+
+**Notes:**
+- All 1495 tests passing
+- Package verified working via bunx command
+- This was a continuation session completing the version bump that was interrupted
+
+---
+
+## 2026-01-04: Code Review Implementation - P1/P2 Fixes and securityTestTimeout
+
+**Summary:** Completed comprehensive code review of inspector-assessment module, implemented all P1/P2 fixes, and documented new securityTestTimeout configuration
+
+**Session Focus:** Code review response - implementing fixes for high and medium priority issues identified by code review agents
+
+**Changes Made:**
+- `cli/src/assess-full.ts` - Added EventEmitter configuration to prevent listener warnings during full security assessments
+- `client/src/services/assessment/AssessmentOrchestrator.ts` - Added getToolCountForTesting() helper for accurate progress estimation, improved type safety
+- `client/src/services/assessment/modules/BaseAssessor.ts` - Added generic type parameter `<T = unknown>` for type-safe assess() return types
+- `client/src/services/assessment/modules/SecurityAssessor.ts` - Pre-calculate exact payload counts for accurate progress, use configurable securityTestTimeout
+- `client/src/lib/assessmentTypes.ts` - Added securityTestTimeout configuration option
+- `docs/CLI_ASSESSMENT_GUIDE.md` - Added "Option: Security Test Timeout" section
+- `docs/ASSESSMENT_MODULE_DEVELOPER_GUIDE.md` - Updated BaseAssessor docs, added Pattern 6.5 (progress estimation) and Pattern 6.6 (security timeouts)
+- `docs/ASSESSMENT_CATALOG.md` - Added Configuration Options section to Security Assessment
+
+**Key Decisions:**
+- Used Promise<unknown>[] instead of Promise<void>[] because assessment promises return results
+- Default securityTestTimeout is 5000ms (lower than general testTimeout for faster security scans)
+- Added type assertion on return statement since Partial<MCPDirectoryAssessment> doesn't guarantee required fields
+
+**Commits:**
+- fbf99ef: fix: address P1/P2 issues from code review
+- 2c56f91: docs: document securityTestTimeout and progress estimation fixes
+
+**GitHub Issues Created:**
+- #19: Extract shared CLI logic to common module
+- #20: Remove deprecated maxToolsToTestForErrors from config presets
+- #21: Split assessmentTypes.ts into focused files
+- #22: Add queue backpressure warning to concurrencyLimit
+- #23: Add structured logging to AssessmentOrchestrator
+
+**Next Steps:**
+- Address P3 tech debt items as time permits (tracked in GitHub issues)
+- Consider npm version bump and publish for new features
+
+**Notes:**
+- All 1495 tests passing after changes
+- Build successful with no TypeScript errors
 
 ---

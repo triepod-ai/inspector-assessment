@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.14] - 2026-01-04
+
+### Changed
+
+- **Full Assessment Workflow Unification** (Issue #19): Consolidated duplicate CLI logic by deprecating local development script
+  - `npm run assess:full` now uses the published CLI binary (`cli/src/assess-full.ts`) instead of local script
+  - Added auto-build check: script auto-runs `npm run build-cli` if binary not found
+  - Added `npm run assess:full:legacy` for transition period (will be removed in v2.0.0)
+  - Eliminates ~400 lines of duplicate code by maintaining single source of truth
+  - Local script (`scripts/run-full-assessment.ts`) now marked as deprecated with removal timeline
+
+### Removed
+
+- **npm Binary / Local Script Parity Requirement**: No longer need to maintain synchronized copies
+  - Removed parity documentation from CLAUDE.md (was in "npm Binary / Local Script Parity" section)
+  - Replaced with unified CLI documentation in "Full Assessment CLI" section
+  - `scripts/run-full-assessment.ts` now serves only as fallback, not primary workflow
+
 ## [1.22.12] - 2026-01-04
 
 ### Fixed
