@@ -47,39 +47,53 @@ The type system is organized into focused modules for better tree-shaking and ma
 
 ## Import Patterns
 
-### Recommended: Import from Barrel Export
+### Recommended: Import from Package Entry Points
 
 ```typescript
-// Import everything you need from the main assessment module
-import {
+// Import types from the types entry point
+import type {
   MCPDirectoryAssessment,
-  AssessmentConfiguration,
   AssessmentStatus,
   SecurityRiskLevel,
-} from "@bryan-thompson/inspector-assessment/client/src/lib/assessment";
+} from "@bryan-thompson/inspector-assessment/types";
+
+// Import config presets from config entry point
+import { AssessmentConfiguration } from "@bryan-thompson/inspector-assessment/config";
 ```
 
-### Alternative: Import from Specific Modules
+### Alternative: Import from Specific Entry Points
 
-For better tree-shaking, import from specific modules:
+For better tree-shaking, use specific entry points:
 
 ```typescript
+// Types (status, enums, interfaces)
+import type {
+  AssessmentStatus,
+  SecurityRiskLevel,
+} from "@bryan-thompson/inspector-assessment/types";
+
+// Configuration presets and interfaces
 import {
-  AssessmentStatus,
-  SecurityRiskLevel,
-} from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/coreTypes";
-import { AssessmentConfiguration } from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/configTypes";
-import { MCPDirectoryAssessment } from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/resultTypes";
+  AssessmentConfiguration,
+  AUDIT_MODE_CONFIG,
+} from "@bryan-thompson/inspector-assessment/config";
+
+// Result types
+import type { MCPDirectoryAssessment } from "@bryan-thompson/inspector-assessment/results";
+
+// Progress events
+import type { ProgressEvent } from "@bryan-thompson/inspector-assessment/progress";
 ```
 
-### Legacy Import (Backward Compatible)
+### Package Entry Points Reference
 
-The old `assessmentTypes.ts` re-exports everything:
-
-```typescript
-// Still works, but prefer the new paths
-import { MCPDirectoryAssessment } from "@bryan-thompson/inspector-assessment/client/src/lib/assessmentTypes";
-```
+| Entry Point                                     | Compiled Path                             | Contents                     |
+| ----------------------------------------------- | ----------------------------------------- | ---------------------------- |
+| `@bryan-thompson/inspector-assessment`          | Main                                      | AssessmentOrchestrator class |
+| `@bryan-thompson/inspector-assessment/types`    | ./client/lib/lib/assessment               | All types (barrel export)    |
+| `@bryan-thompson/inspector-assessment/config`   | ./client/lib/lib/assessment/configTypes   | Config presets               |
+| `@bryan-thompson/inspector-assessment/results`  | ./client/lib/lib/assessment/resultTypes   | Result types                 |
+| `@bryan-thompson/inspector-assessment/progress` | ./client/lib/lib/assessment/progressTypes | Progress events              |
 
 ---
 
@@ -242,20 +256,14 @@ interface ClaudeCodeConfig {
 Pre-configured settings for common use cases:
 
 ```typescript
-// Default configuration - balanced settings
-import { DEFAULT_ASSESSMENT_CONFIG } from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/configTypes";
-
-// Reviewer mode - fast, human-assisted reviews (5 core modules only)
-import { REVIEWER_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/configTypes";
-
-// Developer mode - comprehensive testing with debug output
-import { DEVELOPER_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/configTypes";
-
-// Audit mode - full compliance testing for MCP Directory
-import { AUDIT_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/configTypes";
-
-// Claude-enhanced - semantic analysis with Claude Code
-import { CLAUDE_ENHANCED_AUDIT_CONFIG } from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/configTypes";
+// Import all presets from the config entry point
+import {
+  DEFAULT_ASSESSMENT_CONFIG, // General testing - balanced settings
+  REVIEWER_MODE_CONFIG, // Fast reviews - 5 core modules, parallel
+  DEVELOPER_MODE_CONFIG, // Debugging - all 16 modules, verbose
+  AUDIT_MODE_CONFIG, // Directory compliance - all 16 modules
+  CLAUDE_ENHANCED_AUDIT_CONFIG, // Semantic analysis with Claude Code
+} from "@bryan-thompson/inspector-assessment/config";
 ```
 
 | Preset                         | Use Case             | Modules | Parallel |

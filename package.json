@@ -23,6 +23,30 @@
     "validation"
   ],
   "type": "module",
+  "main": "./client/lib/services/assessment/AssessmentOrchestrator.js",
+  "types": "./client/lib/services/assessment/AssessmentOrchestrator.d.ts",
+  "exports": {
+    ".": {
+      "types": "./client/lib/services/assessment/AssessmentOrchestrator.d.ts",
+      "default": "./client/lib/services/assessment/AssessmentOrchestrator.js"
+    },
+    "./types": {
+      "types": "./client/lib/lib/assessment/index.d.ts",
+      "default": "./client/lib/lib/assessment/index.js"
+    },
+    "./config": {
+      "types": "./client/lib/lib/assessment/configTypes.d.ts",
+      "default": "./client/lib/lib/assessment/configTypes.js"
+    },
+    "./results": {
+      "types": "./client/lib/lib/assessment/resultTypes.d.ts",
+      "default": "./client/lib/lib/assessment/resultTypes.js"
+    },
+    "./progress": {
+      "types": "./client/lib/lib/assessment/progressTypes.d.ts",
+      "default": "./client/lib/lib/assessment/progressTypes.js"
+    }
+  },
   "bin": {
     "mcp-inspector-assess": "cli/build/cli.js",
     "mcp-assess-full": "cli/build/assess-full.js",

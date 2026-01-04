@@ -101,11 +101,11 @@ npm install @bryan-thompson/inspector-assessment
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-// 1. Import the orchestrator
-import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment/client/src/services/assessment/AssessmentOrchestrator";
+// 1. Import the orchestrator (main export)
+import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
 
-// 2. Import configuration (optional - use presets or custom)
-import { DEVELOPER_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/configTypes";
+// 2. Import configuration presets (optional)
+import { DEVELOPER_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 
 // 3. Create orchestrator with configuration
 const orchestrator = new AssessmentOrchestrator(DEVELOPER_MODE_CONFIG);
@@ -134,7 +134,7 @@ Minimal working example for HTTP transport:
 ```typescript
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment/client/src/services/assessment/AssessmentOrchestrator";
+import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
 
 async function assessServer(url: string, serverName: string) {
   // Connect to MCP server
@@ -312,8 +312,8 @@ if (bridge) {
 ```typescript
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment/client/src/services/assessment/AssessmentOrchestrator";
-import { DEFAULT_ASSESSMENT_CONFIG } from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/configTypes";
+import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
+import { DEFAULT_ASSESSMENT_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 
 async function runHttpAssessment(serverUrl: string) {
   const transport = new StreamableHTTPClientTransport(new URL(serverUrl));
@@ -345,7 +345,7 @@ async function runHttpAssessment(serverUrl: string) {
 ### Custom Configuration
 
 ```typescript
-import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment/client/src/services/assessment/AssessmentOrchestrator";
+import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
 
 // Security-focused assessment
 const securityConfig = {
@@ -382,8 +382,8 @@ if (result.security.overallRiskLevel === "HIGH") {
 ```typescript
 import * as fs from "fs";
 import * as path from "path";
-import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment/client/src/services/assessment/AssessmentOrchestrator";
-import { AUDIT_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/configTypes";
+import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
+import { AUDIT_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 
 async function runWithSourceAnalysis(serverPath: string) {
   // Load source files
@@ -426,8 +426,8 @@ async function runWithSourceAnalysis(serverPath: string) {
 ### Progress Monitoring
 
 ```typescript
-import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment/client/src/services/assessment/AssessmentOrchestrator";
-import type { ProgressEvent } from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/progressTypes";
+import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
+import type { ProgressEvent } from "@bryan-thompson/inspector-assessment/progress";
 
 function handleProgress(event: ProgressEvent): void {
   switch (event.type) {
@@ -463,7 +463,7 @@ const result = await orchestrator.runFullAssessment({
 ### Error Handling
 
 ```typescript
-import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment/client/src/services/assessment/AssessmentOrchestrator";
+import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
 
 async function safeAssessment(context: AssessmentContext) {
   const orchestrator = new AssessmentOrchestrator({
@@ -509,7 +509,7 @@ import {
   DEVELOPER_MODE_CONFIG, // Debug mode (all modules, verbose)
   AUDIT_MODE_CONFIG, // Full compliance (all 16 modules)
   CLAUDE_ENHANCED_AUDIT_CONFIG, // Semantic analysis with Claude
-} from "@bryan-thompson/inspector-assessment/client/src/lib/assessment/configTypes";
+} from "@bryan-thompson/inspector-assessment/config";
 ```
 
 ### Module Selection

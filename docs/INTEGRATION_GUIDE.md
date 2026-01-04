@@ -54,11 +54,9 @@ The fundamental pattern for any integration:
 ```typescript
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import {
-  AssessmentOrchestrator,
-  AssessmentContext,
-  DEFAULT_ASSESSMENT_CONFIG,
-} from "@bryan-thompson/inspector-assessment";
+import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
+import type { AssessmentContext } from "@bryan-thompson/inspector-assessment/types";
+import { DEFAULT_ASSESSMENT_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 
 async function assessServer(serverConfig: { command: string; args: string[] }) {
   // 1. Create transport and client
@@ -263,11 +261,12 @@ async function assessMultipleServers(servers: ServerConfig[]) {
 Run assessments in stages with early exit on failures:
 
 ```typescript
+import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
+import type { AssessmentContext } from "@bryan-thompson/inspector-assessment/types";
 import {
-  AssessmentOrchestrator,
   REVIEWER_MODE_CONFIG,
   AUDIT_MODE_CONFIG,
-} from "@bryan-thompson/inspector-assessment";
+} from "@bryan-thompson/inspector-assessment/config";
 
 async function progressiveAssessment(context: AssessmentContext) {
   // Stage 1: Quick screening (fast)
@@ -862,12 +861,12 @@ A full working example combining all patterns:
 ```typescript
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import {
-  AssessmentOrchestrator,
+import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
+import type {
   AssessmentContext,
   MCPDirectoryAssessment,
-  AUDIT_MODE_CONFIG,
-} from "@bryan-thompson/inspector-assessment";
+} from "@bryan-thompson/inspector-assessment/types";
+import { AUDIT_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 import { writeFileSync, readFileSync, existsSync } from "fs";
 
 interface ServerConfig {

@@ -44,11 +44,17 @@ Complete API documentation for `@bryan-thompson/inspector-assessment` programmat
 The `@bryan-thompson/inspector-assessment` package provides programmatic access to MCP server assessment capabilities. The primary entry point is the `AssessmentOrchestrator` class.
 
 ```typescript
-import {
-  AssessmentOrchestrator,
+// Main entry point - AssessmentOrchestrator class
+import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
+
+// Type imports from the types entry point
+import type {
   AssessmentContext,
   MCPDirectoryAssessment,
-} from "@bryan-thompson/inspector-assessment";
+} from "@bryan-thompson/inspector-assessment/types";
+
+// Configuration presets from config entry point
+import { AUDIT_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 ```
 
 **API Stability**: Public APIs documented here are stable. Breaking changes follow semver (major version bumps).
@@ -87,7 +93,7 @@ const orchestrator = new AssessmentOrchestrator({
 });
 
 // Using a preset
-import { AUDIT_MODE_CONFIG } from "@bryan-thompson/inspector-assessment";
+import { AUDIT_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 const orchestrator = new AssessmentOrchestrator(AUDIT_MODE_CONFIG);
 ```
 
@@ -421,7 +427,7 @@ Pre-configured settings for common use cases.
 Standard configuration for general assessments.
 
 ```typescript
-import { DEFAULT_ASSESSMENT_CONFIG } from "@bryan-thompson/inspector-assessment";
+import { DEFAULT_ASSESSMENT_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 ```
 
 - 30s timeout, no delay
@@ -433,7 +439,7 @@ import { DEFAULT_ASSESSMENT_CONFIG } from "@bryan-thompson/inspector-assessment"
 Optimized for fast MCP directory reviews.
 
 ```typescript
-import { REVIEWER_MODE_CONFIG } from "@bryan-thompson/inspector-assessment";
+import { REVIEWER_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 ```
 
 - 10s timeout, parallel execution
@@ -445,7 +451,7 @@ import { REVIEWER_MODE_CONFIG } from "@bryan-thompson/inspector-assessment";
 Comprehensive testing for development/debugging.
 
 ```typescript
-import { DEVELOPER_MODE_CONFIG } from "@bryan-thompson/inspector-assessment";
+import { DEVELOPER_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 ```
 
 - Debug logging enabled
@@ -457,7 +463,7 @@ import { DEVELOPER_MODE_CONFIG } from "@bryan-thompson/inspector-assessment";
 MCP Directory compliance auditing.
 
 ```typescript
-import { AUDIT_MODE_CONFIG } from "@bryan-thompson/inspector-assessment";
+import { AUDIT_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 ```
 
 - All assessment modules enabled
@@ -469,7 +475,7 @@ import { AUDIT_MODE_CONFIG } from "@bryan-thompson/inspector-assessment";
 AI-enhanced audit with Claude Code integration.
 
 ```typescript
-import { CLAUDE_ENHANCED_AUDIT_CONFIG } from "@bryan-thompson/inspector-assessment";
+import { CLAUDE_ENHANCED_AUDIT_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 ```
 
 - Claude Code features enabled
