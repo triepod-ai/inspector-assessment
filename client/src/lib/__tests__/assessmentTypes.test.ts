@@ -1,6 +1,7 @@
 import {
   AssessmentCategoryTier,
   AssessmentCategoryMetadata,
+  AssessmentModuleName,
   ASSESSMENT_CATEGORY_METADATA,
   getAllModulesConfig,
 } from "../assessmentTypes";
@@ -345,6 +346,27 @@ describe("Assessment Types", () => {
       expect(config.externalAPIScanner).toBe(true);
       expect(config.temporal).toBe(false);
       expect(config.security).toBe(true);
+    });
+
+    it("should have keys matching AssessmentModuleName type", () => {
+      const config = getAllModulesConfig({});
+      // Type check: all keys from getAllModulesConfig should be valid AssessmentModuleName
+      const configKeys = Object.keys(config) as AssessmentModuleName[];
+      configKeys.forEach((key) => {
+        // This validates that each key exists in ASSESSMENT_CATEGORY_METADATA
+        expect(ASSESSMENT_CATEGORY_METADATA[key]).toBeDefined();
+      });
+    });
+
+    it("should have type-safe return value", () => {
+      const config = getAllModulesConfig({});
+      // Compile-time type check: accessing known module names should work
+      const securityEnabled: boolean = config.security;
+      const functionalityEnabled: boolean = config.functionality;
+      const temporalEnabled: boolean = config.temporal;
+      expect(typeof securityEnabled).toBe("boolean");
+      expect(typeof functionalityEnabled).toBe("boolean");
+      expect(typeof temporalEnabled).toBe("boolean");
     });
   });
 });

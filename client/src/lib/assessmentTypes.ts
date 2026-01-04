@@ -40,43 +40,89 @@ export interface AssessmentCategoryMetadata {
 /**
  * Category metadata mapping for all assessment modules.
  * Used for CLI output and downstream consumers to understand category context.
+ *
+ * Note: Uses `satisfies` to preserve literal key types while ensuring type safety.
+ * This allows deriving AssessmentModuleName from the object keys.
  */
-export const ASSESSMENT_CATEGORY_METADATA: Record<
-  string,
-  AssessmentCategoryMetadata
-> = {
-  functionality: { tier: "core", description: "Tool functionality validation" },
-  security: { tier: "core", description: "Security vulnerability detection" },
-  documentation: { tier: "core", description: "Documentation quality" },
-  errorHandling: { tier: "core", description: "Error handling compliance" },
-  usability: { tier: "core", description: "Usability assessment" },
-  mcpSpecCompliance: { tier: "core", description: "MCP protocol compliance" },
+const ASSESSMENT_CATEGORY_METADATA_INTERNAL = {
+  functionality: {
+    tier: "core" as const,
+    description: "Tool functionality validation",
+  },
+  security: {
+    tier: "core" as const,
+    description: "Security vulnerability detection",
+  },
+  documentation: {
+    tier: "core" as const,
+    description: "Documentation quality",
+  },
+  errorHandling: {
+    tier: "core" as const,
+    description: "Error handling compliance",
+  },
+  usability: { tier: "core" as const, description: "Usability assessment" },
+  mcpSpecCompliance: {
+    tier: "core" as const,
+    description: "MCP protocol compliance",
+  },
   aupCompliance: {
-    tier: "core",
+    tier: "core" as const,
     description: "Acceptable use policy compliance",
   },
-  toolAnnotations: { tier: "core", description: "Tool annotation validation" },
+  toolAnnotations: {
+    tier: "core" as const,
+    description: "Tool annotation validation",
+  },
   prohibitedLibraries: {
-    tier: "core",
+    tier: "core" as const,
     description: "Prohibited library detection",
   },
   manifestValidation: {
-    tier: "optional",
+    tier: "optional" as const,
     description: "MCPB manifest validation",
     applicableTo: "MCPB bundles",
   },
   portability: {
-    tier: "optional",
+    tier: "optional" as const,
     description: "Portability checks",
     applicableTo: "MCPB bundles",
   },
-  externalAPIScanner: { tier: "core", description: "External API detection" },
-  authentication: { tier: "core", description: "OAuth/auth evaluation" },
-  temporal: { tier: "core", description: "Temporal/rug pull detection" },
-  resources: { tier: "core", description: "Resource security" },
-  prompts: { tier: "core", description: "Prompt security" },
-  crossCapability: { tier: "core", description: "Cross-capability security" },
-};
+  externalAPIScanner: {
+    tier: "core" as const,
+    description: "External API detection",
+  },
+  authentication: {
+    tier: "core" as const,
+    description: "OAuth/auth evaluation",
+  },
+  temporal: {
+    tier: "core" as const,
+    description: "Temporal/rug pull detection",
+  },
+  resources: { tier: "core" as const, description: "Resource security" },
+  prompts: { tier: "core" as const, description: "Prompt security" },
+  crossCapability: {
+    tier: "core" as const,
+    description: "Cross-capability security",
+  },
+} satisfies Record<string, AssessmentCategoryMetadata>;
+
+/**
+ * Type-safe module name derived from ASSESSMENT_CATEGORY_METADATA keys.
+ * Use this type for compile-time validation of module names.
+ */
+export type AssessmentModuleName =
+  keyof typeof ASSESSMENT_CATEGORY_METADATA_INTERNAL;
+
+/**
+ * Re-export with original name for backward compatibility.
+ * Type is preserved as Record<AssessmentModuleName, AssessmentCategoryMetadata>.
+ */
+export const ASSESSMENT_CATEGORY_METADATA: Record<
+  AssessmentModuleName,
+  AssessmentCategoryMetadata
+> = ASSESSMENT_CATEGORY_METADATA_INTERNAL;
 
 /**
  * Generate module configuration derived from ASSESSMENT_CATEGORY_METADATA.
@@ -84,23 +130,23 @@ export const ASSESSMENT_CATEGORY_METADATA: Record<
  *
  * @param options.sourceCodePath - If true, enables externalAPIScanner
  * @param options.skipTemporal - If true, disables temporal assessment
- * @returns Record of module names to enabled state
+ * @returns Record of module names to enabled state (type-safe)
  */
 export function getAllModulesConfig(options: {
   sourceCodePath?: boolean;
   skipTemporal?: boolean;
-}): Record<string, boolean> {
+}): Record<AssessmentModuleName, boolean> {
   return Object.keys(ASSESSMENT_CATEGORY_METADATA).reduce(
     (acc, key) => ({
       ...acc,
       [key]:
         key === "externalAPIScanner"
-          ? !!options.sourceCodePath
+          ? Boolean(options.sourceCodePath)
           : key === "temporal"
             ? !options.skipTemporal
             : true,
     }),
-    {} as Record<string, boolean>,
+    {} as Record<AssessmentModuleName, boolean>,
   );
 }
 

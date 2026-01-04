@@ -438,7 +438,7 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
   if (options.fullAssessment !== false) {
     // Derive module config from ASSESSMENT_CATEGORY_METADATA (single source of truth)
     const allModules = getAllModulesConfig({
-      sourceCodePath: !!options.sourceCodePath,
+      sourceCodePath: Boolean(options.sourceCodePath),
       skipTemporal: options.skipTemporal,
     });
 
