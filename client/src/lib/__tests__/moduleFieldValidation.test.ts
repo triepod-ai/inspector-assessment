@@ -456,7 +456,7 @@ describe("moduleFieldValidator", () => {
     });
 
     it("should have status as required field for all modules", () => {
-      for (const [moduleName, spec] of Object.entries(MODULE_FIELD_SPECS)) {
+      for (const [_moduleName, spec] of Object.entries(MODULE_FIELD_SPECS)) {
         expect(spec.requiredFields).toContain("status");
       }
     });

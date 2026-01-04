@@ -128,7 +128,7 @@ describe("Package Structure Validation", () => {
       expect(rootPkg.bin).toBeDefined();
 
       // Verify bin entries point to local files, not node_modules
-      for (const [name, binPath] of Object.entries(rootPkg.bin || {})) {
+      for (const [_name, binPath] of Object.entries(rootPkg.bin || {})) {
         expect(binPath).not.toContain("node_modules");
         expect(
           (binPath as string).startsWith("cli/") ||

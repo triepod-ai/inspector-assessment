@@ -145,7 +145,7 @@ describe("Assessment Types", () => {
     describe("required fields", () => {
       it("should have tier field for all categories", () => {
         Object.entries(ASSESSMENT_CATEGORY_METADATA).forEach(
-          ([categoryName, metadata]) => {
+          ([_categoryName, metadata]) => {
             expect(metadata.tier).toBeDefined();
             expect(["core", "optional"]).toContain(metadata.tier);
           },
@@ -154,7 +154,7 @@ describe("Assessment Types", () => {
 
       it("should have description field for all categories", () => {
         Object.entries(ASSESSMENT_CATEGORY_METADATA).forEach(
-          ([categoryName, metadata]) => {
+          ([_categoryName, metadata]) => {
             expect(metadata.description).toBeDefined();
             expect(typeof metadata.description).toBe("string");
             expect(metadata.description.length).toBeGreaterThan(0);
@@ -169,7 +169,7 @@ describe("Assessment Types", () => {
           ASSESSMENT_CATEGORY_METADATA,
         ).filter(([_, metadata]) => metadata.tier === "optional");
 
-        optionalCategories.forEach(([categoryName, metadata]) => {
+        optionalCategories.forEach(([_categoryName, metadata]) => {
           expect(metadata.applicableTo).toBeDefined();
           expect(typeof metadata.applicableTo).toBe("string");
           expect(metadata.applicableTo?.length).toBeGreaterThan(0);
@@ -181,7 +181,7 @@ describe("Assessment Types", () => {
           ASSESSMENT_CATEGORY_METADATA,
         ).filter(([_, metadata]) => metadata.tier === "core");
 
-        coreCategories.forEach(([categoryName, metadata]) => {
+        coreCategories.forEach(([_categoryName, metadata]) => {
           // applicableTo is optional for core categories - may or may not be present
           if (metadata.applicableTo !== undefined) {
             expect(typeof metadata.applicableTo).toBe("string");

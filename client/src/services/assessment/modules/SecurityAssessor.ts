@@ -1141,7 +1141,7 @@ export class SecurityAssessor extends BaseAssessor {
     // Check if payload looks like a simple math expression
     // Matches: "2+2", "15*37+100", "10/2", "5-3", etc.
     const simpleMathPattern =
-      /^\s*(\d+)\s*([+\-*\/])\s*(\d+)(?:\s*([+\-*\/])\s*(\d+))?\s*$/;
+      /^\s*(\d+)\s*([+\-*/])\s*(\d+)(?:\s*([+\-*/])\s*(\d+))?\s*$/;
     const match = payload.match(simpleMathPattern);
 
     if (!match) {

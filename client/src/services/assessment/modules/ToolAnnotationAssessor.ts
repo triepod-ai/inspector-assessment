@@ -432,7 +432,7 @@ const DESCRIPTION_POISONING_PATTERNS: PoisoningPattern[] = [
   {
     name: "internal_resource_uri",
     pattern:
-      /(?:internal|system|admin|secret|company|confidential):\/\/[a-z_\-\/]+/gi,
+      /(?:internal|system|admin|secret|company|confidential):\/\/[a-z_\-/]+/gi,
     severity: "HIGH",
     category: "resource_access",
   },
