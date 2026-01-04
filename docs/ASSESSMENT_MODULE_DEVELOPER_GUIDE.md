@@ -1101,6 +1101,59 @@ private inferBehaviorFromName(toolName: string): {
 }
 ```
 
+### Pattern 2b: Annotation Exemption Patterns (Issue #18)
+
+When inference patterns produce false positives, add exemption patterns to handle edge cases:
+
+```typescript
+// Step 1: Define exempt suffixes that override default inference
+const RUN_READONLY_EXEMPT_SUFFIXES = [
+  "audit", "check", "scan", "test", "mode", "analyze",
+  "report", "status", "validate", "verify", "inspect", "lint",
+  "benchmark", "diagnostic"
+];
+
+// Step 2: Create exemption check function
+function isRunKeywordExempt(toolName: string): boolean {
+  const lowerName = toolName.toLowerCase();
+  if (!lowerName.includes("run")) return false;
+  return RUN_READONLY_EXEMPT_SUFFIXES.some((suffix) =>
+    lowerName.includes(suffix),
+  );
+}
+
+// Step 3: Apply exemption BEFORE pattern matching in inferBehavior()
+private inferBehavior(toolName: string, description?: string) {
+  // Exemption check first (handles runAccessibilityAudit, runSEOAudit, etc.)
+  if (isRunKeywordExempt(toolName)) {
+    return {
+      expectedReadOnly: true,
+      expectedDestructive: false,
+      reason: "Tool name contains 'run' with analysis suffix - read-only operation",
+      confidence: "medium",
+    };
+  }
+
+  // Then apply standard pattern matching...
+  const patternMatch = matchToolPattern(toolName, this.compiledPatterns);
+  // ...
+}
+
+// Step 4: Also apply in detectAnnotationDeception() to prevent false deception flags
+if (keyword === "run" && isRunKeywordExempt(toolName)) {
+  // Skip deception flagging - tool is legitimately read-only
+} else {
+  return { field: "readOnlyHint", reason: "DECEPTIVE..." };
+}
+```
+
+**Key Points**:
+
+- Exemption checks run BEFORE standard pattern matching
+- Use "medium" confidence for exempted tools (inferred from naming, not behavior)
+- Add comprehensive tests for exempted AND non-exempted cases
+- Reference: See `ToolAnnotationAssessor.ts` lines 104-119 for Issue #18 implementation
+
 ### Pattern 3: Regex Pattern Matching (for scanning)
 
 AUPComplianceAssessor demonstrates pattern-based vulnerability scanning:

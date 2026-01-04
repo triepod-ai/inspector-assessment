@@ -2,14 +2,38 @@
 
 ## Current Version
 
-- **Version**: 1.22.8 (published to npm as "@bryan-thompson/inspector-assessment")
-**Next Steps:**
-- Monitor for additional false positive patterns
-- Consider adding more sanitization placeholder patterns as discovered
+- **Version**: 1.22.12 (published to npm as "@bryan-thompson/inspector-assessment")
+
+**Recent Changes:**
+- v1.22.12: Issue #18 - Run+analysis tool exemption (runAccessibilityAudit, etc.)
+- v1.22.11: Issue #17 - Annotation and portability false positives
+
+---
+
+## 2026-01-04: Issue #18 Fix - Run+Analysis Tool Exemption (v1.22.12)
+
+**Summary:** Fixed false positive where `run*` prefix incorrectly flagged audit/analysis tools as deceptive when annotated with readOnlyHint=true.
+
+**Session Focus:** Bug fix for GitHub Issue #18 - browser-tools-mcp uses tools like `runAccessibilityAudit`, `runSEOAudit`, `runPerformanceAudit` which are genuinely read-only (they fetch analysis data, don't modify state). The pattern-matching engine flagged "run" as a state-modification keyword, incorrectly detecting deception.
+
+**Changes Made:**
+- Modified `client/src/services/assessment/modules/ToolAnnotationAssessor.ts`:
+  - Added `RUN_READONLY_EXEMPT_SUFFIXES` constant with 14 analysis-related suffixes
+  - Added `isRunKeywordExempt()` helper function
+  - Modified `detectAnnotationDeception()` to skip flagging for run+analysis tools
+  - Modified `inferBehavior()` to infer readOnly=true for run+analysis tools BEFORE pattern matching
+- Added 10 new tests in `ToolAnnotationAssessor.test.ts` for exemption logic
+
+**Exempt Suffixes:** audit, check, scan, test, mode, analyze, report, status, validate, verify, inspect, lint, benchmark, diagnostic
+
+**Key Decision:**
+- Early check in `inferBehavior()` before pattern matching ensures exemption is applied BEFORE generic "run" pattern kicks in
 
 **Notes:**
-- Issue #14 closed on GitHub with summary comment
-- Code fix was in earlier commit e04f711, docs in bf99135
+- Commit: 9e9742d "fix: resolve false positive for run*Audit tools with readOnlyHint=true (#18)"
+- Version: 1.22.12 (published to npm)
+- All 1483 tests passing
+- Issue #18 closed on GitHub
 
 ---
 
@@ -338,5 +362,44 @@
 - This release includes the confidence guard fix from commit 6627915
 - Eliminates false positive misalignments when inference confidence is low
 - hardened-mcp misalignment count: 23 -> 0 after this fix
+
+---
+
+## 2026-01-04: Fixed Issue #16 - skip-modules Flag JSON Output
+
+**Summary:** Fixed Issue #16 - skip-modules flag now properly omits skipped modules from JSON output and JSONL events
+
+**Session Focus:** Bug fix for --skip-modules flag not properly excluding modules from assessment output
+
+**Changes Made:**
+- Modified: `client/src/lib/moduleScoring.ts` - Changed `calculateModuleScore()` to return `null` instead of `50` for undefined/missing results
+- Modified: `client/src/services/assessment/AssessmentOrchestrator.ts` - Added guard in `emitModuleProgress()` to skip emission when score is null
+- Modified: `cli/src/assess-full.ts` - Added filter in `saveResults()` to exclude undefined module keys from JSON output
+- Modified: `scripts/run-full-assessment.ts` - Applied same filter to keep in sync with CLI per CLAUDE.md requirements
+- Modified: `client/src/lib/__tests__/moduleScoring.test.ts` - Updated test expectations for null return value on undefined inputs
+
+**Key Decisions:**
+- Return `null` instead of `50` for undefined results - clearer semantics for "not run"
+- Completely omit skipped modules from JSON (user preference) rather than including with SKIPPED status
+- Filter at both event emission and JSON output levels for comprehensive fix
+
+**Technical Details:**
+- Issue: --skip-modules functionality flag was implemented but skipped modules still appeared in JSON output with default scores
+- Root cause: `calculateModuleScore()` returned 50 for undefined inputs, and no filtering existed at output level
+- Fix applied at three levels: scoring returns null, events not emitted for null scores, JSON excludes undefined keys
+
+**Results:**
+- Published as npm v1.22.9 (issue fix) and v1.22.10 (added missing commander dependency)
+- All 1468 tests passing
+- Issue #16 commented with fix details
+
+**Next Steps:**
+- Monitor for any downstream issues with mcp-auditor consuming the new format
+- Consider adding integration test for --skip-modules behavior
+
+**Notes:**
+- Fix maintains backwards compatibility for consumers expecting module data
+- Users explicitly opting out of modules via --skip-modules now get clean JSON without those module keys
+- Both CLI binary and local development script updated to stay in sync per project requirements
 
 ---

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.12] - 2026-01-04
+
+### Fixed
+
+- **Run+Analysis Tool False Positives** (Issue #18): Tools with "run" prefix and analysis-related suffixes were incorrectly flagged as deceptive when annotated with readOnlyHint=true
+  - Added `RUN_READONLY_EXEMPT_SUFFIXES` constant with 14 analysis-related suffixes (audit, check, scan, test, mode, analyze, report, status, validate, verify, inspect, lint, benchmark, diagnostic)
+  - Added `isRunKeywordExempt()` helper to detect run+analysis combinations
+  - Modified `detectAnnotationDeception()` to skip deception flagging for exempt tools
+  - Modified `inferBehavior()` to infer readOnly=true for run+analysis tools before pattern matching
+  - Fixes: `runAccessibilityAudit`, `runSEOAudit`, `runPerformanceAudit`, `runHealthCheck`, etc.
+
+### Added
+
+- **Run+Analysis Exemption Tests**: 10 new test cases for annotation assessment
+  - Tests for common audit tools (accessibility, SEO, performance, health, security)
+  - Edge cases (mixed case, partial matches, negative test cases for run_command, run_shell)
+
+## [1.22.11] - 2026-01-04
+
+### Fixed
+
+- **Annotation and Portability Module False Positives** (Issue #17): Resolved false positives in annotation inference and portability checking
+  - Fixed `run_command` pattern incorrectly inferring `destructiveHint: false`
+  - Added command execution patterns to destructive list (run_command, run_shell, exec_command, etc.)
+  - Fixed portability false positives for common MCP patterns
+
 ## [1.22.8] - 2026-01-04
 
 ### Fixed

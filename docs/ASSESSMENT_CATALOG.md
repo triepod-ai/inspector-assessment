@@ -328,6 +328,14 @@ These modules validate compliance with Anthropic's MCP Directory Policy requirem
 - Read-only tools marked as `readOnlyHint: true`
 - No annotation/behavior mismatches
 
+**Known Exemptions** (Issue #18):
+
+Tools with "run" prefix and analysis-related suffixes are treated as read-only operations:
+
+- **Example tools**: `runAccessibilityAudit`, `runSEOAudit`, `runSecurityScan`, `runHealthCheck`
+- **Exempt suffixes**: audit, check, scan, test, mode, analyze, report, status, validate, verify, inspect, lint, benchmark, diagnostic
+- **Rationale**: These tools fetch/analyze data without modifying state, so `readOnlyHint=true` is appropriate even though "run" is typically associated with state-modification
+
 **Implementation**: `client/src/services/assessment/modules/ToolAnnotationAssessor.ts`
 
 ---
