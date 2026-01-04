@@ -1,6 +1,6 @@
 {
   "name": "@bryan-thompson/inspector-assessment-server",
-  "version": "1.23.1",
+  "version": "1.23.2",
   "description": "Server-side application for the Enhanced MCP Inspector with assessment capabilities",
   "license": "MIT",
   "author": "Bryan Thompson <bryan@triepod.ai>",
