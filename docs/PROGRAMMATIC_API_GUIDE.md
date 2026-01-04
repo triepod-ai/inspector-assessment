@@ -1,6 +1,6 @@
 # Programmatic API Guide: @bryan-thompson/inspector-assessment
 
-> **Version**: 1.23.1+
+> **Version**: 1.23.2+
 > **Last Updated**: 2026-01-04
 >
 > **Related Documentation:**
@@ -636,4 +636,4 @@ console.log(`Protocol version: ${result.mcpProtocolVersion}`);
 
 ---
 
-_Last updated: 2026-01-04 | Package version: 1.23.1_
+_Last updated: 2026-01-04 | Package version: 1.23.2_

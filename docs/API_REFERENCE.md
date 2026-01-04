@@ -667,5 +667,5 @@ See [JSONL Events Reference](JSONL_EVENTS_REFERENCE.md) for complete event schem
 
 ---
 
-**Version**: 1.23.1+
+**Version**: 1.23.2+
 **Last Updated**: 2026-01-04
