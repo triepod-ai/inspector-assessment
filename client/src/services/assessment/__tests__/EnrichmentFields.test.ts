@@ -24,7 +24,6 @@ const createConfig = (
   testTimeout: 5000,
   skipBrokenTools: false,
   delayBetweenTests: 0,
-  maxToolsToTestForErrors: -1,
   assessmentCategories: {
     functionality: false,
     security: false,

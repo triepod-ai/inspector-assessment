@@ -1668,7 +1668,6 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
   enableExtendedAssessment: true, // Enable MCP Spec Compliance assessment by default
   parallelTesting: false,
   maxParallelTests: 5,
-  maxToolsToTestForErrors: -1, // Default to test ALL tools for comprehensive compliance
   securityPatternsToTest: 8, // Test all security patterns by default
   enableDomainTesting: true, // Enable advanced security testing by default (all 8 backend patterns)
   mcpProtocolVersion: "2025-06",
@@ -1706,7 +1705,6 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
   parallelTesting: true, // Faster execution
   maxParallelTests: 5,
   scenariosPerTool: 1, // Single realistic test per tool
-  maxToolsToTestForErrors: 3, // Test only first 3 tools for error handling
   securityPatternsToTest: 3, // Test only 3 critical security patterns
   enableDomainTesting: false, // Use basic security testing for speed (3 patterns)
   mcpProtocolVersion: "2025-06",
@@ -1742,7 +1740,6 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
   enableExtendedAssessment: true,
   parallelTesting: false, // Sequential for easier debugging
   maxParallelTests: 5,
-  maxToolsToTestForErrors: -1, // Test ALL tools
   securityPatternsToTest: 8, // Test all security patterns
   enableDomainTesting: true, // Enable advanced security testing (all 8 backend patterns)
   mcpProtocolVersion: "2025-06",
@@ -1779,7 +1776,6 @@ export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
   enableExtendedAssessment: true,
   parallelTesting: true, // Parallel for faster audits
   maxParallelTests: 5,
-  maxToolsToTestForErrors: -1,
   securityPatternsToTest: 8,
   enableDomainTesting: true,
   mcpProtocolVersion: "2025-06",
@@ -1816,7 +1812,6 @@ export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
   enableExtendedAssessment: true,
   parallelTesting: false, // Sequential when using Claude to avoid rate limiting
   maxParallelTests: 1,
-  maxToolsToTestForErrors: -1,
   securityPatternsToTest: 8,
   enableDomainTesting: true,
   mcpProtocolVersion: "2025-06",

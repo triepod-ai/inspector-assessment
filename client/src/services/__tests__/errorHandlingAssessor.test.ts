@@ -18,7 +18,6 @@ describe("ErrorHandlingAssessor", () => {
     mockConfig = {
       testTimeout: 5000,
       skipBrokenTools: false,
-      maxToolsToTestForErrors: 20,
       maxParallelTests: 3,
     };
     assessor = new ErrorHandlingAssessor(mockConfig);
