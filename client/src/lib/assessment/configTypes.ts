@@ -6,6 +6,16 @@
  * @module assessment/configTypes
  */
 
+import {
+  LoggingConfig,
+  LogLevel,
+  DEFAULT_LOGGING_CONFIG,
+} from "@/services/assessment/lib/logger";
+
+// Re-export logging types for convenience
+export type { LoggingConfig, LogLevel };
+export { DEFAULT_LOGGING_CONFIG };
+
 /**
  * Claude Code Bridge Configuration
  * Enables integration with Claude Code CLI for intelligent analysis
@@ -56,6 +66,8 @@ export interface AssessmentConfiguration {
   claudeCode?: ClaudeCodeConfig;
   // Temporal/rug pull detection configuration
   temporalInvocations?: number; // Number of invocations per tool for rug pull detection (default 25)
+  /** Logging configuration for diagnostic output */
+  logging?: LoggingConfig;
   assessmentCategories?: {
     functionality: boolean;
     security: boolean;
@@ -95,6 +107,7 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
   enableDomainTesting: true, // Enable advanced security testing by default (all 8 backend patterns)
   mcpProtocolVersion: "2025-06",
   enableSourceCodeAnalysis: false, // Source code analysis disabled by default (requires sourceCodePath)
+  logging: { level: "info" }, // Standard verbosity
   assessmentCategories: {
     functionality: true,
     security: true,
@@ -132,6 +145,7 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
   enableDomainTesting: false, // Use basic security testing for speed (3 patterns)
   mcpProtocolVersion: "2025-06",
   enableSourceCodeAnalysis: false,
+  logging: { level: "warn" }, // Minimal noise for fast reviews
   assessmentCategories: {
     functionality: true,
     security: true,
@@ -167,6 +181,7 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
   enableDomainTesting: true, // Enable advanced security testing (all 8 backend patterns)
   mcpProtocolVersion: "2025-06",
   enableSourceCodeAnalysis: true, // Enable source code analysis if path provided
+  logging: { level: "debug" }, // Full diagnostic output for debugging
   assessmentCategories: {
     functionality: true,
     security: true,
@@ -203,6 +218,7 @@ export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
   enableDomainTesting: true,
   mcpProtocolVersion: "2025-06",
   enableSourceCodeAnalysis: true, // Deep analysis for audits
+  logging: { level: "info" }, // Standard verbosity for audits
   assessmentCategories: {
     functionality: true,
     security: true,
