@@ -51,7 +51,7 @@
     "kill": "node scripts/kill-server.js",
     "restart": "npm run kill && npm run dev",
     "assess": "tsx --tsconfig client/tsconfig.app.json scripts/run-security-assessment.ts",
-    "assess:full": "node cli/build/assess-full.js",
+    "assess:full": "test -f cli/build/assess-full.js || npm run build-cli --silent && node cli/build/assess-full.js",
     "assess:full:legacy": "tsx --tsconfig client/tsconfig.app.json scripts/run-full-assessment.ts",
     "assess:dvmcp": "bash scripts/assess-dvmcp-all.sh",
     "dev:sdk": "npm run link:sdk && concurrently \"npm run dev\" \"cd sdk && npm run build:esm:w\"",
