@@ -80,7 +80,7 @@ describe("createConcurrencyLimit", () => {
     expect(order).toEqual([1, 2, 3]);
   });
 
-  it("should warn when queue exceeds threshold", async () => {
+  it("should warn exactly once when queue exceeds threshold", async () => {
     const consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
     const limit = createConcurrencyLimit(1);
 
@@ -94,13 +94,16 @@ describe("createConcurrencyLimit", () => {
     // Wait for all tasks to complete
     await Promise.all(tasks);
 
-    // Should have warned when queue exceeded threshold
+    // Should have warned exactly ONCE (not 500 times) - deduplication check
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining("Queue depth:"),
     );
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining(`threshold: ${QUEUE_WARNING_THRESHOLD}`),
     );
+    // Verify enhanced warning message includes active count
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Active:"));
 
     consoleSpy.mockRestore();
   });

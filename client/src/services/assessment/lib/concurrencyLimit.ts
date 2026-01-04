@@ -8,8 +8,11 @@
  * If queue exceeds this size, a warning is emitted to help diagnose
  * slow/stalled servers or runaway task accumulation.
  *
- * Set to 10000 to avoid false alarms on legitimate advanced security
- * assessments which can queue ~3,475 tasks (29 tools × 20 patterns × 6 payloads).
+ * Derivation: Advanced security assessments can legitimately queue:
+ *   29 tools × 140 payloads (across 23 attack patterns) = 4,060 tasks
+ *
+ * Threshold of 10,000 provides ~146% headroom to accommodate larger
+ * tool sets while catching true runaway scenarios.
  */
 export const QUEUE_WARNING_THRESHOLD = 10000;
 
@@ -34,6 +37,7 @@ export function createConcurrencyLimit(concurrency: number): LimitFunction {
   }
 
   let activeCount = 0;
+  let hasWarned = false;
   const queue: Array<{
     fn: () => Promise<unknown>;
     resolve: (value: unknown) => void;
@@ -68,10 +72,13 @@ export function createConcurrencyLimit(concurrency: number): LimitFunction {
       });
 
       // Emit warning if queue grows too large (potential slow/stalled server)
-      if (queue.length > QUEUE_WARNING_THRESHOLD) {
+      // Only warn once per limiter instance to avoid log spam
+      if (queue.length > QUEUE_WARNING_THRESHOLD && !hasWarned) {
+        hasWarned = true;
         console.warn(
           `[concurrencyLimit] Queue depth: ${queue.length} ` +
             `(threshold: ${QUEUE_WARNING_THRESHOLD}). ` +
+            `Active: ${activeCount}/${concurrency}. ` +
             `This may indicate a slow/stalled server.`,
         );
       }

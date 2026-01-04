@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.15] - 2026-01-04
+
+### Added
+
+- **Queue Backpressure Warning** (Issue #22, PR #24): Diagnostic monitoring for slow/stalled MCP servers
+  - `QUEUE_WARNING_THRESHOLD` constant (10,000 tasks) for queue depth monitoring
+  - Warning emitted exactly once per limiter instance (deduplicated to prevent log spam)
+  - Enhanced message includes `Active: X/Y` for better diagnostics
+
+### Changed
+
+- **Concurrency Limiter Calculation Accuracy**: Updated queue threshold derivation documentation
+  - Corrected from ~3,475 tasks to accurate 4,060 tasks (29 tools × 140 payloads across 23 attack patterns)
+  - Threshold of 10,000 provides 146% headroom to accommodate larger tool sets
+  - Prevents false alarms on legitimate advanced security assessments
+
 ## [1.22.14] - 2026-01-04
 
 ### Changed
