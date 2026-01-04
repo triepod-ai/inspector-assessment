@@ -21,6 +21,8 @@ Integration documentation for using the npm package programmatically.
 | Document                                                    | Purpose                                          |
 | ----------------------------------------------------------- | ------------------------------------------------ |
 | [Programmatic API Guide](PROGRAMMATIC_API_GUIDE.md)         | Step-by-step guide for AssessmentOrchestrator    |
+| [API Reference](API_REFERENCE.md)                           | Complete API documentation and method signatures |
+| [Integration Guide](INTEGRATION_GUIDE.md)                   | Practical patterns for multi-server, CI/CD, etc. |
 | [Type Reference](TYPE_REFERENCE.md)                         | Complete TypeScript type reference               |
 | [Assessment Types Import](ASSESSMENT_TYPES_IMPORT_GUIDE.md) | Modular structure, import patterns, tree-shaking |
 
@@ -132,6 +134,8 @@ docs/
 ├── REVIEWER_QUICK_START.md                 # Quick start for reviewers
 ├── CLI_ASSESSMENT_GUIDE.md                 # CLI modes and options
 ├── PROGRAMMATIC_API_GUIDE.md               # AssessmentOrchestrator usage
+├── API_REFERENCE.md                        # Complete API documentation
+├── INTEGRATION_GUIDE.md                    # Practical integration patterns
 ├── TYPE_REFERENCE.md                       # TypeScript type reference
 ├── LOGGING_GUIDE.md                        # Structured logging configuration
 ├── ASSESSMENT_TYPES_IMPORT_GUIDE.md        # Modular types, imports, tree-shaking
