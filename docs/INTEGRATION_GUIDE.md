@@ -54,8 +54,10 @@ The fundamental pattern for any integration:
 ```typescript
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
-import type { AssessmentContext } from "@bryan-thompson/inspector-assessment/types";
+import {
+  AssessmentOrchestrator,
+  type AssessmentContext,
+} from "@bryan-thompson/inspector-assessment";
 import { DEFAULT_ASSESSMENT_CONFIG } from "@bryan-thompson/inspector-assessment/config";
 
 async function assessServer(serverConfig: { command: string; args: string[] }) {
@@ -261,8 +263,10 @@ async function assessMultipleServers(servers: ServerConfig[]) {
 Run assessments in stages with early exit on failures:
 
 ```typescript
-import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
-import type { AssessmentContext } from "@bryan-thompson/inspector-assessment/types";
+import {
+  AssessmentOrchestrator,
+  type AssessmentContext,
+} from "@bryan-thompson/inspector-assessment";
 import {
   REVIEWER_MODE_CONFIG,
   AUDIT_MODE_CONFIG,
