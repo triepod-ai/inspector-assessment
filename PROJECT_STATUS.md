@@ -275,3 +275,40 @@
 - All 1532 tests passing
 
 ---
+
+## 2026-01-04: API Documentation Verification and v1.23.2 Release
+
+**Summary:** Published v1.23.2 with complete API documentation after fixing remaining field table issue identified by api-documenter review.
+
+**Session Focus:** API documentation verification and npm package release
+
+**Changes Made:**
+- `docs/API_REFERENCE.md` - Added transportConfig to Optional Fields table
+- `package.json` - Version bump to 1.23.2
+- `client/package.json`, `server/package.json`, `cli/package.json` - Version sync to 1.23.2
+
+**Key Decisions:**
+- Determined PROGRAMMATIC_API_GUIDE.md already had all 18 optional fields
+- Only API_REFERENCE.md needed the transportConfig field added to table
+- Proceeded with patch version bump since changes were documentation-only
+
+**What Was Done:**
+1. Ran api-documenter agent verification on all 4 API docs
+2. Verified 5 of 6 areas passed (import paths, callTool type, phases, navigation, JSONL events)
+3. Fixed remaining issue: added transportConfig to API_REFERENCE.md table
+4. Committed documentation fix (5873076)
+5. Bumped version to 1.23.2 via npm version patch
+6. Published all packages via npm run publish-all
+7. Pushed version tag v1.23.2 to GitHub
+8. Verified package works via bunx @bryan-thompson/inspector-assessment
+
+**Next Steps:**
+- Monitor npm package usage
+- Address any user feedback on API documentation
+- Continue MCP tool annotations campaign work
+
+**Notes:**
+- All 4 API documentation files now verified complete by api-documenter
+- v1.23.2 includes commits: 9b83b30, 46396d8, 5873076
+
+---
