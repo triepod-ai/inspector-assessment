@@ -545,7 +545,10 @@ static calculateOverallConfidence(results: ValidationResult[]): number
 - **Implementation**: `/client/src/services/assessment/ResponseValidator.ts`
 - **Tests**: `/client/src/services/assessment/__tests__/ResponseValidator.test.ts`
 - **Integration**: `/client/src/services/assessment/TestScenarioEngine.ts`
-- **Types**: `/client/src/lib/assessmentTypes.ts`
+- **Types**: `/client/src/lib/assessment/` (modular structure - see [ASSESSMENT_TYPES_IMPORT_GUIDE.md](ASSESSMENT_TYPES_IMPORT_GUIDE.md))
+  - Core types: `/client/src/lib/assessment/coreTypes.ts`
+  - Result types: `/client/src/lib/assessment/resultTypes.ts`
+  - Configuration types: `/client/src/lib/assessment/configTypes.ts`
 
 ---
 

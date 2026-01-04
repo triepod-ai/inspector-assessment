@@ -20,6 +20,7 @@ This directory contains comprehensive documentation for the MCP Inspector assess
 
 | Document                                                                  | Purpose                                            |
 | ------------------------------------------------------------------------- | -------------------------------------------------- |
+| [Assessment Types Import Guide](ASSESSMENT_TYPES_IMPORT_GUIDE.md)         | Modular structure, import patterns, tree-shaking   |
 | [Assessment Catalog](ASSESSMENT_CATALOG.md)                               | Complete 11-module reference (5 core + 6 extended) |
 | [Assessment Module Developer Guide](ASSESSMENT_MODULE_DEVELOPER_GUIDE.md) | Creating and extending assessment modules          |
 | [Scoring Algorithm Guide](SCORING_ALGORITHM_GUIDE.md)                     | Module weights, thresholds, calculations           |
@@ -103,33 +104,34 @@ These files have been split into focused documents and now serve as navigation p
 
 ```
 docs/
-├── README.md                          # This navigation hub
-├── security/                          # Security audit reports
+├── README.md                               # This navigation hub
+├── security/                               # Security audit reports
 │   ├── README.md
 │   ├── temporal_assessor_security_audit.md
 │   └── temporal_assessor_security_summary.md
-├── REVIEWER_QUICK_START.md            # Quick start for reviewers
-├── CLI_ASSESSMENT_GUIDE.md            # CLI modes and options
-├── ASSESSMENT_CATALOG.md              # All 11 modules
-├── SCORING_ALGORITHM_GUIDE.md         # Scoring details
-├── ASSESSMENT_MODULE_DEVELOPER_GUIDE.md # Module development
-├── TEST_DATA_ARCHITECTURE.md          # Test data core
-├── TEST_DATA_SCENARIOS.md             # Test scenarios
-├── TEST_DATA_EXTENSION.md             # Test data extension
-├── RESPONSE_VALIDATION_CORE.md        # Validation core
-├── RESPONSE_VALIDATION_EXTENSION.md   # Validation extension
-├── JSONL_EVENTS_REFERENCE.md          # Event types
-├── JSONL_EVENTS_ALGORITHMS.md         # Event algorithms
-├── JSONL_EVENTS_INTEGRATION.md        # Event integration
-├── SECURITY_PATTERNS_CATALOG.md       # Attack patterns
-├── TESTBED_SETUP_GUIDE.md             # Testbed setup
-├── DVMCP_USAGE_GUIDE.md               # DVMCP guide
-├── PROGRESSIVE_COMPLEXITY_GUIDE.md    # Progressive testing
-├── UI_COMPONENT_REFERENCE.md          # UI components
-├── MANIFEST_REQUIREMENTS.md           # Manifest spec
-├── UPSTREAM_SYNC_WORKFLOW.md          # Upstream sync
-├── ARCHITECTURE_AND_VALUE.md          # Architecture overview
-└── REAL_TIME_PROGRESS_OUTPUT.md       # Legacy progress
+├── REVIEWER_QUICK_START.md                 # Quick start for reviewers
+├── CLI_ASSESSMENT_GUIDE.md                 # CLI modes and options
+├── ASSESSMENT_TYPES_IMPORT_GUIDE.md        # Modular types, imports, tree-shaking
+├── ASSESSMENT_CATALOG.md                   # All 11 modules
+├── SCORING_ALGORITHM_GUIDE.md              # Scoring details
+├── ASSESSMENT_MODULE_DEVELOPER_GUIDE.md    # Module development
+├── TEST_DATA_ARCHITECTURE.md               # Test data core
+├── TEST_DATA_SCENARIOS.md                  # Test scenarios
+├── TEST_DATA_EXTENSION.md                  # Test data extension
+├── RESPONSE_VALIDATION_CORE.md             # Validation core
+├── RESPONSE_VALIDATION_EXTENSION.md        # Validation extension
+├── JSONL_EVENTS_REFERENCE.md               # Event types
+├── JSONL_EVENTS_ALGORITHMS.md              # Event algorithms
+├── JSONL_EVENTS_INTEGRATION.md             # Event integration
+├── SECURITY_PATTERNS_CATALOG.md            # Attack patterns
+├── TESTBED_SETUP_GUIDE.md                  # Testbed setup
+├── DVMCP_USAGE_GUIDE.md                    # DVMCP guide
+├── PROGRESSIVE_COMPLEXITY_GUIDE.md         # Progressive testing
+├── UI_COMPONENT_REFERENCE.md               # UI components
+├── MANIFEST_REQUIREMENTS.md                # Manifest spec
+├── UPSTREAM_SYNC_WORKFLOW.md               # Upstream sync
+├── ARCHITECTURE_AND_VALUE.md               # Architecture overview
+└── REAL_TIME_PROGRESS_OUTPUT.md            # Legacy progress
 ```
 
 ---

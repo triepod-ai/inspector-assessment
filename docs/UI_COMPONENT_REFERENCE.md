@@ -604,9 +604,10 @@ const statusClasses = {
 
 #### 1. Define New Assessment Type
 
-Add interface to `client/src/lib/assessmentTypes.ts`:
+Add interface to `client/src/lib/assessment/resultTypes.ts` (or `configTypes.ts` if configuration-related):
 
 ```typescript
+// In client/src/lib/assessment/resultTypes.ts
 export interface MyNewAssessment {
   status: AssessmentStatus;
   explanation: string;
@@ -615,12 +616,14 @@ export interface MyNewAssessment {
   recommendations: string[];
 }
 
-// Update main assessment interface
+// Update main assessment interface (in same file)
 export interface MCPDirectoryAssessment {
   // ... existing fields
   myNewAssessment?: MyNewAssessment;
 }
 ```
+
+**Note:** See [ASSESSMENT_TYPES_IMPORT_GUIDE.md](ASSESSMENT_TYPES_IMPORT_GUIDE.md) for detailed module organization. Core types are in `coreTypes.ts`, configuration in `configTypes.ts`, results in `resultTypes.ts`, etc.
 
 #### 2. Implement Assessment Logic
 
@@ -743,7 +746,7 @@ import { MyNewAssessmentDisplay } from "./ExtendedAssessmentCategories";
 
 #### 6. Add Category Filter (Optional)
 
-Update `CategoryFilterState` in `assessmentTypes.ts`:
+Update `CategoryFilterState` in `client/src/lib/assessment/resultTypes.ts`:
 
 ```typescript
 interface CategoryFilterState {
@@ -760,6 +763,20 @@ Update `calculateFilteredOverallStatus()` in `AssessmentTab.tsx`:
 if (categoryFilter.myNewAssessment && assessment.myNewAssessment) {
   statuses.push(assessment.myNewAssessment.status);
 }
+```
+
+**Import Note:** Use the modular import path when working with these types:
+
+```typescript
+import type {
+  CategoryFilterState,
+  MCPDirectoryAssessment,
+} from "@/lib/assessment/resultTypes";
+// Or the barrel export:
+import type {
+  CategoryFilterState,
+  MCPDirectoryAssessment,
+} from "@/lib/assessment";
 ```
 
 ---

@@ -627,10 +627,10 @@ Create `client/src/services/assessment/modules/YourNewAssessor.ts`:
 
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
-import type {
-  YourNewAssessment, // Import your return type
-  AssessmentStatus,
-} from "@/lib/assessmentTypes";
+import { AssessmentStatus } from "@/lib/assessment/coreTypes";
+import type { YourNewAssessment } from "@/lib/assessment/resultTypes";
+// Or use barrel export for convenience:
+// import type { YourNewAssessment, AssessmentStatus } from "@/lib/assessment";
 
 export class YourNewAssessor extends BaseAssessor {
   /**
@@ -694,9 +694,22 @@ export class YourNewAssessor extends BaseAssessor {
 }
 ```
 
-### Step 2: Define Return Type in assessmentTypes.ts
+### Step 2: Define Return Type in Assessment Module
 
-Add your assessment type to `/home/bryan/inspector/client/src/lib/assessmentTypes.ts`:
+The assessment types are organized into focused modules. Choose the correct module based on your type's purpose:
+
+**Module Selection Guide:**
+
+| Type Purpose                                | Target Module        | Add To                               |
+| ------------------------------------------- | -------------------- | ------------------------------------ |
+| Status, enums, metadata                     | `coreTypes.ts`       | Base type definitions                |
+| Configuration-related types                 | `configTypes.ts`     | AssessmentConfiguration interfaces   |
+| **Main assessment result (recommended)**    | **`resultTypes.ts`** | **MCPDirectoryAssessment interface** |
+| Extended/compliance types (AUP, Annotation) | `extendedTypes.ts`   | Extended assessment types            |
+| Progress/streaming events                   | `progressTypes.ts`   | Event type definitions               |
+| Constant values or lookup arrays            | `constants.ts`       | Constant exports                     |
+
+**For most new assessments, add your type to `client/src/lib/assessment/resultTypes.ts`:**
 
 ```typescript
 /**
@@ -721,7 +734,27 @@ export interface YourNewAssessment {
   };
 }
 
-// Add to ASSESSMENT_CATEGORY_METADATA
+// Add to MCPDirectoryAssessment (in same file)
+export interface MCPDirectoryAssessment {
+  // ... existing fields ...
+  yourNewAssessment?: YourNewAssessment; // NEW
+}
+```
+
+**If your assessment needs configuration options, add to `client/src/lib/assessment/configTypes.ts`:**
+
+```typescript
+export interface AssessmentConfiguration {
+  assessmentCategories?: {
+    // ... existing categories ...
+    yourNewAssessment?: boolean; // NEW
+  };
+}
+```
+
+**If your assessment needs metadata, add to `client/src/lib/assessment/coreTypes.ts`:**
+
+```typescript
 export const ASSESSMENT_CATEGORY_METADATA: Record<
   string,
   AssessmentCategoryMetadata
@@ -733,21 +766,13 @@ export const ASSESSMENT_CATEGORY_METADATA: Record<
     applicableTo?: "All MCP servers",       // optional
   },
 };
-
-// Add to AssessmentConfiguration
-export interface AssessmentConfiguration {
-  assessmentCategories?: {
-    // ... existing categories ...
-    yourNewAssessment?: boolean;           // NEW
-  };
-}
-
-// Add to MCPDirectoryAssessment
-export interface MCPDirectoryAssessment {
-  // ... existing fields ...
-  yourNewAssessment?: YourNewAssessment;  // NEW
-}
 ```
+
+**Import Guide:**
+
+- Exports continue to work via barrel export: `import type { YourNewAssessment } from "@/lib/assessment"`
+- Or import from specific modules: `import type { YourNewAssessment } from "@/lib/assessment/resultTypes"`
+- See [ASSESSMENT_TYPES_IMPORT_GUIDE.md](ASSESSMENT_TYPES_IMPORT_GUIDE.md) for detailed module organization
 
 ### Step 3: Export from index.ts
 
@@ -1407,7 +1432,13 @@ Before submitting a new module:
 
 ## Resources and References
 
-- **Assessment Types**: `client/src/lib/assessmentTypes.ts`
+- **Assessment Types** (modular): `client/src/lib/assessment/` (see [ASSESSMENT_TYPES_IMPORT_GUIDE.md](ASSESSMENT_TYPES_IMPORT_GUIDE.md))
+  - `coreTypes.ts` - Foundational types and enums
+  - `configTypes.ts` - Configuration interfaces
+  - `resultTypes.ts` - Assessment result types
+  - `extendedTypes.ts` - Extended assessment types
+  - `progressTypes.ts` - Progress event types
+  - `constants.ts` - Constant values
 - **Orchestrator**: `client/src/services/assessment/AssessmentOrchestrator.ts`
 - **Test Utilities**: `client/src/test/utils/testUtils.ts`
 - **Module Scoring**: `client/src/lib/moduleScoring.ts`
