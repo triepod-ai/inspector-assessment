@@ -632,6 +632,7 @@ console.log(`Protocol version: ${result.mcpProtocolVersion}`);
 - [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) - Building on top of assessment
 - [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md) - CLI usage guide
 - [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - All 16 assessment modules
+- [JSONL_EVENTS_REFERENCE.md](JSONL_EVENTS_REFERENCE.md) - Real-time progress events (13 types)
 
 ---
 

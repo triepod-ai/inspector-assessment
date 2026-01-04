@@ -8,6 +8,7 @@ Complete API documentation for `@bryan-thompson/inspector-assessment` programmat
 > - [Type Reference](TYPE_REFERENCE.md) - Complete TypeScript type definitions
 > - [Integration Guide](INTEGRATION_GUIDE.md) - Practical patterns for multi-server, CI/CD
 > - [Assessment Types Import Guide](ASSESSMENT_TYPES_IMPORT_GUIDE.md) - Modular imports and tree-shaking
+> - [JSONL Events Reference](JSONL_EVENTS_REFERENCE.md) - Real-time progress events (13 types)
 
 ---
 
