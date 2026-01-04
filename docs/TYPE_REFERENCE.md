@@ -99,6 +99,9 @@ import {
   AssessmentOrchestrator,
   type AssessmentContext,
 } from "@bryan-thompson/inspector-assessment";
+
+// Other types come from /types (or focused sub-modules)
+import type { MCPDirectoryAssessment } from "@bryan-thompson/inspector-assessment/types";
 ```
 
 **Why?** `AssessmentContext` is defined in `AssessmentOrchestrator.ts` and is tightly coupled with the orchestrator class. This design ensures the context type is immediately available when you import the orchestrator.
@@ -122,13 +125,13 @@ See [API Reference](API_REFERENCE.md) for complete `AssessmentContext` field doc
 
 ### Package Entry Points Reference
 
-| Entry Point                                     | Compiled Path                             | Contents                     |
-| ----------------------------------------------- | ----------------------------------------- | ---------------------------- |
-| `@bryan-thompson/inspector-assessment`          | Main                                      | AssessmentOrchestrator class |
-| `@bryan-thompson/inspector-assessment/types`    | ./client/lib/lib/assessment               | All types (barrel export)    |
-| `@bryan-thompson/inspector-assessment/config`   | ./client/lib/lib/assessment/configTypes   | Config presets               |
-| `@bryan-thompson/inspector-assessment/results`  | ./client/lib/lib/assessment/resultTypes   | Result types                 |
-| `@bryan-thompson/inspector-assessment/progress` | ./client/lib/lib/assessment/progressTypes | Progress events              |
+| Entry Point                                     | Compiled Path                             | Contents                                  |
+| ----------------------------------------------- | ----------------------------------------- | ----------------------------------------- |
+| `@bryan-thompson/inspector-assessment`          | Main                                      | AssessmentOrchestrator, AssessmentContext |
+| `@bryan-thompson/inspector-assessment/types`    | ./client/lib/lib/assessment               | All types (barrel export)                 |
+| `@bryan-thompson/inspector-assessment/config`   | ./client/lib/lib/assessment/configTypes   | Config presets                            |
+| `@bryan-thompson/inspector-assessment/results`  | ./client/lib/lib/assessment/resultTypes   | Result types                              |
+| `@bryan-thompson/inspector-assessment/progress` | ./client/lib/lib/assessment/progressTypes | Progress events                           |
 
 ---
 

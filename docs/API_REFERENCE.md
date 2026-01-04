@@ -46,14 +46,14 @@ Complete API documentation for `@bryan-thompson/inspector-assessment` programmat
 The `@bryan-thompson/inspector-assessment` package provides programmatic access to MCP server assessment capabilities. The primary entry point is the `AssessmentOrchestrator` class.
 
 ```typescript
-// Main entry point - AssessmentOrchestrator class
-import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
+// Main entry point - AssessmentOrchestrator class AND AssessmentContext type
+import {
+  AssessmentOrchestrator,
+  type AssessmentContext,
+} from "@bryan-thompson/inspector-assessment";
 
-// Type imports from the types entry point
-import type {
-  AssessmentContext,
-  MCPDirectoryAssessment,
-} from "@bryan-thompson/inspector-assessment/types";
+// Other types from the types entry point
+import type { MCPDirectoryAssessment } from "@bryan-thompson/inspector-assessment/types";
 
 // Configuration presets from config entry point
 import { AUDIT_MODE_CONFIG } from "@bryan-thompson/inspector-assessment/config";
