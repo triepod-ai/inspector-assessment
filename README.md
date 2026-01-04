@@ -416,6 +416,9 @@ Configure assessment behavior through the UI:
 
 **Note**: The old numeric "Error Handling Test Limit" has been replaced with the tool selector. The `maxToolsToTestForErrors` config field is deprecated but still works for backward compatibility.
 
+> **Deprecation Notice**: `maxToolsToTestForErrors` will be removed in v2.0.0.
+> Migrate to `selectedToolsForTesting` (undefined = test all, [] = test none).
+
 ### Viewing Assessment Results
 
 The Assessment tab provides:

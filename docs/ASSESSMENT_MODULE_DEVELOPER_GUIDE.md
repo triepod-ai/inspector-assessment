@@ -315,8 +315,8 @@ export interface SecurityAssessment {
 
 ```typescript
 {
-  selectedToolsForTesting?: string[];  // Tools to test (default: 3 tools in reviewer mode)
-  maxToolsToTestForErrors?: number;    // Max tools to test (default -1 for all)
+  selectedToolsForTesting?: string[];  // Tools to test (undefined = all, [] = none)
+  // maxToolsToTestForErrors is deprecated - use selectedToolsForTesting instead
 }
 ```
 

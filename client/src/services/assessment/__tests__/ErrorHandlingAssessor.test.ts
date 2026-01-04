@@ -288,4 +288,119 @@ describe("ErrorHandlingAssessor", () => {
       expect(result.errorTests).toHaveLength(12); // 3 tools * 4 test types
     });
   });
+
+  describe("backward compatibility (deprecated maxToolsToTestForErrors)", () => {
+    it("should test all tools when neither selectedToolsForTesting nor maxToolsToTestForErrors is set", async () => {
+      // Config with neither field set - should test all tools
+      const assessor = new ErrorHandlingAssessor(createConfig());
+
+      const tools = [
+        createTool("tool_1"),
+        createTool("tool_2"),
+        createTool("tool_3"),
+      ];
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        isError: true,
+        content: [{ type: "text", text: "Error" }],
+      });
+
+      const context = createMockContext(tools, mockCallTool);
+      const result = await assessor.assess(context);
+
+      // All 3 tools should be tested
+      const testedTools = [
+        ...new Set(result.errorTests?.map((t) => t.toolName)),
+      ];
+      expect(testedTools).toHaveLength(3);
+    });
+
+    it("should respect deprecated maxToolsToTestForErrors when selectedToolsForTesting is not set", async () => {
+      // Legacy config using deprecated field - should still work
+      const assessor = new ErrorHandlingAssessor(
+        createConfig({
+          maxToolsToTestForErrors: 2,
+          selectedToolsForTesting: undefined,
+        }),
+      );
+
+      const tools = [
+        createTool("tool_1"),
+        createTool("tool_2"),
+        createTool("tool_3"),
+        createTool("tool_4"),
+      ];
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        isError: true,
+        content: [{ type: "text", text: "Error" }],
+      });
+
+      const context = createMockContext(tools, mockCallTool);
+      const result = await assessor.assess(context);
+
+      // Only first 2 tools should be tested (per deprecated config)
+      const testedTools = [
+        ...new Set(result.errorTests?.map((t) => t.toolName)),
+      ];
+      expect(testedTools).toHaveLength(2);
+      expect(testedTools).toContain("tool_1");
+      expect(testedTools).toContain("tool_2");
+    });
+
+    it("should prefer selectedToolsForTesting over maxToolsToTestForErrors", async () => {
+      // Config with BOTH fields - new field should take precedence
+      const assessor = new ErrorHandlingAssessor(
+        createConfig({
+          maxToolsToTestForErrors: 2, // Would select first 2
+          selectedToolsForTesting: ["tool_3"], // Should override to just tool_3
+        }),
+      );
+
+      const tools = [
+        createTool("tool_1"),
+        createTool("tool_2"),
+        createTool("tool_3"),
+        createTool("tool_4"),
+      ];
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        isError: true,
+        content: [{ type: "text", text: "Error" }],
+      });
+
+      const context = createMockContext(tools, mockCallTool);
+      const result = await assessor.assess(context);
+
+      // Only tool_3 should be tested (selectedToolsForTesting takes precedence)
+      const testedTools = [
+        ...new Set(result.errorTests?.map((t) => t.toolName)),
+      ];
+      expect(testedTools).toHaveLength(1);
+      expect(testedTools).toContain("tool_3");
+    });
+
+    it("should test no tools when selectedToolsForTesting is empty array", async () => {
+      // Empty array means "test none"
+      const assessor = new ErrorHandlingAssessor(
+        createConfig({
+          selectedToolsForTesting: [],
+        }),
+      );
+
+      const tools = [createTool("tool_1"), createTool("tool_2")];
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        isError: true,
+        content: [{ type: "text", text: "Error" }],
+      });
+
+      const context = createMockContext(tools, mockCallTool);
+      const result = await assessor.assess(context);
+
+      // No tools should be tested
+      expect(result.errorTests).toHaveLength(0);
+      expect(mockCallTool).not.toHaveBeenCalled();
+    });
+  });
 });
