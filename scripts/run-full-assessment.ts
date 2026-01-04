@@ -1,15 +1,35 @@
 #!/usr/bin/env ts-node
 
 /**
- * Full Assessment Runner
+ * @deprecated This script is deprecated. Use `npm run assess:full` instead.
  *
- * Runs comprehensive MCP server assessment using AssessmentOrchestrator
- * with all 11 assessor modules and optional Claude Code integration.
+ * Full Assessment Runner (LEGACY)
  *
- * Usage:
- *   npm run assess:full -- --server <server-name> [--claude-enabled] [--full]
- *   ts-node scripts/run-full-assessment.ts --server my-server --claude-enabled
+ * This script has been superseded by the npm CLI binary which has additional
+ * features including:
+ * - Resource/Prompt capability assessment
+ * - Pre-flight validation mode
+ * - Comparison/diff modes
+ * - State management/resume
+ * - Policy compliance reports
+ * - Markdown output format
+ *
+ * Migration:
+ *   OLD: npm run assess:full:legacy -- --server <name> --config <path>
+ *   NEW: npm run assess:full -- --server <name> --config <path>
+ *
+ * The legacy script is available via `npm run assess:full:legacy` during
+ * the transition period but will be removed in a future release.
  */
+
+// Emit deprecation warning
+console.warn(
+  "\x1b[33m" + // Yellow color
+    "⚠️  DEPRECATION WARNING: scripts/run-full-assessment.ts is deprecated.\n" +
+    "   Use `npm run assess:full` instead for the full-featured CLI.\n" +
+    "   This legacy script will be removed in a future release.\n" +
+    "   See: https://github.com/triepod-ai/inspector-assessment/issues/19\x1b[0m\n",
+);
 
 import * as fs from "fs";
 import * as path from "path";

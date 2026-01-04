@@ -49,8 +49,8 @@ The MCP Inspector provides three distinct CLI modes for different workflows:
 
 **Purpose**: Development, testing, quick iterations
 **Command**: `npm run assess:full`
-**Location**: `/home/bryan/inspector/scripts/run-full-assessment.ts`
-**Available**: Only when running from source code
+**Location**: `/home/bryan/inspector/cli/src/assess-full.ts` (unified CLI)
+**Available**: When running from source code (requires `npm run build-cli` first)
 
 ```bash
 # Runs full assessment with all 11 modules
@@ -64,11 +64,15 @@ npm run assess:full -- --server my-server --config /tmp/config.json
 
 **Key Characteristics:**
 
-- Uses local TypeScript/tsx execution
-- Direct access to source code
-- Fastest iteration cycle for development
-- No npm publish needed for testing changes
+- Uses the same CLI binary as the published npm package
+- All features available (resource/prompt assessment, comparison mode, etc.)
+- Requires `npm run build-cli` after code changes
+- Fastest iteration cycle for testing CLI features
 - Requires Node.js and npm install
+
+> **Migration Note**: The legacy script (`scripts/run-full-assessment.ts`) is deprecated
+> and available via `npm run assess:full:legacy` during the transition period.
+> See [GitHub Issue #19](https://github.com/triepod-ai/inspector-assessment/issues/19).
 
 **Command Signature:**
 
@@ -1450,8 +1454,8 @@ mcp-assess-full --server my-server --config config.json \
 - **JSONL Events**: [JSONL_EVENTS_API.md](./JSONL_EVENTS_API.md) - Complete event reference
 - **Assessment Catalog**: [ASSESSMENT_CATALOG.md](./ASSESSMENT_CATALOG.md) - Module details
 - **Source Code**:
-  - Local script: `/home/bryan/inspector/scripts/run-full-assessment.ts`
-  - npm binary: `/home/bryan/inspector/cli/src/assess-full.ts`
+  - CLI binary: `/home/bryan/inspector/cli/src/assess-full.ts` (unified for local and npm)
+  - Legacy script: `/home/bryan/inspector/scripts/run-full-assessment.ts` (deprecated)
 - **npm Package**: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
 
 ---

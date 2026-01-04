@@ -83,26 +83,32 @@ npm run assess -- --server <server-name> --config <config.json> --tool <tool-nam
 
 **Complete Documentation:** See [docs/CLI_ASSESSMENT_GUIDE.md](docs/CLI_ASSESSMENT_GUIDE.md) for all three CLI modes, configuration options, and CI/CD integration examples.
 
-## npm Binary / Local Script Parity
+## Full Assessment CLI
 
-**Critical**: The npm binary (`cli/src/assess-full.ts`) must stay in sync with the local development script (`scripts/run-full-assessment.ts`).
+The full assessment is now unified under a single CLI binary (`cli/src/assess-full.ts`).
 
-Both files provide the same full assessment functionality but for different contexts:
+**Usage** (local development and published package):
 
-- **Local script**: Development and testing (`npm run assess-full` or `npx tsx scripts/run-full-assessment.ts`)
-- **npm binary**: Published package (`mcp-assess-full` CLI)
+```bash
+# Local development (requires npm run build-cli first)
+npm run assess:full -- --server <name> --config <path>
 
-**When modifying either file**:
+# Published package
+npx @bryan-thompson/inspector-assessment mcp-assess-full <server> --config <path>
+```
 
-1. Check if the change applies to both files
-2. JSONL event emission must be identical in both
-3. Progress callbacks (`onProgress`) must handle the same event types
-4. AssessmentContext construction must include the same fields
+**Features**:
 
-**Files that must stay synchronized**:
+- Resource/Prompt capability assessment
+- Pre-flight validation mode (`--preflight`)
+- Comparison/diff modes (`--compare`, `--diff-only`)
+- State management/resume (`--resume`, `--no-resume`)
+- Policy compliance reports (`--include-policy`)
+- Multiple output formats (`--format json|markdown`)
 
-- `cli/src/assess-full.ts` ↔ `scripts/run-full-assessment.ts`
-- `cli/src/lib/jsonl-events.ts` ↔ `scripts/lib/jsonl-events.ts`
+**Legacy Script** (deprecated, will be removed):
+
+The old `scripts/run-full-assessment.ts` is available via `npm run assess:full:legacy` during the transition period. See [GitHub Issue #19](https://github.com/triepod-ai/inspector-assessment/issues/19) for details.
 
 ## Vulnerability Testbed Validation
 
