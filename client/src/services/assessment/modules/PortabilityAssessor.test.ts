@@ -116,6 +116,36 @@ describe("PortabilityAssessor", () => {
       );
     });
 
+    it("should NOT flag escape sequences as Windows paths (Issue #17)", async () => {
+      // Arrange - Common patterns that were incorrectly flagged
+      // e.g., "STDOUT:\n" was matched as "T:\n" (Windows path)
+      mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+        "src/prompts.ts": `
+          // These should NOT be flagged as Windows paths
+          const stdout = "STDOUT:\\n" + output;
+          const stderr = "STDERR:\\n" + error;
+          const tab = "DATA:\\t" + data;
+          const quote = "QUOTE:\\'test";
+          const newline = "RESULT:\\r\\n";
+        `,
+      });
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - None of these escape sequence patterns should match
+      const windowsPathIssues = result.issues.filter(
+        (i) =>
+          i.type === "absolute_path" &&
+          (i.matchedText?.includes("T:\\n") ||
+            i.matchedText?.includes("R:\\n") ||
+            i.matchedText?.includes("A:\\t") ||
+            i.matchedText?.includes("E:\\'") ||
+            i.matchedText?.includes("T:\\r")),
+      );
+      expect(windowsPathIssues).toHaveLength(0);
+    });
+
     it("should detect user home directory references", async () => {
       // Arrange
       mockContext.sourceCodeFiles = createMockSourceCodeFiles({

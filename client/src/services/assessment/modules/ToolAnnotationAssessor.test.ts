@@ -425,6 +425,104 @@ describe("ToolAnnotationAssessor", () => {
     });
   });
 
+  describe("Command Execution Tools (Issue #17)", () => {
+    it("should treat run_command as destructive (not write) with high confidence", async () => {
+      // Arrange - command execution tool
+      // Issue #17: run_command should be destructive, not write
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "run_command",
+          description: "Executes arbitrary shell commands",
+          readOnlyHint: false,
+          destructiveHint: true, // Correct annotation - command execution IS destructive
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - run_command should be inferred as destructive (high confidence)
+      expect(result.toolResults[0].inferredBehavior?.expectedDestructive).toBe(
+        true,
+      );
+      expect(result.toolResults[0].inferredBehavior?.confidence).toBe("high");
+      expect(result.toolResults[0].inferredBehavior?.isAmbiguous).toBe(false);
+      // With destructiveHint=true matching inference, should be ALIGNED
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+      expect(result.status).not.toBe("FAIL");
+    });
+
+    it("should flag run_command with destructiveHint=false as MISALIGNED", async () => {
+      // Arrange - command execution tool with wrong annotation
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "run_command",
+          description: "Executes arbitrary shell commands",
+          readOnlyHint: false,
+          destructiveHint: false, // WRONG - command execution can be destructive
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - should detect the misalignment
+      expect(result.toolResults[0].inferredBehavior?.expectedDestructive).toBe(
+        true,
+      );
+      expect(result.toolResults[0].alignmentStatus).toBe("MISALIGNED");
+      expect(result.status).toBe("FAIL");
+    });
+
+    it("should treat various command execution patterns as destructive", async () => {
+      // All these command execution patterns should be inferred as destructive
+      const commandExecutionTools = [
+        "run_command",
+        "exec_command",
+        "execute_command",
+        "shell_command",
+        "bash_command",
+        "run_shell",
+        "exec_shell",
+        "cmd_run",
+      ];
+
+      for (const toolName of commandExecutionTools) {
+        mockContext.tools = [
+          createMockTool({ name: toolName, description: "Executes commands" }),
+        ];
+        const result = await assessor.assess(mockContext);
+
+        // Command execution tools should be inferred as destructive with high confidence
+        expect(
+          result.toolResults[0].inferredBehavior?.expectedDestructive,
+        ).toBe(true);
+        expect(result.toolResults[0].inferredBehavior?.confidence).toBe("high");
+      }
+    });
+
+    it("should NOT affect generic run_ tools (only command execution patterns)", async () => {
+      // Generic "run_" tools should still be treated as write (medium confidence)
+      const genericRunTools = ["run_tests", "run_migration", "run_build"];
+
+      for (const toolName of genericRunTools) {
+        mockContext.tools = [
+          createMockTool({ name: toolName, description: "Runs something" }),
+        ];
+        const result = await assessor.assess(mockContext);
+
+        // Generic run_ should be write (medium confidence), NOT destructive
+        // Write operations have expectedDestructive=false
+        expect(
+          result.toolResults[0].inferredBehavior?.expectedDestructive,
+        ).toBe(false);
+        expect(result.toolResults[0].inferredBehavior?.confidence).toBe(
+          "medium",
+        );
+      }
+    });
+  });
+
   describe("Description Poisoning Detection (Issue #8)", () => {
     it("should detect hidden instruction tags in descriptions", async () => {
       mockContext.tools = [

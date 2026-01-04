@@ -31,7 +31,9 @@ const ISSUE_PATTERNS = {
 
   // Absolute Windows paths (requires valid path chars, excludes escape sequences like \n, \t)
   // Note: Windows drive letters are always uppercase, so /i flag removed to avoid false positives
-  absoluteWindowsPath: /[A-Z]:\\[a-zA-Z0-9_\-.\\]+/g,
+  // Negative lookahead (?![ntr0'"bfv]) excludes escape sequences in source code strings
+  // e.g., "STDOUT:\n" won't match T:\n as a Windows path
+  absoluteWindowsPath: /[A-Z]:\\(?![ntr0'"bfv])[a-zA-Z0-9_\-.\\]+/g,
 
   // User home directory references
   userHomePath: /(?:~\/|\/Users\/|\/home\/)[^\s'"]+/g,
