@@ -324,6 +324,7 @@ The context object passed to `runFullAssessment()` containing server connection 
 | `serverCapabilities` | `MCPServerCapabilities`                      | Declared server capabilities               |
 | `readResource`       | `(uri: string) => Promise<string>`           | Function to read resource content          |
 | `getPrompt`          | `(name, args) => Promise<{ messages: ... }>` | Function to get prompt content             |
+| `transportConfig`    | `{ type, url?, usesTLS?, oauthEnabled? }`    | Transport metadata for security assessment |
 | `listTools`          | `() => Promise<Tool[]>`                      | Refresh tools for temporal detection       |
 
 ### Transport Configuration
