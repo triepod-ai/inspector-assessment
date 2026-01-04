@@ -41,6 +41,7 @@ import {
   ProgressEvent,
   ASSESSMENT_CATEGORY_METADATA,
   getAllModulesConfig,
+  LogLevel,
 } from "../../client/lib/lib/assessmentTypes.js";
 import { FULL_CLAUDE_CODE_CONFIG } from "../../client/lib/services/assessment/lib/claudeCodeBridge.js";
 import {
@@ -127,6 +128,8 @@ interface AssessmentOptions {
   skipTemporal?: boolean;
   skipModules?: string[];
   onlyModules?: string[];
+  /** Log level for diagnostic output */
+  logLevel?: LogLevel;
 }
 
 /**
@@ -530,6 +533,12 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
   if (options.patternConfigPath) {
     config.patternConfigPath = options.patternConfigPath;
   }
+
+  // Logging configuration
+  // Precedence: CLI flags > LOG_LEVEL env var > default (info)
+  const envLogLevel = process.env.LOG_LEVEL as LogLevel | undefined;
+  const logLevel = options.logLevel ?? envLogLevel ?? "info";
+  config.logging = { level: logLevel };
 
   return config;
 }
@@ -1156,7 +1165,31 @@ function parseArgs(): AssessmentOptions {
       case "--verbose":
       case "-v":
         options.verbose = true;
+        options.logLevel = "debug";
         break;
+      case "--silent":
+        options.logLevel = "silent";
+        break;
+      case "--log-level": {
+        const levelValue = args[++i] as LogLevel;
+        const validLevels: LogLevel[] = [
+          "silent",
+          "error",
+          "warn",
+          "info",
+          "debug",
+        ];
+        if (!validLevels.includes(levelValue)) {
+          console.error(
+            `Invalid log level: ${levelValue}. Valid options: ${validLevels.join(", ")}`,
+          );
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        options.logLevel = levelValue;
+        break;
+      }
       case "--json":
         options.jsonOnly = true;
         break;
@@ -1301,7 +1334,10 @@ Options:
   --skip-modules <list>  Skip specific modules (comma-separated)
   --only-modules <list>  Run only specific modules (comma-separated)
   --json                 Output only JSON path (no console summary)
-  --verbose, -v          Enable verbose logging
+  --verbose, -v          Enable verbose logging (same as --log-level debug)
+  --silent               Suppress all diagnostic logging
+  --log-level <level>    Set log level: silent, error, warn, info (default), debug
+                         Also supports LOG_LEVEL environment variable
   --help, -h             Show this help message
 
 Module Selection:

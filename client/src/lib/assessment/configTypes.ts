@@ -255,6 +255,7 @@ export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
   enableDomainTesting: true,
   mcpProtocolVersion: "2025-06",
   enableSourceCodeAnalysis: true,
+  logging: { level: "info" }, // Standard verbosity (Claude output is already verbose)
   // Claude Code integration enabled
   claudeCode: {
     enabled: true,

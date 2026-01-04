@@ -8,13 +8,20 @@ import {
   AssessmentStatus,
 } from "@/lib/assessmentTypes";
 import { AssessmentContext } from "../AssessmentOrchestrator";
+import { Logger, createLogger, DEFAULT_LOGGING_CONFIG } from "../lib/logger";
 
 export abstract class BaseAssessor<T = unknown> {
   protected config: AssessmentConfiguration;
+  protected logger: Logger;
   protected testCount: number = 0;
 
   constructor(config: AssessmentConfiguration) {
     this.config = config;
+    // Create logger from config, using class name as prefix
+    this.logger = createLogger(
+      this.constructor.name,
+      config.logging ?? DEFAULT_LOGGING_CONFIG,
+    );
   }
 
   /**
@@ -41,16 +48,18 @@ export abstract class BaseAssessor<T = unknown> {
 
   /**
    * Log assessment progress
+   * @deprecated Use this.logger.info() directly for structured logging with context
    */
   protected log(message: string): void {
-    console.log(`[${this.constructor.name}] ${message}`);
+    this.logger.info(message);
   }
 
   /**
    * Log error
+   * @deprecated Use this.logger.error() directly for structured logging with context
    */
-  protected logError(message: string, error?: any): void {
-    console.error(`[${this.constructor.name}] ${message}`, error);
+  protected logError(message: string, error?: unknown): void {
+    this.logger.error(message, error ? { error: String(error) } : undefined);
   }
 
   /**

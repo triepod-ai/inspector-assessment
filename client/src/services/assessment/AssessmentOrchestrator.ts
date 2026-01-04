@@ -61,6 +61,9 @@ import {
   INSPECTOR_VERSION,
 } from "@/lib/moduleScoring";
 
+// Structured logging
+import { Logger, createLogger, DEFAULT_LOGGING_CONFIG } from "./lib/logger";
+
 // Track module start times for duration calculation
 const moduleStartTimes: Map<string, number> = new Map();
 
@@ -317,6 +320,7 @@ export interface AssessmentContext {
 
 export class AssessmentOrchestrator {
   private config: AssessmentConfiguration;
+  private logger: Logger;
   private startTime: number = 0;
   private totalTestsRun: number = 0;
 
@@ -350,6 +354,12 @@ export class AssessmentOrchestrator {
 
   constructor(config: Partial<AssessmentConfiguration> = {}) {
     this.config = { ...DEFAULT_ASSESSMENT_CONFIG, ...config };
+
+    // Initialize logger
+    this.logger = createLogger(
+      "AssessmentOrchestrator",
+      this.config.logging ?? DEFAULT_LOGGING_CONFIG,
+    );
 
     // Initialize Claude Code Bridge if enabled in config
     if (this.config.claudeCode?.enabled) {
@@ -464,15 +474,13 @@ export class AssessmentOrchestrator {
     try {
       this.claudeBridge = new ClaudeCodeBridge(bridgeConfig);
       this.claudeEnabled = true;
-      console.log(
-        "[AssessmentOrchestrator] Claude Code Bridge initialized with features:",
-        bridgeConfig.features,
-      );
+      this.logger.info("Claude Code Bridge initialized", {
+        features: bridgeConfig.features,
+      });
     } catch (error) {
-      console.warn(
-        "[AssessmentOrchestrator] Failed to initialize Claude Code Bridge:",
-        error,
-      );
+      this.logger.warn("Failed to initialize Claude Code Bridge", {
+        error: String(error),
+      });
       this.claudeEnabled = false;
     }
   }
@@ -1141,7 +1149,7 @@ export class AssessmentOrchestrator {
     const crossCapabilityCount =
       this.crossCapabilityAssessor?.getTestCount() || 0;
 
-    console.log("[AssessmentOrchestrator] Test counts by assessor:", {
+    this.logger.debug("Test counts by assessor", {
       functionality: functionalityCount,
       security: securityCount,
       documentation: documentationCount,
@@ -1178,7 +1186,7 @@ export class AssessmentOrchestrator {
       promptsCount +
       crossCapabilityCount;
 
-    console.log("[AssessmentOrchestrator] Total test count:", total);
+    this.logger.debug("Total test count", { total });
 
     return total;
   }
