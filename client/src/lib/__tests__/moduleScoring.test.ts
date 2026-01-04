@@ -167,5 +167,59 @@ describe("moduleScoring", () => {
         expect(calculateModuleScore({})).toBe(50);
       });
     });
+
+    describe("skip-modules integration", () => {
+      it("should return null for skipped module results to enable filtering", () => {
+        // Simulate skipped module (undefined result)
+        const skippedModuleResult = undefined;
+        const score = calculateModuleScore(skippedModuleResult);
+        expect(score).toBeNull();
+      });
+
+      it("should allow filtering skipped modules from results object", () => {
+        // Simulate assessment results with skipped modules
+        const results: Record<string, unknown> = {
+          security: { status: "PASS", vulnerabilities: [] },
+          functionality: undefined, // Skipped via --skip-modules
+          errorHandling: undefined, // Skipped via --skip-modules
+          documentation: { status: "PASS" },
+        };
+
+        // Apply the same filter used in assess-full.ts
+        const filteredResults = Object.fromEntries(
+          Object.entries(results).filter(([_, v]) => v !== undefined),
+        );
+
+        // Verify skipped modules are excluded
+        expect(Object.keys(filteredResults)).toEqual([
+          "security",
+          "documentation",
+        ]);
+        expect(filteredResults).not.toHaveProperty("functionality");
+        expect(filteredResults).not.toHaveProperty("errorHandling");
+      });
+
+      it("should calculate scores only for non-skipped modules", () => {
+        const results: Record<string, unknown> = {
+          security: { status: "PASS", vulnerabilities: [] },
+          functionality: undefined,
+        };
+
+        const scores = Object.entries(results).map(([name, result]) => ({
+          name,
+          score: calculateModuleScore(result),
+        }));
+
+        expect(scores).toEqual([
+          { name: "security", score: 100 },
+          { name: "functionality", score: null },
+        ]);
+
+        // Only non-null scores should be emitted
+        const emittableScores = scores.filter((s) => s.score !== null);
+        expect(emittableScores).toHaveLength(1);
+        expect(emittableScores[0].name).toBe("security");
+      });
+    });
   });
 });
