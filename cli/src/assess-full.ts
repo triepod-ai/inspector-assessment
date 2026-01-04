@@ -32,6 +32,7 @@ import {
   ManifestJsonSchema,
   ProgressEvent,
   ASSESSMENT_CATEGORY_METADATA,
+  getAllModulesConfig,
 } from "../../client/lib/lib/assessmentTypes.js";
 import { FULL_CLAUDE_CODE_CONFIG } from "../../client/lib/services/assessment/lib/claudeCodeBridge.js";
 import {
@@ -471,27 +472,11 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
   };
 
   if (options.fullAssessment !== false) {
-    // Start with all modules enabled by default
-    const allModules: Record<string, boolean> = {
-      functionality: true,
-      security: true,
-      documentation: true,
-      errorHandling: true,
-      usability: true,
-      mcpSpecCompliance: true,
-      aupCompliance: true,
-      toolAnnotations: true,
-      prohibitedLibraries: true,
-      manifestValidation: true,
-      portability: true,
-      externalAPIScanner: !!options.sourceCodePath,
-      temporal: !options.skipTemporal, // Enable by default with --full, skip with --skip-temporal
-      // New capability assessors - always enabled in full mode
-      resources: true,
-      prompts: true,
-      crossCapability: true,
-      authentication: true,
-    };
+    // Derive module config from ASSESSMENT_CATEGORY_METADATA (single source of truth)
+    const allModules = getAllModulesConfig({
+      sourceCodePath: !!options.sourceCodePath,
+      skipTemporal: options.skipTemporal,
+    });
 
     // Apply --only-modules filter (whitelist mode)
     if (options.onlyModules?.length) {

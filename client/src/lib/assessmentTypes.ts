@@ -79,6 +79,32 @@ export const ASSESSMENT_CATEGORY_METADATA: Record<
 };
 
 /**
+ * Generate module configuration derived from ASSESSMENT_CATEGORY_METADATA.
+ * Single source of truth for all assessment module names.
+ *
+ * @param options.sourceCodePath - If true, enables externalAPIScanner
+ * @param options.skipTemporal - If true, disables temporal assessment
+ * @returns Record of module names to enabled state
+ */
+export function getAllModulesConfig(options: {
+  sourceCodePath?: boolean;
+  skipTemporal?: boolean;
+}): Record<string, boolean> {
+  return Object.keys(ASSESSMENT_CATEGORY_METADATA).reduce(
+    (acc, key) => ({
+      ...acc,
+      [key]:
+        key === "externalAPIScanner"
+          ? !!options.sourceCodePath
+          : key === "temporal"
+            ? !options.skipTemporal
+            : true,
+    }),
+    {} as Record<string, boolean>,
+  );
+}
+
+/**
  * Persistence model for MCP servers (Three-Tier Classification).
  * Re-exported from annotationPatterns for backward compatibility.
  *

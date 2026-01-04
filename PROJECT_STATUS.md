@@ -403,3 +403,38 @@
 - Both CLI binary and local development script updated to stay in sync per project requirements
 
 ---
+
+## 2026-01-04: Fixed Critical Gap in Issue #16 Skip-Modules Fix
+
+**Summary:** Fixed critical gap in Issue #16 skip-modules fix found by dual-agent code review - added missing null guard in run-security-assessment.ts, published v1.22.13
+
+**Session Focus:** Code review of Issue #16 fix and addressing critical gap discovered
+
+**Changes Made:**
+- Modified: `scripts/run-security-assessment.ts` - Added null guard before `emitModuleComplete()` call
+
+**Key Decisions:**
+- Used dual-agent code review (inspector-assessment-code-reviewer + code-reviewer-pro) for thorough analysis
+- Fixed gap immediately rather than deferring to future release
+- Published as v1.22.13 (patch version for bug fix)
+
+**Technical Details:**
+- Code review found that `scripts/run-security-assessment.ts` was not updated with the null guard that was added to `AssessmentOrchestrator.ts`
+- This could have caused JSONL events to be emitted with `score: null` when using --skip-modules
+- Dual-agent review methodology proved valuable for catching cross-file consistency issues
+
+**Results:**
+- All 1483 tests passed after fix
+- Added comment to closed GitHub Issue #16 documenting the additional fix
+- Published as v1.22.13
+
+**Next Steps:**
+- Monitor for any additional gaps in skip-modules handling
+- Consider adding integration test for full --skip-modules workflow as suggested by reviewers
+
+**Notes:**
+- Demonstrates value of dual-agent code review for finding gaps that single-pass review might miss
+- Cross-file consistency is critical when applying similar fixes to multiple locations
+- The fix ensures parity between AssessmentOrchestrator.ts and run-security-assessment.ts
+
+---

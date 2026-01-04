@@ -2,6 +2,7 @@ import {
   AssessmentCategoryTier,
   AssessmentCategoryMetadata,
   ASSESSMENT_CATEGORY_METADATA,
+  getAllModulesConfig,
 } from "../assessmentTypes";
 
 describe("Assessment Types", () => {
@@ -292,6 +293,58 @@ describe("Assessment Types", () => {
           }
         });
       });
+    });
+  });
+
+  describe("getAllModulesConfig", () => {
+    it("should include all modules from ASSESSMENT_CATEGORY_METADATA", () => {
+      const config = getAllModulesConfig({});
+      const metadataKeys = Object.keys(ASSESSMENT_CATEGORY_METADATA);
+      expect(Object.keys(config)).toEqual(metadataKeys);
+    });
+
+    it("should enable all modules by default", () => {
+      const config = getAllModulesConfig({});
+      // All modules except externalAPIScanner (requires sourceCodePath) and temporal should be true
+      Object.entries(config).forEach(([key, value]) => {
+        if (key === "externalAPIScanner") {
+          expect(value).toBe(false); // No sourceCodePath provided
+        } else if (key === "temporal") {
+          expect(value).toBe(true); // skipTemporal not set
+        } else {
+          expect(value).toBe(true);
+        }
+      });
+    });
+
+    it("should disable externalAPIScanner when no sourceCodePath", () => {
+      const config = getAllModulesConfig({ sourceCodePath: false });
+      expect(config.externalAPIScanner).toBe(false);
+    });
+
+    it("should enable externalAPIScanner when sourceCodePath provided", () => {
+      const config = getAllModulesConfig({ sourceCodePath: true });
+      expect(config.externalAPIScanner).toBe(true);
+    });
+
+    it("should enable temporal by default", () => {
+      const config = getAllModulesConfig({});
+      expect(config.temporal).toBe(true);
+    });
+
+    it("should disable temporal when skipTemporal is true", () => {
+      const config = getAllModulesConfig({ skipTemporal: true });
+      expect(config.temporal).toBe(false);
+    });
+
+    it("should handle both options together", () => {
+      const config = getAllModulesConfig({
+        sourceCodePath: true,
+        skipTemporal: true,
+      });
+      expect(config.externalAPIScanner).toBe(true);
+      expect(config.temporal).toBe(false);
+      expect(config.security).toBe(true);
     });
   });
 });
