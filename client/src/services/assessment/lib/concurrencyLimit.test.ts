@@ -1,4 +1,7 @@
-import { createConcurrencyLimit } from "./concurrencyLimit";
+import {
+  createConcurrencyLimit,
+  QUEUE_WARNING_THRESHOLD,
+} from "./concurrencyLimit";
 
 describe("createConcurrencyLimit", () => {
   it("should limit concurrent operations to the specified concurrency", async () => {
@@ -75,5 +78,48 @@ describe("createConcurrencyLimit", () => {
     ]);
 
     expect(order).toEqual([1, 2, 3]);
+  });
+
+  it("should warn when queue exceeds threshold", async () => {
+    const consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const limit = createConcurrencyLimit(1);
+
+    // Enqueue more than QUEUE_WARNING_THRESHOLD tasks
+    // Using concurrency=1 means all but one task will queue up
+    const taskCount = QUEUE_WARNING_THRESHOLD + 500;
+    const tasks = Array.from({ length: taskCount }, (_, i) =>
+      limit(async () => i),
+    );
+
+    // Wait for all tasks to complete
+    await Promise.all(tasks);
+
+    // Should have warned when queue exceeded threshold
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Queue depth:"),
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining(`threshold: ${QUEUE_WARNING_THRESHOLD}`),
+    );
+
+    consoleSpy.mockRestore();
+  });
+
+  it("should not warn when queue is below threshold", async () => {
+    const consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const limit = createConcurrencyLimit(1);
+
+    // Enqueue fewer tasks than threshold
+    const taskCount = 100;
+    const tasks = Array.from({ length: taskCount }, (_, i) =>
+      limit(async () => i),
+    );
+
+    await Promise.all(tasks);
+
+    // Should NOT have warned
+    expect(consoleSpy).not.toHaveBeenCalled();
+
+    consoleSpy.mockRestore();
   });
 });
