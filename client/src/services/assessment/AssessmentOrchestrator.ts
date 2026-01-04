@@ -445,6 +445,18 @@ export class AssessmentOrchestrator {
   }
 
   /**
+   * Get the count of tools that will actually be tested based on selectedToolsForTesting config.
+   * Used for accurate progress estimation in emitModuleStartedEvent calls.
+   */
+  private getToolCountForTesting(tools: Tool[]): number {
+    if (this.config.selectedToolsForTesting !== undefined) {
+      const selectedNames = new Set(this.config.selectedToolsForTesting);
+      return tools.filter((tool) => selectedNames.has(tool.name)).length;
+    }
+    return tools.length;
+  }
+
+  /**
    * Initialize Claude Code Bridge for intelligent analysis
    * This enables semantic AUP violation analysis, behavior inference, and intelligent test generation
    */
@@ -555,13 +567,13 @@ export class AssessmentOrchestrator {
     this.resetAllTestCounts();
 
     // Run assessments in parallel if enabled
-    const assessmentPromises: Promise<any>[] = [];
-    const assessmentResults: any = {};
+    const assessmentPromises: Promise<unknown>[] = [];
+    const assessmentResults: Partial<MCPDirectoryAssessment> = {};
 
     // PHASE 0: Temporal Assessment (ALWAYS runs first, before parallel/sequential phases)
     // This ensures temporal captures clean baseline before other modules trigger rug pulls
     if (this.temporalAssessor) {
-      const toolCount = context.tools.length;
+      const toolCount = this.getToolCountForTesting(context.tools);
       const invocationsPerTool = this.config.temporalInvocations ?? 25;
       emitModuleStartedEvent(
         "Temporal",
@@ -579,7 +591,7 @@ export class AssessmentOrchestrator {
 
     if (this.config.parallelTesting) {
       // Calculate estimates for module_started events
-      const toolCount = context.tools.length;
+      const toolCount = this.getToolCountForTesting(context.tools);
       const securityPatterns = this.config.securityPatternsToTest || 17;
 
       // Core assessments - only emit and run if not skipped
@@ -820,7 +832,7 @@ export class AssessmentOrchestrator {
       await Promise.all(assessmentPromises);
     } else {
       // Sequential execution with module_started events
-      const toolCount = context.tools.length;
+      const toolCount = this.getToolCountForTesting(context.tools);
       const securityPatterns = this.config.securityPatternsToTest || 17;
 
       // NOTE: Temporal runs in PHASE 0 above, before sequential/parallel phases
@@ -1049,6 +1061,8 @@ export class AssessmentOrchestrator {
 
     const executionTime = Date.now() - this.startTime;
 
+    // Type assertion needed because Partial<MCPDirectoryAssessment> has optional required fields
+    // When modules are skipped via --skip-modules, not all fields will be present
     return {
       serverName: context.serverName,
       assessmentDate: new Date().toISOString(),
@@ -1069,7 +1083,7 @@ export class AssessmentOrchestrator {
           context.transportConfig?.type ??
           (context.transportConfig?.url ? "streamable-http" : undefined),
       },
-    };
+    } as MCPDirectoryAssessment;
   }
 
   /**
@@ -1169,13 +1183,19 @@ export class AssessmentOrchestrator {
     return total;
   }
 
-  private determineOverallStatus(results: any): AssessmentStatus {
+  private determineOverallStatus(
+    results: Partial<MCPDirectoryAssessment>,
+  ): AssessmentStatus {
     const statuses: AssessmentStatus[] = [];
 
-    // Collect all statuses
-    Object.values(results).forEach((assessment: any) => {
-      if (assessment?.status) {
-        statuses.push(assessment.status);
+    // Collect all statuses from assessment results
+    Object.values(results).forEach((assessment) => {
+      if (
+        assessment &&
+        typeof assessment === "object" &&
+        "status" in assessment
+      ) {
+        statuses.push(assessment.status as AssessmentStatus);
       }
     });
 
@@ -1235,7 +1255,7 @@ export class AssessmentOrchestrator {
 
     if (results.prohibitedLibraries?.matches?.length > 0) {
       const blockingCount = results.prohibitedLibraries.matches.filter(
-        (m: any) => m.severity === "BLOCKING",
+        (m: { severity: string }) => m.severity === "BLOCKING",
       ).length;
       if (blockingCount > 0) {
         parts.push(
@@ -1251,12 +1271,19 @@ export class AssessmentOrchestrator {
     return parts.join(" ");
   }
 
-  private generateRecommendations(results: any): string[] {
+  private generateRecommendations(
+    results: Partial<MCPDirectoryAssessment>,
+  ): string[] {
     const recommendations: string[] = [];
 
     // Aggregate recommendations from all assessments
-    Object.values(results).forEach((assessment: any) => {
-      if (assessment?.recommendations) {
+    Object.values(results).forEach((assessment) => {
+      if (
+        assessment &&
+        typeof assessment === "object" &&
+        "recommendations" in assessment &&
+        Array.isArray(assessment.recommendations)
+      ) {
         recommendations.push(...assessment.recommendations);
       }
     });

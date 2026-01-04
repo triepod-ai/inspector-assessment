@@ -186,8 +186,12 @@ export class SecurityAssessor extends BaseAssessor {
     const concurrency = this.config.maxParallelTests ?? 5;
     const limit = createConcurrencyLimit(concurrency);
 
-    // Progress tracking for batched events
-    const totalEstimate = toolsToTest.length * attackPatterns.length * 3; // ~3 payloads per pattern
+    // Progress tracking for batched events - pre-calculate exact payload count
+    let totalPayloads = 0;
+    for (const pattern of attackPatterns) {
+      totalPayloads += getPayloadsForAttack(pattern.attackName).length;
+    }
+    const totalEstimate = toolsToTest.length * totalPayloads;
     let completedTests = 0;
     let lastBatchTime = Date.now();
     const startTime = Date.now();
@@ -538,10 +542,11 @@ export class SecurityAssessor extends BaseAssessor {
         };
       }
 
-      // Execute tool call
+      // Execute tool call with configurable timeout (default 5000ms for fast payload testing)
+      const securityTimeout = this.config.securityTestTimeout ?? 5000;
       const response = await this.executeWithTimeout(
         callTool(tool.name, params),
-        5000,
+        securityTimeout,
       );
 
       // Check for connection errors FIRST (before vulnerability analysis)

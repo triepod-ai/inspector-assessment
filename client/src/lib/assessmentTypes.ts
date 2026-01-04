@@ -1427,6 +1427,8 @@ export interface ClaudeCodeConfig {
 
 export interface AssessmentConfiguration {
   testTimeout: number; // milliseconds
+  /** Security-specific test timeout in ms (default: 5000). Lower than testTimeout for fast payload testing. */
+  securityTestTimeout?: number;
   delayBetweenTests?: number; // milliseconds to wait between tests to avoid rate limiting
   skipBrokenTools: boolean;
   // Reviewer mode: simplify testing for Anthropic review workflow

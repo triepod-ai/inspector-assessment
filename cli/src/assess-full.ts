@@ -14,6 +14,14 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { EventEmitter } from "events";
+
+// Increase max listeners to prevent warning during security testing
+// Full assessment runs 234+ sequential tool calls (6 tools × 13 patterns × 3 payloads)
+// Each call may add listeners to the underlying socket
+EventEmitter.defaultMaxListeners = 300;
+process.setMaxListeners(300);
+
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";

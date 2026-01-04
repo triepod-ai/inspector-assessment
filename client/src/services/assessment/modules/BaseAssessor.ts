@@ -9,7 +9,7 @@ import {
 } from "@/lib/assessmentTypes";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 
-export abstract class BaseAssessor {
+export abstract class BaseAssessor<T = unknown> {
   protected config: AssessmentConfiguration;
   protected testCount: number = 0;
 
@@ -20,7 +20,7 @@ export abstract class BaseAssessor {
   /**
    * Abstract method that each assessor must implement
    */
-  abstract assess(context: AssessmentContext): Promise<any>;
+  abstract assess(context: AssessmentContext): Promise<T>;
 
   /**
    * Common method to determine status based on pass rate
