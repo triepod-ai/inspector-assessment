@@ -681,15 +681,17 @@ async function runModule(
     );
   }
 
-  // Emit module complete event
-  emitModuleComplete(
-    moduleName,
-    status as "PASS" | "FAIL" | "NEED_MORE_INFO",
-    score,
-    testsRun,
-    duration,
-    enrichment,
-  );
+  // Emit module complete event (skip for modules excluded via --skip-modules)
+  if (score !== null) {
+    emitModuleComplete(
+      moduleName,
+      status as "PASS" | "FAIL" | "NEED_MORE_INFO",
+      score,
+      testsRun,
+      duration,
+      enrichment,
+    );
+  }
 
   // Display module result
   console.log(`   ${getStatusIcon(status)} ${displayName}: ${status}`);
