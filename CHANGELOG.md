@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.8] - 2026-01-04
+
+### Fixed
+
+- **Workspace Dependency Bug Safeguards**: Added 4-layer defense-in-depth to prevent workspace packages from being incorrectly added to npm dependencies
+  - Unit tests in `package-structure.test.ts` (fail CI if workspace deps found)
+  - Pre-publish validation script `validate-publish.js` (blocks publish on violation)
+  - Post-publish CI workflow `verify-publish.yml` (verifies npm installation)
+  - Documentation in `CLAUDE.md` explaining workspace architecture
+
+- **Annotation Event False Positives**: Added confidence guards to event emission
+  - Reduced hardened-mcp misalignment events from 23 to 0
+  - Events now only emitted for medium/high confidence mismatches
+  - Low-confidence/ambiguous inferences trust explicit annotations
+
+- **Removed Workspace Packages from Dependencies**: Fixed critical npm installation bug
+  - Removed `@bryan-thompson/inspector-assessment-cli`, `-client`, `-server` from dependencies
+  - Removed `concurrently` and `ts-node` from runtime dependencies
+  - Workspace packages are bundled via `files` array, not npm resolution
+
+### Added
+
+- **Deception Detection Tests**: 47 new tests for annotation assessment
+  - High-confidence deception keyword detection (exec, install, delete)
+  - Low-confidence annotation trust scenarios
+  - Hardened testbed regression tests (23 tools, 0 false positives)
+
 ## [1.22.3] - 2026-01-03
 
 ### Fixed

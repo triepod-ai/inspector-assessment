@@ -18,7 +18,9 @@ import * as path from "path";
 // Find project root by looking for package.json with workspaces
 const findProjectRoot = (): string => {
   let dir = __dirname;
-  while (dir !== "/") {
+  let iterations = 0;
+  const maxIterations = 20; // Prevent infinite loops on edge cases
+  while (dir !== "/" && iterations < maxIterations) {
     const pkgPath = path.join(dir, "package.json");
     if (fs.existsSync(pkgPath)) {
       const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
@@ -27,6 +29,7 @@ const findProjectRoot = (): string => {
       }
     }
     dir = path.dirname(dir);
+    iterations++;
   }
   throw new Error("Could not find project root with workspaces");
 };

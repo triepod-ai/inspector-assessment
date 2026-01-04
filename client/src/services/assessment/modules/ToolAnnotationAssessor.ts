@@ -130,6 +130,14 @@ function containsKeyword(toolName: string, keywords: string[]): string | null {
 }
 
 /**
+ * Type guard for confidence levels that warrant event emission or status changes.
+ * Uses positive check for acceptable levels (safer than !== "low" if new levels added).
+ */
+function isActionableConfidence(confidence: string): boolean {
+  return confidence === "high" || confidence === "medium";
+}
+
+/**
  * Detect high-confidence annotation deception
  * Returns misalignment info if obvious deception detected, null otherwise
  */
@@ -686,7 +694,10 @@ export class ToolAnnotationAssessor extends BaseAssessor {
               isAmbiguous: inferred.isAmbiguous,
               reason: inferred.reason,
             });
-          } else if (!inferred.isAmbiguous && inferred.confidence !== "low") {
+          } else if (
+            !inferred.isAmbiguous &&
+            isActionableConfidence(inferred.confidence)
+          ) {
             // Emit misaligned only for medium/high-confidence mismatches
             // When inference is low-confidence/ambiguous, trust explicit annotation
             context.onProgress({
@@ -726,7 +737,10 @@ export class ToolAnnotationAssessor extends BaseAssessor {
               isAmbiguous: inferred.isAmbiguous,
               reason: inferred.reason,
             });
-          } else if (!inferred.isAmbiguous && inferred.confidence !== "low") {
+          } else if (
+            !inferred.isAmbiguous &&
+            isActionableConfidence(inferred.confidence)
+          ) {
             // Emit misaligned only for medium/high-confidence mismatches
             // When inference is low-confidence/ambiguous, trust explicit annotation
             context.onProgress({
@@ -1161,7 +1175,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
           // is handled in the `deception` block above, not here
           if (
             !inferredBehavior.isAmbiguous &&
-            inferredBehavior.confidence !== "low"
+            isActionableConfidence(inferredBehavior.confidence)
           ) {
             // Medium/high confidence mismatch: MISALIGNED
             alignmentStatus = "MISALIGNED";
@@ -1192,7 +1206,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     // Check for destructive tools without explicit hint (only for high-confidence patterns)
     if (
       inferredBehavior.expectedDestructive &&
-      inferredBehavior.confidence !== "low" &&
+      isActionableConfidence(inferredBehavior.confidence) &&
       annotations.destructiveHint !== true
     ) {
       issues.push(
