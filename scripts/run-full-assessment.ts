@@ -689,10 +689,15 @@ function saveResults(
   const defaultPath = `/tmp/inspector-full-assessment-${serverName}.json`;
   const finalPath = outputPath || defaultPath;
 
+  // Filter out undefined/skipped modules from results (--skip-modules support)
+  const filteredResults = Object.fromEntries(
+    Object.entries(results).filter(([_, v]) => v !== undefined),
+  );
+
   const output = {
     timestamp: new Date().toISOString(),
     assessmentType: "full",
-    ...results,
+    ...filteredResults,
   };
 
   fs.writeFileSync(finalPath, JSON.stringify(output, null, 2));

@@ -150,17 +150,17 @@ describe("moduleScoring", () => {
     });
 
     describe("edge cases", () => {
-      it("should return 50 for null input", () => {
-        expect(calculateModuleScore(null)).toBe(50);
+      it("should return null for null input (skipped module)", () => {
+        expect(calculateModuleScore(null)).toBeNull();
       });
 
-      it("should return 50 for undefined input", () => {
-        expect(calculateModuleScore(undefined)).toBe(50);
+      it("should return null for undefined input (skipped module)", () => {
+        expect(calculateModuleScore(undefined)).toBeNull();
       });
 
-      it("should return 50 for non-object input", () => {
-        expect(calculateModuleScore("string")).toBe(50);
-        expect(calculateModuleScore(123)).toBe(50);
+      it("should return null for non-object input (skipped module)", () => {
+        expect(calculateModuleScore("string")).toBeNull();
+        expect(calculateModuleScore(123)).toBeNull();
       });
 
       it("should return 50 for empty object", () => {

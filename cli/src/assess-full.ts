@@ -970,10 +970,15 @@ function saveResults(
 
   // For JSON format, add metadata wrapper
   if (format === "json") {
+    // Filter out undefined/skipped modules from results (--skip-modules support)
+    const filteredResults = Object.fromEntries(
+      Object.entries(results).filter(([_, v]) => v !== undefined),
+    );
+
     const output = {
       timestamp: new Date().toISOString(),
       assessmentType: "full",
-      ...results,
+      ...filteredResults,
       ...(policyReport ? { policyCompliance: policyReport } : {}),
     };
     fs.writeFileSync(finalPath, JSON.stringify(output, null, 2));

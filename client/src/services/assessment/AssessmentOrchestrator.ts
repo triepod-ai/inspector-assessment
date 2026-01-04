@@ -100,10 +100,13 @@ function emitModuleProgress(
   result: any,
   testsRun: number = 0,
 ): void {
-  const moduleKey = normalizeModuleKey(moduleName);
-
   // Calculate score using shared helper
   const score = calculateModuleScore(result);
+
+  // Don't emit events for skipped modules (null score means module wasn't run)
+  if (score === null) return;
+
+  const moduleKey = normalizeModuleKey(moduleName);
 
   // Calculate duration from module start time
   const startTime = moduleStartTimes.get(moduleKey);

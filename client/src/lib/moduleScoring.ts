@@ -17,9 +17,12 @@ export function normalizeModuleKey(moduleName: string): string {
  * Calculate module score from assessment result.
  * Handles different result shapes from different assessors.
  * This centralizes score calculation logic used by the orchestrator.
+ *
+ * Returns null for undefined/missing results (e.g., skipped modules via --skip-modules).
+ * Callers should check for null and skip emission/display for skipped modules.
  */
-export function calculateModuleScore(result: unknown): number {
-  if (!result || typeof result !== "object") return 50;
+export function calculateModuleScore(result: unknown): number | null {
+  if (!result || typeof result !== "object") return null;
   const r = result as Record<string, unknown>;
 
   // ErrorHandling module - uses metrics.mcpComplianceScore
