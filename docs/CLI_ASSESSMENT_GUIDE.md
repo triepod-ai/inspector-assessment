@@ -1,6 +1,6 @@
 # MCP Inspector CLI Assessment Guide
 
-**Version**: 1.22.0
+**Version**: 1.22.15
 **Status**: Stable
 **Target Audience**: MCP developers, CI/CD engineers, automated testing systems
 
@@ -1260,6 +1260,58 @@ Temporal testing invokes each tool multiple times and compares responses to dete
 
 ---
 
+### Option: Security Test Timeout
+
+**Purpose**: Optimize security testing speed by setting a shorter timeout specifically for payload-based security tests.
+
+**Configuration**:
+
+Add `securityTestTimeout` to your assessment configuration:
+
+```json
+{
+  "transport": "http",
+  "url": "http://localhost:8000/mcp",
+  "testTimeout": 30000,
+  "securityTestTimeout": 5000
+}
+```
+
+**Parameters**:
+
+| Parameter             | Type   | Default | Description                                                     |
+| --------------------- | ------ | ------- | --------------------------------------------------------------- |
+| `testTimeout`         | number | 30000   | General test timeout (applies to functionality tests)           |
+| `securityTestTimeout` | number | 5000    | Security-specific timeout for faster payload testing (optional) |
+
+**Explanation**:
+
+The SecurityAssessor tests multiple attack patterns and payloads against each tool. By setting a lower `securityTestTimeout` than the general `testTimeout`, you can:
+
+- Speed up security assessments (each payload test is limited to 5 seconds vs 30)
+- Maintain longer timeouts for functionality tests (30 seconds)
+- Improve overall assessment performance without sacrificing coverage
+
+**Performance Impact**:
+
+A security assessment with 12 tools and 20 patterns:
+
+- Without `securityTestTimeout`: 12 tools × 20 patterns × 30s = 7200s (2 hours max)
+- With `securityTestTimeout: 5000`: 12 tools × 20 patterns × 5s = 1200s (20 minutes max)
+
+**When to Use**:
+
+- Production assessments where speed is critical
+- CI/CD pipelines with time constraints
+- Large MCP servers with many tools
+- When tools are slow to respond but you want quick security validation
+
+**Default Behavior**:
+
+If `securityTestTimeout` is not specified, the SecurityAssessor uses `5000ms` as the default timeout for security tests.
+
+---
+
 ### Option: Output-Only JSON
 
 **Purpose**: Suppress console output, only output JSON file path
@@ -1404,7 +1456,7 @@ mcp-assess-full --server my-server --config config.json \
 
 ---
 
-**Version**: 1.22.0
-**Last Updated**: 2026-01-03
+**Version**: 1.22.15
+**Last Updated**: 2026-01-04
 **Status**: Stable
 **Maintainer**: Bryan Thompson (triepod-ai)

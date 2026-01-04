@@ -55,14 +55,19 @@ client/src/services/assessment/modules/
 
 ### Base Interfaces
 
-All assessment modules extend `BaseAssessor` and implement two core methods:
+All assessment modules extend `BaseAssessor` and implement the core `assess()` method:
 
 ```typescript
 /**
  * Base class for all assessment modules
  * Location: client/src/services/assessment/modules/BaseAssessor.ts
+ *
+ * Generic Type Parameter:
+ * - T (optional, defaults to unknown): Specifies the return type for type-safe assess() method
+ * - Enables compile-time type checking when implementing custom assessment modules
+ * - Usage: export class YourAssessor extends BaseAssessor<YourAssessmentType>
  */
-export abstract class BaseAssessor {
+export abstract class BaseAssessor<T = unknown> {
   protected config: AssessmentConfiguration;
   protected testCount: number = 0;
 
@@ -70,8 +75,8 @@ export abstract class BaseAssessor {
     this.config = config;
   }
 
-  // REQUIRED: Implement this abstract method
-  abstract assess(context: AssessmentContext): Promise<any>;
+  // REQUIRED: Implement this abstract method with proper return type
+  abstract assess(context: AssessmentContext): Promise<T>;
 
   // OPTIONAL: Override utility methods
   protected determineStatus(
@@ -1257,6 +1262,108 @@ async assess(context: AssessmentContext): Promise<YourNewAssessment> {
   return { /* ... */ };
 }
 ```
+
+### Pattern 6.5: Accurate Progress Estimation with selectedToolsForTesting
+
+When your assessment module respects the `selectedToolsForTesting` configuration option, ensure progress estimation only counts the selected tools:
+
+```typescript
+async assess(context: AssessmentContext): Promise<YourNewAssessment> {
+  // Get tools to actually test (respects selectedToolsForTesting config)
+  const toolsToTest = this.selectToolsForTesting(context.tools);
+
+  // Calculate correct total based on selected tools, NOT all tools
+  const correctTotal = toolsToTest.length * PATTERNS_PER_TOOL;
+
+  // Emit accurate module_started event
+  this.emitModuleStarted("yourModule", correctTotal, toolsToTest.length);
+
+  // Progress callback uses actual selected tools
+  for (let i = 0; i < toolsToTest.length; i++) {
+    const tool = toolsToTest[i];
+    await this.testTool(tool, context);
+
+    // Emit progress relative to SELECTED tool count, not total
+    context.onProgress?.({
+      type: "test_batch",
+      module: "yourModule",
+      completed: (i + 1) * PATTERNS_PER_TOOL,
+      total: correctTotal,
+      batchSize: PATTERNS_PER_TOOL,
+      elapsed: Date.now() - this.startTime,
+    });
+  }
+}
+
+// Helper method that respects selectedToolsForTesting
+private selectToolsForTesting(tools: Tool[]): Tool[] {
+  if (this.config.selectedToolsForTesting !== undefined) {
+    const selectedNames = new Set(this.config.selectedToolsForTesting);
+    return tools.filter((tool) => selectedNames.has(tool.name));
+  }
+  return tools;
+}
+```
+
+**Key Points**:
+
+- Always filter tools using `selectedToolsForTesting` before progress estimation
+- Calculate totals based on SELECTED tools, never all tools
+- Emit progress relative to selected tool count
+- This prevents progress bars from showing inaccurate completion percentages
+
+**Example Scenario**:
+
+If you have 50 tools but only selected 5 to test:
+
+- Incorrect: report "Test 10/100" (confusing - user thinks 90 tests remain)
+- Correct: report "Test 10/10" (clear - shows actual progress)
+
+### Pattern 6.6: Security Testing with Configurable Timeouts
+
+For SecurityAssessor-like modules that test multiple payloads, support the `securityTestTimeout` configuration:
+
+```typescript
+private async testPayloadAgainstTool(
+  tool: Tool,
+  payload: string,
+  context: AssessmentContext
+): Promise<SecurityTestResult> {
+  // Use security-specific timeout if configured (default 5000ms)
+  const timeout = this.config.securityTestTimeout ?? 5000;
+
+  try {
+    const result = await this.executeWithTimeout(
+      context.callTool(tool.name, { input: payload }),
+      timeout
+    );
+
+    return {
+      toolName: tool.name,
+      payload,
+      vulnerable: this.detectVulnerability(result),
+      responseTime: Date.now() - startTime,
+    };
+  } catch (error) {
+    if (error.message?.includes("timed out")) {
+      // Timeout may indicate vulnerability (e.g., ReDoS)
+      return {
+        toolName: tool.name,
+        payload,
+        vulnerable: true,
+        reason: `Timeout after ${timeout}ms - possible DoS vulnerability`,
+      };
+    }
+    throw error;
+  }
+}
+```
+
+**Configuration**:
+
+- `securityTestTimeout`: Optional timeout for payload-based security tests (default: 5000ms)
+- Allows faster security scanning by limiting time per payload test
+- Critical for servers with slow-responding tools
 
 ### Pattern 7: Source Code Analysis
 

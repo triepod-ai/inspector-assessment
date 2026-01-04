@@ -114,6 +114,19 @@ Advanced:   temporal, resources, prompts, crossCapability, authentication,
 - No command/SQL/path traversal execution
 - Proper input validation demonstrated
 
+**Configuration Options**:
+
+```typescript
+{
+  securityPatternsToTest?: number;    // Number of patterns to test (default 8)
+  enableDomainTesting?: boolean;      // Advanced testing (default true)
+  selectedToolsForTesting?: string[]; // Specific tools to test (default: all)
+  securityTestTimeout?: number;       // Per-payload timeout in ms (default: 5000)
+}
+```
+
+The `securityTestTimeout` option allows optimization of security assessment speed. It sets a timeout specifically for payload-based security tests, enabling faster scans on servers with slow-responding tools without impacting functionality test timeouts. See [CLI Assessment Guide](CLI_ASSESSMENT_GUIDE.md#option-security-test-timeout) for configuration examples.
+
 **Implementation**: `client/src/services/assessment/modules/SecurityAssessor.ts` (443 lines)
 
 ---
@@ -557,5 +570,5 @@ cat /tmp/inspector-assessment-*.json | jq '.overallStatus'
 
 ---
 
-**Version**: 1.9.0
-**Last Updated**: 2026-01-03 (Added selective module testing documentation)
+**Version**: 1.9.1
+**Last Updated**: 2026-01-04 (Added securityTestTimeout configuration documentation)
