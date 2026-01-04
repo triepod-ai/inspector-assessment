@@ -1,10 +1,22 @@
 # UI Component Reference: MCP Inspector Assessment Interface
 
-**Document Status**: Reference documentation for assessment UI architecture and component patterns.
+> **⚠️ DEPRECATION NOTICE (v1.23.0 - 2026-01-04)**
+>
+> The Assessment Tab UI has been deprecated and removed from the Inspector web interface.
+> This document is preserved for historical reference only.
+>
+> **Assessment functionality is now CLI-only** via:
+>
+> - `mcp-assess-full` - Full 11-module assessment
+> - `mcp-assess-security` - Security-focused assessment
+>
+> See [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md) for current usage.
 
-**Last Updated**: 2026-01-03
+**Document Status**: ~~Reference documentation for assessment UI architecture and component patterns.~~ **DEPRECATED**
 
-**Purpose**: This document provides a comprehensive reference for developers working with the MCP Inspector's assessment UI components, covering architecture, patterns, and extension guidelines.
+**Last Updated**: 2026-01-04
+
+**Purpose**: ~~This document provides a comprehensive reference for developers working with the MCP Inspector's assessment UI components, covering architecture, patterns, and extension guidelines.~~ **Historical reference only - UI components have been removed.**
 
 ---
 

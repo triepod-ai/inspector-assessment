@@ -4,9 +4,23 @@
 
 **Scope**: Complete step-by-step workflow for syncing with `https://github.com/modelcontextprotocol/inspector`
 
-**Last Updated**: 2026-01-03
+**Last Updated**: 2026-01-04
 **Current Upstream Version**: v0.18.0 (synced 2025-12-23)
-**Current Local Version**: 1.21.4
+**Current Local Version**: 1.23.1
+
+> **📋 UPDATE (v1.23.0 - 2026-01-04): Assessment Tab UI Deprecated**
+>
+> The Assessment Tab UI integration points (`[ASSESSMENT-INTEGRATION]` markers) documented in this
+> guide have been **removed** from `client/src/App.tsx`. Assessment functionality is now CLI-only.
+>
+> **What this means for upstream syncs:**
+>
+> - **No more UI integration conflicts** - App.tsx no longer has assessment-specific code
+> - **Simpler merges** - No need to preserve 6 integration points during upstream syncs
+> - **Historical reference** - The integration point documentation below is preserved for reference
+>
+> The assessment modules in `client/src/services/assessment/` remain untouched and are exported
+> via the npm package for programmatic use.
 
 ---
 

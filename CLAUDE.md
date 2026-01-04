@@ -17,6 +17,15 @@
 - Run tests: `npm test` (~1000 tests passing)
 - Run assessment tests: `npm test -- assessment` (assessment module tests)
 
+## Structured Logging (v1.23.1)
+
+- **Log levels**: `silent`, `error`, `warn`, `info` (default), `debug`
+- **CLI flags**: `--verbose` (debug), `--silent`, `--log-level <level>`
+- **Environment**: `LOG_LEVEL=<level>` (precedence: CLI > ENV > default)
+- **Output**: Logger → stdout, JSONL events → stderr (preserved)
+- **Documentation**: [docs/LOGGING_GUIDE.md](docs/LOGGING_GUIDE.md)
+- **Implementation**: `client/src/services/assessment/lib/logger.ts`
+
 ## Code Style Guidelines
 
 - Use TypeScript with proper type annotations

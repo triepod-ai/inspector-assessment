@@ -1,6 +1,6 @@
 # MCP Inspector CLI Assessment Guide
 
-**Version**: 1.22.15
+**Version**: 1.23.1
 **Status**: Stable
 **Target Audience**: MCP developers, CI/CD engineers, automated testing systems
 
@@ -33,11 +33,12 @@ mcp-assess-full --server memory-mcp --config /tmp/config.json
 
 1. [Three Assessment Modes](#three-assessment-modes)
 2. [Configuration Files](#configuration-files)
-3. [Output & Results](#output--results)
-4. [Common Use Cases](#common-use-cases)
-5. [JSONL Event Streaming](#jsonl-event-streaming)
-6. [Troubleshooting](#troubleshooting)
-7. [Advanced Options](#advanced-options)
+3. [Logging & Diagnostics](#logging--diagnostics)
+4. [Output & Results](#output--results)
+5. [Common Use Cases](#common-use-cases)
+6. [JSONL Event Streaming](#jsonl-event-streaming)
+7. [Troubleshooting](#troubleshooting)
+8. [Advanced Options](#advanced-options)
 
 ---
 
@@ -334,6 +335,152 @@ The inspector looks for server config in this order:
 3. **Claude Desktop config** - `~/.config/claude/claude_desktop_config.json`
 
 First match wins. If no config found, error is thrown with attempted paths.
+
+---
+
+## Logging & Diagnostics
+
+The inspector provides structured logging with configurable verbosity levels for development, debugging, and production use.
+
+### Log Levels
+
+| Level    | Description                      | Use Case                          |
+| -------- | -------------------------------- | --------------------------------- |
+| `silent` | No diagnostic output             | CI/CD pipelines, batch processing |
+| `error`  | Critical errors only             | Production monitoring             |
+| `warn`   | Warnings and errors              | Normal production use             |
+| `info`   | Standard progress info (default) | Development, manual runs          |
+| `debug`  | Detailed diagnostic output       | Troubleshooting, debugging        |
+
+### CLI Flags
+
+```bash
+# Enable verbose/debug logging
+mcp-assess-full --server my-server --verbose
+mcp-assess-full --server my-server -v
+
+# Suppress all diagnostic output
+mcp-assess-full --server my-server --silent
+
+# Set specific log level
+mcp-assess-full --server my-server --log-level debug
+mcp-assess-full --server my-server --log-level warn
+```
+
+### Environment Variable
+
+You can also set the log level via environment variable:
+
+```bash
+# Set via environment
+LOG_LEVEL=debug mcp-assess-full --server my-server
+
+# In CI/CD pipelines
+export LOG_LEVEL=silent
+mcp-assess-full --server my-server
+```
+
+### Precedence Order
+
+When multiple logging configurations are provided:
+
+1. **CLI flags** (highest priority): `--verbose`, `--silent`, `--log-level`
+2. **Environment variable**: `LOG_LEVEL`
+3. **Default**: `info`
+
+```bash
+# CLI flag wins over environment variable
+LOG_LEVEL=debug mcp-assess-full --server my-server --silent
+# Result: silent (CLI flag takes precedence)
+```
+
+### Output Examples
+
+**Default (info level):**
+
+```
+🔍 Starting full assessment for: my-server
+✅ Server config loaded
+✅ Connected to MCP server
+🔧 Found 12 tools
+🏃 Running assessment with 17 modules...
+```
+
+**Verbose (debug level):**
+
+```
+🔍 Starting full assessment for: my-server
+✅ Server config loaded
+✅ Connected to MCP server
+🔧 Found 12 tools
+🏃 Running assessment with 17 modules...
+[TemporalAssessor] Starting temporal assessment with 25 invocations per tool
+[TemporalAssessor] Testing add_memory with 25 invocations
+[TemporalAssessor] Testing get_memory with 25 invocations
+[FunctionalityAssessor] Testing tool: add_memory with params: {"key":"test","value":"hello"}
+[SecurityAssessor] Testing add_memory with all attack patterns
+[SecurityAssessor] Pattern: Command Injection - testing 8 payloads
+```
+
+**Silent mode:**
+
+```
+/tmp/inspector-full-assessment-my-server.json
+```
+
+Only the output file path is displayed (when combined with `--json`).
+
+### Logging vs JSONL Events
+
+The inspector has two distinct output streams:
+
+| Stream           | Destination | Purpose                    | Control                    |
+| ---------------- | ----------- | -------------------------- | -------------------------- |
+| **Logger**       | stdout      | Human-readable diagnostics | `--verbose`, `--silent`    |
+| **JSONL Events** | stderr      | Machine-parseable progress | Always emitted (see below) |
+
+**JSONL events** (`{"event":"module_started",...}`) are always emitted to stderr regardless of log level. This ensures automated tools can parse assessment progress even when diagnostic logging is suppressed.
+
+```bash
+# Capture JSONL events while suppressing diagnostic logs
+mcp-assess-full --server my-server --silent 2>events.jsonl
+
+# View only JSONL events (filter out logger output)
+mcp-assess-full --server my-server 2>&1 | grep '{"event"'
+```
+
+### Common Logging Scenarios
+
+**Development/Debugging:**
+
+```bash
+# Maximum verbosity for troubleshooting
+mcp-assess-full --server my-server --verbose
+```
+
+**CI/CD Pipeline:**
+
+```bash
+# Minimal output, capture JSONL for monitoring
+mcp-assess-full --server my-server --silent --json 2>events.jsonl
+```
+
+**Production Assessment:**
+
+```bash
+# Standard output with warnings
+mcp-assess-full --server my-server --log-level warn
+```
+
+**Batch Processing:**
+
+```bash
+# Silent with JSON output path only
+for server in server1 server2 server3; do
+  output=$(mcp-assess-full --server $server --silent --json)
+  echo "$server: $output"
+done
+```
 
 ---
 
@@ -1460,7 +1607,7 @@ mcp-assess-full --server my-server --config config.json \
 
 ---
 
-**Version**: 1.22.15
+**Version**: 1.23.1
 **Last Updated**: 2026-01-04
 **Status**: Stable
 **Maintainer**: Bryan Thompson (triepod-ai)

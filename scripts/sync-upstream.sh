@@ -243,9 +243,9 @@ do_merge() {
         print_error "Merge conflicts detected"
         echo -e "\n${BOLD}Conflict Resolution Guide:${NC}"
         echo -e "1. Check if conflicts are in $APP_TSX"
-        echo -e "2. If so, refer to UPSTREAM_SYNC.md for integration points"
-        echo -e "3. Keep our integration code (marked with [ASSESSMENT-INTEGRATION])"
-        echo -e "4. Accept upstream changes elsewhere"
+        echo -e "2. As of v1.23.0, App.tsx has NO assessment integration points"
+        echo -e "3. Accept upstream changes for App.tsx (no custom code to preserve)"
+        echo -e "4. Assessment modules in client/src/services/assessment/ are separate"
         echo -e "5. Run: git add . && git commit"
         echo -e "6. Then run: ./scripts/sync-upstream.sh validate"
         exit 1

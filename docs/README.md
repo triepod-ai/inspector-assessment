@@ -14,6 +14,15 @@ This directory contains comprehensive documentation for the MCP Inspector assess
 
 ---
 
+## Logging & Diagnostics
+
+| Document                                        | Purpose                                             |
+| ----------------------------------------------- | --------------------------------------------------- |
+| [Logging Guide](LOGGING_GUIDE.md)               | Structured logging configuration, CLI flags, levels |
+| [CLI Assessment Guide](CLI_ASSESSMENT_GUIDE.md) | Logging section with output examples                |
+
+---
+
 ## Core Assessment
 
 ### Assessment Modules
@@ -111,6 +120,7 @@ docs/
 │   └── temporal_assessor_security_summary.md
 ├── REVIEWER_QUICK_START.md                 # Quick start for reviewers
 ├── CLI_ASSESSMENT_GUIDE.md                 # CLI modes and options
+├── LOGGING_GUIDE.md                        # Structured logging configuration
 ├── ASSESSMENT_TYPES_IMPORT_GUIDE.md        # Modular types, imports, tree-shaking
 ├── ASSESSMENT_CATALOG.md                   # All 11 modules
 ├── SCORING_ALGORITHM_GUIDE.md              # Scoring details
@@ -136,4 +146,4 @@ docs/
 
 ---
 
-**Last Updated**: 2026-01-03
+**Last Updated**: 2026-01-04
