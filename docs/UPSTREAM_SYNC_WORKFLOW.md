@@ -534,15 +534,15 @@ npm run build && npm test
 
 ### Conflict Resolution Checklist
 
+> **Note (v1.23.0+)**: Assessment Tab UI has been deprecated. The checklist below applies to general App.tsx conflicts.
+
 - [ ] All conflict markers removed (`<<<<<<<`, `=======`, `>>>>>>>`)
-- [ ] All 6 integration points preserved in App.tsx
 - [ ] File syntax valid (no mismatched braces)
 - [ ] Imports are correct
-- [ ] State declarations match
-- [ ] Component rendering includes AssessmentTab
 - [ ] Build succeeds: `npm run build`
 - [ ] Tests pass: `npm test`
 - [ ] No console errors: `npm run dev` (check browser console)
+- [ ] CLI assessment works: `npm run assess:full -- --help`
 
 ---
 
@@ -616,44 +616,43 @@ npm test -- assessment
 npm test -- --updateSnapshot
 ```
 
-### 3. Assessment Tab Functionality Test
+### 3. CLI Assessment Functionality Test
+
+> **Note (v1.23.0+)**: Assessment is now CLI-only. The Assessment Tab UI has been deprecated.
+
+```bash
+# Test CLI help
+npm run assess:full -- --help
+
+# Run a quick assessment against a test server
+npm run assess -- --server test-server --config /tmp/test-config.json
+
+# Test CLI directly with npx (verifies npm package works)
+npx @bryan-thompson/inspector-assessment mcp-assess-full --help
+```
+
+**Verification Checklist**:
+
+1. CLI help displays correctly
+2. Assessment runs against a test server
+3. JSON output is valid: `cat /tmp/inspector-assessment-*.json | jq .overallStatus`
+4. Exit codes work: `echo $?` (0 for PASS, 1 for FAIL)
+
+### 4. Inspector UI Verification (Non-Assessment)
 
 ```bash
 # Start dev server
 npm run dev
 
-# In another terminal, wait for server to start
-sleep 5
-
-# Optional: Run specific assessment
-npm run assess -- --server test-server --config /tmp/test-config.json
+# In browser: http://localhost:6274
+# Verify core Inspector functionality works (tools, resources, prompts tabs)
 ```
 
-**In Browser**:
-
-1. Open http://localhost:6274
-2. Connect to a test MCP server
-3. Click "Assessment" tab
-4. Verify tab loads and tools are listed
-5. Run a quick assessment to verify functionality
-
-### 4. Integration Points Verification
-
-Verify all 6 integration points are preserved:
-
-```bash
-# Check each integration point
-grep -n "\[ASSESSMENT-INTEGRATION\]" client/src/App.tsx
-
-# Expected: 6 matches
-# Lines should match approximately:
-#  73: Import assessment layer
-#  134: isLoadingTools state
-#  378: Assessment tab in array
-#  1034: Auto-load tools handler
-#  1071: TabsTrigger
-#  1252: AssessmentTab render
-```
+> **Deprecated (v1.23.0)**: Integration Points Verification
+>
+> The 6 `[ASSESSMENT-INTEGRATION]` markers in App.tsx were removed in v1.23.0.
+> Assessment functionality is now in `client/src/services/assessment/` and CLI tools.
+> There are no longer any assessment-specific integration points to verify.
 
 ### 5. Upstream Compatibility Check
 
@@ -668,6 +667,18 @@ npm run build 2>&1 | grep -i deprecat || echo "No deprecations"
 ---
 
 ## Integration Point Reference
+
+> **DEPRECATED (v1.23.0)**: This section is preserved for historical reference only.
+> The Assessment Tab UI and its 6 integration points were removed in v1.23.0.
+> Assessment functionality is now CLI-only via `mcp-assess-full` and `mcp-assess-security`.
+>
+> **For current documentation, see:**
+>
+> - [PROGRAMMATIC_API_GUIDE.md](PROGRAMMATIC_API_GUIDE.md) - Programmatic API usage
+> - [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md) - CLI usage guide
+
+<details>
+<summary>Historical Reference: 6 Integration Points (Click to expand)</summary>
 
 This section documents all 6 integration points with code examples.
 
@@ -1007,6 +1018,8 @@ check_point "AssessmentTab.*tools=" "Tab content render"
 
 echo "Done!"
 ```
+
+</details>
 
 ---
 

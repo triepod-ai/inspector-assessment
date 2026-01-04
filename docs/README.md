@@ -14,6 +14,18 @@ This directory contains comprehensive documentation for the MCP Inspector assess
 
 ---
 
+## Programmatic API
+
+Integration documentation for using the npm package programmatically.
+
+| Document                                                    | Purpose                                          |
+| ----------------------------------------------------------- | ------------------------------------------------ |
+| [Programmatic API Guide](PROGRAMMATIC_API_GUIDE.md)         | Step-by-step guide for AssessmentOrchestrator    |
+| [Type Reference](TYPE_REFERENCE.md)                         | Complete TypeScript type reference               |
+| [Assessment Types Import](ASSESSMENT_TYPES_IMPORT_GUIDE.md) | Modular structure, import patterns, tree-shaking |
+
+---
+
 ## Logging & Diagnostics
 
 | Document                                        | Purpose                                             |
@@ -29,7 +41,6 @@ This directory contains comprehensive documentation for the MCP Inspector assess
 
 | Document                                                                  | Purpose                                            |
 | ------------------------------------------------------------------------- | -------------------------------------------------- |
-| [Assessment Types Import Guide](ASSESSMENT_TYPES_IMPORT_GUIDE.md)         | Modular structure, import patterns, tree-shaking   |
 | [Assessment Catalog](ASSESSMENT_CATALOG.md)                               | Complete 11-module reference (5 core + 6 extended) |
 | [Assessment Module Developer Guide](ASSESSMENT_MODULE_DEVELOPER_GUIDE.md) | Creating and extending assessment modules          |
 | [Scoring Algorithm Guide](SCORING_ALGORITHM_GUIDE.md)                     | Module weights, thresholds, calculations           |
@@ -120,6 +131,8 @@ docs/
 │   └── temporal_assessor_security_summary.md
 ├── REVIEWER_QUICK_START.md                 # Quick start for reviewers
 ├── CLI_ASSESSMENT_GUIDE.md                 # CLI modes and options
+├── PROGRAMMATIC_API_GUIDE.md               # AssessmentOrchestrator usage
+├── TYPE_REFERENCE.md                       # TypeScript type reference
 ├── LOGGING_GUIDE.md                        # Structured logging configuration
 ├── ASSESSMENT_TYPES_IMPORT_GUIDE.md        # Modular types, imports, tree-shaking
 ├── ASSESSMENT_CATALOG.md                   # All 11 modules
@@ -137,7 +150,7 @@ docs/
 ├── TESTBED_SETUP_GUIDE.md                  # Testbed setup
 ├── DVMCP_USAGE_GUIDE.md                    # DVMCP guide
 ├── PROGRESSIVE_COMPLEXITY_GUIDE.md         # Progressive testing
-├── UI_COMPONENT_REFERENCE.md               # UI components
+├── UI_COMPONENT_REFERENCE.md               # UI components (deprecated)
 ├── MANIFEST_REQUIREMENTS.md                # Manifest spec
 ├── UPSTREAM_SYNC_WORKFLOW.md               # Upstream sync
 ├── ARCHITECTURE_AND_VALUE.md               # Architecture overview
