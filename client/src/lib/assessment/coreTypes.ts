@@ -156,11 +156,26 @@ export function getAllModulesConfig(options: {
 
 /**
  * Persistence model for MCP servers (Three-Tier Classification).
- * Re-exported from annotationPatterns for backward compatibility.
  *
+ * These types are re-exported from the services layer for backward compatibility
+ * with existing imports from `@/lib/assessmentTypes`. This cross-layer import
+ * is intentional and documented:
+ *
+ * **Why cross-layer?**
+ * - PersistenceModel and ServerPersistenceContext are defined in
+ *   `services/assessment/config/annotationPatterns.ts` alongside the pattern
+ *   matching logic that uses them.
+ * - Moving the types here would create a circular dependency since the
+ *   annotationPatterns module needs to import its own types.
+ * - Type-only imports (`export type`) don't create runtime dependencies,
+ *   so this cross-layer reference is safe.
+ *
+ * **Type definitions:**
  * - "immediate": Write operations persist directly to storage (database, file, API)
  * - "deferred": Write operations are in-memory until explicit save operation
  * - "unknown": Cannot determine persistence model
+ *
+ * @see services/assessment/config/annotationPatterns.ts for implementation
  */
 export type {
   PersistenceModel,
