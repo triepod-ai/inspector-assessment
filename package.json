@@ -82,6 +82,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.24.3",
+    "commander": "^14.0.2",
     "node-fetch": "^3.3.2",
     "open": "^10.2.0",
     "p-limit": "^7.2.0",
