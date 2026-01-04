@@ -14,6 +14,7 @@ Complete TypeScript type reference for the programmatic API. All types are fully
 
 - [Overview](#overview)
 - [Import Patterns](#import-patterns)
+  - [Special Case: AssessmentContext](#special-case-assessmentcontext)
 - [Core Types](#core-types)
   - [AssessmentStatus](#assessmentstatus)
   - [SecurityRiskLevel](#securityrisklevel)
@@ -87,6 +88,37 @@ import type { MCPDirectoryAssessment } from "@bryan-thompson/inspector-assessmen
 // Progress events
 import type { ProgressEvent } from "@bryan-thompson/inspector-assessment/progress";
 ```
+
+### Special Case: AssessmentContext
+
+While most types are organized in the `/lib/assessment/` focused modules, `AssessmentContext` is exported from the **main entry point** alongside `AssessmentOrchestrator`:
+
+```typescript
+// AssessmentContext comes from the main entry point, NOT /types
+import {
+  AssessmentOrchestrator,
+  type AssessmentContext,
+} from "@bryan-thompson/inspector-assessment";
+```
+
+**Why?** `AssessmentContext` is defined in `AssessmentOrchestrator.ts` and is tightly coupled with the orchestrator class. This design ensures the context type is immediately available when you import the orchestrator.
+
+**Usage Example:**
+
+```typescript
+const orchestrator = new AssessmentOrchestrator(AUDIT_MODE_CONFIG);
+
+const context: AssessmentContext = {
+  serverName: "my-server",
+  tools,
+  callTool,
+  config: orchestrator.getConfig(),
+};
+
+const results = await orchestrator.runFullAssessment(context);
+```
+
+See [API Reference](API_REFERENCE.md) for complete `AssessmentContext` field documentation.
 
 ### Package Entry Points Reference
 
