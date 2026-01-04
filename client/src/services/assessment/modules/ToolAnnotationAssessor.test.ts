@@ -997,6 +997,175 @@ describe("ToolAnnotationAssessor", () => {
     });
   });
 
+  describe("Run Keyword Exemption for Analysis Tools (Issue #18)", () => {
+    it("should NOT flag runAccessibilityAudit with readOnlyHint=true as deceptive", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "runAccessibilityAudit",
+          description: "Runs accessibility audit and returns results",
+          readOnlyHint: true,
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+      expect(result.toolResults[0].issues).not.toContainEqual(
+        expect.stringContaining("DECEPTIVE"),
+      );
+    });
+
+    it("should NOT flag runSEOAudit with readOnlyHint=true as deceptive", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "runSEOAudit",
+          description: "Analyzes page for SEO improvements",
+          readOnlyHint: true,
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+    });
+
+    it("should NOT flag runPerformanceAudit with readOnlyHint=true as deceptive", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "runPerformanceAudit",
+          description: "Gets performance metrics for the page",
+          readOnlyHint: true,
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+    });
+
+    it("should NOT flag runAuditMode with readOnlyHint=true as deceptive", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "runAuditMode",
+          description: "Returns static audit workflow prompt",
+          readOnlyHint: true,
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+    });
+
+    it("should NOT flag runHealthCheck with readOnlyHint=true as deceptive", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "runHealthCheck",
+          description: "Checks service health status",
+          readOnlyHint: true,
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+    });
+
+    it("should STILL flag run_command with readOnlyHint=true as deceptive", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "run_command",
+          description: "Executes shell commands",
+          readOnlyHint: true,
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.toolResults[0].alignmentStatus).toBe("MISALIGNED");
+      expect(result.toolResults[0].issues).toContainEqual(
+        expect.stringContaining("DECEPTIVE"),
+      );
+    });
+
+    it("should STILL flag run_shell with readOnlyHint=true as deceptive", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "run_shell",
+          description: "Runs shell scripts",
+          readOnlyHint: true,
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+      expect(result.toolResults[0].alignmentStatus).toBe("MISALIGNED");
+    });
+
+    it("should STILL flag generic run_process without analysis suffix as deceptive", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "run_process",
+          description: "Runs a process",
+          readOnlyHint: true,
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+      expect(result.toolResults[0].alignmentStatus).toBe("MISALIGNED");
+    });
+
+    it("should handle exempt suffixes case-insensitively", async () => {
+      mockContext.tools = [
+        createMockToolWithAnnotations({
+          name: "RUNAUDIT",
+          description: "Runs an audit",
+          readOnlyHint: true,
+          destructiveHint: false,
+        }),
+      ];
+
+      const result = await assessor.assess(mockContext);
+      expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+    });
+
+    it("should handle all exempt suffixes", async () => {
+      const exemptTools = [
+        "runAudit",
+        "runCheck",
+        "runMode",
+        "runTest",
+        "runScan",
+        "runAnalyze",
+        "runReport",
+        "runStatus",
+        "runValidate",
+        "runVerify",
+        "runInspect",
+        "runLint",
+        "runBenchmark",
+        "runDiagnostic",
+      ];
+
+      for (const toolName of exemptTools) {
+        mockContext.tools = [
+          createMockToolWithAnnotations({
+            name: toolName,
+            description: `Performs ${toolName} operation`,
+            readOnlyHint: true,
+            destructiveHint: false,
+          }),
+        ];
+
+        const result = await assessor.assess(mockContext);
+        expect(result.toolResults[0].alignmentStatus).toBe("ALIGNED");
+      }
+    });
+  });
+
   describe("Low-Confidence Annotation Trust (Issue Fix)", () => {
     it("should trust explicit annotation when inference is low-confidence", async () => {
       // Tool with generic name (can't infer behavior) but explicit annotation

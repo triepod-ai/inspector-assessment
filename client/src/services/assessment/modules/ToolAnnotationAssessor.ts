@@ -96,6 +96,28 @@ const READONLY_CONTRADICTION_KEYWORDS = [
   "terminate",
 ];
 
+/**
+ * Suffixes that exempt "run" from readOnlyHint contradiction detection.
+ * Tools matching "run" + these suffixes are legitimately read-only (fetch analysis data).
+ * Issue #18: browser-tools-mcp uses runAccessibilityAudit, runSEOAudit, etc.
+ */
+const RUN_READONLY_EXEMPT_SUFFIXES = [
+  "audit", // runAccessibilityAudit, runPerformanceAudit, runSEOAudit
+  "check", // runHealthCheck, runSecurityCheck
+  "mode", // runAuditMode, runDebuggerMode
+  "test", // runTest, runUnitTest (analysis, not execution)
+  "scan", // runSecurityScan, runVulnerabilityScan
+  "analyze", // runAnalyze, runCodeAnalyze
+  "report", // runReport, runStatusReport
+  "status", // runStatus, runHealthStatus
+  "validate", // runValidate, runSchemaValidate
+  "verify", // runVerify, runIntegrityVerify
+  "inspect", // runInspect, runCodeInspect
+  "lint", // runLint, runEslint
+  "benchmark", // runBenchmark, runPerfBenchmark
+  "diagnostic", // runDiagnostic
+];
+
 /** Keywords that contradict destructiveHint=false (these tools delete/destroy data) */
 const DESTRUCTIVE_CONTRADICTION_KEYWORDS = [
   "delete",
@@ -130,6 +152,23 @@ function containsKeyword(toolName: string, keywords: string[]): string | null {
 }
 
 /**
+ * Check if a tool name with "run" keyword is exempt from readOnlyHint contradiction.
+ * Tools like "runAccessibilityAudit" are genuinely read-only (fetch analysis data).
+ * Issue #18: Prevents false positives for analysis/audit tools.
+ */
+function isRunKeywordExempt(toolName: string): boolean {
+  const lowerName = toolName.toLowerCase();
+  // Only applies when "run" is detected
+  if (!lowerName.includes("run")) {
+    return false;
+  }
+  // Check if any exempt suffix is present
+  return RUN_READONLY_EXEMPT_SUFFIXES.some((suffix) =>
+    lowerName.includes(suffix),
+  );
+}
+
+/**
  * Type guard for confidence levels that warrant event emission or status changes.
  * Uses positive check for acceptable levels (safer than !== "low" if new levels added).
  */
@@ -153,11 +192,18 @@ function detectAnnotationDeception(
   if (annotations.readOnlyHint === true) {
     const keyword = containsKeyword(toolName, READONLY_CONTRADICTION_KEYWORDS);
     if (keyword) {
-      return {
-        field: "readOnlyHint",
-        matchedKeyword: keyword,
-        reason: `Tool name contains '${keyword}' but claims readOnlyHint=true - this is likely deceptive`,
-      };
+      // Issue #18: Skip deception flagging for "run" + analysis suffix combinations
+      // Tools like "runAccessibilityAudit" are genuinely read-only
+      if (keyword === "run" && isRunKeywordExempt(toolName)) {
+        // Tool matches "run" but has an analysis suffix - not deceptive
+        // Fall through to normal pattern-based inference
+      } else {
+        return {
+          field: "readOnlyHint",
+          matchedKeyword: keyword,
+          reason: `Tool name contains '${keyword}' but claims readOnlyHint=true - this is likely deceptive`,
+        };
+      }
     }
   }
 
@@ -1432,6 +1478,19 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     isAmbiguous: boolean;
   } {
     const lowerDesc = (description || "").toLowerCase();
+
+    // Issue #18: Early check for run + analysis suffix pattern
+    // Tools like "runAccessibilityAudit" are genuinely read-only (fetch analysis data)
+    // Check this BEFORE pattern matching to override the generic "run_" write pattern
+    if (isRunKeywordExempt(toolName)) {
+      return {
+        expectedReadOnly: true,
+        expectedDestructive: false,
+        reason: `Tool name contains 'run' with analysis suffix (audit, check, scan, etc.) - this is a read-only analysis operation`,
+        confidence: "medium",
+        isAmbiguous: false,
+      };
+    }
 
     // Use the configurable pattern matching system
     const patternMatch = matchToolPattern(toolName, this.compiledPatterns);
