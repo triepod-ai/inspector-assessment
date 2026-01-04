@@ -2,6 +2,9 @@
 
 > **Version**: 1.23.1+
 > **Last Updated**: 2026-01-04
+>
+> **Related Documentation:**
+> [Programmatic API Guide](PROGRAMMATIC_API_GUIDE.md) | [API Reference](API_REFERENCE.md) | [Integration Guide](INTEGRATION_GUIDE.md)
 
 Complete TypeScript type reference for the programmatic API. All types are fully exported and designed for type-safe integration.
 

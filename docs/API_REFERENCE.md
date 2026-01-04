@@ -6,6 +6,7 @@ Complete API documentation for `@bryan-thompson/inspector-assessment` programmat
 >
 > - [Programmatic API Guide](PROGRAMMATIC_API_GUIDE.md) - Step-by-step integration examples
 > - [Type Reference](TYPE_REFERENCE.md) - Complete TypeScript type definitions
+> - [Integration Guide](INTEGRATION_GUIDE.md) - Practical patterns for multi-server, CI/CD
 > - [Assessment Types Import Guide](ASSESSMENT_TYPES_IMPORT_GUIDE.md) - Modular imports and tree-shaking
 
 ---
@@ -294,12 +295,14 @@ The context object passed to `runFullAssessment()` containing server connection 
 
 ### Required Fields
 
-| Field        | Type                                                                         | Description                       |
-| ------------ | ---------------------------------------------------------------------------- | --------------------------------- |
-| `serverName` | `string`                                                                     | Identifier for the MCP server     |
-| `tools`      | `Tool[]`                                                                     | Array of tools from `tools/list`  |
-| `callTool`   | `(name: string, params: Record<string, unknown>) => Promise<CallToolResult>` | Function to invoke tool execution |
-| `config`     | `AssessmentConfiguration`                                                    | Assessment configuration          |
+| Field        | Type                                                                                      | Description                       |
+| ------------ | ----------------------------------------------------------------------------------------- | --------------------------------- |
+| `serverName` | `string`                                                                                  | Identifier for the MCP server     |
+| `tools`      | `Tool[]`                                                                                  | Array of tools from `tools/list`  |
+| `callTool`   | `(name: string, params: Record<string, unknown>) => Promise<CompatibilityCallToolResult>` | Function to invoke tool execution |
+| `config`     | `AssessmentConfiguration`                                                                 | Assessment configuration          |
+
+> **Note**: `CompatibilityCallToolResult` is from `@modelcontextprotocol/sdk/types.js` with structure `{ content: any[]; isError?: boolean }`.
 
 ### Optional Fields
 
@@ -586,12 +589,14 @@ During assessment, progress events are emitted to stderr in JSONL format.
 
 ### Event Types
 
-| Event                 | Description                |
-| --------------------- | -------------------------- |
-| `module_started`      | Module begins execution    |
-| `module_complete`     | Module finishes with score |
-| `test_progress`       | Batch of test results      |
-| `assessment_complete` | Final results available    |
+| Event                 | Description                       |
+| --------------------- | --------------------------------- |
+| `module_started`      | Module begins execution           |
+| `test_batch`          | Batch of test results (real-time) |
+| `module_complete`     | Module finishes with score        |
+| `assessment_complete` | Final results available           |
+
+> For the full list of 13 event types, see [JSONL Events Reference](JSONL_EVENTS_REFERENCE.md).
 
 ### Capturing Events
 

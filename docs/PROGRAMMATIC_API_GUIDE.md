@@ -2,6 +2,9 @@
 
 > **Version**: 1.23.1+
 > **Last Updated**: 2026-01-04
+>
+> **Related Documentation:**
+> [API Reference](API_REFERENCE.md) | [Type Reference](TYPE_REFERENCE.md) | [Integration Guide](INTEGRATION_GUIDE.md)
 
 Step-by-step guide for using AssessmentOrchestrator programmatically. This is the primary way to integrate MCP server assessment into your own tools.
 
@@ -225,10 +228,11 @@ Runs a complete assessment on an MCP server.
 
 **Execution Flow:**
 
-1. Phase 0: Temporal assessment (always first for clean baseline)
-2. Phase 1: Core modules (functionality, security, docs, errors, usability)
-3. Phase 2: Extended modules (if enabled)
-4. Phase 3: Result aggregation and scoring
+1. **Phase 0 (Temporal)**: Temporal assessment runs first for clean baseline
+2. **Phase 1 (Core)**: Core modules (functionality, security, docs, errors, usability)
+3. **Phase 2 (Extended)**: Extended modules execute if enabled
+4. **Phase 3 (Aggregation)**: Temporal findings integrated into security results
+5. **Phase 4 (Finalization)**: Overall status, summary, and recommendations
 
 ### Configuration Methods
 
@@ -275,33 +279,37 @@ if (bridge) {
 
 ### Required Fields
 
-| Field        | Type                      | Description                              |
-| ------------ | ------------------------- | ---------------------------------------- |
-| `serverName` | `string`                  | Name for identification and reporting    |
-| `tools`      | `Tool[]`                  | Array of tools from `client.listTools()` |
-| `callTool`   | `function`                | Function to call tools on the server     |
-| `config`     | `AssessmentConfiguration` | Assessment configuration                 |
+| Field        | Type                                                     | Description                                           |
+| ------------ | -------------------------------------------------------- | ----------------------------------------------------- |
+| `serverName` | `string`                                                 | Name for identification and reporting                 |
+| `tools`      | `Tool[]`                                                 | Array of tools from `client.listTools()`              |
+| `callTool`   | `(name, params) => Promise<CompatibilityCallToolResult>` | Function to call tools (MCP SDK standard return type) |
+| `config`     | `AssessmentConfiguration`                                | Assessment configuration                              |
+
+> **Note**: `CompatibilityCallToolResult` is imported from `@modelcontextprotocol/sdk/types.js` and contains `{ content: any[]; isError?: boolean }`.
 
 ### Optional Fields
 
-| Field                | Type                    | Description                                 |
-| -------------------- | ----------------------- | ------------------------------------------- |
-| `readmeContent`      | `string`                | README content for documentation assessment |
-| `packageJson`        | `unknown`               | package.json for dependency analysis        |
-| `sourceCodePath`     | `string`                | Path for source code analysis               |
-| `sourceCodeFiles`    | `Map<string, string>`   | Pre-loaded source files                     |
-| `manifestJson`       | `ManifestJsonSchema`    | MCPB manifest for validation                |
-| `manifestRaw`        | `string`                | Raw manifest.json content                   |
-| `resources`          | `MCPResource[]`         | MCP resources to assess                     |
-| `resourceTemplates`  | `MCPResourceTemplate[]` | Resource templates                          |
-| `prompts`            | `MCPPrompt[]`           | MCP prompts to assess                       |
-| `serverCapabilities` | `MCPServerCapabilities` | Server capabilities                         |
-| `transportConfig`    | `object`                | Transport details for security              |
-| `onProgress`         | `ProgressCallback`      | Real-time progress events                   |
-| `readResource`       | `function`              | Function to read resources                  |
-| `getPrompt`          | `function`              | Function to get prompts                     |
-| `listTools`          | `function`              | Function to refresh tool list               |
-| `serverInfo`         | `object`                | Server name/version info                    |
+| Field                | Type                                                 | Description                                     |
+| -------------------- | ---------------------------------------------------- | ----------------------------------------------- |
+| `readmeContent`      | `string`                                             | README content for documentation assessment     |
+| `packageJson`        | `unknown`                                            | package.json for dependency analysis            |
+| `packageLock`        | `unknown`                                            | package-lock.json for dependency analysis       |
+| `privacyPolicy`      | `unknown`                                            | Privacy policy content for AUP compliance       |
+| `serverInfo`         | `{ name: string; version?: string; metadata?: any }` | Server name/version info                        |
+| `sourceCodePath`     | `string`                                             | Path for source code analysis                   |
+| `sourceCodeFiles`    | `Map<string, string>`                                | Pre-loaded source files (filename → content)    |
+| `manifestJson`       | `ManifestJsonSchema`                                 | MCPB manifest for validation                    |
+| `manifestRaw`        | `string`                                             | Raw manifest.json content                       |
+| `onProgress`         | `ProgressCallback`                                   | Real-time progress events callback              |
+| `resources`          | `MCPResource[]`                                      | MCP resources to assess                         |
+| `resourceTemplates`  | `MCPResourceTemplate[]`                              | Resource templates                              |
+| `prompts`            | `MCPPrompt[]`                                        | MCP prompts to assess                           |
+| `serverCapabilities` | `MCPServerCapabilities`                              | Server capabilities                             |
+| `readResource`       | `(uri: string) => Promise<string>`                   | Function to read resources                      |
+| `getPrompt`          | `(name, args) => Promise<{ messages: [...] }>`       | Function to get prompts                         |
+| `transportConfig`    | `{ type, url?, usesTLS?, oauthEnabled? }`            | Transport details for security assessment       |
+| `listTools`          | `() => Promise<Tool[]>`                              | Function to refresh tool list (temporal checks) |
 
 ---
 
