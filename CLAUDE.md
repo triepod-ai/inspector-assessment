@@ -426,9 +426,9 @@ For detailed documentation on specific features:
 
 **UI Components:**
 
-- `client/src/components/AssessmentTab.tsx` - Main assessment interface
-- `client/src/components/ExtendedAssessmentCategories.tsx` - Assessment results display
 - `client/src/components/ui/tool-selector.tsx` - Multi-select tool picker for error handling
+
+> **Note**: Assessment Tab UI was deprecated in v1.23.0. Assessment functionality is now CLI-only via `mcp-assess-full` and `mcp-assess-security` commands.
 
 **Testing:**
 
@@ -858,11 +858,11 @@ npm run sync:upstream
 
 **Integration Architecture:**
 
-Our assessment enhancements are isolated from upstream code:
+Assessment functionality is CLI-only (v1.23.0+):
 
-- **Only 6 integration points** in `client/src/App.tsx` (marked with `[ASSESSMENT-INTEGRATION]`)
-- **Integration layer**: `client/src/integrations/assessment.ts` centralizes all coupling
-- **Feature flags**: `client/src/lib/featureFlags.ts` for optional enablement
+- **No UI integration points** - Assessment Tab UI was deprecated
+- **CLI tools**: `mcp-assess-full` and `mcp-assess-security` are the primary interfaces
 - **~160k lines** of assessment code in dedicated directories (no upstream conflicts)
+- **npm package**: Assessment modules exported for programmatic use via `@bryan-thompson/inspector-assessment`
 
-See [docs/UPSTREAM_SYNC_WORKFLOW.md](docs/UPSTREAM_SYNC_WORKFLOW.md) for detailed sync workflow and integration point documentation.
+See [docs/UPSTREAM_SYNC_WORKFLOW.md](docs/UPSTREAM_SYNC_WORKFLOW.md) for sync workflow documentation.

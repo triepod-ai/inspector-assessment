@@ -70,14 +70,6 @@ import RootsTab from "./components/RootsTab";
 import SamplingTab, { PendingRequest } from "./components/SamplingTab";
 import Sidebar from "./components/Sidebar";
 import ToolsTab from "./components/ToolsTab";
-// [ASSESSMENT-INTEGRATION] Assessment integration layer - see UPSTREAM_SYNC.md
-import {
-  AssessmentTab,
-  ASSESSMENT_TAB_CONFIG,
-  getAssessmentTab,
-  handleAssessmentTabSelect,
-} from "./integrations/assessment";
-import { FEATURES } from "./lib/featureFlags";
 import { InspectorConfig } from "./lib/configurationTypes";
 import {
   getMCPProxyAddress,
@@ -131,8 +123,6 @@ const App = () => {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [promptContent, setPromptContent] = useState<string>("");
   const [tools, setTools] = useState<Tool[]>([]);
-  // [ASSESSMENT-INTEGRATION] Track tool loading state for AssessmentTab
-  const [isLoadingTools, setIsLoadingTools] = useState(false);
   const [toolResult, setToolResult] =
     useState<CompatibilityCallToolResult | null>(null);
   const [errors, setErrors] = useState<Record<string, string | null>>({
@@ -375,11 +365,6 @@ const App = () => {
         ...(serverCapabilities?.resources ? ["resources"] : []),
         ...(serverCapabilities?.prompts ? ["prompts"] : []),
         ...(serverCapabilities?.tools ? ["tools"] : []),
-        // [ASSESSMENT-INTEGRATION] Use integration layer with feature flag
-        ...(FEATURES.ASSESSMENT_TAB
-          ? getAssessmentTab(serverCapabilities)
-          : []),
-        // [/ASSESSMENT-INTEGRATION]
         "ping",
         "sampling",
         "elicitations",
@@ -837,22 +822,17 @@ const App = () => {
   };
 
   const listTools = async () => {
-    setIsLoadingTools(true);
-    try {
-      const response = await sendMCPRequest(
-        {
-          method: "tools/list" as const,
-          params: nextToolCursor ? { cursor: nextToolCursor } : {},
-        },
-        ListToolsResultSchema,
-        "tools",
-      );
-      setTools(response.tools);
-      setNextToolCursor(response.nextCursor);
-      cacheToolOutputSchemas(response.tools);
-    } finally {
-      setIsLoadingTools(false);
-    }
+    const response = await sendMCPRequest(
+      {
+        method: "tools/list" as const,
+        params: nextToolCursor ? { cursor: nextToolCursor } : {},
+      },
+      ListToolsResultSchema,
+      "tools",
+    );
+    setTools(response.tools);
+    setNextToolCursor(response.nextCursor);
+    cacheToolOutputSchemas(response.tools);
   };
 
   const callTool = async (
@@ -1027,23 +1007,9 @@ const App = () => {
             <Tabs
               value={activeTab}
               className="w-full p-4"
-              onValueChange={async (value) => {
+              onValueChange={(value) => {
                 setActiveTab(value);
                 window.location.hash = value;
-
-                // [ASSESSMENT-INTEGRATION] Auto-load tools when assessment tab is selected
-                if (
-                  value === ASSESSMENT_TAB_CONFIG.id &&
-                  FEATURES.ASSESSMENT_TAB
-                ) {
-                  await handleAssessmentTabSelect(
-                    tools,
-                    serverCapabilities,
-                    listTools,
-                    clearError,
-                  );
-                }
-                // [/ASSESSMENT-INTEGRATION]
               }}
             >
               <TabsList className="mb-4 py-0">
@@ -1068,19 +1034,6 @@ const App = () => {
                   <Hammer className="w-4 h-4 mr-2" />
                   Tools
                 </TabsTrigger>
-                {/* [ASSESSMENT-INTEGRATION] Assessment tab trigger */}
-                {FEATURES.ASSESSMENT_TAB && (
-                  <TabsTrigger
-                    value={ASSESSMENT_TAB_CONFIG.id}
-                    disabled={!serverCapabilities?.tools}
-                  >
-                    <ASSESSMENT_TAB_CONFIG.Icon
-                      className={ASSESSMENT_TAB_CONFIG.iconClassName}
-                    />
-                    {ASSESSMENT_TAB_CONFIG.label}
-                  </TabsTrigger>
-                )}
-                {/* [/ASSESSMENT-INTEGRATION] */}
                 <TabsTrigger value="ping">
                   <Bell className="w-4 h-4 mr-2" />
                   Ping
@@ -1249,27 +1202,6 @@ const App = () => {
                         readResource(uri);
                       }}
                     />
-                    {/* [ASSESSMENT-INTEGRATION] Assessment tab content */}
-                    {FEATURES.ASSESSMENT_TAB && (
-                      <AssessmentTab
-                        tools={tools}
-                        isLoadingTools={isLoadingTools}
-                        listTools={() => {
-                          clearError("tools");
-                          listTools();
-                        }}
-                        callTool={async (name, params) => {
-                          const result = await callTool(name, params);
-                          return result;
-                        }}
-                        serverName={
-                          transportType === "stdio"
-                            ? command || "MCP Server"
-                            : ""
-                        }
-                      />
-                    )}
-                    {/* [/ASSESSMENT-INTEGRATION] */}
                     <ConsoleTab />
                     <PingTab
                       onPingClick={() => {
