@@ -139,13 +139,26 @@ const DESTRUCTIVE_CONTRADICTION_KEYWORDS = [
 
 /**
  * Check if a tool name contains any of the given keywords (case-insensitive)
- * Looks for keywords anywhere in the name, not just as prefixes
+ * Uses word segment matching to avoid false positives (e.g., "put" in "output")
+ * Issue #25: Substring matching caused false positives for words like "output", "input", "compute"
+ *
+ * Handles: camelCase (putFile), snake_case (put_file), kebab-case (put-file), PascalCase (PutFile)
  */
 function containsKeyword(toolName: string, keywords: string[]): string | null {
-  const lowerName = toolName.toLowerCase();
+  // Normalize camelCase/PascalCase by inserting separator before uppercase letters
+  // "putFile" → "put_File", "updateUser" → "update_User", "GetOutput" → "Get_Output"
+  const normalized = toolName.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase();
+
+  // Split by common separators (underscore, hyphen)
+  const segments = normalized.split(/[_-]/);
+
   for (const keyword of keywords) {
-    if (lowerName.includes(keyword)) {
-      return keyword;
+    for (const segment of segments) {
+      // Match if segment equals keyword or starts with keyword
+      // This handles: "exec" matches "exec" segment, "exec_command" segment starts with "exec"
+      if (segment === keyword || segment.startsWith(keyword)) {
+        return keyword;
+      }
     }
   }
   return null;
