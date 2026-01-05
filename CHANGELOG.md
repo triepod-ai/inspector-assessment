@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.5] - 2026-01-05
+
+### Fixed
+
+- **Word Boundary Matching for Keyword Detection** (Issue #25): Fixed false positives in readOnlyHint misalignment detector
+  - Tools with names containing keywords as substrings were incorrectly flagged (e.g., "put" in "output", "input", "compute")
+  - Changed `containsKeyword()` function from substring matching (`.includes()`) to word segment matching
+  - Now properly handles camelCase (`putFile`), snake_case (`put_file`), kebab-case (`put-file`), and PascalCase (`PutFile`)
+  - False positives now correctly avoided: `getOutput`, `computeHash`, `formatInput`, `throughputStats`
+  - True positives still detected: `putFile`, `put_object`, `updateUser`
+
+### Added
+
+- **Word Boundary Regression Tests**: 7 new test cases for Issue #25 fix
+  - 4 tests for false positive prevention (substring cases)
+  - 3 tests for correct detection (whole word cases)
+
 ## [1.22.15] - 2026-01-04
 
 ### Added
