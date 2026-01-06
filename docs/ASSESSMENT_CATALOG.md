@@ -221,9 +221,9 @@ The `securityTestTimeout` option allows optimization of security assessment spee
 
 ---
 
-## Extended Modules (MCP Directory Compliance)
+## Core Modules: MCP Directory Compliance
 
-These modules validate compliance with Anthropic's MCP Directory Policy requirements.
+These core modules validate compliance with Anthropic's MCP Directory Policy requirements.
 
 ### 6. MCP Spec Compliance
 
