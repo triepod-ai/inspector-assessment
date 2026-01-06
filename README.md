@@ -95,36 +95,32 @@ For complete CLI documentation, see [CLI Assessment Guide](docs/CLI_ASSESSMENT_G
 
 ## Assessment Modules (17 Total)
 
-### Core Modules (5)
+### Core Modules (15)
 
-| Module             | Purpose                    | Key Features                                        |
-| ------------------ | -------------------------- | --------------------------------------------------- |
-| **Functionality**  | Tool execution validation  | Multi-scenario testing, business logic detection    |
-| **Security**       | Vulnerability detection    | Comprehensive attack patterns, zero false positives |
-| **Documentation**  | README/description quality | Completeness scoring, example validation            |
-| **Error Handling** | MCP protocol compliance    | Error code validation, response quality             |
-| **Usability**      | Developer experience       | Naming conventions, schema completeness             |
+| Module                   | Purpose                      | Key Features                                        |
+| ------------------------ | ---------------------------- | --------------------------------------------------- |
+| **Functionality**        | Tool execution validation    | Multi-scenario testing, business logic detection    |
+| **Security**             | Vulnerability detection      | Comprehensive attack patterns, zero false positives |
+| **Documentation**        | README/description quality   | Completeness scoring, example validation            |
+| **Error Handling**       | MCP protocol compliance      | Error code validation, response quality             |
+| **Usability**            | Developer experience         | Naming conventions, schema completeness             |
+| **MCP Spec Compliance**  | Protocol adherence           | JSON-RPC 2.0, MCP message formats                   |
+| **AUP Compliance**       | Policy violation detection   | 14 AUP categories (A-N)                             |
+| **Tool Annotations**     | readOnlyHint/destructiveHint | Policy #17 compliance                               |
+| **Prohibited Libraries** | Dependency security          | Blocked packages (Stripe, FFmpeg, etc.)             |
+| **External API Scanner** | External service detection   | API URLs, affiliation warnings                      |
+| **Authentication**       | OAuth/auth evaluation        | Auth pattern validation, deployment context         |
+| **Temporal**             | Rug pull detection           | Behavior changes over invocations                   |
+| **Resources**            | Resource capability          | Discovery, read success, errors                     |
+| **Prompts**              | Prompt capability            | Execution, multimodal support                       |
+| **Cross-Capability**     | Chained vulnerabilities      | Multi-tool attack patterns                          |
 
-### Extended Modules (6) - MCP Directory Compliance
+### Optional Modules (2) - MCPB Bundles
 
-| Module                   | Purpose                      | Policy Alignment                        |
-| ------------------------ | ---------------------------- | --------------------------------------- |
-| **MCP Spec Compliance**  | Protocol adherence           | JSON-RPC 2.0, MCP message formats       |
-| **AUP Compliance**       | Policy violation detection   | 14 AUP categories (A-N)                 |
-| **Tool Annotations**     | readOnlyHint/destructiveHint | Policy #17 compliance                   |
-| **Prohibited Libraries** | Dependency security          | Blocked packages (Stripe, FFmpeg, etc.) |
-| **Manifest Validation**  | MCPB manifest.json           | manifest_version 0.3 spec               |
-| **Portability**          | Cross-platform compatibility | Hardcoded paths, platform-specific code |
-
-### Advanced Modules (5)
-
-| Module                   | Purpose                    | Features                          |
-| ------------------------ | -------------------------- | --------------------------------- |
-| **External API Scanner** | External service detection | API URLs, affiliation warnings    |
-| **Temporal**             | Rug pull detection         | Behavior changes over invocations |
-| **Resources**            | Resource capability        | Discovery, read success, errors   |
-| **Prompts**              | Prompt capability          | Execution, multimodal support     |
-| **Cross-Capability**     | Chained vulnerabilities    | Multi-tool attack patterns        |
+| Module                  | Purpose                      | Policy Alignment                        |
+| ----------------------- | ---------------------------- | --------------------------------------- |
+| **Manifest Validation** | MCPB manifest.json           | manifest_version 0.3 spec               |
+| **Portability**         | Cross-platform compatibility | Hardcoded paths, platform-specific code |
 
 For detailed module documentation, see [Assessment Catalog](docs/ASSESSMENT_CATALOG.md).
 
