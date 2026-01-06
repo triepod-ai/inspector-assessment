@@ -69,7 +69,10 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
       },
       {
         payload: "ls -la",
-        evidence: /(total|drwx|rwx|-rw-|permissions|directory)/i,
+        // Issue #27: Tighten pattern to require ls -la specific context
+        // Avoids false positives from "X total in memory" tool status messages
+        evidence:
+          /(total\s+\d+\s*$|^[d-][rwx-]{9}\s+\d+|drwxr|permissions\s+denied)/im,
         riskLevel: "HIGH",
         description: "Directory listing command",
         payloadType: "injection",

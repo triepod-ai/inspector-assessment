@@ -1613,6 +1613,10 @@ export class SecurityAssessor extends BaseAssessor {
   private isReflectionResponse(responseText: string): boolean {
     // Status message patterns (NEW)
     const statusPatterns = [
+      // Issue #27: Tool statistics/metrics messages (not command execution)
+      // Prevents false positives from "1000 total in memory" style responses
+      /\d+\s+total\s+(in\s+)?(memory|storage|items|results)/i,
+      /\d+\s+(results|items|records),?\s+\d+\s+total/i,
       // "Action executed successfully: <anything>" (generic status message)
       /action\s+executed\s+successfully:/i,
       /command\s+executed\s+successfully:/i,
