@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.10] - 2026-01-06
+
+### Fixed
+
+- **Documentation/Functionality Alignment Campaign**: Comprehensive audit and fix of all documentation to match codebase
+  - Module count: Updated all references from 16 → 17 modules across ~40 file locations
+  - Tier structure: Fixed README.md from "Core (5) + Extended (6) + Advanced (5)" to "Core (15) + Optional (2)"
+  - Security patterns: Verified 23 attack patterns with 118 payloads (98 HIGH, 15 MEDIUM, 5 LOW)
+  - Test count: Updated references to ~1560 tests across 66 suites
+  - Section headers: Renamed "Extended Modules" → "Core Modules: MCP Directory Compliance" in ASSESSMENT_CATALOG.md
+
+### Added
+
+- **AuthenticationAssessor Documentation**: Added complete documentation for previously undocumented module (#12)
+  - OAuth configuration evaluation
+  - Authentication pattern validation
+  - Deployment context assessment
+
+- **Missing Module Documentation**: Added 6 modules to ASSESSMENT_CATALOG.md (#12-17)
+  - Authentication Assessor, Temporal Assessor, Resource Assessor
+  - Prompt Assessor, Cross-Capability Security Assessor, External API Scanner
+
+## [1.23.9] - 2026-01-06
+
 ### Fixed
 
 - **Calculator Injection False Positives on HTTP Error Responses** (Issue #26): Fixed false positives when tools return HTTP error responses

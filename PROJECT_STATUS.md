@@ -458,3 +458,35 @@
 - Comprehensive grep-based audit ensured all references were found and corrected
 
 ---
+
+## 2026-01-06: Regression Tests for Issues #27 and #28, v1.23.9 Published
+
+**Summary:** Added regression tests for Issues #27 and #28 bug fixes, published v1.23.9 to npm.
+
+**Session Focus:** Test coverage for recent bug fixes
+
+**Changes Made:**
+- Modified `client/src/services/assessment/__tests__/ErrorHandlingAssessor.test.ts` - Added test verifying score field equals Math.round(metrics.mcpComplianceScore)
+- Modified `client/src/services/assessment/__tests__/SecurityAssessor-ReflectionFalsePositives.test.ts` - Added 2 tests: "total in memory" NOT flagged, actual ls -la output IS detected
+- Published version 1.23.9 to npm
+
+**Key Decisions:**
+- Implemented critical tests for Issue #28 (score field) to prevent downstream consumer regression
+- Implemented recommended tests for Issue #27 (false positives) to validate regex tightening
+- Test-automator agent analysis confirmed existing 1559 tests had gaps for these specific scenarios
+
+**Technical Details:**
+- Test count increased from 1559 to 1563 (4 new tests)
+- All 66 test suites passing
+- Issue #28 test ensures ErrorHandlingAssessor score field is correctly calculated
+- Issue #27 tests validate both false positive prevention and true positive detection
+
+**Next Steps:**
+- Monitor for any additional Issue #27/#28 related feedback
+- Consider adding more edge case tests for security pattern matching
+
+**Notes:**
+- Used test-automator agent to analyze coverage gaps before implementation
+- Version 1.23.9 represents completion of both bug fixes with regression tests
+
+---
