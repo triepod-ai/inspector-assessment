@@ -4,10 +4,10 @@
 
 This catalog documents the **23 security attack patterns** used by the MCP Inspector to assess MCP server security. Each pattern includes attack vectors, example payloads, detection logic, and validation against the vulnerability testbed.
 
-**Version**: 1.22.0
+**Version**: 1.23.8
 **Pattern Count**: 23 attack categories
-**Total Payloads**: 141 distinct payloads
-**Risk Levels**: HIGH (120), MEDIUM (15), LOW (6)
+**Total Payloads**: 118 distinct payloads
+**Risk Levels**: HIGH (98), MEDIUM (15), LOW (5)
 
 **Core Principles**:
 
