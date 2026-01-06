@@ -826,6 +826,17 @@ export class SecurityAssessor extends BaseAssessor {
       };
     }
 
+    // ✅ STEP 1.1: Check for HTTP error responses (Issue #26)
+    // HTTP 4xx/5xx errors indicate tool rejection, not vulnerability
+    // This prevents false positives like "404: Not Found" being flagged for Calculator Injection
+    if (this.isHttpErrorResponse(responseText)) {
+      return {
+        isVulnerable: false,
+        evidence:
+          "HTTP error response indicates tool rejection (not vulnerability)",
+      };
+    }
+
     // ✅ STEP 1.5: Classify tool and check for safe categories (prevents false positives)
     // Check tool category before generic pattern matching to avoid false positives
     const classifier = new ToolClassifier();
@@ -1063,6 +1074,42 @@ export class SecurityAssessor extends BaseAssessor {
   }
 
   /**
+   * Check if response is an HTTP error (Issue #26)
+   * HTTP 4xx/5xx error responses indicate tool rejection, not vulnerability.
+   *
+   * This prevents false positives like "404: Not Found" being flagged for
+   * Calculator Injection (the digit "4" in "404" was incorrectly matching
+   * as the computed result of "2+2").
+   */
+  private isHttpErrorResponse(responseText: string): boolean {
+    // Pattern 1: HTTP status code followed by error description
+    // e.g., "404 Not Found", "500 Internal Server Error", "503 Service Unavailable"
+    const httpErrorPattern =
+      /\b(4\d{2}|5\d{2})\b.*?(not found|error|bad request|unauthorized|forbidden|internal server|unavailable|timeout|service)/i;
+
+    // Pattern 2: Response starts with HTTP status code
+    // e.g., "404: Not Found", "500: Error"
+    const simpleHttpPattern = /^(4\d{2}|5\d{2})[\s:]/;
+
+    // Pattern 3: Short "not found" messages (common API error response)
+    // e.g., "Not Found", "Resource not found"
+    const notFoundPattern = /not found/i;
+    const isShortNotFound =
+      notFoundPattern.test(responseText) && responseText.length < 100;
+
+    // Pattern 4: HTTP status in JSON error structure
+    // e.g., {"status": 404, "error": "Not Found"}
+    const jsonStatusPattern = /"status":\s*(4\d{2}|5\d{2})/;
+
+    return (
+      httpErrorPattern.test(responseText) ||
+      simpleHttpPattern.test(responseText) ||
+      isShortNotFound ||
+      jsonStatusPattern.test(responseText)
+    );
+  }
+
+  /**
    * Check if evidence pattern is ambiguous (can match both validation and execution)
    * These patterns appear in BOTH:
    * - Secure validation errors: "parameter validation failed: invalid type"
@@ -1143,6 +1190,22 @@ export class SecurityAssessor extends BaseAssessor {
    * Added for Issue #14: False positives on safe input reflection
    */
   private isComputedMathResult(payload: string, responseText: string): boolean {
+    // Issue #26: Skip HTTP error responses - they indicate tool rejection, not computation
+    // HTTP 4xx/5xx status codes (e.g., "404: Not Found") should not trigger false positives
+    // The digit "4" in "404" was incorrectly matching as computed result of "2+2"
+    const httpErrorPattern =
+      /\b(4\d{2}|5\d{2})\b.*?(not found|error|bad request|unauthorized|forbidden|internal server|unavailable|timeout)/i;
+    const simpleHttpPattern = /^(4\d{2}|5\d{2})[\s:]/; // Starts with HTTP status code
+    const notFoundPattern = /not found/i;
+
+    if (
+      httpErrorPattern.test(responseText) ||
+      simpleHttpPattern.test(responseText) ||
+      (notFoundPattern.test(responseText) && responseText.length < 100)
+    ) {
+      return false; // HTTP error response, not a computed result
+    }
+
     // Check if payload looks like a simple math expression
     // Matches: "2+2", "15*37+100", "10/2", "5-3", etc.
     const simpleMathPattern =
