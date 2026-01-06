@@ -662,10 +662,10 @@ See [JSONL Events Reference](JSONL_EVENTS_REFERENCE.md) for complete event schem
 
 - [Programmatic API Guide](PROGRAMMATIC_API_GUIDE.md) - Practical examples
 - [Type Reference](TYPE_REFERENCE.md) - Complete type definitions
-- [Assessment Catalog](ASSESSMENT_CATALOG.md) - All 17 assessment modules
+- [Assessment Catalog](ASSESSMENT_CATALOG.md) - All 16 assessment modules
 - [JSONL Events Reference](JSONL_EVENTS_REFERENCE.md) - Event stream documentation
 
 ---
 
 **Version**: 1.23.2+
-**Last Updated**: 2026-01-04
+**Last Updated**: 2026-01-06

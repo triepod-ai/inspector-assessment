@@ -279,16 +279,12 @@
       "description": "Test coverage summary and verification commands"
     },
     {
-      "file": "docs/ASSESSMENT_METHODOLOGY.md",
-      "description": "Complete assessment methodology with examples"
+      "file": "docs/ASSESSMENT_CATALOG.md",
+      "description": "Complete 16-module assessment reference"
     },
     {
-      "file": "docs/PHASE2_OPTIMIZATION_COMPLETED.md",
-      "description": "Business logic error detection and boundary testing optimization"
-    },
-    {
-      "file": "CLAIMS_VALIDATION.md",
-      "description": "Evidence supporting all performance and feature claims"
+      "file": "docs/SECURITY_PATTERNS_CATALOG.md",
+      "description": "23 security attack patterns and detection methodology"
     }
   ]
 }

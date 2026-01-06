@@ -7,7 +7,7 @@
 >
 > **Assessment functionality is now CLI-only** via:
 >
-> - `mcp-assess-full` - Full 17-module assessment
+> - `mcp-assess-full` - Full 16-module assessment
 > - `mcp-assess-security` - Security-focused assessment
 >
 > See [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md) for current usage.

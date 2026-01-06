@@ -298,8 +298,8 @@ Pre-configured settings for common use cases:
 import {
   DEFAULT_ASSESSMENT_CONFIG, // General testing - balanced settings
   REVIEWER_MODE_CONFIG, // Fast reviews - 5 core modules, parallel
-  DEVELOPER_MODE_CONFIG, // Debugging - all 17 modules, verbose
-  AUDIT_MODE_CONFIG, // Directory compliance - all 17 modules
+  DEVELOPER_MODE_CONFIG, // Debugging - all 16 modules, verbose
+  AUDIT_MODE_CONFIG, // Directory compliance - all 16 modules
   CLAUDE_ENHANCED_AUDIT_CONFIG, // Semantic analysis with Claude Code
 } from "@bryan-thompson/inspector-assessment/config";
 ```
@@ -805,10 +805,10 @@ interface CrossCapabilitySecurityAssessment {
 
 - [PROGRAMMATIC_API_GUIDE.md](PROGRAMMATIC_API_GUIDE.md) - How to use AssessmentOrchestrator
 - [API_REFERENCE.md](API_REFERENCE.md) - Full API documentation
-- [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - All 17 assessment modules
+- [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - All 16 assessment modules
 - [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md) - CLI usage guide
 - [JSONL_EVENTS_REFERENCE.md](JSONL_EVENTS_REFERENCE.md) - Real-time progress events (13 types)
 
 ---
 
-_Last updated: 2026-01-04 | Package version: 1.23.2_
+_Last updated: 2026-01-06 | Package version: 1.23.5_

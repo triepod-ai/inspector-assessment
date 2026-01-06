@@ -1045,10 +1045,10 @@ runComprehensiveAssessment({
 - [Programmatic API Guide](PROGRAMMATIC_API_GUIDE.md) - Getting started
 - [API Reference](API_REFERENCE.md) - Complete API documentation
 - [CLI Assessment Guide](CLI_ASSESSMENT_GUIDE.md) - Command-line usage
-- [Assessment Catalog](ASSESSMENT_CATALOG.md) - All 17 modules
+- [Assessment Catalog](ASSESSMENT_CATALOG.md) - All 16 modules
 - [JSONL Events Reference](JSONL_EVENTS_REFERENCE.md) - Event stream format
 
 ---
 
-**Version**: 1.23.2+
-**Last Updated**: 2026-01-04
+**Version**: 1.23.5+
+**Last Updated**: 2026-01-06

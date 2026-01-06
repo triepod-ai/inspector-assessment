@@ -1,7 +1,7 @@
 # Real-Time JSONL Progress Output (v1.9.0)
 
 > **Note**: This document describes basic JSONL output from v1.9.0.
-> For the complete JSONL Events API reference with all 11 event types,
+> For the complete JSONL Events API reference with all 13 event types,
 > EventBatcher, AUP enrichment, and advanced features, see
 > [JSONL_EVENTS_API.md](JSONL_EVENTS_API.md).
 

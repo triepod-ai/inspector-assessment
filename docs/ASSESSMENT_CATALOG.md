@@ -4,15 +4,15 @@ A comprehensive reference for all assessment modules in the MCP Inspector Assess
 
 ## Overview
 
-The MCP Inspector Assessment runs **17 specialized modules** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
+The MCP Inspector Assessment runs **16 specialized modules** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
 
 ### Module Organization
 
-| Category           | Modules | Purpose                                    |
-| ------------------ | ------- | ------------------------------------------ |
-| **Core (5)**       | #1-5    | Essential server quality validation        |
-| **Compliance (6)** | #6-11   | MCP Directory compliance requirements      |
-| **Advanced (6)**   | #12-17  | Extended analysis (temporal, capabilities) |
+| Category         | Modules | Purpose                                    |
+| ---------------- | ------- | ------------------------------------------ |
+| **Core (5)**     | #1-5    | Essential server quality validation        |
+| **Extended (6)** | #6-11   | MCP Directory compliance requirements      |
+| **Advanced (5)** | #12-16  | Extended analysis (temporal, capabilities) |
 
 ### All Module Names (for `--skip-modules` / `--only-modules`)
 
@@ -563,12 +563,12 @@ cat /tmp/inspector-assessment-*.json | jq '.overallStatus'
 
 ## Related Documentation
 
-- [Assessment Methodology](ASSESSMENT_METHODOLOGY.md) - Detailed methodology for core modules
 - [Reviewer Quick Start](REVIEWER_QUICK_START.md) - 60-second screening guide
-- [MCP Vulnerability Testbed](mcp_vulnerability_testbed.md) - Validation testing
+- [Testbed Setup Guide](TESTBED_SETUP_GUIDE.md) - A/B validation with vulnerable-mcp/hardened-mcp
+- [Security Patterns Catalog](SECURITY_PATTERNS_CATALOG.md) - 23 attack patterns
 - [Real-Time Progress Output](REAL_TIME_PROGRESS_OUTPUT.md) - CLI integration guide
 
 ---
 
-**Version**: 1.9.1
-**Last Updated**: 2026-01-04 (Added securityTestTimeout configuration documentation)
+**Version**: 1.9.2
+**Last Updated**: 2026-01-06

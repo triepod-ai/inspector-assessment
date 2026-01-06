@@ -368,13 +368,13 @@ For detailed documentation on specific features:
 
 ### Core Documentation
 
-- **Assessment Catalog**: [docs/ASSESSMENT_CATALOG.md](docs/ASSESSMENT_CATALOG.md) - Complete 17-module assessment reference (5 core + 6 compliance + 6 advanced)
+- **Assessment Catalog**: [docs/ASSESSMENT_CATALOG.md](docs/ASSESSMENT_CATALOG.md) - Complete 16-module assessment reference (5 core + 6 extended + 5 advanced)
 - **Reviewer Quick Start**: [docs/REVIEWER_QUICK_START.md](docs/REVIEWER_QUICK_START.md) - Fast-track guide for MCP directory reviewers (60-second screening + 5-minute detailed review)
 - **Architecture & Value**: [docs/ARCHITECTURE_AND_VALUE.md](docs/ARCHITECTURE_AND_VALUE.md) - What inspector-assessment provides and why
 
 ### JSONL Events API
 
-- **Event Reference**: [docs/JSONL_EVENTS_REFERENCE.md](docs/JSONL_EVENTS_REFERENCE.md) - All 11 event types and schema definitions
+- **Event Reference**: [docs/JSONL_EVENTS_REFERENCE.md](docs/JSONL_EVENTS_REFERENCE.md) - All 13 event types and schema definitions
 - **Algorithms**: [docs/JSONL_EVENTS_ALGORITHMS.md](docs/JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP enrichment
 - **Integration**: [docs/JSONL_EVENTS_INTEGRATION.md](docs/JSONL_EVENTS_INTEGRATION.md) - Lifecycle examples, checklist, testing
 
@@ -423,7 +423,7 @@ For detailed documentation on specific features:
 
 ### Legacy References
 
-- **Functionality Testing**: [README.md](README.md#assessment-modules-17-total) - Assessment modules overview
+- **Functionality Testing**: [README.md](README.md#assessment-modules-16-total) - Assessment modules overview
 - **Security Assessment**: [README.md](README.md#security-testing-pure-behavior-detection) - Pure behavior-based security testing
 - **Recent Changes**: [PROJECT_STATUS.md](PROJECT_STATUS.md#development-timeline---october-2025)
 

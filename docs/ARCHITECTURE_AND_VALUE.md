@@ -9,7 +9,7 @@ This document explains what inspector-assessment provides, how it integrates wit
 - Architecture overview and component breakdown
 - Comparison with original MCP Inspector
 - Why behavioral testing matters (behavioral proof vs speculation)
-- The 17 assessment modules
+- The 16 assessment modules
 - Integration with mcp-auditor
 
 ---
@@ -19,7 +19,7 @@ This document explains what inspector-assessment provides, how it integrates wit
 **inspector-assessment** is a fork of Anthropic's MCP Inspector that adds:
 
 1. **Programmatic CLI access** - Test any MCP server from command line
-2. **17 automated assessment modules** - Security, functionality, documentation, and more
+2. **16 automated assessment modules** - Security, functionality, documentation, and more
 3. **Behavioral security testing** - Actually calls tools with attack payloads
 4. **CI/CD integration** - Exit codes, JSON output, JSONL progress events
 
@@ -82,7 +82,7 @@ For detailed implementation guides, see:
 │                                    │                                         │
 │                                    ▼                                         │
 │   ┌──────────────────────────────────────────────────────────────────┐      │
-│   │                    11 Assessment Modules                          │      │
+│   │                    16 Assessment Modules                          │      │
 │   │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐     │      │
 │   │  │Functionality│ │  Security  │ │   Docs     │ │Error Handle│     │      │
 │   │  └────────────┘ └────────────┘ └────────────┘ └────────────┘     │      │
@@ -102,7 +102,7 @@ For detailed implementation guides, see:
 | ---------------------- | ----------------------------------------- | ------------------------------------- |
 | **CLI Entry Points**   | `cli/src/*.ts`                            | Command-line interface (primary)      |
 | **Transport Layer**    | `cli/src/transport.ts`                    | STDIO/HTTP/SSE connection abstraction |
-| **Assessment Modules** | `client/src/services/assessment/modules/` | 17 specialized assessors              |
+| **Assessment Modules** | `client/src/services/assessment/modules/` | 16 specialized assessors              |
 | **JSONL Events**       | `scripts/lib/jsonl-events.ts`             | Real-time progress streaming          |
 | **Legacy Scripts**     | `scripts/run-*.ts`                        | Deprecated fallback runners (v1 only) |
 
@@ -115,7 +115,7 @@ For detailed implementation guides, see:
 | **Interface**                | Web UI only               | Web UI + CLI + npm package                |
 | **Server Connection**        | Manual browser navigation | Config-based auto-connect                 |
 | **Transport Support**        | Interactive only          | Programmatic STDIO/HTTP/SSE               |
-| **Assessment**               | None (debugging tool)     | 17 automated modules                      |
+| **Assessment**               | None (debugging tool)     | 16 automated modules                      |
 | **Security Testing**         | Manual click-testing      | Comprehensive attack patterns, behavioral |
 | **CI/CD Ready**              | No                        | Exit codes, JSON output                   |
 | **Real-time Progress**       | No                        | JSONL events to stderr                    |
@@ -192,7 +192,7 @@ Result: UNCERTAIN (no behavioral confirmation)
 
 ---
 
-## The 11 Assessment Modules
+## The 16 Assessment Modules
 
 ### Behavioral Testing Modules
 
@@ -262,7 +262,7 @@ mcp-auditor parses these for live WebSocket updates to the frontend.
 
 ### Score Mapping
 
-Inspector's 17 modules are mapped to mcp-auditor's 5 categories:
+Inspector's 16 modules are mapped to mcp-auditor's 5 categories:
 
 - **Functionality** = functionality + mcpSpecCompliance
 - **Security** = security + aupCompliance + prohibitedLibraries
@@ -297,7 +297,7 @@ function generateFallbackResults() {
 
 | Aspect                  | With Inspector                     | Without Inspector                           |
 | ----------------------- | ---------------------------------- | ------------------------------------------- |
-| **Audit Quality**       | 17 automated modules, quantitative | Fallback 50% scores, "manual review needed" |
+| **Audit Quality**       | 16 automated modules, quantitative | Fallback 50% scores, "manual review needed" |
 | **Security Confidence** | Behavioral proof                   | Claude speculation                          |
 | **CI/CD Integration**   | Pass/Fail automation               | Always "VERIFY" level                       |
 | **Tool Discovery**      | Auto-enumerated                    | Manual listing required                     |
@@ -333,7 +333,6 @@ You could audit servers with Claude alone, but you'd lose the **behavioral proof
 
 ## Related Documentation
 
-- [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - Complete 17-module reference
-- [ASSESSMENT_METHODOLOGY.md](ASSESSMENT_METHODOLOGY.md) - Testing methodology details
+- [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - Complete 16-module reference
 - [REAL_TIME_PROGRESS_OUTPUT.md](REAL_TIME_PROGRESS_OUTPUT.md) - JSONL event format
 - [REVIEWER_QUICK_START.md](REVIEWER_QUICK_START.md) - Quick screening guide

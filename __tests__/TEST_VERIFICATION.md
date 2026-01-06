@@ -220,9 +220,8 @@ npm run coverage
 ## Supporting Documentation
 
 - **Main README**: [README.md](../README.md) - Project overview and quality metrics
-- **Assessment Methodology**: [docs/ASSESSMENT_METHODOLOGY.md](../docs/ASSESSMENT_METHODOLOGY.md)
-- **Optimization Documentation**: [docs/PHASE2_OPTIMIZATION_COMPLETED.md](../docs/PHASE2_OPTIMIZATION_COMPLETED.md)
-- **Claims Validation**: [CLAIMS_VALIDATION.md](../CLAIMS_VALIDATION.md)
+- **Assessment Catalog**: [docs/ASSESSMENT_CATALOG.md](../docs/ASSESSMENT_CATALOG.md) - Complete module reference
+- **Security Patterns**: [docs/SECURITY_PATTERNS_CATALOG.md](../docs/SECURITY_PATTERNS_CATALOG.md) - Attack patterns
 
 ## Reproducibility
 

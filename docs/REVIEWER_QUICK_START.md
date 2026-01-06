@@ -465,10 +465,9 @@ All 5 criteria PASS?
 
 ### Documentation Resources
 
-- **Detailed Methodology**: [ASSESSMENT_METHODOLOGY.md](ASSESSMENT_METHODOLOGY.md) - Comprehensive testing approach
 - **Main README**: [README.md](../README.md) - Full feature documentation
-- **Security Testing**: [VULNERABILITY_TESTING.md](../VULNERABILITY_TESTING.md) - Security detection verification
-- **5-Point Framework**: [MCP_INSPECTOR_5POINT_ASSESSMENT_WHITEPAPER.md](MCP_INSPECTOR_5POINT_ASSESSMENT_WHITEPAPER.md) - Technical whitepaper
+- **Assessment Catalog**: [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - Complete module reference
+- **Security Patterns**: [SECURITY_PATTERNS_CATALOG.md](SECURITY_PATTERNS_CATALOG.md) - 23 attack patterns
 
 ### Common Questions
 

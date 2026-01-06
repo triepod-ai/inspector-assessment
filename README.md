@@ -3,7 +3,7 @@
 [![npm version](https://badge.fury.io/js/@bryan-thompson%2Finspector-assessment.svg)](https://www.npmjs.com/package/@bryan-thompson/inspector-assessment)
 [![npm downloads](https://img.shields.io/npm/dm/@bryan-thompson/inspector-assessment.svg)](https://www.npmjs.com/package/@bryan-thompson/inspector-assessment)
 
-**Comprehensive MCP server validation with 17 automated assessment modules.**
+**Comprehensive MCP server validation with 16 automated assessment modules.**
 Test functionality, security, documentation, and policy compliance from the command line.
 
 ![MCP Inspector Screenshot](./mcp-inspector.png)
@@ -63,7 +63,7 @@ The inspector provides three CLI commands for different workflows:
 
 | Command                | Purpose                       | Use Case                     |
 | ---------------------- | ----------------------------- | ---------------------------- |
-| `mcp-assess-full`      | Complete 17-module assessment | Full validation, CI/CD gates |
+| `mcp-assess-full`      | Complete 16-module assessment | Full validation, CI/CD gates |
 | `mcp-assess-security`  | Security-only testing         | Quick vulnerability scan     |
 | `mcp-inspector-assess` | Interactive web UI            | Debugging, exploration       |
 
@@ -93,7 +93,7 @@ For complete CLI documentation, see [CLI Assessment Guide](docs/CLI_ASSESSMENT_G
 
 ---
 
-## Assessment Modules (17 Total)
+## Assessment Modules (16 Total)
 
 ### Core Modules (5)
 
@@ -279,7 +279,7 @@ npm test -- SecurityAssessor     # Security tests
 
 | Document                                                       | Purpose                       |
 | -------------------------------------------------------------- | ----------------------------- |
-| [Assessment Catalog](docs/ASSESSMENT_CATALOG.md)               | All 17 modules reference      |
+| [Assessment Catalog](docs/ASSESSMENT_CATALOG.md)               | All 16 modules reference      |
 | [Security Patterns Catalog](docs/SECURITY_PATTERNS_CATALOG.md) | Comprehensive attack patterns |
 | [Testbed Setup Guide](docs/TESTBED_SETUP_GUIDE.md)             | A/B validation                |
 
@@ -351,7 +351,7 @@ npx @modelcontextprotocol/inspector
 
 We built a comprehensive assessment framework on top of the original inspector, transforming it from a debugging tool into a full validation suite. Key additions:
 
-- **17 Assessment Modules** covering functionality, security, compliance
+- **16 Assessment Modules** covering functionality, security, compliance
 - **Pure Behavior-Based Detection** analyzing responses, not tool names
 - **Zero False Positives** through context-aware reflection detection
 - **CLI-First Workflow** with three specialized commands
