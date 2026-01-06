@@ -1514,7 +1514,7 @@ mcp-assess-full \
 
 ## Assessment Modules Reference
 
-The inspector runs 16 assessment modules covering different aspects:
+The inspector runs 17 assessment modules covering different aspects:
 
 | Module               | Tests  | Time | Purpose                            |
 | -------------------- | ------ | ---- | ---------------------------------- |

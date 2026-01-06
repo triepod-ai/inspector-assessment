@@ -9,7 +9,7 @@ This document explains what inspector-assessment provides, how it integrates wit
 - Architecture overview and component breakdown
 - Comparison with original MCP Inspector
 - Why behavioral testing matters (behavioral proof vs speculation)
-- The 16 assessment modules
+- The 17 assessment modules
 - Integration with mcp-auditor
 
 ---

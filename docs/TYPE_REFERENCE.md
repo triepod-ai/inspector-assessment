@@ -805,7 +805,7 @@ interface CrossCapabilitySecurityAssessment {
 
 - [PROGRAMMATIC_API_GUIDE.md](PROGRAMMATIC_API_GUIDE.md) - How to use AssessmentOrchestrator
 - [API_REFERENCE.md](API_REFERENCE.md) - Full API documentation
-- [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - All 16 assessment modules
+- [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - All 17 assessment modules
 - [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md) - CLI usage guide
 - [JSONL_EVENTS_REFERENCE.md](JSONL_EVENTS_REFERENCE.md) - Real-time progress events (13 types)
 
