@@ -6,7 +6,7 @@
 > - [Algorithms](JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP enrichment algorithms
 > - [Integration](JSONL_EVENTS_INTEGRATION.md) - Lifecycle examples, integration checklist, testing
 
-**Version**: 1.22.0
+**Version**: 1.23.8
 **Status**: Stable
 **Target Audience**: MCP Auditor developers, assessment tool integrators, real-time progress consumers
 
@@ -718,10 +718,10 @@ interface AnnotationAlignedEvent {
 | `reason`  | `"skip-modules"` \| `"only-modules"` \| `"default"` | Yes      | Why modules were configured this way   |
 | `version` | string                                              | Yes      | Inspector version (auto-added)         |
 
-**Valid Module Names (16 total):**
+**Valid Module Names (17 total):**
 
-- **Core (5):** `functionality`, `security`, `documentation`, `errorHandling`, `usability`
-- **Extended (11):** `mcpSpecCompliance`, `aupCompliance`, `toolAnnotations`, `prohibitedLibraries`, `manifestValidation`, `portability`, `temporal`, `resources`, `prompts`, `crossCapability`, `externalAPIScanner`
+- **Core (15):** `functionality`, `security`, `documentation`, `errorHandling`, `usability`, `mcpSpecCompliance`, `aupCompliance`, `toolAnnotations`, `prohibitedLibraries`, `externalAPIScanner`, `authentication`, `temporal`, `resources`, `prompts`, `crossCapability`
+- **Optional (2):** `manifestValidation`, `portability`
 
 **Example Scenarios:**
 
@@ -817,7 +817,7 @@ interface ModulesConfiguredEvent {
 }
 ```
 
-**Integration Note:** This event is useful for MCP Auditor and other consumers to calculate accurate progress percentages. When modules are skipped, the total expected `module_started`/`module_complete` events will be fewer than the full 16 modules.
+**Integration Note:** This event is useful for MCP Auditor and other consumers to calculate accurate progress percentages. When modules are skipped, the total expected `module_started`/`module_complete` events will be fewer than the full 17 modules.
 
 ---
 

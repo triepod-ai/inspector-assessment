@@ -4,15 +4,14 @@ A comprehensive reference for all assessment modules in the MCP Inspector Assess
 
 ## Overview
 
-The MCP Inspector Assessment runs **16 specialized modules** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
+The MCP Inspector Assessment runs **17 specialized modules** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
 
 ### Module Organization
 
-| Category         | Modules | Purpose                                    |
-| ---------------- | ------- | ------------------------------------------ |
-| **Core (5)**     | #1-5    | Essential server quality validation        |
-| **Extended (6)** | #6-11   | MCP Directory compliance requirements      |
-| **Advanced (5)** | #12-16  | Extended analysis (temporal, capabilities) |
+| Category         | Modules | Purpose                             |
+| ---------------- | ------- | ----------------------------------- |
+| **Core (15)**    | #1-15   | Essential server quality validation |
+| **Optional (2)** | #16-17  | Context-specific (MCPB bundles)     |
 
 ### All Module Names (for `--skip-modules` / `--only-modules`)
 
@@ -473,21 +472,218 @@ Tools with "run" prefix and analysis-related suffixes are treated as read-only o
 
 ---
 
+### 12. External API Scanner
+
+**Purpose**: Detect external service dependencies and affiliations.
+
+**Test Approach**:
+
+- Scan tool descriptions and code for API URLs
+- Identify third-party service dependencies
+- Check for affiliation disclosure requirements
+
+**External API Categories**:
+
+| Category      | Examples                     | Concern          |
+| ------------- | ---------------------------- | ---------------- |
+| AI Services   | OpenAI, Anthropic, Google AI | API key exposure |
+| Cloud Storage | S3, GCS, Azure Blob          | Data residency   |
+| Payment       | Stripe, PayPal               | PCI compliance   |
+| Social Media  | Twitter, LinkedIn            | Terms of service |
+| Analytics     | GA, Mixpanel                 | Privacy policies |
+
+**Pass Criteria**:
+
+- External dependencies are documented
+- API keys are not hardcoded
+- Affiliate relationships disclosed if required
+
+**Implementation**: `client/src/services/assessment/modules/ExternalAPIScannerAssessor.ts`
+
+---
+
+### 13. Authentication
+
+**Purpose**: Evaluate OAuth/auth configuration appropriateness for deployment context.
+
+**Detection Logic**:
+
+1. Check if server uses OAuth (via serverInfo/manifest)
+2. Analyze if tools access local resources (files, apps, OS features)
+3. If OAuth + no local deps = recommend cloud deployment
+4. If OAuth + local deps = warn about mixed model
+
+**Authentication Patterns**:
+
+| Pattern       | Detection              | Recommendation                 |
+| ------------- | ---------------------- | ------------------------------ |
+| OAuth only    | OAuth patterns found   | Cloud deployment optimal       |
+| API Key only  | API key patterns found | Standard validation            |
+| OAuth + Local | Mixed patterns         | Review deployment model        |
+| None          | No auth detected       | Consider adding authentication |
+
+**Local Resource Indicators**:
+
+- File system access (`fs.read`, `fs.write`)
+- Process execution (`child_process`, `execSync`)
+- OS-specific paths (`__dirname`, `homedir`)
+- Localhost references
+
+**Transport Security Checks**:
+
+- HTTPS vs HTTP usage
+- TLS validation settings
+- CORS configuration
+- Security headers (httpOnly, sameSite)
+
+**Pass Criteria**:
+
+- Auth method matches deployment model
+- No insecure transport patterns
+- Secure defaults enabled
+
+**Implementation**: `client/src/services/assessment/modules/AuthenticationAssessor.ts`
+
+---
+
+### 14. Temporal Assessment
+
+**Purpose**: Detect rug pull / temporal behavior changes (behavior varying over invocations).
+
+**Test Approach**:
+
+- Invoke each tool multiple times (default: 25 invocations)
+- Compare responses for consistency
+- Detect behavior drift patterns
+
+**Temporal Checks**:
+
+| Check                | Method                             | Detection                    |
+| -------------------- | ---------------------------------- | ---------------------------- |
+| Schema Stability     | Compare schemas across invocations | Schema should not change     |
+| Response Consistency | Hash/compare responses             | Significant drift flagged    |
+| Error Pattern        | Track error frequency              | Increasing errors suspicious |
+| Timing Analysis      | Response time variance             | Unusual timing patterns      |
+
+**Pass Criteria**:
+
+- Tool behavior consistent across invocations
+- No schema changes detected
+- No suspicious timing patterns
+
+**Implementation**: `client/src/services/assessment/modules/TemporalAssessor.ts`
+
+---
+
+### 15. Resources Assessment
+
+**Purpose**: Validate MCP resource capability implementation.
+
+**Test Approach**:
+
+- Enumerate available resources
+- Test resource read operations
+- Validate resource URIs and metadata
+
+**Resource Checks**:
+
+| Check          | Description                       |
+| -------------- | --------------------------------- |
+| Discovery      | List resources via resources/list |
+| Read Success   | Attempt to read each resource     |
+| URI Format     | Validate URI structure            |
+| Metadata       | Check resource descriptions       |
+| Error Handling | Test invalid resource requests    |
+
+**Pass Criteria**:
+
+- Resources are discoverable
+- Read operations succeed for valid resources
+- Error handling for invalid resources
+
+**Implementation**: `client/src/services/assessment/modules/ResourcesAssessor.ts`
+
+---
+
+### 16. Prompts Assessment
+
+**Purpose**: Validate MCP prompt capability implementation.
+
+**Test Approach**:
+
+- Enumerate available prompts
+- Test prompt execution
+- Validate argument handling
+
+**Prompt Checks**:
+
+| Check      | Description                     |
+| ---------- | ------------------------------- |
+| Discovery  | List prompts via prompts/list   |
+| Execution  | Test prompt invocation          |
+| Arguments  | Validate required/optional args |
+| Multimodal | Check content type support      |
+| Templates  | Validate template rendering     |
+
+**Pass Criteria**:
+
+- Prompts are discoverable
+- Execution produces valid output
+- Argument validation works correctly
+
+**Implementation**: `client/src/services/assessment/modules/PromptsAssessor.ts`
+
+---
+
+### 17. Cross-Capability Assessment
+
+**Purpose**: Detect chained vulnerabilities across tools, resources, and prompts.
+
+**Test Approach**:
+
+- Analyze tool combinations for attack chains
+- Test multi-step attack scenarios
+- Identify capability escalation paths
+
+**Cross-Capability Patterns**:
+
+| Pattern                | Risk                 | Example                       |
+| ---------------------- | -------------------- | ----------------------------- |
+| Tool Chaining          | Privilege escalation | Read file → Execute command   |
+| Resource + Tool        | Data exfiltration    | Get resource → Send external  |
+| Prompt Injection Chain | Control flow         | Prompt → Tool with user input |
+
+**Pass Criteria**:
+
+- No obvious attack chains detected
+- Privilege boundaries maintained
+- Input validation at each step
+
+**Implementation**: `client/src/services/assessment/modules/CrossCapabilityAssessor.ts`
+
+---
+
 ## Quick Reference Table
 
-| #   | Module               | Tests               | Policy Ref     | Severity |
-| --- | -------------------- | ------------------- | -------------- | -------- |
-| 1   | Functionality        | ~10 per tool        | Core           | Medium   |
-| 2   | Security             | 23 patterns × tools | Core           | High     |
-| 3   | Error Handling       | ~20 per tool        | MCP Spec       | Medium   |
-| 4   | Documentation        | ~10 checks          | Core           | Low      |
-| 5   | Usability            | ~8 checks           | Core           | Low      |
-| 6   | MCP Spec Compliance  | ~15 checks          | MCP Spec       | High     |
-| 7   | AUP Compliance       | 14 categories       | AUP A-N        | Critical |
-| 8   | Tool Annotations     | Per tool            | Policy #17     | Medium   |
-| 9   | Prohibited Libraries | ~25 libraries       | Policy #28-30  | Blocking |
-| 10  | Manifest Validation  | ~10 checks          | MCPB v0.3      | Medium   |
-| 11  | Portability          | ~8 patterns         | Cross-platform | Low      |
+| #   | Module               | Tests               | Policy Ref     | Severity | Tier     |
+| --- | -------------------- | ------------------- | -------------- | -------- | -------- |
+| 1   | Functionality        | ~10 per tool        | Core           | Medium   | Core     |
+| 2   | Security             | 23 patterns × tools | Core           | High     | Core     |
+| 3   | Error Handling       | ~20 per tool        | MCP Spec       | Medium   | Core     |
+| 4   | Documentation        | ~10 checks          | Core           | Low      | Core     |
+| 5   | Usability            | ~8 checks           | Core           | Low      | Core     |
+| 6   | MCP Spec Compliance  | ~15 checks          | MCP Spec       | High     | Core     |
+| 7   | AUP Compliance       | 14 categories       | AUP A-N        | Critical | Core     |
+| 8   | Tool Annotations     | Per tool            | Policy #17     | Medium   | Core     |
+| 9   | Prohibited Libraries | ~25 libraries       | Policy #28-30  | Blocking | Core     |
+| 10  | Manifest Validation  | ~10 checks          | MCPB v0.3      | Medium   | Optional |
+| 11  | Portability          | ~8 patterns         | Cross-platform | Low      | Optional |
+| 12  | External API Scanner | API detection       | Disclosure     | Medium   | Core     |
+| 13  | Authentication       | Auth patterns       | Security       | High     | Core     |
+| 14  | Temporal             | 25 invocations/tool | Rug pull       | High     | Core     |
+| 15  | Resources            | Per resource        | MCP Spec       | Medium   | Core     |
+| 16  | Prompts              | Per prompt          | MCP Spec       | Medium   | Core     |
+| 17  | Cross-Capability     | Multi-tool chains   | Security       | High     | Core     |
 
 ---
 
@@ -496,7 +692,7 @@ Tools with "run" prefix and analysis-related suffixes are treated as read-only o
 ### CLI Usage
 
 ```bash
-# Full 11-point assessment
+# Full 17-point assessment
 npx @bryan-thompson/inspector-assessment assess:full --config config.json
 
 # Security-focused assessment

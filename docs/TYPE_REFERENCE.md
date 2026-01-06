@@ -298,8 +298,8 @@ Pre-configured settings for common use cases:
 import {
   DEFAULT_ASSESSMENT_CONFIG, // General testing - balanced settings
   REVIEWER_MODE_CONFIG, // Fast reviews - 5 core modules, parallel
-  DEVELOPER_MODE_CONFIG, // Debugging - all 16 modules, verbose
-  AUDIT_MODE_CONFIG, // Directory compliance - all 16 modules
+  DEVELOPER_MODE_CONFIG, // Debugging - all 17 modules, verbose
+  AUDIT_MODE_CONFIG, // Directory compliance - all 17 modules
   CLAUDE_ENHANCED_AUDIT_CONFIG, // Semantic analysis with Claude Code
 } from "@bryan-thompson/inspector-assessment/config";
 ```

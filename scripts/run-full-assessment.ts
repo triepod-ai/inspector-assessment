@@ -991,9 +991,10 @@ Module Selection:
   Valid module names:
     functionality, security, documentation, errorHandling, usability,
     mcpSpecCompliance, aupCompliance, toolAnnotations, prohibitedLibraries,
-    manifestValidation, portability, temporal, resources, prompts, crossCapability
+    externalAPIScanner, authentication, temporal, resources, prompts,
+    crossCapability, manifestValidation, portability
 
-Assessment Modules (16 total):
+Assessment Modules (17 total):
   • Functionality      - Tests all tools work correctly
   • Security           - Prompt injection & vulnerability testing
   • Documentation      - README completeness checks
@@ -1003,8 +1004,14 @@ Assessment Modules (16 total):
   • AUP Compliance     - Acceptable Use Policy checks
   • Tool Annotations   - readOnlyHint/destructiveHint validation
   • Prohibited Libs    - Dependency security checks
-  • Manifest           - MCPB manifest.json validation
-  • Portability        - Cross-platform compatibility
+  • External API       - External service detection
+  • Authentication     - OAuth/auth evaluation
+  • Temporal           - Rug pull/temporal behavior change detection
+  • Resources          - Resource capability assessment
+  • Prompts            - Prompt capability assessment
+  • Cross-Capability   - Chained vulnerability detection
+  • Manifest           - MCPB manifest.json validation (optional)
+  • Portability        - Cross-platform compatibility (optional)
 
 Examples:
   npm run assess:full -- my-server

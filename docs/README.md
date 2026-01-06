@@ -40,11 +40,11 @@ Integration documentation for using the npm package programmatically.
 
 ### Assessment Modules
 
-| Document                                                                  | Purpose                                                         |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| [Assessment Catalog](ASSESSMENT_CATALOG.md)                               | Complete 16-module reference (5 core + 6 extended + 5 advanced) |
-| [Assessment Module Developer Guide](ASSESSMENT_MODULE_DEVELOPER_GUIDE.md) | Creating and extending assessment modules                       |
-| [Scoring Algorithm Guide](SCORING_ALGORITHM_GUIDE.md)                     | Module weights, thresholds, calculations                        |
+| Document                                                                  | Purpose                                             |
+| ------------------------------------------------------------------------- | --------------------------------------------------- |
+| [Assessment Catalog](ASSESSMENT_CATALOG.md)                               | Complete 17-module reference (15 core + 2 optional) |
+| [Assessment Module Developer Guide](ASSESSMENT_MODULE_DEVELOPER_GUIDE.md) | Creating and extending assessment modules           |
+| [Scoring Algorithm Guide](SCORING_ALGORITHM_GUIDE.md)                     | Module weights, thresholds, calculations            |
 
 ### Test Data Generation
 
@@ -151,7 +151,7 @@ docs/
 ├── TYPE_REFERENCE.md                       # TypeScript type reference
 ├── LOGGING_GUIDE.md                        # Structured logging configuration
 ├── ASSESSMENT_TYPES_IMPORT_GUIDE.md        # Modular types, imports, tree-shaking
-├── ASSESSMENT_CATALOG.md                   # All 16 modules
+├── ASSESSMENT_CATALOG.md                   # All 17 modules
 ├── SCORING_ALGORITHM_GUIDE.md              # Scoring details
 ├── ASSESSMENT_MODULE_DEVELOPER_GUIDE.md    # Module development
 ├── TEST_DATA_ARCHITECTURE.md               # Test data core

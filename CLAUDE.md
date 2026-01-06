@@ -14,7 +14,7 @@
 - Development mode: `npm run dev` (use `npm run dev:windows` on Windows)
 - Format code: `npm run prettier-fix`
 - Client lint: `cd client && npm run lint`
-- Run tests: `npm test` (~1550 tests passing)
+- Run tests: `npm test` (~1560 tests passing)
 - Run assessment tests: `npm test -- assessment` (assessment module tests)
 
 ## Structured Logging (v1.23.1)
@@ -368,7 +368,7 @@ For detailed documentation on specific features:
 
 ### Core Documentation
 
-- **Assessment Catalog**: [docs/ASSESSMENT_CATALOG.md](docs/ASSESSMENT_CATALOG.md) - Complete 16-module assessment reference (5 core + 6 extended + 5 advanced)
+- **Assessment Catalog**: [docs/ASSESSMENT_CATALOG.md](docs/ASSESSMENT_CATALOG.md) - Complete 17-module assessment reference (15 core + 2 optional)
 - **Architecture & Value**: [docs/ARCHITECTURE_AND_VALUE.md](docs/ARCHITECTURE_AND_VALUE.md) - What inspector-assessment provides and why
 
 ### JSONL Events API
@@ -422,7 +422,7 @@ For detailed documentation on specific features:
 
 ### Legacy References
 
-- **Functionality Testing**: [README.md](README.md#assessment-modules-16-total) - Assessment modules overview
+- **Functionality Testing**: [README.md](README.md#assessment-modules-17-total) - Assessment modules overview
 - **Security Assessment**: [README.md](README.md#security-testing-pure-behavior-detection) - Pure behavior-based security testing
 - **Recent Changes**: [PROJECT_STATUS.md](PROJECT_STATUS.md#development-timeline---october-2025)
 
@@ -447,7 +447,7 @@ For detailed documentation on specific features:
 
 - `client/src/services/__tests__/` - Service layer tests
 - `client/src/services/assessment/__tests__/` - Assessment module tests
-- Total: ~1550 tests across 65 test suites
+- Total: ~1560 tests across 66 test suites
 
 ## Development Workflow
 

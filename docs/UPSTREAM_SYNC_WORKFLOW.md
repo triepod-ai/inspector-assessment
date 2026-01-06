@@ -75,7 +75,7 @@ git stash
 npm test
 ```
 
-**Expected**: ~1550 tests passing, build succeeds
+**Expected**: ~1560 tests passing, build succeeds
 
 **If Tests Fail**:
 

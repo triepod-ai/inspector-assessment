@@ -515,7 +515,7 @@ import {
   DEFAULT_ASSESSMENT_CONFIG, // Balanced defaults (5 core modules)
   REVIEWER_MODE_CONFIG, // Fast reviews (parallel, 3 patterns)
   DEVELOPER_MODE_CONFIG, // Debug mode (all modules, verbose)
-  AUDIT_MODE_CONFIG, // Full compliance (all 16 modules)
+  AUDIT_MODE_CONFIG, // Full compliance (all 17 modules)
   CLAUDE_ENHANCED_AUDIT_CONFIG, // Semantic analysis with Claude
 } from "@bryan-thompson/inspector-assessment/config";
 ```

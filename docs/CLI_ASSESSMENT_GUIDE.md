@@ -54,7 +54,7 @@ The MCP Inspector provides three distinct CLI modes for different workflows:
 **Available**: When running from source code (requires `npm run build-cli` first)
 
 ```bash
-# Runs full assessment with all 16 modules
+# Runs full assessment with all 17 modules
 npm run assess:full -- --server <server-name>
 
 # With config file
@@ -403,7 +403,7 @@ LOG_LEVEL=debug mcp-assess-full --server my-server --silent
 ✅ Server config loaded
 ✅ Connected to MCP server
 🔧 Found 12 tools
-🏃 Running assessment with 16 modules...
+🏃 Running assessment with 17 modules...
 ```
 
 **Verbose (debug level):**
@@ -413,7 +413,7 @@ LOG_LEVEL=debug mcp-assess-full --server my-server --silent
 ✅ Server config loaded
 ✅ Connected to MCP server
 🔧 Found 12 tools
-🏃 Running assessment with 16 modules...
+🏃 Running assessment with 17 modules...
 [TemporalAssessor] Starting temporal assessment with 25 invocations per tool
 [TemporalAssessor] Testing add_memory with 25 invocations
 [TemporalAssessor] Testing get_memory with 25 invocations
@@ -508,7 +508,7 @@ The JSON output file contains comprehensive assessment results:
   "assessmentType": "full",
   "serverName": "memory-mcp",
   "overallStatus": "PASS",
-  "summary": "Server passed all 16 assessment modules...",
+  "summary": "Server passed all 17 assessment modules...",
   "totalTestsRun": 1440,
   "executionTime": 47823,
   "recommendations": [
@@ -1561,15 +1561,14 @@ mcp-assess-full --server my-server --config config.json \
   --only-modules security
 ```
 
-**Valid module names (16 total):**
+**Valid module names (17 total):**
 
-| Category         | Module Names                                                                                                        |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **Core (5)**     | `functionality`, `security`, `documentation`, `errorHandling`, `usability`                                          |
-| **Extended (6)** | `mcpSpecCompliance`, `aupCompliance`, `toolAnnotations`, `prohibitedLibraries`, `manifestValidation`, `portability` |
-| **Advanced (5)** | `temporal`, `resources`, `prompts`, `crossCapability`, `externalAPIScanner`\*                                       |
+| Category         | Module Names                                                                                                                                                                                                                                              |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Core (15)**    | `functionality`, `security`, `documentation`, `errorHandling`, `usability`, `mcpSpecCompliance`, `aupCompliance`, `toolAnnotations`, `prohibitedLibraries`, `externalAPIScanner`, `authentication`, `temporal`, `resources`, `prompts`, `crossCapability` |
+| **Optional (2)** | `manifestValidation`, `portability`                                                                                                                                                                                                                       |
 
-\* `externalAPIScanner` only runs when `--source` path is provided
+**Note:** `externalAPIScanner` only runs when `--source` path is provided
 
 **Important notes:**
 
