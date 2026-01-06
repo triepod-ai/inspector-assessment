@@ -1105,6 +1105,7 @@ export class MCPAssessmentService {
   private createEmptyErrorHandlingResult(): ErrorHandlingAssessment {
     return {
       status: "PASS",
+      score: 100, // Issue #28: Add score field for downstream consumers
       recommendations: [],
       metrics: {
         mcpComplianceScore: 100,

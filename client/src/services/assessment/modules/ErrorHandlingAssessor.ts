@@ -72,6 +72,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       metrics,
       errorTests: testDetails,
       status,
+      // Issue #28: Provide score at top level for downstream consumers (e.g., mcp-auditor)
+      score: Math.round(metrics.mcpComplianceScore),
       explanation,
       recommendations,
     };

@@ -394,6 +394,8 @@ export interface ErrorHandlingAssessment {
   /** Raw error handling test results for downstream analysis */
   errorTests?: ErrorTestDetail[];
   status: AssessmentStatus;
+  /** Module-level score (0-100) derived from metrics.mcpComplianceScore (Issue #28) */
+  score: number;
   explanation: string;
   recommendations: string[];
 }
