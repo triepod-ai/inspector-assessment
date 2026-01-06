@@ -563,7 +563,6 @@ cat /tmp/inspector-assessment-*.json | jq '.overallStatus'
 
 ## Related Documentation
 
-- [Reviewer Quick Start](REVIEWER_QUICK_START.md) - 60-second screening guide
 - [Testbed Setup Guide](TESTBED_SETUP_GUIDE.md) - A/B validation with vulnerable-mcp/hardened-mcp
 - [Security Patterns Catalog](SECURITY_PATTERNS_CATALOG.md) - 23 attack patterns
 - [Real-Time Progress Output](REAL_TIME_PROGRESS_OUTPUT.md) - CLI integration guide

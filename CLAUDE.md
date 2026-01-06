@@ -369,7 +369,6 @@ For detailed documentation on specific features:
 ### Core Documentation
 
 - **Assessment Catalog**: [docs/ASSESSMENT_CATALOG.md](docs/ASSESSMENT_CATALOG.md) - Complete 16-module assessment reference (5 core + 6 extended + 5 advanced)
-- **Reviewer Quick Start**: [docs/REVIEWER_QUICK_START.md](docs/REVIEWER_QUICK_START.md) - Fast-track guide for MCP directory reviewers (60-second screening + 5-minute detailed review)
 - **Architecture & Value**: [docs/ARCHITECTURE_AND_VALUE.md](docs/ARCHITECTURE_AND_VALUE.md) - What inspector-assessment provides and why
 
 ### JSONL Events API

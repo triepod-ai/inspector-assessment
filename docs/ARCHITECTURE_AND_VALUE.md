@@ -335,4 +335,4 @@ You could audit servers with Claude alone, but you'd lose the **behavioral proof
 
 - [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - Complete 16-module reference
 - [REAL_TIME_PROGRESS_OUTPUT.md](REAL_TIME_PROGRESS_OUTPUT.md) - JSONL event format
-- [REVIEWER_QUICK_START.md](REVIEWER_QUICK_START.md) - Quick screening guide
+- [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md) - CLI modes and options

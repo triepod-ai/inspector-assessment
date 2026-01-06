@@ -130,17 +130,6 @@ For detailed module documentation, see [Assessment Catalog](docs/ASSESSMENT_CATA
 
 ---
 
-## For MCP Directory Reviewers
-
-If you're reviewing MCP servers for the Anthropic MCP Directory, see our **[Reviewer Quick Start Guide](docs/REVIEWER_QUICK_START.md)** for:
-
-- **60-second fast screening** workflow for approve/reject decisions
-- **5-minute detailed review** process for borderline cases
-- **Common pitfalls** explanation (false positives in security, informational vs scored tests)
-- **Decision matrix** with clear approval criteria
-
----
-
 ## Security Testing: Pure Behavior Detection
 
 The inspector uses **pure behavior-based detection** for security assessment, analyzing tool responses to identify actual code execution vs safe data handling.
@@ -261,11 +250,10 @@ npm test -- SecurityAssessor     # Security tests
 
 ### Quick Start
 
-| Document                                               | Purpose                                     |
-| ------------------------------------------------------ | ------------------------------------------- |
-| [Reviewer Quick Start](docs/REVIEWER_QUICK_START.md)   | 60-second screening for directory reviewers |
-| [CLI Assessment Guide](docs/CLI_ASSESSMENT_GUIDE.md)   | Complete CLI modes and options              |
-| [Architecture & Value](docs/ARCHITECTURE_AND_VALUE.md) | What this provides and why                  |
+| Document                                               | Purpose                        |
+| ------------------------------------------------------ | ------------------------------ |
+| [CLI Assessment Guide](docs/CLI_ASSESSMENT_GUIDE.md)   | Complete CLI modes and options |
+| [Architecture & Value](docs/ARCHITECTURE_AND_VALUE.md) | What this provides and why     |
 
 ### API & Integration
 

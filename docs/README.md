@@ -6,11 +6,10 @@ This directory contains comprehensive documentation for the MCP Inspector assess
 
 ## Quick Start
 
-| Document                                          | Purpose                                                                    |
-| ------------------------------------------------- | -------------------------------------------------------------------------- |
-| [Reviewer Quick Start](REVIEWER_QUICK_START.md)   | 60-second screening + 5-minute detailed review for MCP directory reviewers |
-| [CLI Assessment Guide](CLI_ASSESSMENT_GUIDE.md)   | Three CLI modes, configuration, CI/CD integration                          |
-| [Architecture & Value](ARCHITECTURE_AND_VALUE.md) | What inspector-assessment provides and why it matters                      |
+| Document                                          | Purpose                                               |
+| ------------------------------------------------- | ----------------------------------------------------- |
+| [CLI Assessment Guide](CLI_ASSESSMENT_GUIDE.md)   | Three CLI modes, configuration, CI/CD integration     |
+| [Architecture & Value](ARCHITECTURE_AND_VALUE.md) | What inspector-assessment provides and why it matters |
 
 ---
 
@@ -145,7 +144,6 @@ docs/
 │   └── temporal_assessor_security_summary.md
 ├── BASE_INSPECTOR_GUIDE.md                 # Base inspector UI/operations
 ├── FORK_HISTORY.md                         # Upstream relationship
-├── REVIEWER_QUICK_START.md                 # Quick start for reviewers
 ├── CLI_ASSESSMENT_GUIDE.md                 # CLI modes and options
 ├── PROGRAMMATIC_API_GUIDE.md               # AssessmentOrchestrator usage
 ├── API_REFERENCE.md                        # Complete API documentation

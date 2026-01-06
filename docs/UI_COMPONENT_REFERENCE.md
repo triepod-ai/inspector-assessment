@@ -1301,7 +1301,6 @@ const downloadFile = (content: string, filename: string, type: string) => {
 - **Service Layer**: See `client/src/services/assessmentService.ts` for assessment orchestration
 - **Type Definitions**: See `client/src/lib/assessmentTypes.ts` for all assessment interfaces
 - **CLI Integration**: See [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md) for CLI usage
-- **Reviewer Guide**: See [REVIEWER_QUICK_START.md](REVIEWER_QUICK_START.md) for reviewer workflow
 
 ### Support
 
