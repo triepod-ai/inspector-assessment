@@ -14,7 +14,7 @@
 - Development mode: `npm run dev` (use `npm run dev:windows` on Windows)
 - Format code: `npm run prettier-fix`
 - Client lint: `cd client && npm run lint`
-- Run tests: `npm test` (~1000 tests passing)
+- Run tests: `npm test` (~1550 tests passing)
 - Run assessment tests: `npm test -- assessment` (assessment module tests)
 
 ## Structured Logging (v1.23.1)
@@ -407,6 +407,11 @@ For detailed documentation on specific features:
 - **CLI Assessment Guide**: [docs/CLI_ASSESSMENT_GUIDE.md](docs/CLI_ASSESSMENT_GUIDE.md) - Complete CLI modes comparison
 - **Upstream Sync Workflow**: [docs/UPSTREAM_SYNC_WORKFLOW.md](docs/UPSTREAM_SYNC_WORKFLOW.md) - Sync procedure with upstream
 
+### Base Inspector Reference
+
+- **Base Inspector Guide**: [docs/BASE_INSPECTOR_GUIDE.md](docs/BASE_INSPECTOR_GUIDE.md) - UI operation, Docker, auth, transports, config
+- **Fork History**: [docs/FORK_HISTORY.md](docs/FORK_HISTORY.md) - Upstream relationship, sync status, what we added
+
 ### Specification & UI
 
 - **Manifest Requirements**: [docs/MANIFEST_REQUIREMENTS.md](docs/MANIFEST_REQUIREMENTS.md) - manifest_version 0.3 spec
@@ -418,8 +423,8 @@ For detailed documentation on specific features:
 
 ### Legacy References
 
-- **Functionality Testing**: [README.md](README.md#2-optimized-progressive-complexity-testing) - Multi-scenario validation overview
-- **Security Assessment**: [README.md](README.md#4-context-aware-security-assessment-with-zero-false-positives) - Domain-specific patterns overview
+- **Functionality Testing**: [README.md](README.md#assessment-modules-16-total) - Assessment modules overview
+- **Security Assessment**: [README.md](README.md#security-testing-pure-behavior-detection) - Pure behavior-based security testing
 - **Recent Changes**: [PROJECT_STATUS.md](PROJECT_STATUS.md#development-timeline---october-2025)
 
 ## Key Technical Implementations
@@ -443,7 +448,7 @@ For detailed documentation on specific features:
 
 - `client/src/services/__tests__/` - Service layer tests
 - `client/src/services/assessment/__tests__/` - Assessment module tests
-- Total: ~1000 tests across 52 test suites
+- Total: ~1550 tests across 65 test suites
 
 ## Development Workflow
 
@@ -831,8 +836,6 @@ If Anthropic adopts this package, it can be migrated to `@modelcontextprotocol/i
 1. Update all package.json names
 2. Publish to new namespace
 3. Deprecate old packages with migration notice
-
-See [PUBLISHING_GUIDE.md](PUBLISHING_GUIDE.md) for detailed publishing documentation.
 
 ## Upstream Sync Status
 

@@ -1,6 +1,6 @@
 /**
  * Backend API Security Patterns
- * Tests MCP server API security with 22 focused patterns
+ * Tests MCP server API security with 23 focused patterns
  *
  * Architecture: Attack-Type with Specific Payloads
  * - Critical Injection (6 patterns): Command, Calculator, SQL, Path Traversal, XXE, NoSQL

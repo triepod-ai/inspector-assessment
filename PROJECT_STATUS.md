@@ -312,3 +312,74 @@
 - v1.23.2 includes commits: 9b83b30, 46396d8, 5873076
 
 ---
+
+## 2026-01-04: API Documentation Import Path Fixes and v1.23.4 Release
+
+**Summary:** Fixed AssessmentContext import paths across API documentation and published v1.23.4 to npm
+
+**Session Focus:** API documentation audit, import path fixes, and npm release
+
+**Changes Made:**
+- `docs/INTEGRATION_GUIDE.md` - Fixed AssessmentContext import path (2 locations)
+- `docs/TYPE_REFERENCE.md` - Added "Special Case: AssessmentContext" section, updated Package Entry Points table, added contrasting import example
+- `docs/API_REFERENCE.md` - Fixed AssessmentContext import path
+- Deleted temporary audit files: `API_DOCUMENTATION_AUDIT_REPORT.md`, `AUDIT_CORRECTIVE_ACTIONS.md`, `AUDIT_SUMMARY.md`
+- Published v1.23.4 to npm (all 4 packages)
+
+**Key Decisions:**
+- AssessmentContext is exported from main entry point (with AssessmentOrchestrator), not /types
+- Added contrasting example showing where other types (MCPDirectoryAssessment) come from
+- No new tests needed - existing 14 package-import tests provide sufficient coverage
+
+**Technical Details:**
+- api-documenter agent found 3 issues: 1 MEDIUM (import path), 1 LOW (missing docs), 1 MINOR (event count verification)
+- code-reviewer-pro caught that API_REFERENCE.md was missed in initial fix
+- test-automator confirmed existing tests cover documented patterns
+
+**Commits:**
+- 4a12e07: docs: fix AssessmentContext import path in INTEGRATION_GUIDE
+- 16caa36: docs: add AssessmentContext clarification to TYPE_REFERENCE
+- d4c989a: v1.23.4
+- fac7d67: chore: remove temporary audit report files
+- b8f8c91: docs: fix AssessmentContext import path in API_REFERENCE
+
+**Next Steps:**
+- Monitor npm package usage
+- Continue with other project work
+
+**Notes:**
+- All 14 package-import tests passing
+- Documentation now consistent across all 3 API docs
+- v1.23.4 published and verified working
+
+---
+
+## 2026-01-05: Issue #25 Fix - readOnlyHint False Positive and v1.23.5 Release
+
+**Summary:** Fixed Issue #25 false positive in readOnlyHint detector, published v1.23.5
+
+**Session Focus:** Bug fix for substring matching causing false positives in tool annotation assessment
+
+**Changes Made:**
+- `client/src/services/assessment/modules/ToolAnnotationAssessor.ts` - Changed `containsKeyword()` from substring to word segment matching (lines 147-165)
+- `client/src/services/assessment/modules/ToolAnnotationAssessor.test.ts` - Added 7 regression tests in "Word Boundary Matching for Keywords (Issue #25)" describe block
+- `CHANGELOG.md` - Added v1.23.5 entry documenting the fix
+
+**Key Decisions:**
+- Used word segment matching (split by camelCase boundaries, underscore, hyphen) instead of regex word boundaries because `\b` treats underscore as word character
+- Added both false positive prevention tests (4) and correct detection tests (3) for comprehensive coverage
+
+**Technical Details:**
+- Problem: `.includes()` matched "put" in "output", "input", "compute"
+- Solution: Normalize camelCase to snake_case, split by separators, match whole segments
+- Tests: All 1549 tests passing including 68 ToolAnnotationAssessor tests
+
+**Next Steps:**
+- No open GitHub issues remain
+- Consider extended keyword coverage tests in future (low priority)
+
+**Notes:**
+- Version 1.23.5 published to npm
+- GitHub Issue #25 closed
+
+---

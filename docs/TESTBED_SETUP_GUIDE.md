@@ -209,7 +209,7 @@ Before merging any changes to MCP Inspector detection logic:
 | Vulnerable Detection | ≥176 vulnerabilities | `jq '.security.vulnerabilities \| length'` |
 | Hardened Detection   | 0 vulnerabilities    | Same tool names, 0 flagged                 |
 | Zero False Positives | 0 on safe\_\* tools  | Both servers                               |
-| Test Suite           | All ~1000 tests pass | `npm test`                                 |
+| Test Suite           | All ~1550 tests pass | `npm test`                                 |
 
 ### Quick Verification Script
 

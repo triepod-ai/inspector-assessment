@@ -41,11 +41,11 @@ Integration documentation for using the npm package programmatically.
 
 ### Assessment Modules
 
-| Document                                                                  | Purpose                                            |
-| ------------------------------------------------------------------------- | -------------------------------------------------- |
-| [Assessment Catalog](ASSESSMENT_CATALOG.md)                               | Complete 11-module reference (5 core + 6 extended) |
-| [Assessment Module Developer Guide](ASSESSMENT_MODULE_DEVELOPER_GUIDE.md) | Creating and extending assessment modules          |
-| [Scoring Algorithm Guide](SCORING_ALGORITHM_GUIDE.md)                     | Module weights, thresholds, calculations           |
+| Document                                                                  | Purpose                                                         |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [Assessment Catalog](ASSESSMENT_CATALOG.md)                               | Complete 16-module reference (5 core + 6 extended + 5 advanced) |
+| [Assessment Module Developer Guide](ASSESSMENT_MODULE_DEVELOPER_GUIDE.md) | Creating and extending assessment modules                       |
+| [Scoring Algorithm Guide](SCORING_ALGORITHM_GUIDE.md)                     | Module weights, thresholds, calculations                        |
 
 ### Test Data Generation
 
@@ -112,6 +112,18 @@ Real-time progress streaming for CLI/auditor integration.
 
 ---
 
+## Base Inspector Reference
+
+Documentation for the underlying MCP Inspector that this assessment tool builds upon:
+
+| Document                                            | Purpose                                           |
+| --------------------------------------------------- | ------------------------------------------------- |
+| [Base Inspector Guide](BASE_INSPECTOR_GUIDE.md)     | UI operation, Docker, auth, transports, config    |
+| [Fork History](FORK_HISTORY.md)                     | Upstream relationship, sync status, what we added |
+| [Upstream Sync Workflow](UPSTREAM_SYNC_WORKFLOW.md) | Sync procedure with upstream inspector            |
+
+---
+
 ## Legacy Navigation Pages
 
 These files have been split into focused documents and now serve as navigation pages:
@@ -131,6 +143,8 @@ docs/
 │   ├── README.md
 │   ├── temporal_assessor_security_audit.md
 │   └── temporal_assessor_security_summary.md
+├── BASE_INSPECTOR_GUIDE.md                 # Base inspector UI/operations
+├── FORK_HISTORY.md                         # Upstream relationship
 ├── REVIEWER_QUICK_START.md                 # Quick start for reviewers
 ├── CLI_ASSESSMENT_GUIDE.md                 # CLI modes and options
 ├── PROGRAMMATIC_API_GUIDE.md               # AssessmentOrchestrator usage
@@ -163,4 +177,4 @@ docs/
 
 ---
 
-**Last Updated**: 2026-01-04
+**Last Updated**: 2026-01-06
