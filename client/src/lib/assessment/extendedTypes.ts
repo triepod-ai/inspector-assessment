@@ -537,3 +537,56 @@ export interface CrossCapabilitySecurityAssessment {
   explanation: string;
   recommendations: string[];
 }
+
+// ============================================================================
+// Protocol Conformance Assessment Types
+// Validates MCP protocol-level compliance (error format, content types, etc.)
+// Complements ErrorHandlingAssessor (application-level) with protocol-level checks
+// ============================================================================
+
+/**
+ * Result of a single protocol conformance check
+ */
+export interface ProtocolCheck {
+  /** Whether the check passed */
+  passed: boolean;
+  /** Confidence level of the check result */
+  confidence: "high" | "medium" | "low";
+  /** Human-readable evidence of the check result */
+  evidence: string;
+  /** URL to the MCP specification section this check validates */
+  specReference: string;
+  /** Additional details about the check (e.g., raw responses, validation results) */
+  details?: Record<string, unknown>;
+  /** Warnings that don't fail the check but should be noted */
+  warnings?: string[];
+}
+
+/**
+ * Protocol Conformance Assessment Results
+ * Tests MCP protocol-level compliance including error response format,
+ * content type support, and initialization handshake validation.
+ */
+export interface ProtocolConformanceAssessment {
+  /** Individual protocol checks */
+  checks: {
+    /** Validates error responses follow MCP format (isError flag, content array structure) */
+    errorResponseFormat: ProtocolCheck;
+    /** Validates content types are valid (text, image, audio, resource) */
+    contentTypeSupport: ProtocolCheck;
+    /** Validates server completed proper initialization handshake */
+    initializationHandshake: ProtocolCheck;
+    /** Optional: Validates progress notification format (if tools support progress) */
+    progressNotifications?: ProtocolCheck;
+    /** Optional: Validates log notification format (if tools support logging) */
+    logNotifications?: ProtocolCheck;
+  };
+  /** Overall conformance score (0-100) */
+  score: number;
+  /** Assessment status based on score and critical check failures */
+  status: AssessmentStatus;
+  /** Human-readable explanation of the assessment result */
+  explanation: string;
+  /** Recommendations for improving protocol conformance */
+  recommendations: string[];
+}

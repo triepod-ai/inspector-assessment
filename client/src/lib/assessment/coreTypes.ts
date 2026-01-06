@@ -110,6 +110,10 @@ const ASSESSMENT_CATEGORY_METADATA_INTERNAL = {
     tier: "core" as const,
     description: "Cross-capability security",
   },
+  protocolConformance: {
+    tier: "core" as const,
+    description: "MCP protocol conformance",
+  },
 } satisfies Record<string, AssessmentCategoryMetadata>;
 
 /**

@@ -40,6 +40,9 @@ import { ResourceAssessor } from "./modules/ResourceAssessor";
 import { PromptAssessor } from "./modules/PromptAssessor";
 import { CrossCapabilitySecurityAssessor } from "./modules/CrossCapabilitySecurityAssessor";
 
+// Protocol conformance assessor
+import { ProtocolConformanceAssessor } from "./modules/ProtocolConformanceAssessor";
+
 // Pattern configuration for tool annotation assessment
 import {
   loadPatternConfig,
@@ -352,6 +355,9 @@ export class AssessmentOrchestrator {
   private promptAssessor?: PromptAssessor;
   private crossCapabilityAssessor?: CrossCapabilitySecurityAssessor;
 
+  // Protocol conformance assessor
+  private protocolConformanceAssessor?: ProtocolConformanceAssessor;
+
   constructor(config: Partial<AssessmentConfiguration> = {}) {
     this.config = { ...DEFAULT_ASSESSMENT_CONFIG, ...config };
 
@@ -443,6 +449,13 @@ export class AssessmentOrchestrator {
       }
       if (this.config.assessmentCategories?.crossCapability) {
         this.crossCapabilityAssessor = new CrossCapabilitySecurityAssessor(
+          this.config,
+        );
+      }
+
+      // Initialize protocol conformance assessor
+      if (this.config.assessmentCategories?.protocolConformance) {
+        this.protocolConformanceAssessor = new ProtocolConformanceAssessor(
           this.config,
         );
       }
@@ -837,6 +850,22 @@ export class AssessmentOrchestrator {
         );
       }
 
+      // Protocol Conformance (3 checks: error format, content types, initialization)
+      if (this.protocolConformanceAssessor) {
+        emitModuleStartedEvent("Protocol-Conformance", 3, toolCount);
+        assessmentPromises.push(
+          this.protocolConformanceAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "Protocol-Conformance",
+              r.status,
+              r,
+              this.protocolConformanceAssessor!.getTestCount(),
+            );
+            return (assessmentResults.protocolConformance = r);
+          }),
+        );
+      }
+
       await Promise.all(assessmentPromises);
     } else {
       // Sequential execution with module_started events
@@ -1040,6 +1069,19 @@ export class AssessmentOrchestrator {
           this.crossCapabilityAssessor.getTestCount(),
         );
       }
+
+      // Protocol Conformance (3 checks: error format, content types, initialization)
+      if (this.protocolConformanceAssessor) {
+        emitModuleStartedEvent("Protocol-Conformance", 3, toolCount);
+        assessmentResults.protocolConformance =
+          await this.protocolConformanceAssessor.assess(context);
+        emitModuleProgress(
+          "Protocol-Conformance",
+          assessmentResults.protocolConformance.status,
+          assessmentResults.protocolConformance,
+          this.protocolConformanceAssessor.getTestCount(),
+        );
+      }
     }
 
     // Integrate temporal findings into security.vulnerabilities for unified view
@@ -1149,6 +1191,10 @@ export class AssessmentOrchestrator {
     const crossCapabilityCount =
       this.crossCapabilityAssessor?.getTestCount() || 0;
 
+    // Protocol conformance count
+    const protocolConformanceCount =
+      this.protocolConformanceAssessor?.getTestCount() || 0;
+
     this.logger.debug("Test counts by assessor", {
       functionality: functionalityCount,
       security: securityCount,
@@ -1166,6 +1212,7 @@ export class AssessmentOrchestrator {
       resources: resourcesCount,
       prompts: promptsCount,
       crossCapability: crossCapabilityCount,
+      protocolConformance: protocolConformanceCount,
     });
 
     total =
@@ -1184,7 +1231,8 @@ export class AssessmentOrchestrator {
       temporalCount +
       resourcesCount +
       promptsCount +
-      crossCapabilityCount;
+      crossCapabilityCount +
+      protocolConformanceCount;
 
     this.logger.debug("Total test count", { total });
 

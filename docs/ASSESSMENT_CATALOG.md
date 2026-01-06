@@ -4,14 +4,14 @@ A comprehensive reference for all assessment modules in the MCP Inspector Assess
 
 ## Overview
 
-The MCP Inspector Assessment runs **17 specialized modules** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
+The MCP Inspector Assessment runs **18 specialized modules** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
 
 ### Module Organization
 
 | Category         | Modules | Purpose                             |
 | ---------------- | ------- | ----------------------------------- |
-| **Core (15)**    | #1-15   | Essential server quality validation |
-| **Optional (2)** | #16-17  | Context-specific (MCPB bundles)     |
+| **Core (16)**    | #1-16   | Essential server quality validation |
+| **Optional (2)** | #17-18  | Context-specific (MCPB bundles)     |
 
 ### All Module Names (for `--skip-modules` / `--only-modules`)
 
@@ -20,7 +20,7 @@ Core:       functionality, security, errorHandling, documentation, usability
 Compliance: mcpSpecCompliance, aupCompliance, toolAnnotations, prohibitedLibraries,
             manifestValidation, portability
 Advanced:   temporal, resources, prompts, crossCapability, authentication,
-            externalAPIScanner*
+            externalAPIScanner*, protocolConformance
 ```
 
 \* `externalAPIScanner` only runs when `--source` flag is provided
@@ -663,6 +663,75 @@ Tools with "run" prefix and analysis-related suffixes are treated as read-only o
 
 ---
 
+### 18. Protocol Conformance Assessment
+
+**Purpose**: Validate MCP protocol-level compliance with conformance-inspired tests.
+
+**Relationship to Other Modules**:
+
+- **ErrorHandlingAssessor** (#3): Application-level error handling quality
+- **MCPSpecComplianceAssessor** (#6): Basic protocol structure validation
+- **ProtocolConformanceAssessor** (#18): Protocol-level conformance tests (this module)
+
+**Test Approach**:
+
+- Error response format validation (isError flag, content array structure)
+- Content type support validation (text, image, audio, resource, resource_link)
+- Initialization handshake validation (serverInfo completeness)
+
+**Protocol Checks**:
+
+| Check                    | Description                                                  | Confidence  |
+| ------------------------ | ------------------------------------------------------------ | ----------- |
+| Error Response Format    | Validates `isError: true` flag, content array with text type | high/medium |
+| Content Type Support     | Validates all content items use valid MCP types              | high/medium |
+| Initialization Handshake | Validates serverInfo.name, version, capabilities             | high/medium |
+
+**MCP Specification References**:
+
+- Lifecycle: https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle
+- Tools: https://modelcontextprotocol.io/specification/2025-06-18/server/tools
+
+**Test Details**:
+
+| Test           | Method                            | What It Validates                                           |
+| -------------- | --------------------------------- | ----------------------------------------------------------- |
+| Error Format   | Call tool with invalid params     | `isError: true`, content array with `type: "text"`          |
+| Content Types  | Call tool with empty/valid params | Content array uses only valid types                         |
+| Initialization | Inspect serverInfo                | Server name (required), version (recommended), capabilities |
+
+**Pass Criteria**:
+
+- Error responses include `isError: true` flag when errors occur
+- All content items use valid MCP content types
+- Server provides name during initialization
+- No tools throw exceptions instead of returning error responses
+
+**Status Determination**:
+
+| Score  | Critical Checks               | Status         |
+| ------ | ----------------------------- | -------------- |
+| ≥90%   | All pass                      | PASS           |
+| 70-89% | OR low confidence on critical | NEED_MORE_INFO |
+| <70%   | OR critical failure           | FAIL           |
+
+**Critical Checks** (must pass for overall PASS):
+
+- `errorResponseFormat`
+- `initializationHandshake`
+
+**Configuration**:
+
+Enabled in these config presets:
+
+- `DEVELOPER_MODE_CONFIG`: ✓
+- `AUDIT_MODE_CONFIG`: ✓
+- `CLAUDE_ENHANCED_AUDIT_CONFIG`: ✓
+
+**Implementation**: `client/src/services/assessment/modules/ProtocolConformanceAssessor.ts` (~300 lines)
+
+---
+
 ## Quick Reference Table
 
 | #   | Module               | Tests               | Policy Ref     | Severity | Tier     |
@@ -684,6 +753,7 @@ Tools with "run" prefix and analysis-related suffixes are treated as read-only o
 | 15  | Resources            | Per resource        | MCP Spec       | Medium   | Core     |
 | 16  | Prompts              | Per prompt          | MCP Spec       | Medium   | Core     |
 | 17  | Cross-Capability     | Multi-tool chains   | Security       | High     | Core     |
+| 18  | Protocol Conformance | 3 protocol checks   | MCP Spec       | High     | Core     |
 
 ---
 
@@ -765,5 +835,5 @@ cat /tmp/inspector-assessment-*.json | jq '.overallStatus'
 
 ---
 
-**Version**: 1.9.2
+**Version**: 1.9.3
 **Last Updated**: 2026-01-06

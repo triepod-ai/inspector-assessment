@@ -22,6 +22,7 @@ import type {
   ResourceAssessment,
   PromptAssessment,
   CrossCapabilitySecurityAssessment,
+  ProtocolConformanceAssessment,
 } from "./extendedTypes";
 
 // ============================================================================
@@ -675,6 +676,10 @@ export interface MCPDirectoryAssessment {
   prompts?: PromptAssessment;
   /** Cross-capability security assessment (resources x prompts x tools interactions) */
   crossCapability?: CrossCapabilitySecurityAssessment;
+
+  // Protocol conformance assessment
+  /** MCP protocol-level compliance (error format, content types, initialization handshake) */
+  protocolConformance?: ProtocolConformanceAssessment;
 
   // Overall assessment
   overallStatus: AssessmentStatus;

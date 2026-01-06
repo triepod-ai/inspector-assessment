@@ -88,6 +88,8 @@ export interface AssessmentConfiguration {
     resources?: boolean; // Resource path traversal, sensitive data exposure
     prompts?: boolean; // Prompt AUP compliance, injection vulnerabilities
     crossCapability?: boolean; // Cross-capability security (tool→resource, prompt→tool)
+    // Protocol conformance assessment
+    protocolConformance?: boolean; // MCP protocol-level compliance (error format, content types, initialization)
   };
 }
 
@@ -127,6 +129,8 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
     resources: false,
     prompts: false,
     crossCapability: false,
+    // Protocol conformance - disabled by default
+    protocolConformance: false,
   },
 };
 
@@ -165,6 +169,8 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
     resources: false,
     prompts: false,
     crossCapability: false,
+    // Protocol conformance - disabled in reviewer mode for speed
+    protocolConformance: false,
   },
 };
 
@@ -201,6 +207,8 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
     resources: true,
     prompts: true,
     crossCapability: true,
+    // Protocol conformance - enabled in developer mode for comprehensive testing
+    protocolConformance: true,
   },
 };
 
@@ -238,6 +246,8 @@ export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
     resources: true,
     prompts: true,
     crossCapability: true,
+    // Protocol conformance - enabled in audit mode for compliance validation
+    protocolConformance: true,
   },
 };
 
@@ -286,5 +296,7 @@ export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
     resources: true,
     prompts: true,
     crossCapability: true,
+    // Protocol conformance - enabled in Claude mode for comprehensive validation
+    protocolConformance: true,
   },
 };

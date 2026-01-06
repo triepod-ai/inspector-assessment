@@ -39,3 +39,6 @@ export { ManifestValidationAssessor } from "./ManifestValidationAssessor";
 export { PortabilityAssessor } from "./PortabilityAssessor";
 export { ExternalAPIScannerAssessor } from "./ExternalAPIScannerAssessor";
 export { TemporalAssessor } from "./TemporalAssessor";
+
+// Protocol Conformance Assessor
+export { ProtocolConformanceAssessor } from "./ProtocolConformanceAssessor";
