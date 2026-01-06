@@ -817,7 +817,7 @@ interface ModulesConfiguredEvent {
 }
 ```
 
-**Integration Note:** This event is useful for MCP Auditor and other consumers to calculate accurate progress percentages. When modules are skipped, the total expected `module_started`/`module_complete` events will be fewer than the full 16 modules.
+**Integration Note:** This event is useful for MCP Auditor and other consumers to calculate accurate progress percentages. When modules are skipped, the total expected `module_started`/`module_complete` events will be fewer than the full 17 modules.
 
 ---
 

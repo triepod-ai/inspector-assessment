@@ -54,7 +54,7 @@ The MCP Inspector provides three distinct CLI modes for different workflows:
 **Available**: When running from source code (requires `npm run build-cli` first)
 
 ```bash
-# Runs full assessment with all 11 modules
+# Runs full assessment with all 17 modules
 npm run assess:full -- --server <server-name>
 
 # With config file
@@ -508,7 +508,7 @@ The JSON output file contains comprehensive assessment results:
   "assessmentType": "full",
   "serverName": "memory-mcp",
   "overallStatus": "PASS",
-  "summary": "Server passed all 11 assessment modules...",
+  "summary": "Server passed all 17 assessment modules...",
   "totalTestsRun": 1440,
   "executionTime": 47823,
   "recommendations": [
@@ -1514,7 +1514,7 @@ mcp-assess-full \
 
 ## Assessment Modules Reference
 
-The inspector runs 11 assessment modules covering different aspects:
+The inspector runs 17 assessment modules covering different aspects:
 
 | Module               | Tests  | Time | Purpose                            |
 | -------------------- | ------ | ---- | ---------------------------------- |

@@ -26,7 +26,7 @@ Complete reference for understanding how MCP Inspector calculates assessment sco
 
 The MCP Inspector uses a **two-tier scoring system**:
 
-1. **Per-Module Scores** (0-100): Each of 16 assessment modules calculates its own score
+1. **Per-Module Scores** (0-100): Each of 17 assessment modules calculates its own score
 2. **Overall Score** (0-100): Weighted average of 5 core module scores
 
 The overall score determines the final **Assessment Level**: PASS, VERIFY, or FAIL.
@@ -246,7 +246,7 @@ Usability      █████████████████████�
 
 ### Modules NOT in Overall Score
 
-These 11 modules are assessed but **do not affect** the overall score:
+These 12 modules are assessed but **do not affect** the overall score:
 
 | Module               | Reason                                   |
 | -------------------- | ---------------------------------------- |
@@ -535,6 +535,6 @@ console.log(`Expected: ${Math.round(total)}`);
 
 ## Related Documentation
 
-- [Assessment Catalog](ASSESSMENT_CATALOG.md) - 16-module reference
+- [Assessment Catalog](ASSESSMENT_CATALOG.md) - 17-module reference
 - [Audit Worker Architecture](/home/bryan/mcp-auditor/docs/AUDIT_WORKER_ARCHITECTURE.md) - Data flow
 - [Inspector/Auditor Data Contract](/home/bryan/mcp-auditor/docs/INSPECTOR_AUDITOR_DATA_CONTRACT.md) - Property mapping

@@ -515,7 +515,7 @@ import {
   DEFAULT_ASSESSMENT_CONFIG, // Balanced defaults (5 core modules)
   REVIEWER_MODE_CONFIG, // Fast reviews (parallel, 3 patterns)
   DEVELOPER_MODE_CONFIG, // Debug mode (all modules, verbose)
-  AUDIT_MODE_CONFIG, // Full compliance (all 16 modules)
+  AUDIT_MODE_CONFIG, // Full compliance (all 17 modules)
   CLAUDE_ENHANCED_AUDIT_CONFIG, // Semantic analysis with Claude
 } from "@bryan-thompson/inspector-assessment/config";
 ```
@@ -631,7 +631,7 @@ console.log(`Protocol version: ${result.mcpProtocolVersion}`);
 - [API_REFERENCE.md](API_REFERENCE.md) - Formal API documentation
 - [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) - Building on top of assessment
 - [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md) - CLI usage guide
-- [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - All 16 assessment modules
+- [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - All 17 assessment modules
 - [JSONL_EVENTS_REFERENCE.md](JSONL_EVENTS_REFERENCE.md) - Real-time progress events (13 types)
 
 ---

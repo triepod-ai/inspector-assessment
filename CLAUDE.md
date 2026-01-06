@@ -368,7 +368,7 @@ For detailed documentation on specific features:
 
 ### Core Documentation
 
-- **Assessment Catalog**: [docs/ASSESSMENT_CATALOG.md](docs/ASSESSMENT_CATALOG.md) - Complete 11-point assessment reference (5 core + 6 extended modules)
+- **Assessment Catalog**: [docs/ASSESSMENT_CATALOG.md](docs/ASSESSMENT_CATALOG.md) - Complete 17-module assessment reference (5 core + 6 compliance + 6 advanced)
 - **Reviewer Quick Start**: [docs/REVIEWER_QUICK_START.md](docs/REVIEWER_QUICK_START.md) - Fast-track guide for MCP directory reviewers (60-second screening + 5-minute detailed review)
 - **Architecture & Value**: [docs/ARCHITECTURE_AND_VALUE.md](docs/ARCHITECTURE_AND_VALUE.md) - What inspector-assessment provides and why
 
@@ -423,7 +423,7 @@ For detailed documentation on specific features:
 
 ### Legacy References
 
-- **Functionality Testing**: [README.md](README.md#assessment-modules-16-total) - Assessment modules overview
+- **Functionality Testing**: [README.md](README.md#assessment-modules-17-total) - Assessment modules overview
 - **Security Assessment**: [README.md](README.md#security-testing-pure-behavior-detection) - Pure behavior-based security testing
 - **Recent Changes**: [PROJECT_STATUS.md](PROJECT_STATUS.md#development-timeline---october-2025)
 
