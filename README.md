@@ -3,7 +3,7 @@
 [![npm version](https://badge.fury.io/js/@bryan-thompson%2Finspector-assessment.svg)](https://www.npmjs.com/package/@bryan-thompson/inspector-assessment)
 [![npm downloads](https://img.shields.io/npm/dm/@bryan-thompson/inspector-assessment.svg)](https://www.npmjs.com/package/@bryan-thompson/inspector-assessment)
 
-**Comprehensive MCP server validation with 17 automated assessment modules.**
+**Comprehensive MCP server validation with 18 automated assessment modules.**
 Test functionality, security, documentation, and policy compliance from the command line.
 
 ![MCP Inspector Screenshot](./mcp-inspector.png)
@@ -63,7 +63,7 @@ The inspector provides three CLI commands for different workflows:
 
 | Command                | Purpose                       | Use Case                     |
 | ---------------------- | ----------------------------- | ---------------------------- |
-| `mcp-assess-full`      | Complete 17-module assessment | Full validation, CI/CD gates |
+| `mcp-assess-full`      | Complete 18-module assessment | Full validation, CI/CD gates |
 | `mcp-assess-security`  | Security-only testing         | Quick vulnerability scan     |
 | `mcp-inspector-assess` | Interactive web UI            | Debugging, exploration       |
 
@@ -93,9 +93,9 @@ For complete CLI documentation, see [CLI Assessment Guide](docs/CLI_ASSESSMENT_G
 
 ---
 
-## Assessment Modules (17 Total)
+## Assessment Modules (18 Total)
 
-### Core Modules (15)
+### Core Modules (16)
 
 | Module                   | Purpose                      | Key Features                                        |
 | ------------------------ | ---------------------------- | --------------------------------------------------- |
@@ -114,6 +114,7 @@ For complete CLI documentation, see [CLI Assessment Guide](docs/CLI_ASSESSMENT_G
 | **Resources**            | Resource capability          | Discovery, read success, errors                     |
 | **Prompts**              | Prompt capability            | Execution, multimodal support                       |
 | **Cross-Capability**     | Chained vulnerabilities      | Multi-tool attack patterns                          |
+| **Protocol Conformance** | Protocol-level validation    | Error format, content types, initialization         |
 
 ### Optional Modules (2) - MCPB Bundles
 
@@ -261,11 +262,11 @@ npm test -- SecurityAssessor     # Security tests
 
 ### Assessment Details
 
-| Document                                                       | Purpose                       |
-| -------------------------------------------------------------- | ----------------------------- |
-| [Assessment Catalog](docs/ASSESSMENT_CATALOG.md)               | All 17 modules reference      |
-| [Security Patterns Catalog](docs/SECURITY_PATTERNS_CATALOG.md) | Comprehensive attack patterns |
-| [Testbed Setup Guide](docs/TESTBED_SETUP_GUIDE.md)             | A/B validation                |
+| Document                                                       | Purpose                              |
+| -------------------------------------------------------------- | ------------------------------------ |
+| [Assessment Catalog](docs/ASSESSMENT_CATALOG.md)               | Complete assessment module reference |
+| [Security Patterns Catalog](docs/SECURITY_PATTERNS_CATALOG.md) | Comprehensive attack patterns        |
+| [Testbed Setup Guide](docs/TESTBED_SETUP_GUIDE.md)             | A/B validation                       |
 
 For complete documentation, see [docs/README.md](docs/README.md).
 

@@ -40,11 +40,12 @@ Integration documentation for using the npm package programmatically.
 
 ### Assessment Modules
 
-| Document                                                                  | Purpose                                             |
-| ------------------------------------------------------------------------- | --------------------------------------------------- |
-| [Assessment Catalog](ASSESSMENT_CATALOG.md)                               | Complete 17-module reference (15 core + 2 optional) |
-| [Assessment Module Developer Guide](ASSESSMENT_MODULE_DEVELOPER_GUIDE.md) | Creating and extending assessment modules           |
-| [Scoring Algorithm Guide](SCORING_ALGORITHM_GUIDE.md)                     | Module weights, thresholds, calculations            |
+| Document                                                                      | Purpose                                                      |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [Assessment Catalog](ASSESSMENT_CATALOG.md)                                   | Complete assessment module reference and tier organization   |
+| [Assessment Module Developer Guide](ASSESSMENT_MODULE_DEVELOPER_GUIDE.md)     | Creating and extending assessment modules                    |
+| [Scoring Algorithm Guide](SCORING_ALGORITHM_GUIDE.md)                         | Module weights, thresholds, calculations                     |
+| [Protocol Conformance Assessor Guide](PROTOCOL_CONFORMANCE_ASSESSOR_GUIDE.md) | Module #18: Protocol compliance, event emission, integration |
 
 ### Test Data Generation
 
@@ -151,9 +152,10 @@ docs/
 ├── TYPE_REFERENCE.md                       # TypeScript type reference
 ├── LOGGING_GUIDE.md                        # Structured logging configuration
 ├── ASSESSMENT_TYPES_IMPORT_GUIDE.md        # Modular types, imports, tree-shaking
-├── ASSESSMENT_CATALOG.md                   # All 17 modules
+├── ASSESSMENT_CATALOG.md                   # Assessment module reference
 ├── SCORING_ALGORITHM_GUIDE.md              # Scoring details
 ├── ASSESSMENT_MODULE_DEVELOPER_GUIDE.md    # Module development
+├── PROTOCOL_CONFORMANCE_ASSESSOR_GUIDE.md # Module #18 integration guide
 ├── TEST_DATA_ARCHITECTURE.md               # Test data core
 ├── TEST_DATA_SCENARIOS.md                  # Test scenarios
 ├── TEST_DATA_EXTENSION.md                  # Test data extension

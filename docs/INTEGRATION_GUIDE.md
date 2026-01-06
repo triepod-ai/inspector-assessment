@@ -1045,7 +1045,7 @@ runComprehensiveAssessment({
 - [Programmatic API Guide](PROGRAMMATIC_API_GUIDE.md) - Getting started
 - [API Reference](API_REFERENCE.md) - Complete API documentation
 - [CLI Assessment Guide](CLI_ASSESSMENT_GUIDE.md) - Command-line usage
-- [Assessment Catalog](ASSESSMENT_CATALOG.md) - All 17 modules
+- [Assessment Catalog](ASSESSMENT_CATALOG.md) - Complete assessment module reference
 - [JSONL Events Reference](JSONL_EVENTS_REFERENCE.md) - Event stream format
 
 ---

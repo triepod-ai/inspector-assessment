@@ -718,9 +718,9 @@ interface AnnotationAlignedEvent {
 | `reason`  | `"skip-modules"` \| `"only-modules"` \| `"default"` | Yes      | Why modules were configured this way   |
 | `version` | string                                              | Yes      | Inspector version (auto-added)         |
 
-**Valid Module Names (17 total):**
+**Valid Module Names (18 total):**
 
-- **Core (15):** `functionality`, `security`, `documentation`, `errorHandling`, `usability`, `mcpSpecCompliance`, `aupCompliance`, `toolAnnotations`, `prohibitedLibraries`, `externalAPIScanner`, `authentication`, `temporal`, `resources`, `prompts`, `crossCapability`
+- **Core (16):** `functionality`, `security`, `documentation`, `errorHandling`, `usability`, `mcpSpecCompliance`, `aupCompliance`, `toolAnnotations`, `prohibitedLibraries`, `externalAPIScanner`, `authentication`, `temporal`, `resources`, `prompts`, `crossCapability`, `protocolConformance`
 - **Optional (2):** `manifestValidation`, `portability`
 
 **Example Scenarios:**
@@ -817,7 +817,7 @@ interface ModulesConfiguredEvent {
 }
 ```
 
-**Integration Note:** This event is useful for MCP Auditor and other consumers to calculate accurate progress percentages. When modules are skipped, the total expected `module_started`/`module_complete` events will be fewer than the full 17 modules.
+**Integration Note:** This event is useful for MCP Auditor and other consumers to calculate accurate progress percentages. When modules are skipped, the total expected `module_started`/`module_complete` events will be fewer than the full module count.
 
 ---
 

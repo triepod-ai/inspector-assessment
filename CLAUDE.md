@@ -368,7 +368,7 @@ For detailed documentation on specific features:
 
 ### Core Documentation
 
-- **Assessment Catalog**: [docs/ASSESSMENT_CATALOG.md](docs/ASSESSMENT_CATALOG.md) - Complete 17-module assessment reference (15 core + 2 optional)
+- **Assessment Catalog**: [docs/ASSESSMENT_CATALOG.md](docs/ASSESSMENT_CATALOG.md) - Complete assessment module reference with tier organization
 - **Architecture & Value**: [docs/ARCHITECTURE_AND_VALUE.md](docs/ARCHITECTURE_AND_VALUE.md) - What inspector-assessment provides and why
 
 ### JSONL Events API
@@ -422,7 +422,7 @@ For detailed documentation on specific features:
 
 ### Legacy References
 
-- **Functionality Testing**: [README.md](README.md#assessment-modules-17-total) - Assessment modules overview
+- **Functionality Testing**: [README.md](README.md#assessment-modules-18-total) - Assessment modules overview
 - **Security Assessment**: [README.md](README.md#security-testing-pure-behavior-detection) - Pure behavior-based security testing
 - **Recent Changes**: [PROJECT_STATUS.md](PROJECT_STATUS.md#development-timeline---october-2025)
 

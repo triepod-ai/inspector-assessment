@@ -9,7 +9,7 @@ This document explains what inspector-assessment provides, how it integrates wit
 - Architecture overview and component breakdown
 - Comparison with original MCP Inspector
 - Why behavioral testing matters (behavioral proof vs speculation)
-- The 17 assessment modules
+- Automated assessment modules
 - Integration with mcp-auditor
 
 ---
@@ -19,7 +19,7 @@ This document explains what inspector-assessment provides, how it integrates wit
 **inspector-assessment** is a fork of Anthropic's MCP Inspector that adds:
 
 1. **Programmatic CLI access** - Test any MCP server from command line
-2. **17 automated assessment modules** - Security, functionality, documentation, and more
+2. **Automated assessment modules** - Security, functionality, documentation, and more
 3. **Behavioral security testing** - Actually calls tools with attack payloads
 4. **CI/CD integration** - Exit codes, JSON output, JSONL progress events
 
@@ -115,7 +115,7 @@ For detailed implementation guides, see:
 | **Interface**                | Web UI only               | Web UI + CLI + npm package                |
 | **Server Connection**        | Manual browser navigation | Config-based auto-connect                 |
 | **Transport Support**        | Interactive only          | Programmatic STDIO/HTTP/SSE               |
-| **Assessment**               | None (debugging tool)     | 17 automated modules                      |
+| **Assessment**               | None (debugging tool)     | Comprehensive automated assessment        |
 | **Security Testing**         | Manual click-testing      | Comprehensive attack patterns, behavioral |
 | **CI/CD Ready**              | No                        | Exit codes, JSON output                   |
 | **Real-time Progress**       | No                        | JSONL events to stderr                    |
@@ -262,7 +262,7 @@ mcp-auditor parses these for live WebSocket updates to the frontend.
 
 ### Score Mapping
 
-Inspector's 17 modules are mapped to mcp-auditor's 5 categories:
+Inspector's assessment modules are mapped to mcp-auditor's 5 categories:
 
 - **Functionality** = functionality + mcpSpecCompliance
 - **Security** = security + aupCompliance + prohibitedLibraries
@@ -295,15 +295,15 @@ function generateFallbackResults() {
 
 ### Comparison Table
 
-| Aspect                  | With Inspector                     | Without Inspector                           |
-| ----------------------- | ---------------------------------- | ------------------------------------------- |
-| **Audit Quality**       | 17 automated modules, quantitative | Fallback 50% scores, "manual review needed" |
-| **Security Confidence** | Behavioral proof                   | Claude speculation                          |
-| **CI/CD Integration**   | Pass/Fail automation               | Always "VERIFY" level                       |
-| **Tool Discovery**      | Auto-enumerated                    | Manual listing required                     |
-| **Real-time Progress**  | JSONL streaming                    | No progress visibility                      |
-| **Reproducibility**     | Same tests every run               | Varies by Claude session                    |
-| **Cost**                | One-time assessment                | Token cost per analysis                     |
+| Aspect                  | With Inspector                                   | Without Inspector                           |
+| ----------------------- | ------------------------------------------------ | ------------------------------------------- |
+| **Audit Quality**       | Comprehensive automated assessment, quantitative | Fallback 50% scores, "manual review needed" |
+| **Security Confidence** | Behavioral proof                                 | Claude speculation                          |
+| **CI/CD Integration**   | Pass/Fail automation                             | Always "VERIFY" level                       |
+| **Tool Discovery**      | Auto-enumerated                                  | Manual listing required                     |
+| **Real-time Progress**  | JSONL streaming                                  | No progress visibility                      |
+| **Reproducibility**     | Same tests every run                             | Varies by Claude session                    |
+| **Cost**                | One-time assessment                              | Token cost per analysis                     |
 
 ---
 
@@ -333,6 +333,6 @@ You could audit servers with Claude alone, but you'd lose the **behavioral proof
 
 ## Related Documentation
 
-- [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - Complete 17-module reference
+- [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - Complete assessment module reference
 - [REAL_TIME_PROGRESS_OUTPUT.md](REAL_TIME_PROGRESS_OUTPUT.md) - JSONL event format
 - [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md) - CLI modes and options

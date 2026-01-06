@@ -2,7 +2,7 @@
 
 > **Note**: This guide is for **manual assessment** within Claude Desktop.
 > For **automated CLI-based assessment**, see [docs/CLI_ASSESSMENT_GUIDE.md](docs/CLI_ASSESSMENT_GUIDE.md)
-> which provides programmatic testing with 17 assessment modules and CI/CD integration.
+> which provides programmatic testing with automated assessment modules and CI/CD integration.
 
 ## Purpose
 

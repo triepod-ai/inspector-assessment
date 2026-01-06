@@ -298,8 +298,8 @@ Pre-configured settings for common use cases:
 import {
   DEFAULT_ASSESSMENT_CONFIG, // General testing - balanced settings
   REVIEWER_MODE_CONFIG, // Fast reviews - 5 core modules, parallel
-  DEVELOPER_MODE_CONFIG, // Debugging - all 17 modules, verbose
-  AUDIT_MODE_CONFIG, // Directory compliance - all 17 modules
+  DEVELOPER_MODE_CONFIG, // Debugging - all assessment modules, verbose
+  AUDIT_MODE_CONFIG, // Directory compliance - all assessment modules
   CLAUDE_ENHANCED_AUDIT_CONFIG, // Semantic analysis with Claude Code
 } from "@bryan-thompson/inspector-assessment/config";
 ```
@@ -308,9 +308,9 @@ import {
 | ------------------------------ | -------------------- | ------- | -------- |
 | `DEFAULT_ASSESSMENT_CONFIG`    | General testing      | 5 core  | No       |
 | `REVIEWER_MODE_CONFIG`         | Fast reviews         | 5 core  | Yes      |
-| `DEVELOPER_MODE_CONFIG`        | Debugging            | All 17  | No       |
-| `AUDIT_MODE_CONFIG`            | Directory compliance | All 17  | Yes      |
-| `CLAUDE_ENHANCED_AUDIT_CONFIG` | Semantic analysis    | All 17  | No       |
+| `DEVELOPER_MODE_CONFIG`        | Debugging            | All     | No       |
+| `AUDIT_MODE_CONFIG`            | Directory compliance | All     | Yes      |
+| `CLAUDE_ENHANCED_AUDIT_CONFIG` | Semantic analysis    | All     | No       |
 
 ---
 
@@ -805,7 +805,7 @@ interface CrossCapabilitySecurityAssessment {
 
 - [PROGRAMMATIC_API_GUIDE.md](PROGRAMMATIC_API_GUIDE.md) - How to use AssessmentOrchestrator
 - [API_REFERENCE.md](API_REFERENCE.md) - Full API documentation
-- [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - All 17 assessment modules
+- [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - Complete assessment module reference
 - [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md) - CLI usage guide
 - [JSONL_EVENTS_REFERENCE.md](JSONL_EVENTS_REFERENCE.md) - Real-time progress events (13 types)
 

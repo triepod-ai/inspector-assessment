@@ -97,7 +97,7 @@ describe("ProtocolConformanceAssessor", () => {
       expect(result.checks.errorResponseFormat.confidence).toBe("medium");
     });
 
-    it("should fail when isError flag is missing from error response", async () => {
+    it("should pass with medium confidence when isError flag is missing but content is valid", async () => {
       const assessor = new ProtocolConformanceAssessor(createConfig());
       const tool = createTool("test_tool");
 

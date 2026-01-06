@@ -20,9 +20,19 @@ import type {
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 
+// MCP content item structure for type safety
+interface ContentItem {
+  type: string;
+  text?: string;
+  data?: string;
+  mimeType?: string;
+}
+
 // MCP specification references
-const MCP_SPEC_BASE =
-  "https://modelcontextprotocol.io/specification/2025-06-18";
+// NOTE: Update this URL when targeting a newer MCP spec version
+// See: https://modelcontextprotocol.io/specification for available versions
+const MCP_SPEC_VERSION = "2025-06-18";
+const MCP_SPEC_BASE = `https://modelcontextprotocol.io/specification/${MCP_SPEC_VERSION}`;
 const SPEC_LIFECYCLE = `${MCP_SPEC_BASE}/basic/lifecycle`;
 const SPEC_TOOLS = `${MCP_SPEC_BASE}/server/tools`;
 
@@ -138,7 +148,7 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
           specReference: SPEC_LIFECYCLE,
           details: {
             note: "Tool accepted test params without error - cannot validate error format",
-            contentStructure: contentArray.map((c: any) => ({
+            contentStructure: (contentArray as ContentItem[]).map((c) => ({
               type: c.type,
             })),
           },
@@ -236,9 +246,13 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
       const validations = {
         hasContentArray: Array.isArray(result.content),
         contentNotEmpty: contentArray.length > 0,
-        allContentHasType: contentArray.every((c: any) => c.type !== undefined),
-        validContentTypes: contentArray.every((c: any) =>
-          VALID_CONTENT_TYPES.includes(c.type),
+        allContentHasType: (contentArray as ContentItem[]).every(
+          (c) => c.type !== undefined,
+        ),
+        validContentTypes: (contentArray as ContentItem[]).every((c) =>
+          VALID_CONTENT_TYPES.includes(
+            c.type as (typeof VALID_CONTENT_TYPES)[number],
+          ),
         ),
       };
 
@@ -247,9 +261,12 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
         passedValidations.length === Object.keys(validations).length;
 
       // Get detected content types for evidence
-      const detectedTypes = contentArray.map((c: any) => c.type);
+      const detectedTypes = (contentArray as ContentItem[]).map((c) => c.type);
       const invalidTypes = detectedTypes.filter(
-        (t: string) => !VALID_CONTENT_TYPES.includes(t as any),
+        (t) =>
+          !VALID_CONTENT_TYPES.includes(
+            t as (typeof VALID_CONTENT_TYPES)[number],
+          ),
       );
 
       return {

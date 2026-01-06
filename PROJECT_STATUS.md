@@ -490,3 +490,40 @@
 - Version 1.23.9 represents completion of both bug fixes with regression tests
 
 ---
+
+## 2026-01-06: Documentation/Functionality Alignment Campaign, v1.23.10 Published
+
+**Summary:** Completed documentation/functionality alignment campaign, fixing all module count and tier structure references, and published version 1.23.10 to npm.
+
+**Session Focus:** Documentation alignment - ensuring all documentation matches the codebase source of truth (coreTypes.ts)
+
+**Changes Made:**
+- Modified `README.md` - Fixed tier structure from "Core (5) + Extended (6) + Advanced (5)" to "Core (15) + Optional (2)"
+- Modified `docs/ASSESSMENT_CATALOG.md` - Added 6 missing modules (#12-17), renamed "Extended Modules" section header
+- Modified `docs/TYPE_REFERENCE.md` - Fixed "16 modules" to "17 modules"
+- Modified `docs/CLI_ASSESSMENT_GUIDE.md` - Fixed "16 modules" to "17 modules"
+- Modified `docs/ARCHITECTURE_AND_VALUE.md` - Fixed "16 modules" to "17 modules"
+- Modified `docs/PROGRAMMATIC_API_GUIDE.md` - Fixed "16 modules" to "17 modules"
+- Modified `CHANGELOG.md` - Added v1.23.10 release notes
+- Bumped all `package.json` files to version 1.23.10
+
+**Key Decisions:**
+- Tier naming now matches code exactly: "core" and "optional" (not "extended" or "advanced")
+- All 15 core modules documented in single table in README.md
+- AuthenticationAssessor fully documented as module #12 in ASSESSMENT_CATALOG.md
+
+**Technical Details:**
+- Commits: c36f683 (module count 16->17, missing module docs), 6c7f746 (README.md tier structure fix), 069a5f0 (remaining "16 modules" fixes), 9c41cba ("Extended Modules" header rename), e248ecc (version 1.23.10)
+- All 66 test suites passing (1563 tests)
+- Used api-documenter and code-reviewer-pro agents to verify fixes
+
+**Next Steps:**
+- Monitor npm package usage
+- Continue MCP server assessments with updated documentation
+
+**Notes:**
+- Documentation inconsistencies accumulated due to rapid feature development
+- Comprehensive grep-based audit ensured all references to module counts and tier structure were corrected
+- Source of truth is now clearly established: `client/src/services/assessment/lib/coreTypes.ts`
+
+---

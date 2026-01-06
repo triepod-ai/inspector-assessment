@@ -441,11 +441,11 @@ if (event.event === "module_complete" && event.module === "aup") {
 | `server_connected`         | 1        | Once per assessment                        |
 | `tool_discovered`          | 20       | One per tool                               |
 | `tools_discovery_complete` | 1        | Once after discovery                       |
-| `module_started`           | 17       | Once per module (15 core + 2 optional)     |
+| `module_started`           | 18       | Once per module (16 core + 2 optional)     |
 | `test_batch`               | 200-500  | Every 10 tests or 500ms (varies by module) |
 | `vulnerability_found`      | 0-50     | Only if vulnerabilities detected           |
 | `annotation_*`             | 0-100    | Only if annotation issues detected         |
-| `module_complete`          | 17       | One per module                             |
+| `module_complete`          | 18       | One per module                             |
 | `assessment_complete`      | 1        | Once at end                                |
 | **Total JSONL lines**      | ~500-700 | Depends on findings                        |
 
