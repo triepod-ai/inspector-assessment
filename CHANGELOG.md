@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Calculator Injection False Positives on HTTP Error Responses** (Issue #26): Fixed false positives when tools return HTTP error responses
+  - HTTP status codes like "404: Not Found" were incorrectly flagged because digit "4" matched computed result of "2+2"
+  - Added `isHttpErrorResponse()` method to detect HTTP 4xx/5xx error responses
+  - Added HTTP error guard in `analyzeResponse()` before vulnerability analysis
+  - Added HTTP error guard in `isComputedMathResult()` for math-specific checks
+  - Patterns detect: status codes with error keywords, responses starting with status codes, short "not found" messages, JSON error structures
+
+### Added
+
+- **HTTP 404 False Positives Test Suite**: 10 new tests for Issue #26 fix
+  - HTTP 404, 400, 500, 503 response handling
+  - Actual vulnerable behavior detection (computed results)
+  - Edge cases for JSON error responses and mixed status formats
+
 ## [1.23.5] - 2026-01-05
 
 ### Fixed
