@@ -45,17 +45,13 @@ export function calculateAssessmentScores(
   const documentationScore = hasReadme + hasExamples + hasInstallation;
 
   // Error Handling scoring (max 15 points)
-  // If no tests were run, give 0 points (not 10 for NEED_MORE_INFO)
+  // Use actual mcpComplianceScore from metrics instead of binary status (Issue #28)
   const errorTestsRun =
     assessment.errorHandling.metrics.validationCoverage?.totalTests || 0;
+  const mcpComplianceScore =
+    assessment.errorHandling.metrics.mcpComplianceScore ?? 100;
   const errorHandlingScore =
-    errorTestsRun === 0
-      ? 0
-      : assessment.errorHandling.status === "PASS"
-        ? 15
-        : assessment.errorHandling.status === "NEED_MORE_INFO"
-          ? 10
-          : 5;
+    errorTestsRun === 0 ? 0 : Math.round((mcpComplianceScore / 100) * 15);
 
   // Usability scoring (max 15 points)
   let usabilityScore = 15;
