@@ -227,7 +227,7 @@ export interface SecurityAssessment {
 
 ### 2. SecurityAssessor (Core)
 
-**Purpose**: Detects backend API security vulnerabilities using 20 focused attack patterns
+**Purpose**: Detects backend API security vulnerabilities using 23 focused attack patterns
 
 **Vulnerability Categories**:
 

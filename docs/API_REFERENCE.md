@@ -370,8 +370,8 @@ Complete configuration options for assessments.
 | Option                     | Type                                   | Default      | Description                              |
 | -------------------------- | -------------------------------------- | ------------ | ---------------------------------------- |
 | `scenariosPerTool`         | `number`                               | `5-20`       | Max test scenarios per tool              |
-| `securityPatternsToTest`   | `number`                               | `8`          | Number of security patterns (3 or 8)     |
-| `enableDomainTesting`      | `boolean`                              | `true`       | Enable all 8 backend security patterns   |
+| `securityPatternsToTest`   | `number`                               | `8`          | Patterns to test (3 basic, 8 adv of 23)  |
+| `enableDomainTesting`      | `boolean`                              | `true`       | Enable advanced mode (8 of 23 patterns)  |
 | `enableSourceCodeAnalysis` | `boolean`                              | `false`      | Enable source code deep analysis         |
 | `patternConfigPath`        | `string`                               | `undefined`  | Custom annotation pattern JSON path      |
 | `temporalInvocations`      | `number`                               | `25`         | Invocations per tool for rug pull detect |

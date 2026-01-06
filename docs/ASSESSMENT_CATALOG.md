@@ -72,12 +72,12 @@ Advanced:   temporal, resources, prompts, crossCapability, authentication,
 
 **Test Approach**:
 
-- 20 distinct attack patterns with context-aware reflection detection
+- 23 distinct attack patterns with context-aware reflection detection
 - Pure behavior-based detection (no metadata reliance)
 - Domain-specific payloads based on parameter semantics
 - Confidence levels (high/medium/low) for findings
 
-**20 Attack Patterns** (organized by category):
+**23 Attack Patterns** (organized by category):
 
 | #                           | Attack Type                      | Risk   | Description                                                          |
 | --------------------------- | -------------------------------- | ------ | -------------------------------------------------------------------- |
