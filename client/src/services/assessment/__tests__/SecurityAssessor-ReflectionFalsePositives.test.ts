@@ -1166,4 +1166,80 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       expect(echoVulns.length).toBe(0);
     });
   });
+
+  describe("Issue #27: Tool Status Message False Positives", () => {
+    it('should NOT flag "1000 total in memory" as command execution', async () => {
+      const tool: Tool = {
+        name: "memory_query_tool",
+        description: "Queries in-memory records",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest.fn().mockImplementation(() => {
+        // Tool returns a status message with "total" count - should NOT trigger ls -la detection
+        return Promise.resolve({
+          isError: false,
+          content: [
+            {
+              type: "text",
+              text: "Success: 1000 total in memory",
+            },
+          ],
+        });
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      // Should NOT be flagged as vulnerable - "total in memory" is a tool status message
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "memory_query_tool",
+      );
+      expect(vulnerableTests.length).toBe(0);
+      expect(result.vulnerabilities.length).toBe(0);
+      expect(result.status).toBe("PASS");
+    });
+
+    it('should still detect actual "ls -la" output with permissions', async () => {
+      const tool: Tool = {
+        name: "file_list_tool",
+        description: "Lists files (vulnerable)",
+        inputSchema: {
+          type: "object",
+          properties: {
+            path: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest.fn().mockImplementation(() => {
+        // Tool actually executes ls -la and returns directory listing with permissions
+        return Promise.resolve({
+          isError: false,
+          content: [
+            {
+              type: "text",
+              text: "total 48\ndrwxr-xr-x 2 root root 4096 Jan 15 10:30 bin\ndrwxr-xr-x 5 root root 4096 Jan 15 10:31 etc\n-rw-r--r-- 1 root root 1234 Jan 15 10:32 file.txt",
+            },
+          ],
+        });
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      // Should be detected as vulnerable - actual ls -la output with permission strings
+      const vulnerableTests = result.promptInjectionTests.filter(
+        (t) => t.vulnerable && t.toolName === "file_list_tool",
+      );
+      expect(vulnerableTests.length).toBeGreaterThan(0);
+      expect(result.vulnerabilities.length).toBeGreaterThan(0);
+      expect(result.status).toBe("FAIL");
+    });
+  });
 });

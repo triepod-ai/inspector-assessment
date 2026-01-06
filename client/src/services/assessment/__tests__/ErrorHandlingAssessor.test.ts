@@ -403,4 +403,26 @@ describe("ErrorHandlingAssessor", () => {
       expect(mockCallTool).not.toHaveBeenCalled();
     });
   });
+
+  describe("Issue #28: ErrorHandlingAssessor score field", () => {
+    it("should populate top-level score field (Issue #28)", async () => {
+      const assessor = new ErrorHandlingAssessor(createConfig());
+      const tool = createTool("test_tool");
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        isError: true,
+        content: [{ type: "text", text: "Error: validation failed" }],
+      });
+
+      const context = createMockContext([tool], mockCallTool);
+      const result = await assessor.assess(context);
+
+      // Test that result.score exists and equals Math.round(result.metrics.mcpComplianceScore)
+      expect(result).toHaveProperty("score");
+      expect(typeof result.score).toBe("number");
+      expect(result.score).toBe(Math.round(result.metrics.mcpComplianceScore));
+      expect(result.score).toBeGreaterThanOrEqual(0);
+      expect(result.score).toBeLessThanOrEqual(100);
+    });
+  });
 });

@@ -2,7 +2,46 @@
 
 ## Current Version
 
-- **Version**: 1.22.14 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.23.8 (published to npm as "@bryan-thompson/inspector-assessment")
+
+---
+
+## 2026-01-06: Documentation QA - Pattern Counts & Archive Deprecated Guide
+
+**Summary:** QA review of recent documentation changes identified inconsistent security pattern counts and a deprecated guide. Fixed all issues.
+
+**Session Focus:** Documentation quality assurance and cleanup
+
+**Changes Made:**
+
+**Phase 4: Pattern Count Reconciliation** (commit c84f096)
+- Fixed security pattern counts across 6 files (20/22/8 → 23)
+- Files updated: CLAUDE.md, securityPatterns.ts, SecurityAssessor.ts, ASSESSMENT_CATALOG.md, CLI_ASSESSMENT_GUIDE.md, mcp-assessment-instruction.md
+
+**Phase 5: Archive Deprecated REVIEWER_QUICK_START.md** (commit e6cce94)
+- Moved docs/REVIEWER_QUICK_START.md to docs/archive/ (referenced deprecated Assessment Tab UI from v1.23.0)
+- Removed 7 references from: README.md, CLAUDE.md, docs/README.md, docs/ASSESSMENT_CATALOG.md, docs/ARCHITECTURE_AND_VALUE.md, docs/UI_COMPONENT_REFERENCE.md
+
+**Key Decisions:**
+- Archive rather than update REVIEWER_QUICK_START.md since Assessment Tab UI was deprecated in v1.23.0
+- Keep pattern counts in CHANGELOG.md and PROJECT_STATUS_ARCHIVE.md as historical record
+
+**Technical Details:**
+- Pattern count evolution: 8 → 13 → 18 → 20 → 23 over time caused drift
+- Config default `securityPatternsToTest: 8` is test subset, not total (8 of 23 available)
+
+**Results:**
+- Documentation now consistently references 23 security patterns
+- No broken links to deprecated REVIEWER_QUICK_START.md
+- All changes pushed to origin/main
+
+---
+
+## 2026-01-06: v1.23.8 - readOnlyHint Word Boundary Matching
+
+**Summary:** Fixed false positive detection in readOnlyHint annotation validation.
+
+**Previous Version**: 1.22.14 (published to npm as "@bryan-thompson/inspector-assessment")
 
 **Technical Details:**
 - Root cause: Workspace packages incorrectly listed as npm dependencies caused ETARGET errors when versions mismatched
@@ -381,5 +420,41 @@
 **Notes:**
 - Version 1.23.5 published to npm
 - GitHub Issue #25 closed
+
+---
+
+## 2026-01-06: Documentation QA - Security Pattern Count Consistency
+
+**Summary:** Documentation QA review fixed security pattern count inconsistencies (17/18/20/22 to 23) and archived deprecated REVIEWER_QUICK_START.md
+
+**Session Focus:** Documentation quality assurance - verifying pattern counts, removing deprecated references, correcting payload statistics
+
+**Changes Made:**
+- Phase 4 (commit c84f096): Fixed pattern counts in CLAUDE.md, securityPatterns.ts, SecurityAssessor.ts, ASSESSMENT_CATALOG.md, CLI_ASSESSMENT_GUIDE.md, mcp-assessment-instruction.md
+- Phase 5 (commit e6cce94): Archived REVIEWER_QUICK_START.md to docs/archive/, removed 7 references from README.md, CLAUDE.md, docs/README.md, etc.
+- Commit f2384ef: Fixed 5 additional pattern count references in cli/src/assess-security.ts, scripts/run-security-assessment.ts, assessmentService.test.ts, securityPatternFactory.ts, TEST_VERIFICATION.md
+- Commit 101ae34: Corrected payload count 141 to 118 in SECURITY_PATTERNS_CATALOG.md and docs/security/README.md
+
+**Key Decisions:**
+- Archive REVIEWER_QUICK_START.md rather than update (references deprecated Assessment Tab UI from v1.23.0)
+- Programmatically verify payload counts from actual code (118 payloads, not 141)
+- Keep historical counts in CHANGELOG.md and PROJECT_STATUS_ARCHIVE.md
+
+**Technical Details:**
+- Pattern count evolution: 8 to 13 to 18 to 20 to 23 over time caused documentation drift
+- Payload breakdown: HIGH (98), MEDIUM (15), LOW (5) = 118 total
+- Config default `securityPatternsToTest: 8` is subset, not total
+
+**Results:**
+- All 1559 tests passing
+- 4 commits pushed to origin/main
+- Documentation now consistently references 23 patterns, 118 payloads
+
+**Next Steps:**
+- Consider adding programmatic constants for pattern/payload counts to prevent future drift
+
+**Notes:**
+- Documentation inconsistencies accumulated over multiple development phases
+- Comprehensive grep-based audit ensured all references were found and corrected
 
 ---
