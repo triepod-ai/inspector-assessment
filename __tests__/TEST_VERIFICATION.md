@@ -66,7 +66,7 @@ Tests validating tool functionality, business logic error detection, and progres
 
 Tests validating security vulnerability detection with zero false positives:
 
-- **17 injection patterns**: Direct command, role override, data exfiltration, SQL, XSS, path traversal, LDAP, nested, and more
+- **23 attack patterns**: Command Injection, SQL Injection, Calculator Injection, Code Execution, Path Traversal, XXE, Data Exfiltration, Token Theft, and more
 - **Context-aware reflection detection**: Distinguishes safe data operations from command execution
 - **Zero false positives**: Correctly handles tools that echo/store malicious input as data
 

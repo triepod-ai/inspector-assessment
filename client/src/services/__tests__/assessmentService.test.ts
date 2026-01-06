@@ -398,7 +398,7 @@ describe("MCPAssessmentService", () => {
         // Should handle timeouts and not crash
         expect(result.security).toBeDefined();
         expect(result.functionality.brokenTools.length).toBeGreaterThan(0);
-      }, 30000); // Single comprehensive security assessment can take 5-8s with 18 attack patterns
+      }, 30000); // Single comprehensive security assessment can take 5-8s with 23 attack patterns
 
       it("should distinguish between blocked injections and vulnerabilities", async () => {
         // Simulate a server that properly blocks injections by throwing errors
@@ -720,6 +720,38 @@ describe("MCPAssessmentService", () => {
         expect(result.functionality.toolResults[0].status).toBe("working");
       });
     });
+
+    describe("Issue #28: Empty Error Handling Result", () => {
+      it("should include score field in empty error handling result (Issue #28)", async () => {
+        // Create a service with error handling disabled
+        const serviceWithoutErrorHandling = new MCPAssessmentService({
+          assessmentCategories: {
+            functionality: true,
+            security: false,
+            documentation: false,
+            errorHandling: false, // Disable error handling to get empty result
+            usability: false,
+          },
+        });
+
+        mockCallTool.mockResolvedValue({
+          content: [{ type: "text", text: "OK" }],
+          isError: false,
+        });
+
+        const result = await serviceWithoutErrorHandling.runFullAssessment(
+          "test-server",
+          [MOCK_TOOLS[0]],
+          mockCallTool,
+        );
+
+        // Empty error handling result should have score field set to 100
+        expect(result.errorHandling).toHaveProperty("score");
+        expect(result.errorHandling.score).toBe(100);
+        expect(result.errorHandling.metrics.mcpComplianceScore).toBe(100);
+        expect(result.errorHandling.status).toBe("PASS");
+      });
+    });
   });
 
   describe("Functionality Assessment - Edge Cases", () => {
@@ -847,7 +879,7 @@ describe("MCPAssessmentService", () => {
         expect(result.functionality.brokenTools.length).toBeGreaterThan(0);
         // Comprehensive mode makes multiple calls per tool - verify reasonable total
         expect(result.totalTestsRun).toBeGreaterThan(0);
-        // Sanity check: 5 tools × 18 attack patterns × ~3 payloads = ~270 security tests
+        // Sanity check: 5 tools × 23 attack patterns × ~3 payloads = ~345 security tests
         // Plus functionality (~25), error handling (~20), documentation (~10), usability (~10)
         // Maximum expected: ~335 tests, limit set to 500 for buffer
         expect(result.totalTestsRun).toBeLessThan(500);
@@ -1540,7 +1572,7 @@ Complete API reference available
         );
 
         // Comprehensive mode tests all tools with multiple payloads per pattern
-        // Advanced mode: ~57 tests per tool (18 patterns × 3 payloads) vs basic 17
+        // Advanced mode: ~69 tests per tool (23 patterns × 3 payloads avg)
         expect(
           result.security.promptInjectionTests.length,
         ).toBeGreaterThanOrEqual(10 * PROMPT_INJECTION_TESTS.length);

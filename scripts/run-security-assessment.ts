@@ -182,7 +182,7 @@ const RUNTIME_MODULES = new Set([
  */
 function estimateModuleTests(moduleName: string, toolCount: number): number {
   const estimates: Record<string, number> = {
-    security: toolCount * 39, // 17 patterns × ~2.3 payloads avg
+    security: toolCount * 53, // 23 patterns × ~2.3 payloads avg
     aupCompliance: 4, // 4 scan locations (names, descriptions, readme, source)
     functionality: toolCount * 5, // ~5 scenarios per tool
     documentation: 10, // Fixed checks
