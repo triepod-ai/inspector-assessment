@@ -4,7 +4,7 @@
  * Full Assessment Runner CLI
  *
  * Runs comprehensive MCP server assessment using AssessmentOrchestrator
- * with all 11 assessor modules and optional Claude Code integration.
+ * with all 17 assessor modules and optional Claude Code integration.
  *
  * Usage:
  *   mcp-assess-full --server <server-name> [--claude-enabled] [--full]
@@ -1312,7 +1312,7 @@ function printHelp() {
   console.log(`
 Usage: mcp-assess-full [options] [server-name]
 
-Run comprehensive MCP server assessment with all 11 assessor modules.
+Run comprehensive MCP server assessment with all 17 assessor modules.
 
 Options:
   --server, -s <name>    Server name (required, or pass as first positional arg)

@@ -967,7 +967,7 @@ function printHelp() {
   console.log(`
 Usage: npm run assess:full -- [options] [server-name]
 
-Run comprehensive MCP server assessment with all 11 assessor modules.
+Run comprehensive MCP server assessment with all 17 assessor modules.
 
 Options:
   --server, -s <name>    Server name (required, or pass as first positional arg)
