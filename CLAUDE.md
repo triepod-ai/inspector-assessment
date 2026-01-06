@@ -397,7 +397,7 @@ For detailed documentation on specific features:
 
 ### Security Testing
 
-- **Security Patterns Catalog**: [docs/SECURITY_PATTERNS_CATALOG.md](docs/SECURITY_PATTERNS_CATALOG.md) - 23 attack patterns, 141 payloads
+- **Security Patterns Catalog**: [docs/SECURITY_PATTERNS_CATALOG.md](docs/SECURITY_PATTERNS_CATALOG.md) - Comprehensive attack patterns and payloads
 - **Testbed Setup**: [docs/TESTBED_SETUP_GUIDE.md](docs/TESTBED_SETUP_GUIDE.md) - A/B validation with vulnerable-mcp/hardened-mcp
 - **DVMCP Usage Guide**: [docs/DVMCP_USAGE_GUIDE.md](docs/DVMCP_USAGE_GUIDE.md) - Damn Vulnerable MCP testbed
 - **Security Audits**: [docs/security/](docs/security/) - Security audit reports

@@ -97,13 +97,13 @@ For complete CLI documentation, see [CLI Assessment Guide](docs/CLI_ASSESSMENT_G
 
 ### Core Modules (5)
 
-| Module             | Purpose                    | Key Features                                     |
-| ------------------ | -------------------------- | ------------------------------------------------ |
-| **Functionality**  | Tool execution validation  | Multi-scenario testing, business logic detection |
-| **Security**       | Vulnerability detection    | 23 attack patterns, zero false positives         |
-| **Documentation**  | README/description quality | Completeness scoring, example validation         |
-| **Error Handling** | MCP protocol compliance    | Error code validation, response quality          |
-| **Usability**      | Developer experience       | Naming conventions, schema completeness          |
+| Module             | Purpose                    | Key Features                                        |
+| ------------------ | -------------------------- | --------------------------------------------------- |
+| **Functionality**  | Tool execution validation  | Multi-scenario testing, business logic detection    |
+| **Security**       | Vulnerability detection    | Comprehensive attack patterns, zero false positives |
+| **Documentation**  | README/description quality | Completeness scoring, example validation            |
+| **Error Handling** | MCP protocol compliance    | Error code validation, response quality             |
+| **Usability**      | Developer experience       | Naming conventions, schema completeness             |
 
 ### Extended Modules (6) - MCP Directory Compliance
 
@@ -166,7 +166,7 @@ mcp-assess-security --server my-server --config config.json
    - Search/retrieval tools return data, not code execution
    - CRUD operations create resources, not execute code
 
-### Supported Attack Patterns (23 Total)
+### Supported Attack Patterns
 
 - Command Injection, SQL Injection, Path Traversal, XXE, NoSQL Injection
 - Calculator Injection, Code Execution (Python/JS)
@@ -277,11 +277,11 @@ npm test -- SecurityAssessor     # Security tests
 
 ### Assessment Details
 
-| Document                                                       | Purpose                  |
-| -------------------------------------------------------------- | ------------------------ |
-| [Assessment Catalog](docs/ASSESSMENT_CATALOG.md)               | All 16 modules reference |
-| [Security Patterns Catalog](docs/SECURITY_PATTERNS_CATALOG.md) | 23 attack patterns       |
-| [Testbed Setup Guide](docs/TESTBED_SETUP_GUIDE.md)             | A/B validation           |
+| Document                                                       | Purpose                       |
+| -------------------------------------------------------------- | ----------------------------- |
+| [Assessment Catalog](docs/ASSESSMENT_CATALOG.md)               | All 16 modules reference      |
+| [Security Patterns Catalog](docs/SECURITY_PATTERNS_CATALOG.md) | Comprehensive attack patterns |
+| [Testbed Setup Guide](docs/TESTBED_SETUP_GUIDE.md)             | A/B validation                |
 
 For complete documentation, see [docs/README.md](docs/README.md).
 
@@ -294,7 +294,7 @@ All performance claims are backed by implementation analysis.
 | Claim                             | Evidence                                                                          |
 | --------------------------------- | --------------------------------------------------------------------------------- |
 | Progressive complexity (2 levels) | [TestScenarioEngine.ts](client/src/services/assessment/TestScenarioEngine.ts)     |
-| 23 security patterns              | [securityPatterns.ts](client/src/lib/securityPatterns.ts)                         |
+| Comprehensive security patterns   | [securityPatterns.ts](client/src/lib/securityPatterns.ts)                         |
 | Zero false positives              | [SecurityAssessor.ts](client/src/services/assessment/modules/SecurityAssessor.ts) |
 
 ---

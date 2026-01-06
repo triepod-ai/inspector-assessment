@@ -31,7 +31,7 @@ For detailed implementation guides, see:
 
 - **[ASSESSMENT_MODULE_DEVELOPER_GUIDE.md](ASSESSMENT_MODULE_DEVELOPER_GUIDE.md)** - Creating and extending assessment modules
 - **[SCORING_ALGORITHM_GUIDE.md](SCORING_ALGORITHM_GUIDE.md)** - Module weights, thresholds, calculations
-- **[SECURITY_PATTERNS_CATALOG.md](SECURITY_PATTERNS_CATALOG.md)** - 23 attack patterns, 141 payloads
+- **[SECURITY_PATTERNS_CATALOG.md](SECURITY_PATTERNS_CATALOG.md)** - Comprehensive attack patterns and payloads
 - **[CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md)** - Three CLI modes comparison
 - **[JSONL_EVENTS_API.md](JSONL_EVENTS_API.md)** - Real-time event streaming reference
 
@@ -110,16 +110,16 @@ For detailed implementation guides, see:
 
 ## Comparison: Original Inspector vs Our Fork
 
-| Capability                   | Original Inspector        | inspector-assessment           |
-| ---------------------------- | ------------------------- | ------------------------------ |
-| **Interface**                | Web UI only               | Web UI + CLI + npm package     |
-| **Server Connection**        | Manual browser navigation | Config-based auto-connect      |
-| **Transport Support**        | Interactive only          | Programmatic STDIO/HTTP/SSE    |
-| **Assessment**               | None (debugging tool)     | 11 automated modules           |
-| **Security Testing**         | Manual click-testing      | 17 attack patterns, behavioral |
-| **CI/CD Ready**              | No                        | Exit codes, JSON output        |
-| **Real-time Progress**       | No                        | JSONL events to stderr         |
-| **Arbitrary Server Testing** | Requires code changes     | Config file only               |
+| Capability                   | Original Inspector        | inspector-assessment                      |
+| ---------------------------- | ------------------------- | ----------------------------------------- |
+| **Interface**                | Web UI only               | Web UI + CLI + npm package                |
+| **Server Connection**        | Manual browser navigation | Config-based auto-connect                 |
+| **Transport Support**        | Interactive only          | Programmatic STDIO/HTTP/SSE               |
+| **Assessment**               | None (debugging tool)     | 11 automated modules                      |
+| **Security Testing**         | Manual click-testing      | Comprehensive attack patterns, behavioral |
+| **CI/CD Ready**              | No                        | Exit codes, JSON output                   |
+| **Real-time Progress**       | No                        | JSONL events to stderr                    |
+| **Arbitrary Server Testing** | Requires code changes     | Config file only                          |
 
 ### The "Pipe Through" Innovation
 
@@ -196,12 +196,12 @@ Result: UNCERTAIN (no behavioral confirmation)
 
 ### Behavioral Testing Modules
 
-| Module                  | What It Tests             | Attack Patterns                                       |
-| ----------------------- | ------------------------- | ----------------------------------------------------- |
-| **Security**            | Injection vulnerabilities | 17 patterns (command, SQL, path traversal, XSS, etc.) |
-| **Functionality**       | Tools actually work       | Progressive complexity, edge cases, stress tests      |
-| **Error Handling**      | Graceful failure          | Invalid inputs, timeouts, malformed data              |
-| **MCP Spec Compliance** | Protocol correctness      | Error formats, content types, required fields         |
+| Module                  | What It Tests             | Attack Patterns                                                  |
+| ----------------------- | ------------------------- | ---------------------------------------------------------------- |
+| **Security**            | Injection vulnerabilities | Comprehensive patterns (command, SQL, path traversal, XSS, etc.) |
+| **Functionality**       | Tools actually work       | Progressive complexity, edge cases, stress tests                 |
+| **Error Handling**      | Graceful failure          | Invalid inputs, timeouts, malformed data                         |
+| **MCP Spec Compliance** | Protocol correctness      | Error formats, content types, required fields                    |
 
 ### Static Analysis Modules
 
@@ -313,7 +313,7 @@ function generateFallbackResults() {
 
 1. **Behavioral Ground Truth** - Actually calls tools with attack payloads and observes real responses. Claude can only reason about descriptions.
 
-2. **Systematic Coverage** - 17 security patterns x all tools x multiple payloads = comprehensive testing. Claude would need extensive prompting to achieve similar coverage.
+2. **Systematic Coverage** - Comprehensive security patterns x all tools x multiple payloads = thorough testing. Claude would need extensive prompting to achieve similar coverage.
 
 3. **Quantitative, Reproducible Metrics** - Same tests, same scoring, every time. Enables comparison, trending, CI/CD automation.
 
