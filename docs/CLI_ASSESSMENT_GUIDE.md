@@ -1445,10 +1445,10 @@ The SecurityAssessor tests multiple attack patterns and payloads against each to
 
 **Performance Impact**:
 
-A security assessment with 12 tools and 20 patterns:
+A security assessment with 12 tools and 23 patterns:
 
-- Without `securityTestTimeout`: 12 tools × 20 patterns × 30s = 7200s (2 hours max)
-- With `securityTestTimeout: 5000`: 12 tools × 20 patterns × 5s = 1200s (20 minutes max)
+- Without `securityTestTimeout`: 12 tools × 23 patterns × 30s = 8280s (~2.3 hours max)
+- With `securityTestTimeout: 5000`: 12 tools × 23 patterns × 5s = 1380s (~23 minutes max)
 
 **When to Use**:
 

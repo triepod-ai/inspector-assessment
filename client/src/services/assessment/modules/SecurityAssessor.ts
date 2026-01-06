@@ -1,11 +1,11 @@
 /**
  * Security Assessor Module
- * Tests for backend API security vulnerabilities using 20 focused patterns
+ * Tests for backend API security vulnerabilities using 23 focused patterns
  *
  * BASIC MODE (5 patterns - enableDomainTesting=false):
  *   Command Injection, Calculator Injection, SQL Injection, Path Traversal, Unicode Bypass
  *
- * ADVANCED MODE (all 20 patterns - enableDomainTesting=true):
+ * ADVANCED MODE (all 23 patterns - enableDomainTesting=true):
  *   - Critical Injection (6): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
  *   - Input Validation (3): Type Safety, Boundary Testing, Required Fields
  *   - Protocol Compliance (2): MCP Error Format, Timeout Handling
@@ -165,7 +165,7 @@ export class SecurityAssessor extends BaseAssessor {
 
   /**
    * Run comprehensive security tests (advanced mode)
-   * Tests selected tools with ALL 8 security patterns using diverse payloads
+   * Tests selected tools with ALL 23 security patterns using diverse payloads
    * Includes injection tests, validation tests, and protocol compliance checks
    */
   private async runUniversalSecurityTests(

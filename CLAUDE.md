@@ -162,7 +162,7 @@ npm run assess -- --server hardened-mcp --config /tmp/hardened-mcp-config.json
 
 - ✅ A/B Detection Gap: 200 vulnerabilities (vulnerable) vs 0 (hardened) with identical tool names
 - ✅ Pure Behavior Detection: 100% precision (0 false positives on both servers)
-- ✅ 20 attack patterns tested per tool (expanded from 8)
+- ✅ 23 attack patterns tested per tool (expanded from 8)
 - ✅ Real HTTP tool calls verified inspector findings
 - ✅ Ready for production MCP server assessments
 

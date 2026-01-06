@@ -48,7 +48,7 @@ For each tool:
 ### Phase 3: Security Testing
 
 ```
-Execute 20 security test patterns against representative tools:
+Execute 23 security test patterns against representative tools:
 
 **CRITICAL INJECTION (6 patterns)**
 
@@ -453,6 +453,7 @@ To perform an assessment, follow these steps:
 
 ## Version History
 
-- v1.2 (2025-12-29): Synchronized security patterns with actual implementation (securityPatterns.ts) - corrected all 20 patterns
-- v1.1 (2025-12-29): Updated to 20 security patterns (added SSRF, DoS/Resource Exhaustion, Insecure Deserialization)
+- v1.3 (2026-01-06): Updated security pattern count to 23 (added Token Theft, Permission Scope, Code Execution)
+- v1.2 (2025-12-29): Synchronized security patterns with actual implementation (securityPatterns.ts) - corrected all 23 patterns
+- v1.1 (2025-12-29): Updated to 23 security patterns (added SSRF, DoS/Resource Exhaustion, Insecure Deserialization)
 - v1.0 (2025-10-04): Initial release based on Anthropic's 5 core requirements

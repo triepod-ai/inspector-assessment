@@ -478,7 +478,7 @@ Tools with "run" prefix and analysis-related suffixes are treated as read-only o
 | #   | Module               | Tests               | Policy Ref     | Severity |
 | --- | -------------------- | ------------------- | -------------- | -------- |
 | 1   | Functionality        | ~10 per tool        | Core           | Medium   |
-| 2   | Security             | 20 patterns × tools | Core           | High     |
+| 2   | Security             | 23 patterns × tools | Core           | High     |
 | 3   | Error Handling       | ~20 per tool        | MCP Spec       | Medium   |
 | 4   | Documentation        | ~10 checks          | Core           | Low      |
 | 5   | Usability            | ~8 checks           | Core           | Low      |
