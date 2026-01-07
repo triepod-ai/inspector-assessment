@@ -65,6 +65,16 @@ import {
   emitAnnotationAligned,
   emitModulesConfigured,
 } from "./lib/jsonl-events.js";
+import {
+  ASSESSMENT_PROFILES,
+  PROFILE_METADATA,
+  isValidProfileName,
+  getProfileModules,
+  resolveModuleNames,
+  modulesToLegacyConfig,
+  getProfileHelpText,
+  type AssessmentProfileName,
+} from "./profiles.js";
 
 // Valid module names derived from ASSESSMENT_CATEGORY_METADATA
 const VALID_MODULE_NAMES = Object.keys(
@@ -128,6 +138,8 @@ interface AssessmentOptions {
   skipTemporal?: boolean;
   skipModules?: string[];
   onlyModules?: string[];
+  /** Assessment profile (quick, security, compliance, full) */
+  profile?: AssessmentProfileName;
   /** Log level for diagnostic output */
   logLevel?: LogLevel;
 }
@@ -483,31 +495,50 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
   };
 
   if (options.fullAssessment !== false) {
-    // Derive module config from ASSESSMENT_CATEGORY_METADATA (single source of truth)
-    const allModules = getAllModulesConfig({
-      sourceCodePath: Boolean(options.sourceCodePath),
-      skipTemporal: options.skipTemporal,
-    });
+    // Priority: --profile > --only-modules > --skip-modules > default (all)
+    if (options.profile) {
+      // Use profile-based module selection
+      const profileModules = getProfileModules(options.profile, {
+        hasSourceCode: Boolean(options.sourceCodePath),
+        skipTemporal: options.skipTemporal,
+      });
 
-    // Apply --only-modules filter (whitelist mode)
-    if (options.onlyModules?.length) {
-      for (const key of Object.keys(allModules)) {
-        // Disable all modules except those in the whitelist
-        allModules[key] = options.onlyModules.includes(key);
-      }
-    }
+      // Convert new-style module list to legacy config format
+      // (until orchestrator is updated to use new naming)
+      config.assessmentCategories = modulesToLegacyConfig(
+        profileModules,
+      ) as AssessmentConfiguration["assessmentCategories"];
+    } else {
+      // Derive module config from ASSESSMENT_CATEGORY_METADATA (single source of truth)
+      const allModules = getAllModulesConfig({
+        sourceCodePath: Boolean(options.sourceCodePath),
+        skipTemporal: options.skipTemporal,
+      });
 
-    // Apply --skip-modules filter (blacklist mode)
-    if (options.skipModules?.length) {
-      for (const module of options.skipModules) {
-        if (module in allModules) {
-          allModules[module] = false;
+      // Apply --only-modules filter (whitelist mode)
+      if (options.onlyModules?.length) {
+        // Resolve any deprecated module names
+        const resolved = resolveModuleNames(options.onlyModules);
+        for (const key of Object.keys(allModules)) {
+          // Disable all modules except those in the whitelist
+          allModules[key] = resolved.includes(key);
         }
       }
-    }
 
-    config.assessmentCategories =
-      allModules as AssessmentConfiguration["assessmentCategories"];
+      // Apply --skip-modules filter (blacklist mode)
+      if (options.skipModules?.length) {
+        // Resolve any deprecated module names
+        const resolved = resolveModuleNames(options.skipModules);
+        for (const module of resolved) {
+          if (module in allModules) {
+            allModules[module] = false;
+          }
+        }
+      }
+
+      config.assessmentCategories =
+        allModules as AssessmentConfiguration["assessmentCategories"];
+    }
   }
 
   // Temporal/rug pull detection configuration
@@ -1256,6 +1287,29 @@ function parseArgs(): AssessmentOptions {
       case "--skip-temporal":
         options.skipTemporal = true;
         break;
+      case "--profile": {
+        const profileValue = args[++i];
+        if (!profileValue) {
+          console.error("Error: --profile requires a profile name");
+          console.error(
+            `Valid profiles: ${Object.keys(ASSESSMENT_PROFILES).join(", ")}`,
+          );
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        if (!isValidProfileName(profileValue)) {
+          console.error(`Error: Invalid profile name: ${profileValue}`);
+          console.error(
+            `Valid profiles: ${Object.keys(ASSESSMENT_PROFILES).join(", ")}`,
+          );
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        options.profile = profileValue;
+        break;
+      }
       case "--skip-modules": {
         const skipValue = args[++i];
         if (!skipValue) {
@@ -1310,7 +1364,19 @@ function parseArgs(): AssessmentOptions {
     }
   }
 
-  // Validate mutual exclusivity of --skip-modules and --only-modules
+  // Validate mutual exclusivity of --profile, --skip-modules, and --only-modules
+  if (
+    options.profile &&
+    (options.skipModules?.length || options.onlyModules?.length)
+  ) {
+    console.error(
+      "Error: --profile cannot be used with --skip-modules or --only-modules",
+    );
+    setTimeout(() => process.exit(1), 10);
+    options.helpRequested = true;
+    return options as AssessmentOptions;
+  }
+
   if (options.skipModules?.length && options.onlyModules?.length) {
     console.error(
       "Error: --skip-modules and --only-modules are mutually exclusive",
@@ -1338,7 +1404,7 @@ function printHelp() {
   console.log(`
 Usage: mcp-assess-full [options] [server-name]
 
-Run comprehensive MCP server assessment with all 17 assessor modules.
+Run comprehensive MCP server assessment with 16 assessor modules organized in 4 tiers.
 
 Options:
   --server, -s <name>    Server name (required, or pass as first positional arg)
@@ -1355,6 +1421,7 @@ Options:
   --no-resume            Force fresh start, clear any existing state
   --claude-enabled       Enable Claude Code integration for intelligent analysis
   --full                 Enable all assessment modules (default)
+  --profile <name>       Use predefined module profile (quick, security, compliance, full)
   --temporal-invocations <n>  Number of invocations per tool for rug pull detection (default: 25)
   --skip-temporal        Skip temporal/rug pull testing (faster assessment)
   --skip-modules <list>  Skip specific modules (comma-separated)
@@ -1366,47 +1433,65 @@ Options:
                          Also supports LOG_LEVEL environment variable
   --help, -h             Show this help message
 
+${getProfileHelpText()}
 Module Selection:
-  --skip-modules and --only-modules are mutually exclusive.
-  Use --skip-modules for faster runs by disabling expensive modules.
+  --profile, --skip-modules, and --only-modules are mutually exclusive.
+  Use --profile for common assessment scenarios.
+  Use --skip-modules for custom runs by disabling expensive modules.
   Use --only-modules to focus on specific areas (e.g., tool annotation PRs).
 
-  Valid module names:
-    functionality, security, documentation, errorHandling, usability,
-    mcpSpecCompliance, aupCompliance, toolAnnotations, prohibitedLibraries,
-    externalAPIScanner, authentication, temporal, resources, prompts,
-    crossCapability, manifestValidation, portability
+  Valid module names (new naming):
+    functionality, security, errorHandling, protocolCompliance, aupCompliance,
+    toolAnnotations, prohibitedLibraries, manifestValidation, authentication,
+    temporal, resources, prompts, crossCapability, developerExperience,
+    portability, externalAPIScanner
 
-Assessment Modules (17 total):
-  • Functionality      - Tests all tools work correctly
-  • Security           - Prompt injection & vulnerability testing
-  • Documentation      - README completeness checks
-  • Error Handling     - Validates error responses
-  • Usability          - Input validation & UX
-  • MCP Spec           - Protocol compliance
-  • AUP Compliance     - Acceptable Use Policy checks
-  • Tool Annotations   - readOnlyHint/destructiveHint validation
-  • Prohibited Libs    - Dependency security checks
-  • External API       - External service detection
-  • Authentication     - OAuth/auth evaluation
-  • Temporal           - Rug pull/temporal behavior change detection
-  • Resources          - Resource capability assessment
-  • Prompts            - Prompt capability assessment
-  • Cross-Capability   - Chained vulnerability detection
-  • Manifest           - MCPB manifest.json validation (optional)
-  • Portability        - Cross-platform compatibility (optional)
+  Legacy module names (deprecated, will map to new names):
+    documentation -> developerExperience
+    usability -> developerExperience
+    mcpSpecCompliance -> protocolCompliance
+    protocolConformance -> protocolCompliance
+
+Module Tiers (16 total):
+  Tier 1 - Core Security (Always Run):
+    • Functionality      - Tests all tools work correctly
+    • Security           - Prompt injection & vulnerability testing
+    • Error Handling     - Validates error responses
+    • Protocol Compliance - MCP protocol + JSON-RPC validation
+    • AUP Compliance     - Acceptable Use Policy checks
+    • Temporal           - Rug pull/temporal behavior change detection
+
+  Tier 2 - Compliance (MCP Directory):
+    • Tool Annotations   - readOnlyHint/destructiveHint validation
+    • Prohibited Libs    - Dependency security checks
+    • Manifest           - MCPB manifest.json validation
+    • Authentication     - OAuth/auth evaluation
+
+  Tier 3 - Capability-Based (Conditional):
+    • Resources          - Resource capability assessment
+    • Prompts            - Prompt capability assessment
+    • Cross-Capability   - Chained vulnerability detection
+
+  Tier 4 - Extended (Optional):
+    • Developer Experience - Documentation + usability assessment
+    • Portability        - Cross-platform compatibility
+    • External API       - External service detection
 
 Examples:
-  mcp-assess-full my-server
-  mcp-assess-full --server broken-mcp --claude-enabled
+  # Profile-based (recommended):
+  mcp-assess-full my-server --profile quick         # CI/CD fast check (~30s)
+  mcp-assess-full my-server --profile security      # Security audit (~2-3min)
+  mcp-assess-full my-server --profile compliance    # Directory submission (~5min)
+  mcp-assess-full my-server --profile full          # Comprehensive audit (~10-15min)
+
+  # Custom module selection:
+  mcp-assess-full my-server --skip-modules temporal,resources  # Skip expensive modules
+  mcp-assess-full my-server --only-modules functionality,toolAnnotations  # Annotation PR review
+
+  # Advanced options:
   mcp-assess-full --server my-server --source ./my-server --output ./results.json
   mcp-assess-full --server my-server --format markdown --include-policy
-  mcp-assess-full --server my-server --compare ./baseline.json
-  mcp-assess-full --server my-server --compare ./baseline.json --diff-only --format markdown
-
-  # Module selection examples:
-  mcp-assess-full my-server --skip-modules security,aupCompliance    # Fast CI run
-  mcp-assess-full my-server --only-modules functionality,toolAnnotations  # Annotation PR review
+  mcp-assess-full --server my-server --compare ./baseline.json --diff-only
   `);
 }
 

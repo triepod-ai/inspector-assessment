@@ -2,281 +2,53 @@
 
 ## Current Version
 
-- **Version**: 1.23.8 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.24.2 (published to npm as "@bryan-thompson/inspector-assessment")
 
 ---
 
-## 2026-01-06: Documentation QA - Pattern Counts & Archive Deprecated Guide
+## 2026-01-07: Assessment Module Consolidation & Tier System
 
-**Summary:** QA review of recent documentation changes identified inconsistent security pattern counts and a deprecated guide. Fixed all issues.
+**Summary:** Consolidated 18 assessment modules into 16 with 4-tier organization and CLI profile support.
 
-**Session Focus:** Documentation quality assurance and cleanup
+**Session Focus:** Review and optimize assessment modules for MCP server audits based on code review analysis.
 
 **Changes Made:**
-
-**Phase 4: Pattern Count Reconciliation** (commit c84f096)
-- Fixed security pattern counts across 6 files (20/22/8 → 23)
-- Files updated: CLAUDE.md, securityPatterns.ts, SecurityAssessor.ts, ASSESSMENT_CATALOG.md, CLI_ASSESSMENT_GUIDE.md, mcp-assessment-instruction.md
-
-**Phase 5: Archive Deprecated REVIEWER_QUICK_START.md** (commit e6cce94)
-- Moved docs/REVIEWER_QUICK_START.md to docs/archive/ (referenced deprecated Assessment Tab UI from v1.23.0)
-- Removed 7 references from: README.md, CLAUDE.md, docs/README.md, docs/ASSESSMENT_CATALOG.md, docs/ARCHITECTURE_AND_VALUE.md, docs/UI_COMPONENT_REFERENCE.md
+- `client/src/services/assessment/modules/ProtocolComplianceAssessor.ts` - NEW: Merged MCPSpecComplianceAssessor + ProtocolConformanceAssessor (~900 lines)
+- `client/src/services/assessment/modules/DeveloperExperienceAssessor.ts` - NEW: Merged DocumentationAssessor + UsabilityAssessor (~700 lines)
+- `client/src/services/assessment/modules/index.ts` - Updated exports with tier organization and deprecation notes
+- `cli/src/profiles.ts` - NEW: Assessment profiles system with 4 tiers and CLI presets
+- `cli/src/assess-full.ts` - Added --profile flag with validation and help text
+- `docs/ASSESSMENT_CATALOG.md` - Updated with tier organization and profile documentation
 
 **Key Decisions:**
-- Archive rather than update REVIEWER_QUICK_START.md since Assessment Tab UI was deprecated in v1.23.0
-- Keep pattern counts in CHANGELOG.md and PROJECT_STATUS_ARCHIVE.md as historical record
+- Keep ErrorHandlingAssessor separate (application-level error handling differs from protocol compliance)
+- 4-tier organization: Core Security (6), Compliance (4), Capability (3), Extended (3)
+- 4 CLI profiles: quick, security, compliance, full
+- Backward compatibility via module aliases (old names still work with deprecation warnings)
 
-**Technical Details:**
-- Pattern count evolution: 8 → 13 → 18 → 20 → 23 over time caused drift
-- Config default `securityPatternsToTest: 8` is test subset, not total (8 of 23 available)
+**Module Tier Structure:**
+```
+Tier 1 (Core Security): functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance
+Tier 2 (Compliance): toolAnnotations, prohibitedLibraries, manifestValidation, authentication
+Tier 3 (Capability): resources, prompts, crossCapability
+Tier 4 (Extended): developerExperience, portability, externalAPIScanner
+```
 
-**Results:**
-- Documentation now consistently references 23 security patterns
-- No broken links to deprecated REVIEWER_QUICK_START.md
-- All changes pushed to origin/main
-
----
-
-## 2026-01-06: v1.23.8 - readOnlyHint Word Boundary Matching
-
-**Summary:** Fixed false positive detection in readOnlyHint annotation validation.
-
-**Previous Version**: 1.22.14 (published to npm as "@bryan-thompson/inspector-assessment")
-
-**Technical Details:**
-- Root cause: Workspace packages incorrectly listed as npm dependencies caused ETARGET errors when versions mismatched
-- The `files` array physically bundles workspace builds in the tarball - no npm resolution needed
-- Validation script checks: no workspace deps, version consistency, files array, build directories
-
-**Commits:**
-- b4bb5aa fix: add safeguards against workspace dependency bug
+**Deprecated Module Names:**
+- `documentation` → `developerExperience`
+- `usability` → `developerExperience`
+- `mcpSpecCompliance` → `protocolCompliance`
+- `protocolConformance` → `protocolCompliance`
 
 **Next Steps:**
-- Consider adding the verify-publish workflow to CI pipeline
-- Monitor for any other publishing issues
+- Create tests for new modules and profiles
+- Bump version to 1.25.0 for feature release
+- Wire new merged modules into orchestrator (currently using backward compat mapping)
 
 **Notes:**
-- All 1468 tests passing
-- Validation script passes all 4 checks
-- Changes pushed to origin/main
-
----
-
-## 2026-01-03: Published v1.22.8 - Annotation Inference Fix
-
-**Summary:** Published v1.22.8 with the annotation inference fix to npm.
-
-**Session Focus:** npm release v1.22.8 - Publishing the annotation inference confidence guard fix
-
-**Changes Made:**
-- Modified: package.json, client/package.json, server/package.json, cli/package.json (version 1.22.7 -> 1.22.8)
-- Tag created: v1.22.8
-
-**Key Decisions:**
-- Patch release (1.22.8) since this is a bug fix with no breaking changes
-- Published all 4 workspace packages to maintain version consistency
-
-**Technical Details:**
-- Pushed fix commit 6627915 to origin/main
-- Bumped version using `npm version patch` (auto-syncs workspaces)
-- Built all packages
-- Published via `npm run publish-all`
-- Pushed v1.22.8 tag to origin
-
-**Results:**
-- All 4 packages published successfully:
-  - @bryan-thompson/inspector-assessment@1.22.8
-  - @bryan-thompson/inspector-assessment-client@1.22.8
-  - @bryan-thompson/inspector-assessment-server@1.22.8
-  - @bryan-thompson/inspector-assessment-cli@1.22.8
-
-**Next Steps:**
-- Monitor for any edge cases in production usage
-- Update CHANGELOG.md with v1.22.8 release notes
-
-**Notes:**
-- This release includes the confidence guard fix from commit 6627915
-- Eliminates false positive misalignments when inference confidence is low
-- hardened-mcp misalignment count: 23 -> 0 after this fix
-
----
-
-## 2026-01-04: Fixed Issue #16 - skip-modules Flag JSON Output
-
-**Summary:** Fixed Issue #16 - skip-modules flag now properly omits skipped modules from JSON output and JSONL events
-
-**Session Focus:** Bug fix for --skip-modules flag not properly excluding modules from assessment output
-
-**Changes Made:**
-- Modified: `client/src/lib/moduleScoring.ts` - Changed `calculateModuleScore()` to return `null` instead of `50` for undefined/missing results
-- Modified: `client/src/services/assessment/AssessmentOrchestrator.ts` - Added guard in `emitModuleProgress()` to skip emission when score is null
-- Modified: `cli/src/assess-full.ts` - Added filter in `saveResults()` to exclude undefined module keys from JSON output
-- Modified: `scripts/run-full-assessment.ts` - Applied same filter to keep in sync with CLI per CLAUDE.md requirements
-- Modified: `client/src/lib/__tests__/moduleScoring.test.ts` - Updated test expectations for null return value on undefined inputs
-
-**Key Decisions:**
-- Return `null` instead of `50` for undefined results - clearer semantics for "not run"
-- Completely omit skipped modules from JSON (user preference) rather than including with SKIPPED status
-- Filter at both event emission and JSON output levels for comprehensive fix
-
-**Technical Details:**
-- Issue: --skip-modules functionality flag was implemented but skipped modules still appeared in JSON output with default scores
-- Root cause: `calculateModuleScore()` returned 50 for undefined inputs, and no filtering existed at output level
-- Fix applied at three levels: scoring returns null, events not emitted for null scores, JSON excludes undefined keys
-
-**Results:**
-- Published as npm v1.22.9 (issue fix) and v1.22.10 (added missing commander dependency)
-- All 1468 tests passing
-- Issue #16 commented with fix details
-
-**Next Steps:**
-- Monitor for any downstream issues with mcp-auditor consuming the new format
-- Consider adding integration test for --skip-modules behavior
-
-**Notes:**
-- Fix maintains backwards compatibility for consumers expecting module data
-- Users explicitly opting out of modules via --skip-modules now get clean JSON without those module keys
-- Both CLI binary and local development script updated to stay in sync per project requirements
-
----
-
-## 2026-01-04: Fixed Critical Gap in Issue #16 Skip-Modules Fix
-
-**Summary:** Fixed critical gap in Issue #16 skip-modules fix found by dual-agent code review - added missing null guard in run-security-assessment.ts, published v1.22.13
-
-**Session Focus:** Code review of Issue #16 fix and addressing critical gap discovered
-
-**Changes Made:**
-- Modified: `scripts/run-security-assessment.ts` - Added null guard before `emitModuleComplete()` call
-
-**Key Decisions:**
-- Used dual-agent code review (inspector-assessment-code-reviewer + code-reviewer-pro) for thorough analysis
-- Fixed gap immediately rather than deferring to future release
-- Published as v1.22.13 (patch version for bug fix)
-
-**Technical Details:**
-- Code review found that `scripts/run-security-assessment.ts` was not updated with the null guard that was added to `AssessmentOrchestrator.ts`
-- This could have caused JSONL events to be emitted with `score: null` when using --skip-modules
-- Dual-agent review methodology proved valuable for catching cross-file consistency issues
-
-**Results:**
-- All 1483 tests passed after fix
-- Added comment to closed GitHub Issue #16 documenting the additional fix
-- Published as v1.22.13
-
-**Next Steps:**
-- Monitor for any additional gaps in skip-modules handling
-- Consider adding integration test for full --skip-modules workflow as suggested by reviewers
-
-**Notes:**
-- Demonstrates value of dual-agent code review for finding gaps that single-pass review might miss
-- Cross-file consistency is critical when applying similar fixes to multiple locations
-- The fix ensures parity between AssessmentOrchestrator.ts and run-security-assessment.ts
-
----
-
-## 2026-01-04: Published v1.22.14 to npm
-
-**Summary:** Published v1.22.14 to npm with all workspace packages synced and tests passing
-
-**Session Focus:** Version bump, npm publish, and verification
-
-**Changes Made:**
-- Updated all package.json files to version 1.22.14 (root, client, server, cli)
-- Published all 4 packages to npm registry
-- Created git tag v1.22.14
-
-**Key Decisions:**
-- Used manual version sync after discovering npm version patch only bumped client
-- Rebased to resolve branch divergence from earlier partial publish attempt
-
-**Next Steps:**
-- Continue with any pending feature work
-- Monitor npm package downloads
-
-**Notes:**
-- All 1495 tests passing
-- Package verified working via bunx command
-- This was a continuation session completing the version bump that was interrupted
-
----
-
-## 2026-01-04: Code Review Implementation - P1/P2 Fixes and securityTestTimeout
-
-**Summary:** Completed comprehensive code review of inspector-assessment module, implemented all P1/P2 fixes, and documented new securityTestTimeout configuration
-
-**Session Focus:** Code review response - implementing fixes for high and medium priority issues identified by code review agents
-
-**Changes Made:**
-- `cli/src/assess-full.ts` - Added EventEmitter configuration to prevent listener warnings during full security assessments
-- `client/src/services/assessment/AssessmentOrchestrator.ts` - Added getToolCountForTesting() helper for accurate progress estimation, improved type safety
-- `client/src/services/assessment/modules/BaseAssessor.ts` - Added generic type parameter `<T = unknown>` for type-safe assess() return types
-- `client/src/services/assessment/modules/SecurityAssessor.ts` - Pre-calculate exact payload counts for accurate progress, use configurable securityTestTimeout
-- `client/src/lib/assessmentTypes.ts` - Added securityTestTimeout configuration option
-- `docs/CLI_ASSESSMENT_GUIDE.md` - Added "Option: Security Test Timeout" section
-- `docs/ASSESSMENT_MODULE_DEVELOPER_GUIDE.md` - Updated BaseAssessor docs, added Pattern 6.5 (progress estimation) and Pattern 6.6 (security timeouts)
-- `docs/ASSESSMENT_CATALOG.md` - Added Configuration Options section to Security Assessment
-
-**Key Decisions:**
-- Used Promise<unknown>[] instead of Promise<void>[] because assessment promises return results
-- Default securityTestTimeout is 5000ms (lower than general testTimeout for faster security scans)
-- Added type assertion on return statement since Partial<MCPDirectoryAssessment> doesn't guarantee required fields
-
-**Commits:**
-- fbf99ef: fix: address P1/P2 issues from code review
-- 2c56f91: docs: document securityTestTimeout and progress estimation fixes
-
-**GitHub Issues Created:**
-- #19: Extract shared CLI logic to common module
-- #20: Remove deprecated maxToolsToTestForErrors from config presets
-- #21: Split assessmentTypes.ts into focused files
-- #22: Add queue backpressure warning to concurrencyLimit
-- #23: Add structured logging to AssessmentOrchestrator
-
-**Next Steps:**
-- Address P3 tech debt items as time permits (tracked in GitHub issues)
-- Consider npm version bump and publish for new features
-
-**Notes:**
-- All 1495 tests passing after changes
-- Build successful with no TypeScript errors
-
----
-
-## 2026-01-04: Issue #19 - Deprecate Local Script in Favor of Unified CLI
-
-**Summary:** Resolved Issue #19 by deprecating local script in favor of unified CLI, eliminating ~400 lines of duplicate code
-
-**Session Focus:** GitHub Issue #19 - Tech Debt: Extract shared CLI logic to common module. Chose Option A (deprecate local script) instead of extraction.
-
-**Changes Made:**
-- `package.json`: Updated `assess:full` to use CLI binary with auto-build check, added `assess:full:legacy`
-- `scripts/run-full-assessment.ts`: Added deprecation warning (v2.0.0 removal), TODO comment
-- `CLAUDE.md`: Replaced "npm Binary / Local Script Parity" section with "Full Assessment CLI"
-- `docs/CLI_ASSESSMENT_GUIDE.md`: Updated Mode 1 section, added migration note
-- `CHANGELOG.md`: Added v1.22.14 release notes
-- `docs/ARCHITECTURE_AND_VALUE.md`: Clarified CLI as primary component
-- `docs/DVMCP_USAGE_GUIDE.md`: Updated development workflow
-- `docs/REAL_TIME_PROGRESS_OUTPUT.md`: Organized Primary vs Legacy scripts
-
-**Commits:**
-- f230dc8: refactor: deprecate local script in favor of unified CLI (closes #19)
-- bd18e8e: fix: address code review warnings for #19
-- fe2ba53: docs: update documentation for unified CLI workflow (#19)
-
-**Key Decisions:**
-- Chose deprecation over extraction because CLI binary already has 9+ features the local script lacked
-- Set removal timeline to v2.0.0 for clear migration path
-- Added auto-build check so `npm run assess:full` works even if CLI not built
-
-**Next Steps:**
-- 4 remaining open issues: #20, #21, #22, #23
-- Legacy script removal planned for v2.0.0
-
-**Notes:**
-- Code review by @agent-code-reviewer-pro identified 2 warnings, both fixed
-- Documentation review by @agent-api-documenter found 5 files needing updates
-- Issue #19 closed on GitHub with resolution comment
+- Build passes, CLI help shows new profile system
+- Verified quick profile runs only functionality + security modules
+- Plan file at `/home/bryan/.claude/plans/sleepy-meandering-wozniak.md`
 
 ---
 
@@ -525,5 +297,205 @@
 - Documentation inconsistencies accumulated due to rapid feature development
 - Comprehensive grep-based audit ensured all references to module counts and tier structure were corrected
 - Source of truth is now clearly established: `client/src/services/assessment/lib/coreTypes.ts`
+
+---
+
+## 2026-01-07: Code Review and Documentation for Protocol Conformance Assessor
+
+**Summary:** Code review and documentation for Protocol Conformance Assessor module - fixed test failures and created integration guide.
+
+**Session Focus:** Code review fixes and module documentation
+
+**Changes Made:**
+- Fixed test expectations in assessmentTypes.test.ts (17->18, 15->16) to account for new module
+- Added ContentItem interface in ProtocolConformanceAssessor.ts to replace `any` casts for better type safety
+- Added spec version comment (MCP 2024-11-05) for maintainability
+- Renamed misleading test in ProtocolConformanceAssessor.test.ts ("should handle successful tool calls" -> "should flag missing toolCall notifications")
+- Created docs/PROTOCOL_CONFORMANCE_ASSESSOR_GUIDE.md (885 lines) - complete integration guide covering:
+  - All 9 conformance checks with examples
+  - JSONL event emission lifecycle
+  - Configuration options and skip behavior
+  - Error handling and edge cases
+  - Testing guide with mock examples
+- Updated docs/README.md navigation index with new guide
+- Updated module count references across 18 documentation files (17->18 modules)
+
+**Key Decisions:**
+- Use typed ContentItem interface instead of `any` for better type safety in content iteration
+- Centralize MCP spec version as constant for easier updates when spec evolves
+- Document JSONL event emission lifecycle specific to Protocol Conformance module
+
+**Technical Details:**
+- Commit: a1c3a43 fix: update test expectations and add Protocol Conformance documentation
+- All 1581 tests passing
+- Build successful
+- Branch is 2 commits ahead of origin/main
+
+**Next Steps:**
+- Consider implementing the 5 suggestions from code review:
+  1. Test multiple tools in single assessment
+  2. Add JSDoc comments to utility functions
+  3. Add progress notifications presence check
+  4. Add empty content edge case test
+  5. Consider extracting capability checks to helper
+- Push changes to origin when ready
+
+**Notes:**
+- Protocol Conformance Assessor is module #18, completing the assessment suite
+- Documentation follows established pattern from other assessor guides
+- Archived older PROJECT_STATUS.md entries (271 lines moved to PROJECT_STATUS_ARCHIVE.md)
+
+---
+
+## 2026-01-07: Protocol Conformance Assessor Implementation and CLI Bug Fix
+
+**Summary:** Implemented Protocol Conformance Assessor module and fixed CLI serverInfo capture, published v1.24.0 and v1.24.1.
+
+**Session Focus:** Protocol Conformance module implementation and CLI bug fix for serverInfo/serverCapabilities capture.
+
+**Changes Made:**
+- Created `client/src/services/assessment/modules/ProtocolConformanceAssessor.ts` (~300 lines) - new module with 3 protocol checks
+- Created `client/src/services/assessment/__tests__/ProtocolConformanceAssessor.test.ts` - test suite
+- Modified `client/src/lib/assessment/extendedTypes.ts` - added ProtocolCheck and ProtocolConformanceAssessment interfaces
+- Modified `client/src/lib/assessment/configTypes.ts` - added protocolConformance flag to all presets
+- Modified `client/src/lib/assessment/resultTypes.ts` - added protocolConformance to MCPDirectoryAssessment
+- Modified `client/src/lib/assessment/coreTypes.ts` - added to ASSESSMENT_CATEGORY_METADATA
+- Modified `client/src/services/assessment/modules/index.ts` - export added
+- Modified `client/src/services/assessment/AssessmentOrchestrator.ts` - registration
+- Modified `cli/src/assess-full.ts` - capture serverInfo/serverCapabilities from client
+- Modified `docs/ASSESSMENT_CATALOG.md` - updated to 18 modules
+- Updated hardened-mcp server.py (separate repo) - set version via mcp._mcp_server.version
+
+**Key Decisions:**
+- Phase 1 only: Native protocol checks (no external @modelcontextprotocol/conformance dependency yet)
+- 3 protocol checks: Error Response Format, Content Type Support, Initialization Handshake
+- Enable in DEVELOPER_MODE, AUDIT_MODE, and CLAUDE_ENHANCED_AUDIT config presets
+
+**Next Steps:**
+- Phase 2: Consider integrating @modelcontextprotocol/conformance package for comprehensive validation
+- Add more protocol checks (progress notifications, log notifications)
+
+**Notes:**
+- Both testbed servers (vulnerable-mcp, hardened-mcp) pass protocol conformance with 100%
+- CLI fix required to properly pass serverInfo to assessment context
+- Published v1.24.0 (module) and v1.24.1 (CLI fix) to npm
+
+---
+
+## 2026-01-07: Code Review and Documentation Gap Analysis for v1.24.2
+
+**Summary:** Conducted code review and documentation gap analysis for v1.24.2, then addressed all findings with documentation updates.
+
+**Session Focus:** Code review and documentation gap analysis for v1.24.2 Protocol Conformance changes
+
+**Changes Made:**
+- `docs/CLI_ASSESSMENT_GUIDE.md` - Updated version header to 1.24.2, added mcpProtocolVersion configuration section, added serverInfo capture documentation
+- `README.md` - Added Protocol Conformance v1.24.2 config note
+- `CLAUDE.md` - Updated version reference from 1.19.6 to 1.24.2
+
+**Key Decisions:**
+- Used code-reviewer-pro and api-documenter agents for comprehensive analysis
+- Addressed Priority 1-3 documentation gaps identified by api-documenter
+- Spec version format verified as consistent ("2025-06" year-month format)
+
+**Commits:**
+- 07e9821 docs: update documentation for v1.24.2 features
+
+**Next Steps:**
+- Consider adding integration test for CLI serverInfo capture
+- Monitor for any user feedback on new documentation sections
+
+**Notes:**
+- Code review found 0 critical issues, 3 warnings, 4 suggestions
+- Documentation analysis found specialist guides already comprehensive
+- Gap was primarily in CLI user discoverability (now addressed)
+- All 67 test suites passing, build successful
+
+---
+
+## 2026-01-07: Protocol Conformance Code Review Fixes - v1.24.2
+
+**Summary:** Fixed 3 code review warnings in Protocol Conformance Assessor and published v1.24.2 with documentation updates.
+
+**Session Focus:** Addressed code review warnings from v1.24.0-1.24.1 commits: race condition in error format testing, hardcoded MCP spec version, and missing null checks for serverInfo.
+
+**Changes Made:**
+- `client/src/services/assessment/modules/ProtocolConformanceAssessor.ts` - Multi-tool testing (first/middle/last selection), config-based spec version via mcpProtocolVersion
+- `cli/src/assess-full.ts` - Defensive null checks for serverInfo/serverCapabilities with user warning
+- `client/src/services/assessment/__tests__/ProtocolConformanceAssessor.test.ts` - Added 6 new tests (total: 24)
+- `docs/ASSESSMENT_CATALOG.md` - Documented multi-tool testing
+- `docs/PROTOCOL_CONFORMANCE_ASSESSOR_GUIDE.md` - Added spec version config, null-safety docs
+- `docs/CLI_ASSESSMENT_GUIDE.md` - Added serverInfo troubleshooting section
+
+**Key Decisions:**
+- Test up to 3 representative tools (first, middle, last) for diversity
+- Use existing config.mcpProtocolVersion with "2025-06" default
+- Show warning but don't fail when server omits serverInfo
+
+**Next Steps:**
+- Monitor for any issues with multi-tool testing in production assessments
+- Consider adding more protocol conformance checks in future versions
+
+**Notes:**
+- Published v1.24.2 to npm
+- All 24 ProtocolConformanceAssessor tests passing
+- Full test suite (1560+ tests) passes
+
+---
+
+## 2026-01-07: CLI serverInfo Capture Integration Tests
+
+**Summary:** Added 25 integration tests for CLI serverInfo capture ensuring Protocol Conformance assessor receives initialization data correctly.
+
+**Session Focus:** Implementing integration tests for CLI serverInfo capture (task from commit 55d23f4)
+
+**Changes Made:**
+- `scripts/__tests__/serverInfo-capture.test.ts` - 13 unit tests for serverInfo capture logic
+- `client/src/services/assessment/__tests__/ProtocolConformance-CLI.integration.test.ts` - 7 integration tests
+- `scripts/__tests__/cli-parity.test.ts` - Added 5 serverInfo parity tests, fixed getAllModulesConfig pattern
+- `scripts/run-full-assessment.ts` - Added serverInfo/serverCapabilities capture for parity
+
+**Key Decisions:**
+- Put unit tests in scripts/__tests__/ to leverage existing jest infrastructure
+- Used existing SKIP_INTEGRATION_TESTS pattern for integration tests
+- Fixed legacy cli-parity tests to use getAllModulesConfig() instead of extractAllModulesKeys()
+
+**Next Steps:**
+- Consider expanding integration tests to cover different transport types (STDIO, SSE)
+- Run full test suite to verify no regressions
+
+**Notes:**
+- Commit: 2bb3c42
+- All 25 new tests pass
+- Integration tests skip gracefully when testbed not running
+
+---
+## 2026-01-07: Code Review Improvements for CLI Parity Tests
+
+**Summary:** Implemented code review improvements for cli-parity tests, adding negative test cases and making module count self-maintaining.
+
+**Session Focus:** Code review implementation for cli-parity.test.ts addressing 5 findings (W1, W2, S1, S2, S3)
+
+**Changes Made:**
+- Modified: `scripts/__tests__/cli-parity.test.ts` (+71/-15 lines)
+  - W1: Removed redundant parity test (comparing true===true)
+  - W2: Strengthened import validation with regex pattern
+  - S1: Added 4 negative test cases for `usesGetAllModulesConfig()` helper
+  - S2: Made module count derive from `ASSESSMENT_CATEGORY_METADATA` (self-maintaining)
+  - S3: Added JSDoc documenting cross-layer import rationale
+- Test count: 26 → 29 tests (removed 1 redundant, added 4 negative)
+
+**Key Decisions:**
+- Used regex `/import\s*{[^}]*getAllModulesConfig[^}]*}\s*from/` for robust import validation
+- Derive module count from ASSESSMENT_CATEGORY_METADATA to eliminate manual updates when modules change
+- Negative tests added at describe block level (not inside main test suite)
+
+**Next Steps:**
+- None specific - this was cleanup/improvement work
+
+**Notes:**
+- Commit: d21452c "test: improve cli-parity tests per code review"
+- Pushed to origin/main
+- No documentation updates required (internal test changes only)
 
 ---

@@ -4,26 +4,61 @@ A comprehensive reference for all assessment modules in the MCP Inspector Assess
 
 ## Overview
 
-The MCP Inspector Assessment runs **18 specialized modules** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
+The MCP Inspector Assessment runs **16 specialized modules** organized in **4 tiers** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
 
-### Module Organization
+### Module Tier Organization (v1.25.0+)
 
-| Category         | Modules | Purpose                             |
-| ---------------- | ------- | ----------------------------------- |
-| **Core (16)**    | #1-16   | Essential server quality validation |
-| **Optional (2)** | #17-18  | Context-specific (MCPB bundles)     |
+| Tier                      | Modules | Purpose                               | Profile Required |
+| ------------------------- | ------- | ------------------------------------- | ---------------- |
+| **Tier 1: Core Security** | 6       | Essential security validation         | `quick`          |
+| **Tier 2: Compliance**    | 4       | MCP Directory requirements            | `compliance`     |
+| **Tier 3: Capability**    | 3       | Resource/Prompt testing (conditional) | `full`           |
+| **Tier 4: Extended**      | 3       | Developer experience (optional)       | `full`           |
 
-### All Module Names (for `--skip-modules` / `--only-modules`)
+### CLI Profiles
+
+```bash
+# Fast CI/CD check (~30 seconds)
+mcp-assess-full my-server --profile quick
+
+# Security-focused audit (~2-3 minutes)
+mcp-assess-full my-server --profile security
+
+# MCP Directory submission check (~5 minutes)
+mcp-assess-full my-server --profile compliance
+
+# Comprehensive audit (~10-15 minutes)
+mcp-assess-full my-server --profile full
+```
+
+### All Module Names (for `--profile` / `--skip-modules` / `--only-modules`)
 
 ```
-Core:       functionality, security, errorHandling, documentation, usability
-Compliance: mcpSpecCompliance, aupCompliance, toolAnnotations, prohibitedLibraries,
-            manifestValidation, portability
-Advanced:   temporal, resources, prompts, crossCapability, authentication,
-            externalAPIScanner*, protocolConformance
+Tier 1 (Core Security):
+  functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance
+
+Tier 2 (Compliance):
+  toolAnnotations, prohibitedLibraries, manifestValidation, authentication
+
+Tier 3 (Capability-Based):
+  resources, prompts, crossCapability
+
+Tier 4 (Extended):
+  developerExperience, portability, externalAPIScanner*
 ```
 
 \* `externalAPIScanner` only runs when `--source` flag is provided
+
+### Deprecated Module Names (backward compatible)
+
+The following module names are deprecated but still work via aliasing:
+
+| Old Name              | New Name              | Migration |
+| --------------------- | --------------------- | --------- |
+| `documentation`       | `developerExperience` | Merged    |
+| `usability`           | `developerExperience` | Merged    |
+| `mcpSpecCompliance`   | `protocolCompliance`  | Merged    |
+| `protocolConformance` | `protocolCompliance`  | Merged    |
 
 ### Scoring
 
