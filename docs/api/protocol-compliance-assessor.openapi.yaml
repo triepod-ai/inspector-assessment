@@ -22,7 +22,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AssessmentContextRequest'
+              $ref: "#/components/schemas/AssessmentContextRequest"
             examples:
               complete:
                 summary: Complete server assessment
@@ -77,7 +77,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProtocolComplianceAssessment'
+                $ref: "#/components/schemas/ProtocolComplianceAssessment"
               examples:
                 pass:
                   summary: Fully compliant server
@@ -145,13 +145,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
         "500":
           description: Internal assessment error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /test-count:
     get:
@@ -238,7 +238,7 @@ components:
           type: array
           description: Array of MCP tools
           items:
-            $ref: '#/components/schemas/Tool'
+            $ref: "#/components/schemas/Tool"
         serverCapabilities:
           type: object
           description: Server capability declarations
@@ -315,7 +315,7 @@ components:
           maximum: 100
           description: Overall compliance percentage
         status:
-          $ref: '#/components/schemas/AssessmentStatus'
+          $ref: "#/components/schemas/AssessmentStatus"
         explanation:
           type: string
           description: Human-readable compliance summary
@@ -328,20 +328,20 @@ components:
           type: integer
           description: Total protocol checks performed
         protocolChecks:
-          $ref: '#/components/schemas/ProtocolChecks'
+          $ref: "#/components/schemas/ProtocolChecks"
         conformanceChecks:
-          $ref: '#/components/schemas/ConformanceChecks'
+          $ref: "#/components/schemas/ConformanceChecks"
         metadataHints:
-          $ref: '#/components/schemas/MetadataHints'
+          $ref: "#/components/schemas/MetadataHints"
         # Legacy fields (backward compatible)
         transportCompliance:
-          $ref: '#/components/schemas/TransportComplianceMetrics'
+          $ref: "#/components/schemas/TransportComplianceMetrics"
         oauthImplementation:
-          $ref: '#/components/schemas/OAuthComplianceMetrics'
+          $ref: "#/components/schemas/OAuthComplianceMetrics"
         annotationSupport:
-          $ref: '#/components/schemas/AnnotationSupportMetrics'
+          $ref: "#/components/schemas/AnnotationSupportMetrics"
         streamingSupport:
-          $ref: '#/components/schemas/StreamingSupportMetrics'
+          $ref: "#/components/schemas/StreamingSupportMetrics"
 
     AssessmentStatus:
       type: string
@@ -359,30 +359,30 @@ components:
       description: All 7 protocol specification checks
       properties:
         jsonRpcCompliance:
-          $ref: '#/components/schemas/ProtocolCheck'
+          $ref: "#/components/schemas/ProtocolCheck"
         serverInfoValidity:
-          $ref: '#/components/schemas/ProtocolCheck'
+          $ref: "#/components/schemas/ProtocolCheck"
         schemaCompliance:
-          $ref: '#/components/schemas/ProtocolCheck'
+          $ref: "#/components/schemas/ProtocolCheck"
         errorResponseCompliance:
-          $ref: '#/components/schemas/ProtocolCheck'
+          $ref: "#/components/schemas/ProtocolCheck"
         contentTypeSupport:
-          $ref: '#/components/schemas/ProtocolCheck'
+          $ref: "#/components/schemas/ProtocolCheck"
         structuredOutputSupport:
-          $ref: '#/components/schemas/ProtocolCheck'
+          $ref: "#/components/schemas/ProtocolCheck"
         capabilitiesCompliance:
-          $ref: '#/components/schemas/ProtocolCheck'
+          $ref: "#/components/schemas/ProtocolCheck"
 
     ConformanceChecks:
       type: object
       description: Protocol conformance checks
       properties:
         errorResponseFormat:
-          $ref: '#/components/schemas/ProtocolCheck'
+          $ref: "#/components/schemas/ProtocolCheck"
         contentTypeSupport:
-          $ref: '#/components/schemas/ProtocolCheck'
+          $ref: "#/components/schemas/ProtocolCheck"
         initializationHandshake:
-          $ref: '#/components/schemas/ProtocolCheck'
+          $ref: "#/components/schemas/ProtocolCheck"
 
     ProtocolCheck:
       type: object

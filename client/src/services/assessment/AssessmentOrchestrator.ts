@@ -6,7 +6,6 @@
 import {
   MCPDirectoryAssessment,
   AssessmentConfiguration,
-  AssessmentStatus,
   DEFAULT_ASSESSMENT_CONFIG,
   ManifestJsonSchema,
   ProgressCallback,
@@ -56,168 +55,17 @@ import {
 } from "./lib/claudeCodeBridge";
 import { TestDataGenerator } from "./TestDataGenerator";
 
-// Import score calculation helpers from shared module
-import {
-  calculateModuleScore,
-  normalizeModuleKey,
-  INSPECTOR_VERSION,
-} from "@/lib/moduleScoring";
-
 // Structured logging
 import { Logger, createLogger, DEFAULT_LOGGING_CONFIG } from "./lib/logger";
 
-// Track module start times for duration calculation
-const moduleStartTimes: Map<string, number> = new Map();
-
-/**
- * Emit module_started event and track start time for duration calculation.
- * Emits JSONL to stderr with version field for consistent event structure.
- */
-function emitModuleStartedEvent(
-  moduleName: string,
-  estimatedTests: number,
-  toolCount: number,
-): void {
-  const moduleKey = normalizeModuleKey(moduleName);
-  moduleStartTimes.set(moduleKey, Date.now());
-
-  // Emit JSONL to stderr with version field
-  console.error(
-    JSON.stringify({
-      event: "module_started",
-      module: moduleKey,
-      estimatedTests,
-      toolCount,
-      version: INSPECTOR_VERSION,
-    }),
-  );
-}
-
-/**
- * Emit module_complete event with score and duration.
- * Uses shared score calculator for consistent scoring logic.
- * For AUP module, includes enriched violation data for Claude analysis.
- */
-
-function emitModuleProgress(
-  moduleName: string,
-  status: string,
-  result: any,
-  testsRun: number = 0,
-): void {
-  // Calculate score using shared helper
-  const score = calculateModuleScore(result);
-
-  // Don't emit events for skipped modules (null score means module wasn't run)
-  if (score === null) return;
-
-  const moduleKey = normalizeModuleKey(moduleName);
-
-  // Calculate duration from module start time
-  const startTime = moduleStartTimes.get(moduleKey);
-  const duration = startTime ? Date.now() - startTime : 0;
-  moduleStartTimes.delete(moduleKey);
-
-  // Build base event
-  const event: Record<string, unknown> = {
-    event: "module_complete",
-    module: moduleKey,
-    status,
-    score,
-    testsRun,
-    duration,
-    version: INSPECTOR_VERSION,
-  };
-
-  // Add AUP enrichment when module is AUP
-  if (moduleKey === "aup" && result) {
-    const aupEnrichment = buildAUPEnrichment(result);
-    Object.assign(event, aupEnrichment);
-  }
-
-  // Emit JSONL to stderr with version field
-  console.error(JSON.stringify(event));
-}
-
-/**
- * Build AUP enrichment data from an AUP compliance assessment result.
- * Samples violations prioritizing by severity (CRITICAL > HIGH > MEDIUM).
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildAUPEnrichment(aupResult: any, maxSamples: number = 10) {
-  const violations = aupResult.violations || [];
-
-  // Calculate metrics
-  const metrics = {
-    total: violations.length,
-    critical: violations.filter(
-      (v: { severity: string }) => v.severity === "CRITICAL",
-    ).length,
-    high: violations.filter((v: { severity: string }) => v.severity === "HIGH")
-      .length,
-    medium: violations.filter(
-      (v: { severity: string }) => v.severity === "MEDIUM",
-    ).length,
-    byCategory: {} as Record<string, number>,
-  };
-
-  // Count by category
-  for (const v of violations) {
-    metrics.byCategory[v.category] = (metrics.byCategory[v.category] || 0) + 1;
-  }
-
-  // Sample violations prioritizing by severity
-  const sampled: Array<{
-    category: string;
-    categoryName: string;
-    severity: string;
-    matchedText: string;
-    location: string;
-    confidence: string;
-  }> = [];
-  const severityOrder = ["CRITICAL", "HIGH", "MEDIUM"];
-
-  for (const severity of severityOrder) {
-    if (sampled.length >= maxSamples) break;
-    const bySeverity = violations.filter(
-      (v: { severity: string }) => v.severity === severity,
-    );
-    for (const v of bySeverity) {
-      if (sampled.length >= maxSamples) break;
-      sampled.push({
-        category: v.category,
-        categoryName: v.categoryName,
-        severity: v.severity,
-        matchedText: v.matchedText,
-        location: v.location,
-        confidence: v.confidence,
-      });
-    }
-  }
-
-  // Build sampling note
-  let samplingNote = "";
-  if (violations.length === 0) {
-    samplingNote = "No violations detected.";
-  } else if (violations.length <= maxSamples) {
-    samplingNote = `All ${violations.length} violation(s) included.`;
-  } else {
-    samplingNote = `Sampled ${sampled.length} of ${violations.length} violations, prioritized by severity (CRITICAL > HIGH > MEDIUM).`;
-  }
-
-  return {
-    violationsSample: sampled,
-    samplingNote,
-    violationMetrics: metrics,
-    scannedLocations: aupResult.scannedLocations || {
-      toolNames: false,
-      toolDescriptions: false,
-      readme: false,
-      sourceCode: false,
-    },
-    highRiskDomains: (aupResult.highRiskDomains || []).slice(0, 10),
-  };
-}
+// Extracted helpers for testability
+import {
+  emitModuleStartedEvent,
+  emitModuleProgress,
+  determineOverallStatus,
+  generateSummary,
+  generateRecommendations,
+} from "./orchestratorHelpers";
 
 /**
  * MCP Resource interface for assessment context
@@ -1079,11 +927,11 @@ export class AssessmentOrchestrator {
     this.totalTestsRun = this.collectTotalTestCount();
 
     // Determine overall status
-    const overallStatus = this.determineOverallStatus(assessmentResults);
+    const overallStatus = determineOverallStatus(assessmentResults);
 
     // Generate summary and recommendations
-    const summary = this.generateSummary(assessmentResults);
-    const recommendations = this.generateRecommendations(assessmentResults);
+    const summary = generateSummary(assessmentResults);
+    const recommendations = generateRecommendations(assessmentResults);
 
     const executionTime = Date.now() - this.startTime;
 
@@ -1211,115 +1059,6 @@ export class AssessmentOrchestrator {
     this.logger.debug("Total test count", { total });
 
     return total;
-  }
-
-  private determineOverallStatus(
-    results: Partial<MCPDirectoryAssessment>,
-  ): AssessmentStatus {
-    const statuses: AssessmentStatus[] = [];
-
-    // Collect all statuses from assessment results
-    Object.values(results).forEach((assessment) => {
-      if (
-        assessment &&
-        typeof assessment === "object" &&
-        "status" in assessment
-      ) {
-        statuses.push(assessment.status as AssessmentStatus);
-      }
-    });
-
-    // If any critical category fails, overall fails
-    if (statuses.includes("FAIL")) return "FAIL";
-
-    // If any category needs more info, overall needs more info
-    if (statuses.includes("NEED_MORE_INFO")) return "NEED_MORE_INFO";
-
-    // All must pass for overall pass
-    return "PASS";
-  }
-
-  private generateSummary(results: any): string {
-    const parts: string[] = [];
-    const totalCategories = Object.keys(results).length;
-    const passedCategories = Object.values(results).filter(
-      (r: any) => r?.status === "PASS",
-    ).length;
-
-    parts.push(
-      `Assessment complete: ${passedCategories}/${totalCategories} categories passed.`,
-    );
-
-    // Add key findings
-    if (results.security?.vulnerabilities?.length > 0) {
-      parts.push(
-        `Found ${results.security.vulnerabilities.length} security vulnerabilities.`,
-      );
-    }
-
-    if (results.functionality?.brokenTools?.length > 0) {
-      parts.push(
-        `${results.functionality.brokenTools.length} tools are not functioning correctly.`,
-      );
-    }
-
-    // New assessor findings
-    if (results.aupCompliance?.violations?.length > 0) {
-      const criticalCount = results.aupCompliance.violations.filter(
-        (v: any) => v.severity === "CRITICAL",
-      ).length;
-      if (criticalCount > 0) {
-        parts.push(`CRITICAL: ${criticalCount} AUP violation(s) detected.`);
-      } else {
-        parts.push(
-          `${results.aupCompliance.violations.length} AUP item(s) flagged for review.`,
-        );
-      }
-    }
-
-    if (results.toolAnnotations?.missingAnnotationsCount > 0) {
-      parts.push(
-        `${results.toolAnnotations.missingAnnotationsCount} tools missing annotations.`,
-      );
-    }
-
-    if (results.prohibitedLibraries?.matches?.length > 0) {
-      const blockingCount = results.prohibitedLibraries.matches.filter(
-        (m: { severity: string }) => m.severity === "BLOCKING",
-      ).length;
-      if (blockingCount > 0) {
-        parts.push(
-          `BLOCKING: ${blockingCount} prohibited library/libraries detected.`,
-        );
-      }
-    }
-
-    if (results.portability?.usesBundleRoot) {
-      parts.push("Uses ${BUNDLE_ROOT} anti-pattern.");
-    }
-
-    return parts.join(" ");
-  }
-
-  private generateRecommendations(
-    results: Partial<MCPDirectoryAssessment>,
-  ): string[] {
-    const recommendations: string[] = [];
-
-    // Aggregate recommendations from all assessments
-    Object.values(results).forEach((assessment) => {
-      if (
-        assessment &&
-        typeof assessment === "object" &&
-        "recommendations" in assessment &&
-        Array.isArray(assessment.recommendations)
-      ) {
-        recommendations.push(...assessment.recommendations);
-      }
-    });
-
-    // De-duplicate and prioritize
-    return [...new Set(recommendations)].slice(0, 10);
   }
 
   /**
