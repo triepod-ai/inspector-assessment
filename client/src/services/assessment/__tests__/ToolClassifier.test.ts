@@ -671,6 +671,70 @@ describe("ToolClassifier", () => {
       const result = classifier.classify("calculator_command_tool");
       expect(result.confidence).toBeGreaterThanOrEqual(85);
     });
+
+    // Category ordering verification - categories appear in pattern-match order
+    it("returns categories in source pattern order (DATA_ACCESS before URL_FETCHER)", () => {
+      const result = classifier.classify("leak_fetch_tool");
+      const dataIdx = result.categories.indexOf(ToolCategory.DATA_ACCESS);
+      const fetcherIdx = result.categories.indexOf(ToolCategory.URL_FETCHER);
+      // DATA_ACCESS is checked before URL_FETCHER in source
+      expect(dataIdx).toBeLessThan(fetcherIdx);
+    });
+
+    it("returns categories in source pattern order (CALCULATOR before SYSTEM_EXEC)", () => {
+      const result = classifier.classify("calc_exec_command");
+      const calcIdx = result.categories.indexOf(ToolCategory.CALCULATOR);
+      const execIdx = result.categories.indexOf(ToolCategory.SYSTEM_EXEC);
+      // CALCULATOR is checked before SYSTEM_EXEC in source
+      expect(calcIdx).toBeLessThan(execIdx);
+    });
+  });
+
+  // ============================================================================
+  // HYPHENATED NAME PATTERNS (word boundaries match hyphens)
+  // ============================================================================
+
+  describe("Hyphenated name patterns", () => {
+    // Word boundary \b matches hyphens (unlike underscores which are word chars)
+    it("matches search pattern in hyphenated name", () => {
+      const result = classifier.classify("my-search-tool");
+      expect(result.categories).toContain(ToolCategory.SEARCH_RETRIEVAL);
+    });
+
+    it("matches get pattern in hyphenated name", () => {
+      const result = classifier.classify("api-get-data");
+      expect(result.categories).toContain(ToolCategory.DATA_ACCESS);
+    });
+
+    it("matches list pattern in hyphenated name", () => {
+      const result = classifier.classify("user-list-api");
+      expect(result.categories).toContain(ToolCategory.DATA_ACCESS);
+    });
+
+    it("matches create pattern in hyphenated name", () => {
+      const result = classifier.classify("doc-create-tool");
+      expect(result.categories).toContain(ToolCategory.CRUD_CREATION);
+    });
+
+    it("matches run pattern in hyphenated name", () => {
+      const result = classifier.classify("task-run-executor");
+      expect(result.categories).toContain(ToolCategory.SYSTEM_EXEC);
+    });
+
+    it("matches admin pattern in hyphenated name", () => {
+      const result = classifier.classify("super-admin-panel");
+      expect(result.categories).toContain(ToolCategory.CONFIG_MODIFIER);
+    });
+
+    it("contrasts hyphen vs underscore behavior", () => {
+      // Hyphen: \bget\b matches because hyphen is word boundary
+      const hyphenated = classifier.classify("api-get-data");
+      expect(hyphenated.categories).toContain(ToolCategory.DATA_ACCESS);
+
+      // Underscore: \bget\b does NOT match because underscore is word char
+      const underscored = classifier.classify("api_get_data");
+      expect(underscored.categories).not.toContain(ToolCategory.DATA_ACCESS);
+    });
   });
 
   // ============================================================================
