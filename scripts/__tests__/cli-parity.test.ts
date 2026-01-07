@@ -14,7 +14,19 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
-import { getAllModulesConfig } from "../../client/src/lib/assessment/coreTypes";
+/**
+ * Cross-layer import for test validation.
+ *
+ * These imports from client/src are intentional - they provide the canonical
+ * source of truth for module configuration. This test validates that CLI files
+ * use the same configuration, ensuring parity between npm binary and local script.
+ *
+ * Type-only usage at test time - no runtime dependency created.
+ */
+import {
+  getAllModulesConfig,
+  ASSESSMENT_CATEGORY_METADATA,
+} from "../../client/src/lib/assessment/coreTypes";
 
 const CLI_PATH = path.join(__dirname, "../../cli/src/assess-full.ts");
 const SCRIPT_PATH = path.join(__dirname, "../run-full-assessment.ts");
@@ -176,6 +188,55 @@ function usesGetAllModulesConfig(content: string): boolean {
   visit(sourceFile);
   return found;
 }
+
+/**
+ * Unit tests for usesGetAllModulesConfig helper.
+ * Validates the AST detection logic with positive and negative cases.
+ */
+describe("usesGetAllModulesConfig helper", () => {
+  it("should return false for object literal pattern (old code)", () => {
+    const oldPattern = `
+      function buildConfig() {
+        const allModules: Record<string, boolean> = {
+          functionality: true,
+          security: true
+        };
+        return allModules;
+      }
+    `;
+    expect(usesGetAllModulesConfig(oldPattern)).toBe(false);
+  });
+
+  it("should return false for different function name", () => {
+    const wrongFn = `
+      function buildConfig() {
+        const allModules = getSomeOtherConfig({});
+        return allModules;
+      }
+    `;
+    expect(usesGetAllModulesConfig(wrongFn)).toBe(false);
+  });
+
+  it("should return false when not in buildConfig", () => {
+    const wrongLocation = `
+      function otherFunction() {
+        const allModules = getAllModulesConfig({});
+        return allModules;
+      }
+    `;
+    expect(usesGetAllModulesConfig(wrongLocation)).toBe(false);
+  });
+
+  it("should return true for correct pattern", () => {
+    const correctPattern = `
+      function buildConfig() {
+        const allModules = getAllModulesConfig({ sourceCodePath });
+        return allModules;
+      }
+    `;
+    expect(usesGetAllModulesConfig(correctPattern)).toBe(true);
+  });
+});
 
 /**
  * Extract JSONL event types emitted.
@@ -340,18 +401,11 @@ describe("CLI Binary & Script Parity", () => {
       expect(usesGetAllModulesConfig(scriptContent)).toBe(true);
     });
 
-    it("should have identical allModules pattern in buildConfig (parity)", () => {
-      // Both files should use the same getAllModulesConfig pattern
-      const cliUses = usesGetAllModulesConfig(cliContent);
-      const scriptUses = usesGetAllModulesConfig(scriptContent);
-
-      expect(cliUses).toEqual(scriptUses);
-    });
-
-    it("should have all 18 modules via getAllModulesConfig", () => {
+    it("should have all modules via getAllModulesConfig", () => {
       // Verify getAllModulesConfig returns expected count
-      // This should match Object.keys(ASSESSMENT_CATEGORY_METADATA).length
-      expect(EXPECTED_MODULES.length).toBe(18);
+      // Derived from ASSESSMENT_CATEGORY_METADATA - self-maintaining
+      const expectedCount = Object.keys(ASSESSMENT_CATEGORY_METADATA).length;
+      expect(EXPECTED_MODULES.length).toBe(expectedCount);
     });
 
     it("should include authentication module (v1.22.2 regression)", () => {
@@ -365,9 +419,11 @@ describe("CLI Binary & Script Parity", () => {
     });
 
     it("should have getAllModulesConfig imported in both files", () => {
-      // Verify the import statement exists
-      expect(cliContent).toContain("getAllModulesConfig");
-      expect(scriptContent).toContain("getAllModulesConfig");
+      // Verify actual import statement, not just string presence
+      // Regex ensures we match import syntax, not comments or strings
+      const importPattern = /import\s*{[^}]*getAllModulesConfig[^}]*}\s*from/;
+      expect(cliContent).toMatch(importPattern);
+      expect(scriptContent).toMatch(importPattern);
     });
 
     it("should derive from ASSESSMENT_CATEGORY_METADATA (verified via function)", () => {
