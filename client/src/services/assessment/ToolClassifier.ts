@@ -36,8 +36,9 @@ import {
   type RiskLevel,
 } from "./tool-classifier-patterns";
 
-// Re-export ToolCategory for backwards compatibility
+// Re-export types for backwards compatibility
 export { ToolCategory };
+export type { RiskLevel };
 
 /**
  * Result of classifying a tool into security categories.
