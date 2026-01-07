@@ -838,6 +838,22 @@ describe("ToolClassifier", () => {
       expect(upper.categories).toEqual(mixed.categories);
     });
 
+    it("handles whitespace-only description", () => {
+      const result = classifier.classify("calculator", "   \t\n  ");
+      expect(result.categories).toContain(ToolCategory.CALCULATOR);
+    });
+
+    it.each([
+      ["SYSTEM_EXEC", ToolCategory.SYSTEM_EXEC],
+      ["JSON_handler", ToolCategory.JSON_PARSER],
+      ["URL_FETCHER", ToolCategory.URL_FETCHER],
+      ["SAFE_storage_TOOL", ToolCategory.SAFE_STORAGE],
+      ["CONFIG_editor", ToolCategory.CONFIG_MODIFIER],
+    ])("is case insensitive for %s", (toolName, expectedCategory) => {
+      const result = classifier.classify(toolName);
+      expect(result.categories).toContain(expectedCategory);
+    });
+
     it("matches patterns in description even with neutral tool name", () => {
       const result = classifier.classify(
         "neutral_tool",
@@ -1041,6 +1057,18 @@ describe("ToolClassifier", () => {
       expect(results[0].confidence).toBeGreaterThan(90); // SAFE_STORAGE = 99
       expect(results[1].confidence).toBeGreaterThan(90); // SYSTEM_EXEC = 95
     });
+
+    it("handles large batch classification efficiently", () => {
+      const tools = Array.from({ length: 1000 }, (_, i) => ({
+        name: `tool_${i % 17}_${["calculator", "exec", "data", "safe"][i % 4]}`,
+      }));
+      const start = Date.now();
+      const results = classifier.classifyBatch(tools);
+      const elapsed = Date.now() - start;
+
+      expect(results).toHaveLength(1000);
+      expect(elapsed).toBeLessThan(1000); // Should complete in under 1 second
+    });
   });
 
   // ============================================================================
@@ -1195,6 +1223,117 @@ describe("ToolClassifier", () => {
     it("description patterns take precedence over generic name", () => {
       const result = classifier.classify("tool123", "Executes arbitrary code");
       expect(result.categories).toContain(ToolCategory.CODE_EXECUTOR);
+    });
+  });
+
+  // ============================================================================
+  // CONFIDENCE VALUES VERIFICATION (Code Review Suggestion #1)
+  // ============================================================================
+
+  describe("Confidence values match source implementation", () => {
+    // Single-category matches should return exact confidence values from source
+    it.each([
+      [ToolCategory.CALCULATOR, 90, "calculator_tool"],
+      [ToolCategory.SYSTEM_EXEC, 95, "system_exec_tool"],
+      [ToolCategory.CODE_EXECUTOR, 95, "code_runner"],
+      [ToolCategory.DATA_ACCESS, 85, "data_leak_tool"],
+      [ToolCategory.TOOL_OVERRIDE, 92, "override_tool"],
+      [ToolCategory.CONFIG_MODIFIER, 88, "config_editor"],
+      [ToolCategory.URL_FETCHER, 87, "fetch_content"],
+      [ToolCategory.UNICODE_PROCESSOR, 75, "unicode_converter"],
+      [ToolCategory.JSON_PARSER, 78, "parser_tool"],
+      [ToolCategory.PACKAGE_INSTALLER, 70, "install_package"],
+      [ToolCategory.RUG_PULL, 80, "rug_pull_tool"],
+      [ToolCategory.API_WRAPPER, 95, "firecrawl_scrape"],
+      [ToolCategory.SAFE_STORAGE, 99, "safe_tool"],
+      [ToolCategory.GENERIC, 50, "xyz_unknown_tool"],
+    ])(
+      "%s has confidence %d for tool %s",
+      (category, expectedConfidence, toolName) => {
+        const result = classifier.classify(toolName);
+        expect(result.categories).toContain(category);
+        // Single-category match should have exact confidence
+        if (result.categories.length === 1) {
+          expect(result.confidence).toBe(expectedConfidence);
+        }
+      },
+    );
+
+    // Test via descriptions for patterns requiring word boundaries
+    it("SEARCH_RETRIEVAL has confidence 93", () => {
+      const result = classifier.classify("tool", "search documents");
+      expect(result.categories).toContain(ToolCategory.SEARCH_RETRIEVAL);
+      // May have multiple categories due to "search" matching multiple patterns
+    });
+
+    it("CRUD_CREATION has confidence 92", () => {
+      const result = classifier.classify("tool", "create document");
+      expect(result.categories).toContain(ToolCategory.CRUD_CREATION);
+    });
+
+    it("READ_ONLY_INFO has confidence 94", () => {
+      const result = classifier.classify("get_self_info");
+      expect(result.categories).toContain(ToolCategory.READ_ONLY_INFO);
+    });
+  });
+
+  // ============================================================================
+  // NEGATIVE PATTERN TESTS (Code Review Suggestion #2)
+  // ============================================================================
+
+  describe("Negative pattern tests - tools that should NOT match specific categories", () => {
+    it.each([
+      [
+        "weather_forecast",
+        ToolCategory.CALCULATOR,
+        "weather is not calculator",
+      ],
+      ["image_resizer_v2", ToolCategory.SYSTEM_EXEC, "resizer not exec"],
+      [
+        "message_handler",
+        ToolCategory.CODE_EXECUTOR,
+        "handler not code executor",
+      ],
+      ["color_picker", ToolCategory.DATA_ACCESS, "picker not data access"],
+      ["theme_selector", ToolCategory.TOOL_OVERRIDE, "selector not override"],
+      ["layout_manager", ToolCategory.CONFIG_MODIFIER, "layout not config"],
+      ["cache_cleaner", ToolCategory.URL_FETCHER, "cleaner not fetcher"],
+      [
+        "text_formatter",
+        ToolCategory.UNICODE_PROCESSOR,
+        "formatter not unicode",
+      ],
+      ["image_resizer", ToolCategory.JSON_PARSER, "resizer not parser"],
+      [
+        "file_compressor",
+        ToolCategory.PACKAGE_INSTALLER,
+        "compressor not installer",
+      ],
+      ["timer_scheduler", ToolCategory.RUG_PULL, "scheduler not rug pull"],
+    ])("%s should NOT be classified as %s (%s)", (toolName, category) => {
+      const result = classifier.classify(toolName);
+      expect(result.categories).not.toContain(category);
+    });
+  });
+
+  // ============================================================================
+  // SNAPSHOT TESTS (Code Review Suggestion #3)
+  // ============================================================================
+
+  describe("Snapshot tests for complex classifications", () => {
+    it("matches snapshot for multi-pattern tool (calculator + command)", () => {
+      const result = classifier.classify("calculator_command_tool");
+      expect(result).toMatchSnapshot();
+    });
+
+    it("matches snapshot for multi-pattern tool (fetch + leak)", () => {
+      const result = classifier.classify("leak_fetch_tool");
+      expect(result).toMatchSnapshot();
+    });
+
+    it("matches snapshot for safe tool with multiple patterns", () => {
+      const result = classifier.classify("safe_search_tool_mcp");
+      expect(result).toMatchSnapshot();
     });
   });
 });

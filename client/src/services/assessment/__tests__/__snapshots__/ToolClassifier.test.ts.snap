@@ -1,0 +1,36 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ToolClassifier Snapshot tests for complex classifications matches snapshot for multi-pattern tool (calculator + command) 1`] = `
+{
+  "categories": [
+    "calculator",
+    "system_exec",
+  ],
+  "confidence": 93,
+  "reasoning": "Calculator pattern detected (arithmetic execution risk); System execution pattern detected (command injection risk)",
+  "toolName": "calculator_command_tool",
+}
+`;
+
+exports[`ToolClassifier Snapshot tests for complex classifications matches snapshot for multi-pattern tool (fetch + leak) 1`] = `
+{
+  "categories": [
+    "data_access",
+    "fetcher",
+  ],
+  "confidence": 86,
+  "reasoning": "Data access pattern detected (data exfiltration risk); URL fetcher pattern detected (indirect prompt injection risk)",
+  "toolName": "leak_fetch_tool",
+}
+`;
+
+exports[`ToolClassifier Snapshot tests for complex classifications matches snapshot for safe tool with multiple patterns 1`] = `
+{
+  "categories": [
+    "safe_storage",
+  ],
+  "confidence": 99,
+  "reasoning": "Safe tool pattern detected (control group - should be safe)",
+  "toolName": "safe_search_tool_mcp",
+}
+`;
