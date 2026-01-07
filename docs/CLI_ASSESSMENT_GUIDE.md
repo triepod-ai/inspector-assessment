@@ -172,6 +172,151 @@ mcp-assess-security --server my-server --config config.json
 
 ---
 
+## Assessment Profiles (v1.25.0+)
+
+The inspector provides 4 pre-configured assessment profiles optimized for different use cases. Use the `--profile` flag to quickly select module combinations without manual configuration.
+
+### Profile Overview
+
+| Profile      | Modules                    | Time     | Use Case                                    |
+| ------------ | -------------------------- | -------- | ------------------------------------------- |
+| `quick`      | 2 modules (Tier 1 partial) | ~30 sec  | Pre-commit hooks, CI validation             |
+| `security`   | 6 modules (Tier 1)         | ~2-3 min | Security-focused audits, vulnerability scan |
+| `compliance` | 10 modules (Tier 1 + 2)    | ~5 min   | MCP Directory submission validation         |
+| `full`       | 16 modules (all tiers)     | ~10-15   | Comprehensive audits, initial server review |
+
+### Using Profiles
+
+```bash
+# Quick validation (fastest)
+mcp-assess-full --server my-server --config config.json --profile quick
+
+# Security-focused
+mcp-assess-full --server my-server --config config.json --profile security
+
+# Pre-submission compliance check
+mcp-assess-full --server my-server --config config.json --profile compliance
+
+# Comprehensive audit (default)
+mcp-assess-full --server my-server --config config.json --profile full
+```
+
+### Profile Definitions
+
+#### Quick Profile (2 modules, ~30 seconds)
+
+**Modules**: functionality, security
+
+**Best for:**
+
+- Pre-commit hooks
+- Pull request validation
+- Quick CI checks
+- Development iteration
+
+**Example:**
+
+```bash
+# Fast check during development
+mcp-assess-full --server my-server --config config.json --profile quick
+```
+
+#### Security Profile (6 modules, ~2-3 minutes)
+
+**Modules**: functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance
+
+**Tier 1 Core Security modules**
+
+**Best for:**
+
+- Security-focused audits
+- Vulnerability scanning
+- Third-party server assessment
+- Security gate enforcement
+
+**Example:**
+
+```bash
+# Comprehensive security audit
+mcp-assess-full --server my-server --config config.json --profile security
+```
+
+#### Compliance Profile (10 modules, ~5 minutes)
+
+**Modules**:
+
+- Tier 1: functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance
+- Tier 2: toolAnnotations, prohibitedLibraries, manifestValidation, authentication
+
+**Best for:**
+
+- MCP Directory submission prep
+- Compliance validation
+- Production readiness checks
+- Directory listing qualification
+
+**Example:**
+
+```bash
+# Pre-submission validation
+mcp-assess-full --server my-server --config config.json --profile compliance
+```
+
+#### Full Profile (16 modules, ~10-15 minutes)
+
+**Modules**: All assessment modules including Tiers 1-4
+
+**Includes:**
+
+- All Tier 1 core security modules
+- All Tier 2 compliance modules
+- All Tier 3 capability-based modules
+- All Tier 4 extended modules
+
+**Best for:**
+
+- Initial comprehensive audit
+- Detailed server review
+- Complete documentation
+- Executive reporting
+
+**Example:**
+
+```bash
+# Complete assessment with all modules
+mcp-assess-full --server my-server --config config.json --profile full
+```
+
+### Module Tier Organization
+
+Understanding module tiers helps you choose the right profile:
+
+**Tier 1 (Core Security)** - Always Recommended
+
+- functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance
+- Essential for any MCP server assessment
+- ~60% of assessment time
+
+**Tier 2 (Compliance)** - MCP Directory
+
+- toolAnnotations, prohibitedLibraries, manifestValidation, authentication
+- Required for MCP Directory submission
+- ~25% of assessment time
+
+**Tier 3 (Capability-Based)** - Conditional
+
+- resources, prompts, crossCapability
+- Only relevant if server has these capabilities
+- ~10% of assessment time
+
+**Tier 4 (Extended)** - Optional
+
+- developerExperience, portability, externalAPIScanner
+- For comprehensive audits and detailed analysis
+- ~5% of assessment time
+
+---
+
 ## Configuration Files
 
 All three modes require a server configuration file specifying how to connect to your MCP server.
@@ -1631,25 +1776,63 @@ mcp-assess-full \
 
 ---
 
-## Assessment Modules Reference
+## Assessment Modules Reference (v1.25.0+)
 
-The inspector runs assessment modules covering different aspects:
+The inspector runs 16 assessment modules organized into 4 tiers. Each module can be configured independently via `--skip-modules` and `--only-modules` flags.
 
-| Module               | Tests  | Time | Purpose                            |
-| -------------------- | ------ | ---- | ---------------------------------- |
-| **Functionality**    | 20-100 | 30s  | Tool invocation, response handling |
-| **Security**         | 240+   | 60s  | Injection attacks, vulnerabilities |
-| **Documentation**    | 10     | 5s   | README completeness, descriptions  |
-| **Error Handling**   | 50+    | 20s  | MCP protocol compliance            |
-| **Usability**        | 30     | 10s  | Parameter clarity, naming          |
-| **MCP Spec**         | 40     | 15s  | MCP specification compliance       |
-| **AUP Compliance**   | 15     | 30s  | Acceptable Use Policy violations   |
-| **Tool Annotations** | 20     | 10s  | readOnlyHint/destructiveHint       |
-| **Prohibited Libs**  | 100+   | 20s  | Dependency security                |
-| **Manifest**         | 20     | 5s   | manifest.json validation           |
-| **Portability**      | 50+    | 15s  | Cross-platform compatibility       |
+### Tier 1: Core Security (6 modules)
 
-**Total**: ~500-600 tests across all modules
+Always recommended for any MCP server assessment.
+
+| Module                  | Tests  | Time | Purpose                                       |
+| ----------------------- | ------ | ---- | --------------------------------------------- |
+| **Functionality**       | 20-100 | 30s  | Tool invocation, response handling            |
+| **Security**            | 240+   | 60s  | Injection attacks, vulnerability detection    |
+| **Error Handling**      | 50+    | 20s  | MCP error protocol compliance                 |
+| **Protocol Compliance** | 40     | 15s  | MCP specification validation (NEW in v1.25.0) |
+| **Temporal**            | 25×N   | 30s  | Rug pull detection                            |
+| **AUP Compliance**      | 15     | 30s  | Acceptable Use Policy violations              |
+
+**Subtotal**: ~410-460 tests, ~3-4 minutes
+
+### Tier 2: Compliance (4 modules)
+
+Required for MCP Directory submission.
+
+| Module                  | Tests | Time | Purpose                      |
+| ----------------------- | ----- | ---- | ---------------------------- |
+| **Tool Annotations**    | 20    | 10s  | readOnlyHint/destructiveHint |
+| **Prohibited Libs**     | 100+  | 20s  | Dependency security          |
+| **Manifest Validation** | 20    | 5s   | manifest.json validation     |
+| **Authentication**      | 15    | 10s  | OAuth appropriateness        |
+
+**Subtotal**: ~155-160 tests, ~45 seconds
+
+### Tier 3: Capability-Based (3 modules)
+
+Conditional - only if server has corresponding capabilities.
+
+| Module               | Tests | Time | Purpose                      |
+| -------------------- | ----- | ---- | ---------------------------- |
+| **Resources**        | 20+   | 10s  | Resource security assessment |
+| **Prompts**          | 20+   | 10s  | Prompt AUP compliance        |
+| **Cross-Capability** | 15    | 10s  | Cross-capability attacks     |
+
+**Subtotal**: ~55-65 tests, ~30 seconds
+
+### Tier 4: Extended (3 modules)
+
+Optional for comprehensive audits.
+
+| Module                   | Tests | Time | Purpose                                    |
+| ------------------------ | ----- | ---- | ------------------------------------------ |
+| **Developer Experience** | 40    | 15s  | Documentation + usability (NEW in v1.25.0) |
+| **Portability**          | 50+   | 15s  | Cross-platform compatibility               |
+| **External API Scanner** | 20    | 10s  | External API detection (requires source)   |
+
+**Subtotal**: ~110 tests, ~40 seconds
+
+**Grand Total**: ~630-695 tests across all 16 modules
 **Typical Duration**: 4-5 minutes for full assessment
 
 ### Selective Module Testing
@@ -1680,12 +1863,21 @@ mcp-assess-full --server my-server --config config.json \
   --only-modules security
 ```
 
-**Valid module names (18 total):**
+**Valid module names (16 total, v1.25.0+):**
 
-| Category         | Module Names                                                                                                                                                                                                                                                                     |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Core (16)**    | `functionality`, `security`, `documentation`, `errorHandling`, `usability`, `mcpSpecCompliance`, `aupCompliance`, `toolAnnotations`, `prohibitedLibraries`, `externalAPIScanner`, `authentication`, `temporal`, `resources`, `prompts`, `crossCapability`, `protocolConformance` |
-| **Optional (2)** | `manifestValidation`, `portability`                                                                                                                                                                                                                                              |
+| Tier           | Module Names                                                                                    |
+| -------------- | ----------------------------------------------------------------------------------------------- |
+| **Tier 1 (6)** | `functionality`, `security`, `errorHandling`, `protocolCompliance`, `temporal`, `aupCompliance` |
+| **Tier 2 (4)** | `toolAnnotations`, `prohibitedLibraries`, `manifestValidation`, `authentication`                |
+| **Tier 3 (3)** | `resources`, `prompts`, `crossCapability`                                                       |
+| **Tier 4 (3)** | `developerExperience`, `portability`, `externalAPIScanner`                                      |
+
+**Deprecated module names** (still supported with warnings):
+
+- `documentation` → use `developerExperience`
+- `usability` → use `developerExperience`
+- `mcpSpecCompliance` → use `protocolCompliance`
+- `protocolConformance` → use `protocolCompliance`
 
 **Note:** `externalAPIScanner` only runs when `--source` path is provided
 

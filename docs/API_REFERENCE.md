@@ -351,6 +351,8 @@ Provides transport metadata for security assessment:
 
 Complete configuration options for assessments.
 
+> **Note on Module Naming**: As of v1.25.0, assessment modules are organized into 4 tiers with new naming. See [Module Tier Organization](#module-tier-organization) below for details.
+
 ### Core Options
 
 | Option                     | Type      | Default     | Description                              |
@@ -378,31 +380,88 @@ Complete configuration options for assessments.
 | `selectedToolsForTesting`  | `string[]`                             | `undefined`  | Specific tools to test (undefined = all) |
 | `documentationVerbosity`   | `"minimal" \| "standard" \| "verbose"` | `"standard"` | Documentation output detail level        |
 
-### Module Selection
+### Module Tier Organization
+
+As of v1.25.0, assessment modules are organized into 4 tiers. The `assessmentCategories` configuration uses new module names. See [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) for complete tier details.
+
+**Tier 1 (Core Security)**: Always recommended
+
+- functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance
+
+**Tier 2 (Compliance)**: MCP Directory submission
+
+- toolAnnotations, prohibitedLibraries, manifestValidation, authentication
+
+**Tier 3 (Capability-Based)**: Conditional on server capabilities
+
+- resources, prompts, crossCapability
+
+**Tier 4 (Extended)**: Optional for comprehensive audits
+
+- developerExperience, portability, externalAPIScanner
+
+### Module Selection (v1.25.0+)
 
 ```typescript
 assessmentCategories?: {
-  // Core modules (enabled by default)
-  functionality: boolean;      // Tool execution testing
-  security: boolean;           // Prompt injection, vulnerability detection
-  documentation: boolean;      // README, examples, API docs
-  errorHandling: boolean;      // MCP error protocol compliance
-  usability: boolean;          // Naming, descriptions, schemas
+  // Tier 1: Core Security (6 modules)
+  functionality: boolean;       // Tool execution testing
+  security: boolean;            // Prompt injection, vulnerability detection
+  errorHandling: boolean;       // MCP error protocol compliance
+  protocolCompliance: boolean;  // MCP protocol compliance (NEW in v1.25.0)
+  temporal: boolean;            // Rug pull detection
+  aupCompliance: boolean;       // AUP 14 categories violation scanning
 
-  // Extended modules (disabled by default)
-  mcpSpecCompliance?: boolean; // MCP protocol compliance
-  aupCompliance?: boolean;     // AUP 14 categories violation scanning
-  toolAnnotations?: boolean;   // readOnlyHint/destructiveHint validation
+  // Tier 2: Compliance (4 modules)
+  toolAnnotations?: boolean;    // readOnlyHint/destructiveHint validation
   prohibitedLibraries?: boolean; // Financial/Media library detection
   manifestValidation?: boolean; // MCPB manifest.json compliance
-  portability?: boolean;       // Hardcoded paths, platform code
-  externalAPIScanner?: boolean; // External API detection
-  authentication?: boolean;    // OAuth appropriateness
-  temporal?: boolean;          // Rug pull detection
-  resources?: boolean;         // Resource security assessment
-  prompts?: boolean;           // Prompt AUP compliance
-  crossCapability?: boolean;   // Cross-capability security
+  authentication?: boolean;     // OAuth appropriateness
+
+  // Tier 3: Capability-Based (3 modules)
+  resources?: boolean;          // Resource security assessment
+  prompts?: boolean;            // Prompt AUP compliance
+  crossCapability?: boolean;    // Cross-capability security
+
+  // Tier 4: Extended (3 modules)
+  developerExperience?: boolean; // Documentation + usability (NEW in v1.25.0, replaces documentation/usability)
+  portability?: boolean;         // Hardcoded paths, platform code
+  externalAPIScanner?: boolean;  // External API detection
 }
+```
+
+### Deprecated Module Names (v1.25.0+)
+
+The following module names are deprecated and will be removed in v2.0.0. Use the replacements listed:
+
+| Deprecated Name       | New Name              | Since   |
+| --------------------- | --------------------- | ------- |
+| `documentation`       | `developerExperience` | v1.25.0 |
+| `usability`           | `developerExperience` | v1.25.0 |
+| `mcpSpecCompliance`   | `protocolCompliance`  | v1.25.0 |
+| `protocolConformance` | `protocolCompliance`  | v1.25.0 |
+
+**Migration Example:**
+
+```typescript
+// Old (v1.24.x and earlier)
+const config = {
+  assessmentCategories: {
+    functionality: true,
+    documentation: true,
+    usability: true,
+    mcpSpecCompliance: true,
+  },
+};
+
+// New (v1.25.0+)
+const config = {
+  assessmentCategories: {
+    functionality: true,
+    developerExperience: true,
+    protocolCompliance: true,
+  },
+};
 ```
 
 ### Logging Configuration
@@ -505,19 +564,25 @@ The complete assessment result structure returned by `runFullAssessment()`.
 
 ### Extended Assessment Results
 
-| Field                 | Type                                 | Description                  |
-| --------------------- | ------------------------------------ | ---------------------------- |
-| `mcpSpecCompliance`   | `MCPSpecComplianceAssessment?`       | MCP protocol compliance      |
-| `aupCompliance`       | `AUPComplianceAssessment?`           | AUP violation scan results   |
-| `toolAnnotations`     | `ToolAnnotationAssessment?`          | Tool annotation validation   |
-| `prohibitedLibraries` | `ProhibitedLibrariesAssessment?`     | Prohibited library detection |
-| `manifestValidation`  | `ManifestValidationAssessment?`      | MCPB manifest validation     |
-| `portability`         | `PortabilityAssessment?`             | Portability analysis         |
-| `externalAPIScanner`  | `ExternalAPIScannerAssessment?`      | External API detection       |
-| `temporal`            | `TemporalAssessment?`                | Rug pull detection results   |
-| `resources`           | `ResourceAssessment?`                | Resource security results    |
-| `prompts`             | `PromptAssessment?`                  | Prompt assessment results    |
-| `crossCapability`     | `CrossCapabilitySecurityAssessment?` | Cross-capability security    |
+The extended assessment results structure has been reorganized in v1.25.0 to use new module names:
+
+| Field                 | Type                                 | Description                                                              | Module Tier |
+| --------------------- | ------------------------------------ | ------------------------------------------------------------------------ | ----------- |
+| `protocolCompliance`  | `ProtocolComplianceAssessment?`      | MCP protocol compliance (Merged MCPSpecCompliance + ProtocolConformance) | Tier 1      |
+| `aupCompliance`       | `AUPComplianceAssessment?`           | AUP violation scan results                                               | Tier 1      |
+| `temporal`            | `TemporalAssessment?`                | Rug pull detection results                                               | Tier 1      |
+| `toolAnnotations`     | `ToolAnnotationAssessment?`          | Tool annotation validation                                               | Tier 2      |
+| `prohibitedLibraries` | `ProhibitedLibrariesAssessment?`     | Prohibited library detection                                             | Tier 2      |
+| `manifestValidation`  | `ManifestValidationAssessment?`      | MCPB manifest validation                                                 | Tier 2      |
+| `authentication`      | `AuthenticationAssessment?`          | OAuth and auth evaluation                                                | Tier 2      |
+| `resources`           | `ResourceAssessment?`                | Resource security results                                                | Tier 3      |
+| `prompts`             | `PromptAssessment?`                  | Prompt assessment results                                                | Tier 3      |
+| `crossCapability`     | `CrossCapabilitySecurityAssessment?` | Cross-capability security                                                | Tier 3      |
+| `developerExperience` | `DeveloperExperienceAssessment?`     | Documentation + usability assessment (Merged Documentation + Usability)  | Tier 4      |
+| `portability`         | `PortabilityAssessment?`             | Portability analysis                                                     | Tier 4      |
+| `externalAPIScanner`  | `ExternalAPIScannerAssessment?`      | External API detection                                                   | Tier 4      |
+
+**Backward Compatibility Note**: Fields `documentation` and `usability` are deprecated in favor of `developerExperience`. Fields `mcpSpecCompliance` and `protocolConformance` are deprecated in favor of `protocolCompliance`.
 
 ### Overall Assessment
 
@@ -651,10 +716,16 @@ See [JSONL Events Reference](JSONL_EVENTS_REFERENCE.md) for complete event schem
 
 ### Deprecation Notices
 
-| Deprecated        | Replacement           | Removal Version   |
-| ----------------- | --------------------- | ----------------- |
-| `assess()` method | `runFullAssessment()` | 2.0.0             |
-| Assessment Tab UI | CLI commands          | Removed in 1.23.0 |
+| Deprecated Module/Method     | Replacement           | Removal Version  | Since Version |
+| ---------------------------- | --------------------- | ---------------- | ------------- |
+| `assess()` method            | `runFullAssessment()` | 2.0.0            | 1.20.0        |
+| Assessment Tab UI            | CLI commands          | 1.23.0 (removed) | 1.23.0        |
+| `documentation` module       | `developerExperience` | 2.0.0            | 1.25.0        |
+| `usability` module           | `developerExperience` | 2.0.0            | 1.25.0        |
+| `mcpSpecCompliance` module   | `protocolCompliance`  | 2.0.0            | 1.25.0        |
+| `protocolConformance` module | `protocolCompliance`  | 2.0.0            | 1.25.0        |
+
+**Migration Guide**: See [Module Selection (v1.25.0+)](#module-selection-v1250) section for configuration migration examples.
 
 ---
 

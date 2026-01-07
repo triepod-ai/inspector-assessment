@@ -355,7 +355,7 @@ async function runHttpAssessment(serverUrl: string) {
 ```typescript
 import { AssessmentOrchestrator } from "@bryan-thompson/inspector-assessment";
 
-// Security-focused assessment
+// Security-focused assessment (v1.25.0+)
 const securityConfig = {
   testTimeout: 15000,
   securityTestTimeout: 5000,
@@ -364,14 +364,17 @@ const securityConfig = {
   securityPatternsToTest: 8,
   enableDomainTesting: true,
   assessmentCategories: {
+    // Tier 1: Core Security
     functionality: true,
     security: true,
-    documentation: false, // Skip for speed
-    errorHandling: false,
-    usability: false,
-    aupCompliance: true,
-    toolAnnotations: true,
+    errorHandling: true,
+    protocolCompliance: true,
     temporal: true,
+    aupCompliance: true,
+    // Skip Tier 4 modules for speed
+    developerExperience: false,
+    // Include Tier 2 compliance checks
+    toolAnnotations: true,
   },
 };
 
@@ -520,33 +523,41 @@ import {
 } from "@bryan-thompson/inspector-assessment/config";
 ```
 
-### Module Selection
+### Module Selection (v1.25.0+)
 
 ```typescript
-// Enable specific modules
+// Enable modules by tier (v1.25.0+ naming)
 const config = {
   enableExtendedAssessment: true,
   assessmentCategories: {
+    // Tier 1: Core Security (recommended always)
     functionality: true,
     security: true,
-    documentation: true,
     errorHandling: true,
-    usability: true,
-    // Extended modules
-    mcpSpecCompliance: true,
+    protocolCompliance: true,
+    temporal: true,
     aupCompliance: true,
+
+    // Tier 2: Compliance (for MCP Directory submission)
     toolAnnotations: true,
+    authentication: true,
     prohibitedLibraries: false, // Skip
     manifestValidation: false, // Skip (MCPB-specific)
-    portability: false, // Skip (MCPB-specific)
-    externalAPIScanner: true,
-    authentication: true,
-    temporal: true,
+
+    // Tier 3: Capability-Based (conditional)
     resources: true,
     prompts: true,
     crossCapability: true,
+
+    // Tier 4: Extended (optional, comprehensive audits)
+    developerExperience: true,
+    portability: false, // Skip (MCPB-specific)
+    externalAPIScanner: true,
   },
 };
+
+// Deprecated module names (v1.24 and earlier) are still supported
+// but will show warnings. See migration section in API_REFERENCE.md
 ```
 
 ### Tool Selection
