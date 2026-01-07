@@ -1,7 +1,11 @@
 # Protocol Conformance Assessor Integration Guide
 
-**Version**: 1.0.0
-**Status**: Stable
+> **⚠️ DEPRECATED v1.25.2**: This module has been merged into the unified `ProtocolComplianceAssessor`. The standalone `ProtocolConformanceAssessor` remains exported for backwards compatibility but will be removed in v2.0.0.
+>
+> **Migration**: Use `ProtocolComplianceAssessor` from `./modules/ProtocolComplianceAssessor` for new code. See [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md#6-protocol-compliance-unified) for the unified module documentation.
+
+**Version**: 1.0.0 (Deprecated)
+**Status**: Deprecated - Use ProtocolComplianceAssessor
 **Target Audience**: Assessment developers, integration engineers, auditors
 
 ---

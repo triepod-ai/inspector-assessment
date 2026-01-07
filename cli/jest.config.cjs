@@ -21,11 +21,7 @@ module.exports = {
     ],
   },
   transformIgnorePatterns: ["node_modules/(?!(@modelcontextprotocol)/)"],
-  collectCoverageFrom: [
-    "src/**/*.ts",
-    "!src/**/*.d.ts",
-    "!src/__tests__/**",
-  ],
+  collectCoverageFrom: ["src/**/*.ts", "!src/**/*.d.ts", "!src/__tests__/**"],
   injectGlobals: true,
   globals: {
     "ts-jest": {

@@ -23,8 +23,8 @@ import { DocumentationAssessor } from "./modules/DocumentationAssessor";
 import { ErrorHandlingAssessor } from "./modules/ErrorHandlingAssessor";
 import { UsabilityAssessor } from "./modules/UsabilityAssessor";
 
-// Extended assessment modules
-import { MCPSpecComplianceAssessor } from "./modules/MCPSpecComplianceAssessor";
+// Extended assessment modules - unified protocol compliance
+import { ProtocolComplianceAssessor } from "./modules/ProtocolComplianceAssessor";
 
 // New MCP Directory Compliance Gap assessors
 import { AUPComplianceAssessor } from "./modules/AUPComplianceAssessor";
@@ -40,8 +40,7 @@ import { ResourceAssessor } from "./modules/ResourceAssessor";
 import { PromptAssessor } from "./modules/PromptAssessor";
 import { CrossCapabilitySecurityAssessor } from "./modules/CrossCapabilitySecurityAssessor";
 
-// Protocol conformance assessor
-import { ProtocolConformanceAssessor } from "./modules/ProtocolConformanceAssessor";
+// Note: ProtocolConformanceAssessor merged into ProtocolComplianceAssessor (v1.25.2)
 
 // Pattern configuration for tool annotation assessment
 import {
@@ -338,8 +337,8 @@ export class AssessmentOrchestrator {
   private errorHandlingAssessor?: ErrorHandlingAssessor;
   private usabilityAssessor?: UsabilityAssessor;
 
-  // Extended assessors
-  private mcpSpecAssessor?: MCPSpecComplianceAssessor;
+  // Extended assessors - unified protocol compliance
+  private protocolComplianceAssessor?: ProtocolComplianceAssessor;
 
   // New MCP Directory Compliance Gap assessors
   private aupComplianceAssessor?: AUPComplianceAssessor;
@@ -355,8 +354,7 @@ export class AssessmentOrchestrator {
   private promptAssessor?: PromptAssessor;
   private crossCapabilityAssessor?: CrossCapabilitySecurityAssessor;
 
-  // Protocol conformance assessor
-  private protocolConformanceAssessor?: ProtocolConformanceAssessor;
+  // Note: protocolConformanceAssessor merged into protocolComplianceAssessor (v1.25.2)
 
   constructor(config: Partial<AssessmentConfiguration> = {}) {
     this.config = { ...DEFAULT_ASSESSMENT_CONFIG, ...config };
@@ -391,8 +389,16 @@ export class AssessmentOrchestrator {
 
     // Initialize extended assessors if enabled
     if (this.config.enableExtendedAssessment) {
-      if (this.config.assessmentCategories?.mcpSpecCompliance) {
-        this.mcpSpecAssessor = new MCPSpecComplianceAssessor(this.config);
+      // Initialize unified protocol compliance assessor
+      // Supports new protocolCompliance flag and deprecated mcpSpecCompliance/protocolConformance
+      if (
+        this.config.assessmentCategories?.protocolCompliance ||
+        this.config.assessmentCategories?.mcpSpecCompliance ||
+        this.config.assessmentCategories?.protocolConformance
+      ) {
+        this.protocolComplianceAssessor = new ProtocolComplianceAssessor(
+          this.config,
+        );
       }
 
       // Initialize new MCP Directory Compliance Gap assessors
@@ -453,12 +459,7 @@ export class AssessmentOrchestrator {
         );
       }
 
-      // Initialize protocol conformance assessor
-      if (this.config.assessmentCategories?.protocolConformance) {
-        this.protocolConformanceAssessor = new ProtocolConformanceAssessor(
-          this.config,
-        );
-      }
+      // Note: Protocol conformance now handled by unified ProtocolComplianceAssessor above
     }
 
     // Wire up Claude bridge to TestDataGenerator for intelligent test generation
@@ -546,8 +547,8 @@ export class AssessmentOrchestrator {
     this.documentationAssessor?.resetTestCount();
     this.errorHandlingAssessor?.resetTestCount();
     this.usabilityAssessor?.resetTestCount();
-    if (this.mcpSpecAssessor) {
-      this.mcpSpecAssessor.resetTestCount();
+    if (this.protocolComplianceAssessor) {
+      this.protocolComplianceAssessor.resetTestCount();
     }
     // Reset new assessors
     if (this.aupComplianceAssessor) {
@@ -691,16 +692,16 @@ export class AssessmentOrchestrator {
         );
       }
 
-      // Extended assessments
-      if (this.mcpSpecAssessor) {
-        emitModuleStartedEvent("MCP Spec", 10, toolCount);
+      // Extended assessments - unified protocol compliance
+      if (this.protocolComplianceAssessor) {
+        emitModuleStartedEvent("Protocol Compliance", 10, toolCount);
         assessmentPromises.push(
-          this.mcpSpecAssessor.assess(context).then((r) => {
+          this.protocolComplianceAssessor.assess(context).then((r) => {
             emitModuleProgress(
-              "MCP Spec",
+              "Protocol Compliance",
               r.status,
               r,
-              this.mcpSpecAssessor!.getTestCount(),
+              this.protocolComplianceAssessor!.getTestCount(),
             );
             return (assessmentResults.mcpSpecCompliance = r);
           }),
@@ -850,21 +851,7 @@ export class AssessmentOrchestrator {
         );
       }
 
-      // Protocol Conformance (3 checks: error format, content types, initialization)
-      if (this.protocolConformanceAssessor) {
-        emitModuleStartedEvent("Protocol-Conformance", 3, toolCount);
-        assessmentPromises.push(
-          this.protocolConformanceAssessor.assess(context).then((r) => {
-            emitModuleProgress(
-              "Protocol-Conformance",
-              r.status,
-              r,
-              this.protocolConformanceAssessor!.getTestCount(),
-            );
-            return (assessmentResults.protocolConformance = r);
-          }),
-        );
-      }
+      // Note: Protocol Conformance now handled by unified ProtocolComplianceAssessor above
 
       await Promise.all(assessmentPromises);
     } else {
@@ -944,15 +931,15 @@ export class AssessmentOrchestrator {
         );
       }
 
-      if (this.mcpSpecAssessor) {
-        emitModuleStartedEvent("MCP Spec", 10, toolCount);
+      if (this.protocolComplianceAssessor) {
+        emitModuleStartedEvent("Protocol Compliance", 10, toolCount);
         assessmentResults.mcpSpecCompliance =
-          await this.mcpSpecAssessor.assess(context);
+          await this.protocolComplianceAssessor.assess(context);
         emitModuleProgress(
-          "MCP Spec",
+          "Protocol Compliance",
           assessmentResults.mcpSpecCompliance.status,
           assessmentResults.mcpSpecCompliance,
-          this.mcpSpecAssessor.getTestCount(),
+          this.protocolComplianceAssessor.getTestCount(),
         );
       }
 
@@ -1070,18 +1057,7 @@ export class AssessmentOrchestrator {
         );
       }
 
-      // Protocol Conformance (3 checks: error format, content types, initialization)
-      if (this.protocolConformanceAssessor) {
-        emitModuleStartedEvent("Protocol-Conformance", 3, toolCount);
-        assessmentResults.protocolConformance =
-          await this.protocolConformanceAssessor.assess(context);
-        emitModuleProgress(
-          "Protocol-Conformance",
-          assessmentResults.protocolConformance.status,
-          assessmentResults.protocolConformance,
-          this.protocolConformanceAssessor.getTestCount(),
-        );
-      }
+      // Note: Protocol Conformance now handled by unified ProtocolComplianceAssessor above
     }
 
     // Integrate temporal findings into security.vulnerabilities for unified view
@@ -1172,7 +1148,7 @@ export class AssessmentOrchestrator {
     const documentationCount = this.documentationAssessor?.getTestCount() || 0;
     const errorHandlingCount = this.errorHandlingAssessor?.getTestCount() || 0;
     const usabilityCount = this.usabilityAssessor?.getTestCount() || 0;
-    const mcpSpecCount = this.mcpSpecAssessor?.getTestCount() || 0;
+    const mcpSpecCount = this.protocolComplianceAssessor?.getTestCount() || 0;
 
     // New assessor counts
     const aupCount = this.aupComplianceAssessor?.getTestCount() || 0;
@@ -1191,9 +1167,7 @@ export class AssessmentOrchestrator {
     const crossCapabilityCount =
       this.crossCapabilityAssessor?.getTestCount() || 0;
 
-    // Protocol conformance count
-    const protocolConformanceCount =
-      this.protocolConformanceAssessor?.getTestCount() || 0;
+    // Note: Protocol conformance now included in mcpSpecCount (unified ProtocolComplianceAssessor)
 
     this.logger.debug("Test counts by assessor", {
       functionality: functionalityCount,
@@ -1212,7 +1186,7 @@ export class AssessmentOrchestrator {
       resources: resourcesCount,
       prompts: promptsCount,
       crossCapability: crossCapabilityCount,
-      protocolConformance: protocolConformanceCount,
+      // Note: protocolConformance now included in mcpSpec (unified)
     });
 
     total =
@@ -1231,8 +1205,8 @@ export class AssessmentOrchestrator {
       temporalCount +
       resourcesCount +
       promptsCount +
-      crossCapabilityCount +
-      protocolConformanceCount;
+      crossCapabilityCount;
+    // Note: protocolConformance now included in mcpSpecCount (unified)
 
     this.logger.debug("Total test count", { total });
 

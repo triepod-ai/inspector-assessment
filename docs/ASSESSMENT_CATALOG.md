@@ -260,9 +260,11 @@ The `securityTestTimeout` option allows optimization of security assessment spee
 
 These core modules validate compliance with Anthropic's MCP Directory Policy requirements.
 
-### 6. MCP Spec Compliance
+### 6. Protocol Compliance (Unified)
 
-**Purpose**: Verify adherence to MCP protocol specification.
+**Purpose**: Verify adherence to MCP protocol specification and conformance requirements.
+
+> **v1.25.2**: This module unifies `MCPSpecComplianceAssessor` and `ProtocolConformanceAssessor` into a single `ProtocolComplianceAssessor`. The deprecated modules remain exported for backwards compatibility.
 
 **Test Approach**:
 
@@ -270,6 +272,9 @@ These core modules validate compliance with Anthropic's MCP Directory Policy req
 - JSON-RPC 2.0 compliance verification
 - Protocol message format validation
 - Response structure conformance testing
+- Error response format validation
+- Content type support validation
+- Initialization handshake validation
 
 **Protocol Checks**:
 | Check | Description |
@@ -279,14 +284,19 @@ These core modules validate compliance with Anthropic's MCP Directory Policy req
 | Response Format | Proper content array with type/text |
 | Error Format | Standard error codes and messages |
 | Capabilities | Valid capability declarations |
+| Error Response Format | Validates `isError: true` flag, content array |
+| Content Type Support | Validates all content items use valid MCP types |
+| Initialization Handshake | Validates serverInfo.name, version, capabilities |
 
 **Pass Criteria**:
 
 - All tool calls return valid JSON-RPC responses
 - Error codes match MCP specification
 - No protocol violations detected
+- Error responses include `isError: true` flag
+- Server provides name during initialization
 
-**Implementation**: `client/src/services/assessment/modules/MCPSpecComplianceAssessor.ts` (560 lines)
+**Implementation**: `client/src/services/assessment/modules/ProtocolComplianceAssessor.ts`
 
 ---
 
@@ -698,15 +708,16 @@ Tools with "run" prefix and analysis-related suffixes are treated as read-only o
 
 ---
 
-### 18. Protocol Conformance Assessment
+### 18. Protocol Conformance Assessment (Deprecated)
+
+> **⚠️ DEPRECATED v1.25.2**: This module has been merged into **Protocol Compliance (#6)**. The standalone `ProtocolConformanceAssessor` remains exported for backwards compatibility but will be removed in v2.0.0. Use `ProtocolComplianceAssessor` for new code.
 
 **Purpose**: Validate MCP protocol-level compliance with conformance-inspired tests.
 
 **Relationship to Other Modules**:
 
 - **ErrorHandlingAssessor** (#3): Application-level error handling quality
-- **MCPSpecComplianceAssessor** (#6): Basic protocol structure validation
-- **ProtocolConformanceAssessor** (#18): Protocol-level conformance tests (this module)
+- **ProtocolComplianceAssessor** (#6): Unified protocol compliance (replaces this module)
 
 **Test Approach**:
 
@@ -776,6 +787,8 @@ Enabled in these config presets:
 
 **Implementation**: `client/src/services/assessment/modules/ProtocolConformanceAssessor.ts` (~300 lines)
 
+> **Note**: This file is deprecated. Use `ProtocolComplianceAssessor.ts` for unified protocol compliance.
+
 ---
 
 ## Quick Reference Table
@@ -787,7 +800,7 @@ Enabled in these config presets:
 | 3   | Error Handling       | ~20 per tool        | MCP Spec       | Medium   | Core     |
 | 4   | Documentation        | ~10 checks          | Core           | Low      | Core     |
 | 5   | Usability            | ~8 checks           | Core           | Low      | Core     |
-| 6   | MCP Spec Compliance  | ~15 checks          | MCP Spec       | High     | Core     |
+| 6   | Protocol Compliance  | ~20 checks          | MCP Spec       | High     | Core     |
 | 7   | AUP Compliance       | 14 categories       | AUP A-N        | Critical | Core     |
 | 8   | Tool Annotations     | Per tool            | Policy #17     | Medium   | Core     |
 | 9   | Prohibited Libraries | ~25 libraries       | Policy #28-30  | Blocking | Core     |

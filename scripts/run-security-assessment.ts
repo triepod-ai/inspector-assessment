@@ -118,7 +118,7 @@ import { FunctionalityAssessor } from "../client/src/services/assessment/modules
 import { DocumentationAssessor } from "../client/src/services/assessment/modules/DocumentationAssessor.js";
 import { ErrorHandlingAssessor } from "../client/src/services/assessment/modules/ErrorHandlingAssessor.js";
 import { UsabilityAssessor } from "../client/src/services/assessment/modules/UsabilityAssessor.js";
-import { MCPSpecComplianceAssessor } from "../client/src/services/assessment/modules/MCPSpecComplianceAssessor.js";
+import { ProtocolComplianceAssessor } from "../client/src/services/assessment/modules/ProtocolComplianceAssessor.js";
 import { ToolAnnotationAssessor } from "../client/src/services/assessment/modules/ToolAnnotationAssessor.js";
 import { ProhibitedLibrariesAssessor } from "../client/src/services/assessment/modules/ProhibitedLibrariesAssessor.js";
 import { ManifestValidationAssessor } from "../client/src/services/assessment/modules/ManifestValidationAssessor.js";
@@ -152,7 +152,7 @@ const MODULE_REGISTRY: Record<
   documentation: DocumentationAssessor,
   errorHandling: ErrorHandlingAssessor,
   usability: UsabilityAssessor,
-  mcpSpec: MCPSpecComplianceAssessor,
+  mcpSpec: ProtocolComplianceAssessor, // Unified protocol compliance (was MCPSpecComplianceAssessor)
   toolAnnotations: ToolAnnotationAssessor,
   prohibitedLibraries: ProhibitedLibrariesAssessor,
   manifestValidation: ManifestValidationAssessor,
@@ -209,7 +209,7 @@ const MODULE_DISPLAY_NAMES: Record<string, string> = {
   documentation: "Documentation Quality",
   errorHandling: "Error Handling",
   usability: "Usability",
-  mcpSpec: "MCP Spec Compliance",
+  mcpSpec: "Protocol Compliance", // Unified (was MCP Spec Compliance)
   toolAnnotations: "Tool Annotations",
   prohibitedLibraries: "Prohibited Libraries",
   manifestValidation: "Manifest Validation",

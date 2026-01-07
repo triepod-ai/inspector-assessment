@@ -435,7 +435,7 @@ For detailed documentation on specific features:
 - `client/src/services/assessment/TestDataGenerator.ts` - Context-aware test data
 - `client/src/services/assessment/modules/SecurityAssessor.ts` - Domain-specific security testing
 - `client/src/services/assessment/modules/ErrorHandlingAssessor.ts` - MCP protocol compliance
-- `client/src/services/assessment/modules/MCPSpecComplianceAssessor.ts` - Hybrid protocol checks
+- `client/src/services/assessment/modules/ProtocolComplianceAssessor.ts` - Unified protocol compliance checks
 
 **UI Components:**
 

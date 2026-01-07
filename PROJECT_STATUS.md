@@ -2,10 +2,40 @@
 
 ## Current Version
 
-- **Version**: 1.24.2 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.25.1 (published to npm as "@bryan-thompson/inspector-assessment")
 
 ---
 
+## 2026-01-07: Profile System Validation and v1.25.1 Release
+
+**Summary:** Tested v1.25.0 CLI profiles against testbeds, validated A/B detection, and published v1.25.1 with corrected time estimates.
+
+**Session Focus:** Profile system validation and time estimate corrections
+
+**Changes Made:**
+- Modified: `cli/src/profiles.ts` - Updated time estimates based on actual measurements
+- Modified: `CHANGELOG.md` - Added v1.25.0 release notes and v1.25.1 changes
+- Published: v1.25.1 to npm as `@bryan-thompson/inspector-assessment`
+
+**Key Decisions:**
+- Updated profile time estimates: quick ~3-4min, security/compliance ~8-10min, full ~8-12min (SecurityAssessor dominates runtime)
+- Accepted Tool Annotation readOnlyHint misalignment on hardened testbed as expected behavior (conservative name-based heuristics)
+
+**Test Results:**
+- vulnerable-mcp: 162-174 vulnerabilities across all profiles (FAIL)
+- hardened-mcp: 0 vulnerabilities across all profiles (security PASS)
+- A/B comparison validates pure behavior-based detection
+
+**Next Steps:**
+- Add profile unit tests
+- Consider "instant" profile (functionality only) for truly fast CI checks
+- Plan v2.0.0 removal of deprecated modules
+
+**Notes:**
+- Profile time estimates were significantly underestimated (~30s actual was 3-4min due to SecurityAssessor's 3400+ tests)
+- Hardened testbed FAIL on compliance/full is non-security (documentation, manifest, tool annotation name mismatch)
+
+---
 ## 2026-01-07: Assessment Module Consolidation & Tier System
 
 **Summary:** Consolidated 18 assessment modules into 16 with 4-tier organization and CLI profile support.
@@ -49,78 +79,6 @@ Tier 4 (Extended): developerExperience, portability, externalAPIScanner
 - Build passes, CLI help shows new profile system
 - Verified quick profile runs only functionality + security modules
 - Plan file at `/home/bryan/.claude/plans/sleepy-meandering-wozniak.md`
-
----
-
-## 2026-01-04: Issue #23 - Structured Logging for AssessmentOrchestrator
-
-**Summary:** Implemented Issue #23 structured logging for AssessmentOrchestrator, added CLI flags and documentation, published v1.23.1
-
-**Session Focus:** GitHub Issue #23 - Add structured logging to AssessmentOrchestrator with configurable verbosity levels
-
-**Changes Made:**
-- `client/src/services/assessment/lib/logger.ts` - Logger implementation (already existed)
-- `client/src/services/assessment/lib/logger.test.ts` - 27 unit tests (already existed)
-- `client/src/lib/assessment/configTypes.ts` - Added LoggingConfig integration
-- `client/src/services/assessment/modules/BaseAssessor.ts` - Added logger property
-- `client/src/services/assessment/AssessmentOrchestrator.ts` - Replaced 4 console calls with logger
-- `cli/src/assess-full.ts` - Added --verbose, --silent, --log-level CLI flags
-- `docs/LOGGING_GUIDE.md` - NEW: 454-line standalone logging documentation
-- `docs/CLI_ASSESSMENT_GUIDE.md` - Added Logging & Diagnostics section (+146 lines)
-- `docs/README.md` - Added navigation entry for logging docs
-- `CLAUDE.md` - Added quick reference section
-
-**Key Decisions:**
-- Logger outputs to stdout, JSONL events preserved on stderr for machine parsing
-- Backward compatible via deprecated log()/logError() method delegation
-- CLI flag precedence: CLI flags > LOG_LEVEL env var > default (info)
-- Five log levels: silent, error, warn, info, debug
-
-**Next Steps:**
-- No open issues remaining
-- Repository is clean
-
-**Notes:**
-- Published as v1.23.1 to npm
-- Code review passed - production ready
-- All 1532 tests passing
-
----
-
-## 2026-01-04: API Documentation Verification and v1.23.2 Release
-
-**Summary:** Published v1.23.2 with complete API documentation after fixing remaining field table issue identified by api-documenter review.
-
-**Session Focus:** API documentation verification and npm package release
-
-**Changes Made:**
-- `docs/API_REFERENCE.md` - Added transportConfig to Optional Fields table
-- `package.json` - Version bump to 1.23.2
-- `client/package.json`, `server/package.json`, `cli/package.json` - Version sync to 1.23.2
-
-**Key Decisions:**
-- Determined PROGRAMMATIC_API_GUIDE.md already had all 18 optional fields
-- Only API_REFERENCE.md needed the transportConfig field added to table
-- Proceeded with patch version bump since changes were documentation-only
-
-**What Was Done:**
-1. Ran api-documenter agent verification on all 4 API docs
-2. Verified 5 of 6 areas passed (import paths, callTool type, phases, navigation, JSONL events)
-3. Fixed remaining issue: added transportConfig to API_REFERENCE.md table
-4. Committed documentation fix (5873076)
-5. Bumped version to 1.23.2 via npm version patch
-6. Published all packages via npm run publish-all
-7. Pushed version tag v1.23.2 to GitHub
-8. Verified package works via bunx @bryan-thompson/inspector-assessment
-
-**Next Steps:**
-- Monitor npm package usage
-- Address any user feedback on API documentation
-- Continue MCP tool annotations campaign work
-
-**Notes:**
-- All 4 API documentation files now verified complete by api-documenter
-- v1.23.2 includes commits: 9b83b30, 46396d8, 5873076
 
 ---
 
@@ -497,5 +455,29 @@ Tier 4 (Extended): developerExperience, portability, externalAPIScanner
 - Commit: d21452c "test: improve cli-parity tests per code review"
 - Pushed to origin/main
 - No documentation updates required (internal test changes only)
+
+---
+
+## 2026-01-07: RiskLevel Type Re-export Fix
+
+**Summary:** Fixed RiskLevel type re-export warning to complete ToolClassifier code review improvements.
+
+**Session Focus:** Code review fix - RiskLevel type export
+
+**Changes Made:**
+- Modified `client/src/services/assessment/ToolClassifier.ts` - Added `export type { RiskLevel };` for backwards compatibility
+
+**Key Decisions:**
+- Re-export RiskLevel alongside ToolCategory so consumers can import from main module
+- Maintains clean public API without requiring knowledge of internal file structure
+
+**Next Steps:**
+- Consider re-exporting CategoryConfig interface if needed by external consumers
+- Monitor for any additional type export needs
+
+**Notes:**
+- Commit: 0aebae2 "fix: re-export RiskLevel type from ToolClassifier module"
+- All 2181 tests pass
+- Pushed to origin/main
 
 ---

@@ -18,7 +18,7 @@ import {
   MCPSpecComplianceAssessment,
   // PrivacyComplianceAssessment, // Removed - out of scope
 } from "@/lib/assessmentTypes";
-import { MCPSpecComplianceAssessor } from "./assessment/modules/MCPSpecComplianceAssessor";
+import { ProtocolComplianceAssessor } from "./assessment/modules/ProtocolComplianceAssessor";
 import { ErrorHandlingAssessor } from "./assessment/modules/ErrorHandlingAssessor";
 import { FunctionalityAssessor } from "./assessment/modules/FunctionalityAssessor";
 import { SecurityAssessor } from "./assessment/modules/SecurityAssessor";
@@ -107,12 +107,12 @@ export class MCPAssessmentService {
 
     // Run extended assessment if enabled
     let mcpSpecCompliance: MCPSpecComplianceAssessment | undefined;
-    let mcpAssessor: MCPSpecComplianceAssessor | undefined;
+    let mcpAssessor: ProtocolComplianceAssessor | undefined;
     // let privacy: PrivacyComplianceAssessment | undefined; // Removed - out of scope
 
     if (this.config.enableExtendedAssessment) {
-      // Run MCP Spec Compliance assessment
-      mcpAssessor = new MCPSpecComplianceAssessor(this.config);
+      // Run unified Protocol Compliance assessment (replaces MCPSpecComplianceAssessor)
+      mcpAssessor = new ProtocolComplianceAssessor(this.config);
       mcpSpecCompliance = await mcpAssessor.assess(context);
 
       // TODO: Fix SupplyChainAssessor to return proper types

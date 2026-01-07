@@ -881,8 +881,9 @@ describe("MCPAssessmentService", () => {
         expect(result.totalTestsRun).toBeGreaterThan(0);
         // Sanity check: 5 tools × 23 attack patterns × ~3 payloads = ~345 security tests
         // Plus functionality (~25), error handling (~20), documentation (~10), usability (~10)
-        // Maximum expected: ~335 tests, limit set to 500 for buffer
-        expect(result.totalTestsRun).toBeLessThan(500);
+        // Plus protocol compliance (~9 checks) - v1.25.2 added unified protocol assessor
+        // Maximum expected: ~410 tests, limit set to 600 for buffer
+        expect(result.totalTestsRun).toBeLessThan(600);
       });
 
       it("should handle partial tool execution failures", async () => {

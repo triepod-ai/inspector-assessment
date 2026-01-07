@@ -74,7 +74,10 @@ export interface AssessmentConfiguration {
     documentation: boolean;
     errorHandling: boolean;
     usability: boolean;
+    /** @deprecated Use protocolCompliance instead. Will be removed in v2.0.0. */
     mcpSpecCompliance?: boolean;
+    // New unified protocol compliance flag (replaces mcpSpecCompliance + protocolConformance)
+    protocolCompliance?: boolean;
     // New assessment categories for MCP Directory compliance gaps
     aupCompliance?: boolean; // AUP 14 categories violation scanning
     toolAnnotations?: boolean; // Policy #17 - readOnlyHint/destructiveHint
@@ -89,6 +92,7 @@ export interface AssessmentConfiguration {
     prompts?: boolean; // Prompt AUP compliance, injection vulnerabilities
     crossCapability?: boolean; // Cross-capability security (tool→resource, prompt→tool)
     // Protocol conformance assessment
+    /** @deprecated Use protocolCompliance instead. Will be removed in v2.0.0. */
     protocolConformance?: boolean; // MCP protocol-level compliance (error format, content types, initialization)
   };
 }
@@ -116,7 +120,8 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
     documentation: true,
     errorHandling: true,
     usability: true,
-    mcpSpecCompliance: false,
+    mcpSpecCompliance: false, // @deprecated
+    protocolCompliance: false, // Unified protocol compliance (replaces mcpSpecCompliance + protocolConformance)
     // New assessors - disabled by default, enable for MCP Directory compliance audits
     aupCompliance: false,
     toolAnnotations: false,
@@ -156,7 +161,8 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
     documentation: true,
     errorHandling: true,
     usability: true,
-    mcpSpecCompliance: false, // Not part of Anthropic's 5 core requirements
+    mcpSpecCompliance: false, // @deprecated - Not part of Anthropic's 5 core requirements
+    protocolCompliance: false, // Unified protocol compliance
     // New assessors - disabled in reviewer mode for speed
     aupCompliance: false,
     toolAnnotations: false,
@@ -194,7 +200,8 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
     documentation: true,
     errorHandling: true,
     usability: true,
-    mcpSpecCompliance: true, // Include extended assessments
+    mcpSpecCompliance: true, // @deprecated - Include extended assessments
+    protocolCompliance: true, // Unified protocol compliance (replaces mcpSpecCompliance + protocolConformance)
     // New assessors - enabled in developer mode for comprehensive testing
     aupCompliance: true,
     toolAnnotations: true,
@@ -233,7 +240,8 @@ export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
     documentation: true,
     errorHandling: true,
     usability: true,
-    mcpSpecCompliance: true,
+    mcpSpecCompliance: true, // @deprecated
+    protocolCompliance: true, // Unified protocol compliance
     // All new assessors enabled for audit mode
     aupCompliance: true,
     toolAnnotations: true,
@@ -284,7 +292,8 @@ export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
     documentation: true,
     errorHandling: true,
     usability: true,
-    mcpSpecCompliance: true,
+    mcpSpecCompliance: true, // @deprecated
+    protocolCompliance: true, // Unified protocol compliance
     aupCompliance: true,
     toolAnnotations: true,
     prohibitedLibraries: true,
@@ -296,7 +305,7 @@ export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
     resources: true,
     prompts: true,
     crossCapability: true,
-    // Protocol conformance - enabled in Claude mode for comprehensive validation
+    // Protocol conformance - enabled in Claude mode for comprehensive validation (@deprecated)
     protocolConformance: true,
   },
 };

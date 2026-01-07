@@ -93,30 +93,30 @@ For complete CLI documentation, see [CLI Assessment Guide](docs/CLI_ASSESSMENT_G
 
 ---
 
-## Assessment Modules (18 Total)
+## Assessment Modules (16 Active + 4 Deprecated)
 
-### Core Modules (16)
+### Active Modules (16)
 
 | Module                   | Purpose                      | Key Features                                        |
 | ------------------------ | ---------------------------- | --------------------------------------------------- |
 | **Functionality**        | Tool execution validation    | Multi-scenario testing, business logic detection    |
 | **Security**             | Vulnerability detection      | Comprehensive attack patterns, zero false positives |
-| **Documentation**        | README/description quality   | Completeness scoring, example validation            |
 | **Error Handling**       | MCP protocol compliance      | Error code validation, response quality             |
-| **Usability**            | Developer experience         | Naming conventions, schema completeness             |
-| **MCP Spec Compliance**  | Protocol adherence           | JSON-RPC 2.0, MCP message formats                   |
+| **Protocol Compliance**  | Protocol adherence           | JSON-RPC 2.0, MCP message formats, conformance      |
 | **AUP Compliance**       | Policy violation detection   | 14 AUP categories (A-N)                             |
+| **Temporal**             | Rug pull detection           | Behavior changes over invocations                   |
 | **Tool Annotations**     | readOnlyHint/destructiveHint | Policy #17 compliance                               |
 | **Prohibited Libraries** | Dependency security          | Blocked packages (Stripe, FFmpeg, etc.)             |
-| **External API Scanner** | External service detection   | API URLs, affiliation warnings                      |
+| **Manifest Validation**  | MCPB manifest compliance     | manifest.json schema validation                     |
 | **Authentication**       | OAuth/auth evaluation        | Auth pattern validation, deployment context         |
-| **Temporal**             | Rug pull detection           | Behavior changes over invocations                   |
 | **Resources**            | Resource capability          | Discovery, read success, errors                     |
 | **Prompts**              | Prompt capability            | Execution, multimodal support                       |
 | **Cross-Capability**     | Chained vulnerabilities      | Multi-tool attack patterns                          |
-| **Protocol Conformance** | Protocol-level validation    | Error format, content types, initialization         |
+| **Developer Experience** | Doc + usability assessment   | Documentation quality, naming conventions           |
+| **Portability**          | Cross-platform compatibility | Platform-specific code detection                    |
+| **External API Scanner** | External service detection   | API URLs, affiliation warnings                      |
 
-> **v1.24.2+**: Protocol Conformance supports configurable MCP spec versions via `mcpProtocolVersion` config. See [CLI Guide](docs/CLI_ASSESSMENT_GUIDE.md#option-mcp-protocol-version-configuration-v1242) for details.
+> **v1.25.2+**: Protocol Compliance is a unified module combining MCP Spec Compliance and Protocol Conformance. See [CLI Guide](docs/CLI_ASSESSMENT_GUIDE.md) for details.
 
 ### Optional Modules (2) - MCPB Bundles
 

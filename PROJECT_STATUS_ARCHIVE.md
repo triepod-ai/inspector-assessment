@@ -7121,3 +7121,84 @@ Standard assessments call tools with many different payloads but never call the 
 - Code review by @agent-code-reviewer-pro identified 2 warnings, both fixed
 - Documentation review by @agent-api-documenter found 5 files needing updates
 - Issue #19 closed on GitHub with resolution comment
+
+## 2026-01-04: Issue #23 - Structured Logging for AssessmentOrchestrator
+
+**Summary:** Implemented Issue #23 structured logging for AssessmentOrchestrator, added CLI flags and documentation, published v1.23.1
+
+**Session Focus:** GitHub Issue #23 - Add structured logging to AssessmentOrchestrator with configurable verbosity levels
+
+**Changes Made:**
+
+- `client/src/services/assessment/lib/logger.ts` - Logger implementation (already existed)
+- `client/src/services/assessment/lib/logger.test.ts` - 27 unit tests (already existed)
+- `client/src/lib/assessment/configTypes.ts` - Added LoggingConfig integration
+- `client/src/services/assessment/modules/BaseAssessor.ts` - Added logger property
+- `client/src/services/assessment/AssessmentOrchestrator.ts` - Replaced 4 console calls with logger
+- `cli/src/assess-full.ts` - Added --verbose, --silent, --log-level CLI flags
+- `docs/LOGGING_GUIDE.md` - NEW: 454-line standalone logging documentation
+- `docs/CLI_ASSESSMENT_GUIDE.md` - Added Logging & Diagnostics section (+146 lines)
+- `docs/README.md` - Added navigation entry for logging docs
+- `CLAUDE.md` - Added quick reference section
+
+**Key Decisions:**
+
+- Logger outputs to stdout, JSONL events preserved on stderr for machine parsing
+- Backward compatible via deprecated log()/logError() method delegation
+- CLI flag precedence: CLI flags > LOG_LEVEL env var > default (info)
+- Five log levels: silent, error, warn, info, debug
+
+**Next Steps:**
+
+- No open issues remaining
+- Repository is clean
+
+**Notes:**
+
+- Published as v1.23.1 to npm
+- Code review passed - production ready
+- All 1532 tests passing
+
+---
+
+## 2026-01-04: API Documentation Verification and v1.23.2 Release
+
+**Summary:** Published v1.23.2 with complete API documentation after fixing remaining field table issue identified by api-documenter review.
+
+**Session Focus:** API documentation verification and npm package release
+
+**Changes Made:**
+
+- `docs/API_REFERENCE.md` - Added transportConfig to Optional Fields table
+- `package.json` - Version bump to 1.23.2
+- `client/package.json`, `server/package.json`, `cli/package.json` - Version sync to 1.23.2
+
+**Key Decisions:**
+
+- Determined PROGRAMMATIC_API_GUIDE.md already had all 18 optional fields
+- Only API_REFERENCE.md needed the transportConfig field added to table
+- Proceeded with patch version bump since changes were documentation-only
+
+**What Was Done:**
+
+1. Ran api-documenter agent verification on all 4 API docs
+2. Verified 5 of 6 areas passed (import paths, callTool type, phases, navigation, JSONL events)
+3. Fixed remaining issue: added transportConfig to API_REFERENCE.md table
+4. Committed documentation fix (5873076)
+5. Bumped version to 1.23.2 via npm version patch
+6. Published all packages via npm run publish-all
+7. Pushed version tag v1.23.2 to GitHub
+8. Verified package works via bunx @bryan-thompson/inspector-assessment
+
+**Next Steps:**
+
+- Monitor npm package usage
+- Address any user feedback on API documentation
+- Continue MCP tool annotations campaign work
+
+**Notes:**
+
+- All 4 API documentation files now verified complete by api-documenter
+- v1.23.2 includes commits: 9b83b30, 46396d8, 5873076
+
+---
