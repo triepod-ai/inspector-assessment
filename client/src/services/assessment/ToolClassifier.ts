@@ -436,18 +436,11 @@ export class ToolClassifier {
       ToolCategory.RUG_PULL,
     ];
 
-    const lowRiskCategories = [
-      ToolCategory.API_WRAPPER,
-      ToolCategory.SEARCH_RETRIEVAL,
-      ToolCategory.CRUD_CREATION,
-      ToolCategory.READ_ONLY_INFO,
-      ToolCategory.SAFE_STORAGE,
-      ToolCategory.GENERIC,
-    ];
+    // LOW risk categories (for reference):
+    // API_WRAPPER, SEARCH_RETRIEVAL, CRUD_CREATION, READ_ONLY_INFO, SAFE_STORAGE, GENERIC
 
     if (highRiskCategories.includes(category)) return "HIGH";
     if (mediumRiskCategories.includes(category)) return "MEDIUM";
-    if (lowRiskCategories.includes(category)) return "LOW";
     return "LOW";
   }
 
