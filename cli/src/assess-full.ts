@@ -568,6 +568,10 @@ async function runFullAssessment(
     console.log("✅ Connected to MCP server");
   }
 
+  // Capture server info from initialization for protocol conformance checks
+  const serverInfo = client.getServerVersion();
+  const serverCapabilities = client.getServerCapabilities();
+
   const response = await client.listTools();
   const tools = response.tools || [];
 
@@ -916,6 +920,10 @@ async function runFullAssessment(
     prompts,
     readResource,
     getPrompt,
+    // Server info for protocol conformance checks
+    serverInfo,
+    serverCapabilities:
+      serverCapabilities as AssessmentContext["serverCapabilities"],
   };
 
   if (!options.jsonOnly) {
