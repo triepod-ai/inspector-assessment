@@ -1,7 +1,8 @@
 # MCP Inspector CLI Assessment Guide
 
-**Version**: 1.23.1
+**Version**: 1.24.2
 **Status**: Stable
+**Last Updated**: 2026-01-07
 **Target Audience**: MCP developers, CI/CD engineers, automated testing systems
 
 ---
@@ -1410,6 +1411,58 @@ mcp-assess-full \
 - AUP semantic analysis
 - Annotation inference from code
 - Documentation quality assessment
+
+---
+
+### Option: MCP Protocol Version Configuration (v1.24.2+)
+
+**Purpose**: Validate against a specific MCP specification version
+
+The Protocol Conformance Assessor can validate against different MCP specification versions. Configure this in your server config file:
+
+**Config File Example:**
+
+```json
+{
+  "transport": "http",
+  "url": "http://localhost:10900/mcp",
+  "mcpProtocolVersion": "2025-06-18"
+}
+```
+
+**How it works**: The assessor generates specification reference URLs dynamically based on this version for compliance reporting.
+
+**Default**: `2025-06` if not specified.
+
+**Generated URLs**:
+
+- Base: `https://modelcontextprotocol.io/specification/{version}`
+- Lifecycle: `https://modelcontextprotocol.io/specification/{version}/basic/lifecycle`
+- Tools: `https://modelcontextprotocol.io/specification/{version}/server/tools`
+
+See [PROTOCOL_CONFORMANCE_ASSESSOR_GUIDE.md](PROTOCOL_CONFORMANCE_ASSESSOR_GUIDE.md) for detailed configuration options.
+
+---
+
+### Option: Server Info Capture (v1.24.2+)
+
+**Purpose**: Automatic capture of server metadata for Protocol Conformance validation
+
+The CLI automatically captures `serverInfo` and `serverCapabilities` from the MCP server during connection. This information is used by the Protocol Conformance Assessor for validation checks.
+
+**Behavior**:
+
+- If the server provides `serverInfo`, it's used for validation
+- If the server doesn't provide this information, warnings are logged but assessment continues with defaults
+- The `initializationHandshake` check validates completeness of server metadata
+
+**Example Warning** (when server omits info):
+
+```
+WARN: Server did not provide serverInfo, using defaults for Protocol Conformance
+```
+
+**No configuration required** - this feature works automatically.
 
 ---
 

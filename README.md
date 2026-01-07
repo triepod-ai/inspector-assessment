@@ -116,6 +116,8 @@ For complete CLI documentation, see [CLI Assessment Guide](docs/CLI_ASSESSMENT_G
 | **Cross-Capability**     | Chained vulnerabilities      | Multi-tool attack patterns                          |
 | **Protocol Conformance** | Protocol-level validation    | Error format, content types, initialization         |
 
+> **v1.24.2+**: Protocol Conformance supports configurable MCP spec versions via `mcpProtocolVersion` config. See [CLI Guide](docs/CLI_ASSESSMENT_GUIDE.md#option-mcp-protocol-version-configuration-v1242) for details.
+
 ### Optional Modules (2) - MCPB Bundles
 
 | Module                  | Purpose                      | Policy Alignment                        |

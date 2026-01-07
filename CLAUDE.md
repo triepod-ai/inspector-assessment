@@ -628,7 +628,7 @@ _For the complete documentation index, see [docs/README.md](README.md)._
 ## npm Package Publishing & Maintenance
 
 **Package**: `@bryan-thompson/inspector-assessment`
-**Current Version**: 1.19.6
+**Current Version**: 1.24.2
 **Registry**: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
 
 ### Quick Publish Workflow
