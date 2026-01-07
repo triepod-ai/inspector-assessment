@@ -3,6 +3,27 @@
  * Categorizes MCP tools based on name/description to select appropriate security test patterns
  *
  * Validated against broken-mcp server with 16 tools (6 HIGH, 4 MEDIUM, 6 SAFE)
+ *
+ * ## Pattern Matching Design
+ *
+ * This classifier uses two types of regex patterns intentionally:
+ *
+ * 1. **Substring patterns** (e.g., `/calculator/i`): Match anywhere in the text.
+ *    Used for HIGH-risk category keywords that should trigger even when embedded.
+ *    Example: "recalculator_v2" matches CALCULATOR because any calculator-like
+ *    tool warrants security scrutiny.
+ *
+ * 2. **Word boundary patterns** (e.g., `/\bget\b/i`): Match isolated words only.
+ *    Used for common words that would cause false positives as substrings.
+ *    Example: "target_selector" should NOT match DATA_ACCESS's `/\bget\b/` pattern.
+ *
+ * **Underscore vs Hyphen Behavior:**
+ * - Word boundaries (`\b`) treat hyphens as boundaries but underscores as word characters
+ * - `api-get-data` matches `/\bget\b/` (hyphen is boundary)
+ * - `api_get_data` does NOT match `/\bget\b/` (underscore is word char)
+ * - This is intentional: underscore-joined names are typically single identifiers
+ *
+ * See tests in ToolClassifier.test.ts for comprehensive pattern behavior validation.
  */
 
 export enum ToolCategory {
@@ -40,13 +61,31 @@ export class ToolClassifier {
   /**
    * Classify a tool into one or more categories
    * Returns multiple categories if tool matches multiple patterns
+   *
+   * @param toolName - The MCP tool name to classify
+   * @param description - Optional tool description for additional pattern matching
+   * @returns Classification with categories, confidence score (0-100), and reasoning
    */
   classify(toolName: string, description?: string): ToolClassification {
+    // Defensive validation for runtime safety (handles JS callers, deserialized data)
+    const safeName = typeof toolName === "string" ? toolName : "";
+    const safeDesc = typeof description === "string" ? description : "";
+
+    // Handle invalid or empty tool name
+    if (!safeName.trim()) {
+      return {
+        toolName: safeName,
+        categories: [ToolCategory.GENERIC],
+        confidence: 0,
+        reasoning: "Invalid or empty tool name provided",
+      };
+    }
+
     const categories: ToolCategory[] = [];
     const confidenceScores: number[] = [];
     const reasons: string[] = [];
 
-    const toolText = `${toolName} ${description || ""}`.toLowerCase();
+    const toolText = `${safeName} ${safeDesc}`.toLowerCase();
 
     // Calculator tools (HIGH RISK)
     // Validated: vulnerable_calculator_tool
@@ -401,11 +440,20 @@ export class ToolClassifier {
     };
   }
 
+  /** Maximum input length to prevent ReDoS with pathological inputs */
+  private static readonly MAX_INPUT_LENGTH = 10000;
+
   /**
    * Check if text matches any of the provided patterns
+   * Limits input length to prevent ReDoS attacks with very long strings
    */
   private matchesPattern(text: string, patterns: RegExp[]): boolean {
-    return patterns.some((pattern) => pattern.test(text));
+    // Truncate to prevent ReDoS with pathological inputs
+    const safeText =
+      text.length > ToolClassifier.MAX_INPUT_LENGTH
+        ? text.slice(0, ToolClassifier.MAX_INPUT_LENGTH)
+        : text;
+    return patterns.some((pattern) => pattern.test(safeText));
   }
 
   /**

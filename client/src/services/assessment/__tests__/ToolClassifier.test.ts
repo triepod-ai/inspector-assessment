@@ -843,6 +843,59 @@ describe("ToolClassifier", () => {
       expect(result.categories).toContain(ToolCategory.CALCULATOR);
     });
 
+    // Defensive validation tests (Warning #3 fix)
+    it("returns GENERIC with 0 confidence for empty tool name", () => {
+      const result = classifier.classify("");
+      expect(result.categories).toEqual([ToolCategory.GENERIC]);
+      expect(result.confidence).toBe(0);
+      expect(result.reasoning).toContain("Invalid or empty tool name");
+    });
+
+    it("returns GENERIC with 0 confidence for whitespace-only tool name", () => {
+      const result = classifier.classify("   \t\n  ");
+      expect(result.categories).toEqual([ToolCategory.GENERIC]);
+      expect(result.confidence).toBe(0);
+      expect(result.reasoning).toContain("Invalid or empty tool name");
+    });
+
+    it("handles null tool name gracefully (runtime JS caller)", () => {
+      // TypeScript prevents this, but JS callers or deserialized data might pass null
+      const result = classifier.classify(null as unknown as string);
+      expect(result.categories).toEqual([ToolCategory.GENERIC]);
+      expect(result.confidence).toBe(0);
+    });
+
+    it("handles undefined tool name gracefully (runtime JS caller)", () => {
+      const result = classifier.classify(undefined as unknown as string);
+      expect(result.categories).toEqual([ToolCategory.GENERIC]);
+      expect(result.confidence).toBe(0);
+    });
+
+    it("handles non-string description gracefully (runtime JS caller)", () => {
+      // TypeScript prevents this, but runtime might pass objects
+      const result = classifier.classify("calculator", {
+        foo: "bar",
+      } as unknown as string);
+      expect(result.categories).toContain(ToolCategory.CALCULATOR);
+    });
+
+    // ReDoS protection test (Warning #1 fix)
+    it("truncates very long inputs to prevent ReDoS", () => {
+      // Input longer than MAX_INPUT_LENGTH (10000) should still work
+      const longName = "calculator_" + "x".repeat(15000);
+      const result = classifier.classify(longName);
+      // Should still match because "calculator" is in first 10000 chars
+      expect(result.categories).toContain(ToolCategory.CALCULATOR);
+    });
+
+    it("handles pattern at truncation boundary", () => {
+      // Put pattern right at the edge of truncation limit
+      const longPrefix = "x".repeat(9990);
+      const result = classifier.classify(longPrefix + "_calculator");
+      // "calculator" starts at position 9991, within 10000 limit
+      expect(result.categories).toContain(ToolCategory.CALCULATOR);
+    });
+
     it.each([
       ["SYSTEM_EXEC", ToolCategory.SYSTEM_EXEC],
       ["JSON_handler", ToolCategory.JSON_PARSER],
