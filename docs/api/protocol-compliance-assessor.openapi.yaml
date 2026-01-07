@@ -1,0 +1,586 @@
+openapi: 3.0.0
+info:
+  title: ProtocolComplianceAssessor API
+  version: 1.25.2
+  description: Unified MCP protocol compliance assessment module combining specification and conformance validation
+  license:
+    name: MIT
+    url: https://github.com/triepod-ai/inspector-assessment/blob/main/LICENSE
+
+paths:
+  /assess:
+    post:
+      summary: Perform protocol compliance assessment
+      description: |
+        Comprehensive protocol compliance assessment combining:
+        - 7 protocol specification checks
+        - 3 protocol conformance checks
+        - Compliance scoring and recommendations
+      operationId: assessProtocolCompliance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentContextRequest'
+            examples:
+              complete:
+                summary: Complete server assessment
+                value:
+                  serverInfo:
+                    name: advanced-calculator
+                    version: "2.0.0"
+                    metadata:
+                      transport: streamable-http
+                      protocolVersion: "2025-06-18"
+                      oauth:
+                        enabled: true
+                        supportsPKCE: true
+                      annotations:
+                        supported: true
+                        types:
+                          - readOnly
+                          - destructive
+                  tools:
+                    - name: add
+                      description: Add two numbers
+                      inputSchema:
+                        type: object
+                        properties:
+                          a:
+                            type: number
+                          b:
+                            type: number
+                        required:
+                          - a
+                          - b
+                      outputSchema:
+                        type: object
+                        properties:
+                          result:
+                            type: number
+                  serverCapabilities:
+                    tools: true
+                    resources: false
+                    prompts: false
+              minimal:
+                summary: Minimal server assessment
+                value:
+                  serverInfo:
+                    name: minimal-server
+                  tools: []
+                  serverCapabilities:
+                    tools: false
+      responses:
+        "200":
+          description: Assessment completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtocolComplianceAssessment'
+              examples:
+                pass:
+                  summary: Fully compliant server
+                  value:
+                    protocolVersion: "2025-06-18"
+                    complianceScore: 95.7
+                    status: PASS
+                    explanation: Excellent MCP protocol compliance
+                    recommendations:
+                      - All protocol checks passed
+                    protocolChecks:
+                      jsonRpcCompliance:
+                        passed: true
+                        confidence: high
+                        evidence: Verified via actual tool call
+                      serverInfoValidity:
+                        passed: true
+                        confidence: high
+                        evidence: Validated server info structure
+                      schemaCompliance:
+                        passed: true
+                        confidence: high
+                      errorResponseCompliance:
+                        passed: true
+                        confidence: high
+                      contentTypeSupport:
+                        passed: true
+                        confidence: high
+                      structuredOutputSupport:
+                        passed: true
+                        confidence: high
+                      capabilitiesCompliance:
+                        passed: true
+                        confidence: high
+                    conformanceChecks:
+                      errorResponseFormat:
+                        passed: true
+                        confidence: high
+                        evidence: Tested 3 tool(s)
+                      contentTypeSupport:
+                        passed: true
+                        confidence: high
+                      initializationHandshake:
+                        passed: true
+                        confidence: high
+                fail:
+                  summary: Non-compliant server
+                  value:
+                    protocolVersion: "2025-06-18"
+                    complianceScore: 42.9
+                    status: FAIL
+                    explanation: Poor MCP compliance detected
+                    recommendations:
+                      - Fix serverInfo structure
+                      - Ensure error responses include isError flag
+                    protocolChecks:
+                      serverInfoValidity:
+                        passed: false
+                        confidence: high
+                        evidence: Missing required fields
+                        warnings:
+                          - Server name is required
+        "400":
+          description: Invalid assessment context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Internal assessment error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /test-count:
+    get:
+      summary: Get test count from last assessment
+      description: Returns the total number of protocol checks performed
+      operationId: getTestCount
+      responses:
+        "200":
+          description: Test count retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  testCount:
+                    type: integer
+                    minimum: 0
+                    description: Total number of protocol checks
+
+components:
+  schemas:
+    AssessmentContextRequest:
+      type: object
+      required:
+        - serverInfo
+        - tools
+        - callTool
+      properties:
+        serverInfo:
+          type: object
+          description: MCP server metadata from initialization
+          properties:
+            name:
+              type: string
+              description: Server identifier
+            version:
+              type: string
+              description: Server version (semantic versioning recommended)
+            metadata:
+              type: object
+              description: Optional metadata about server capabilities
+              properties:
+                transport:
+                  type: string
+                  enum:
+                    - stdio
+                    - streamable-http
+                    - sse
+                  description: Transport mechanism used
+                protocolVersion:
+                  type: string
+                  description: MCP protocol version
+                oauth:
+                  type: object
+                  description: OAuth configuration
+                  properties:
+                    enabled:
+                      type: boolean
+                    supportsPKCE:
+                      type: boolean
+                    scopes:
+                      type: array
+                      items:
+                        type: string
+                annotations:
+                  type: object
+                  description: Annotation support
+                  properties:
+                    supported:
+                      type: boolean
+                    types:
+                      type: array
+                      items:
+                        type: string
+                streaming:
+                  type: object
+                  description: Streaming support
+                  properties:
+                    supported:
+                      type: boolean
+                    protocol:
+                      type: string
+        tools:
+          type: array
+          description: Array of MCP tools
+          items:
+            $ref: '#/components/schemas/Tool'
+        serverCapabilities:
+          type: object
+          description: Server capability declarations
+          properties:
+            tools:
+              type: boolean
+            resources:
+              type: boolean
+            prompts:
+              type: boolean
+        callTool:
+          type: object
+          description: Function reference for tool invocation
+          properties:
+            name:
+              type: string
+            params:
+              type: object
+        resources:
+          type: array
+          description: Optional resource list for capability validation
+          items:
+            type: object
+        prompts:
+          type: array
+          description: Optional prompt list for capability validation
+          items:
+            type: object
+
+    Tool:
+      type: object
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+          description: Tool identifier
+        description:
+          type: string
+          description: Human-readable tool description
+        inputSchema:
+          type: object
+          description: JSON Schema for tool input parameters
+          properties:
+            type:
+              type: string
+              enum:
+                - object
+                - string
+                - number
+                - boolean
+                - array
+            properties:
+              type: object
+            required:
+              type: array
+              items:
+                type: string
+        outputSchema:
+          type: object
+          description: JSON Schema for tool output (MCP 2025-06-18+)
+
+    ProtocolComplianceAssessment:
+      type: object
+      description: Complete protocol compliance assessment result
+      properties:
+        protocolVersion:
+          type: string
+          description: Detected or declared MCP protocol version
+        complianceScore:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Overall compliance percentage
+        status:
+          $ref: '#/components/schemas/AssessmentStatus'
+        explanation:
+          type: string
+          description: Human-readable compliance summary
+        recommendations:
+          type: array
+          items:
+            type: string
+          description: Actionable improvement suggestions
+        testCount:
+          type: integer
+          description: Total protocol checks performed
+        protocolChecks:
+          $ref: '#/components/schemas/ProtocolChecks'
+        conformanceChecks:
+          $ref: '#/components/schemas/ConformanceChecks'
+        metadataHints:
+          $ref: '#/components/schemas/MetadataHints'
+        # Legacy fields (backward compatible)
+        transportCompliance:
+          $ref: '#/components/schemas/TransportComplianceMetrics'
+        oauthImplementation:
+          $ref: '#/components/schemas/OAuthComplianceMetrics'
+        annotationSupport:
+          $ref: '#/components/schemas/AnnotationSupportMetrics'
+        streamingSupport:
+          $ref: '#/components/schemas/StreamingSupportMetrics'
+
+    AssessmentStatus:
+      type: string
+      enum:
+        - PASS
+        - FAIL
+        - NEED_MORE_INFO
+      description: |
+        - PASS: Score >= 90% and serverInfo valid
+        - FAIL: Score < 70% or serverInfo invalid
+        - NEED_MORE_INFO: 70% <= Score < 90%
+
+    ProtocolChecks:
+      type: object
+      description: All 7 protocol specification checks
+      properties:
+        jsonRpcCompliance:
+          $ref: '#/components/schemas/ProtocolCheck'
+        serverInfoValidity:
+          $ref: '#/components/schemas/ProtocolCheck'
+        schemaCompliance:
+          $ref: '#/components/schemas/ProtocolCheck'
+        errorResponseCompliance:
+          $ref: '#/components/schemas/ProtocolCheck'
+        contentTypeSupport:
+          $ref: '#/components/schemas/ProtocolCheck'
+        structuredOutputSupport:
+          $ref: '#/components/schemas/ProtocolCheck'
+        capabilitiesCompliance:
+          $ref: '#/components/schemas/ProtocolCheck'
+
+    ConformanceChecks:
+      type: object
+      description: Protocol conformance checks
+      properties:
+        errorResponseFormat:
+          $ref: '#/components/schemas/ProtocolCheck'
+        contentTypeSupport:
+          $ref: '#/components/schemas/ProtocolCheck'
+        initializationHandshake:
+          $ref: '#/components/schemas/ProtocolCheck'
+
+    ProtocolCheck:
+      type: object
+      description: Individual protocol check result
+      properties:
+        passed:
+          type: boolean
+          description: Check passed or failed
+        confidence:
+          type: string
+          enum:
+            - high
+            - medium
+            - low
+          description: Confidence level of result
+        evidence:
+          type: string
+          description: What was tested and how
+        rawResponse:
+          description: Actual server response or error
+        specReference:
+          type: string
+          description: Link to relevant MCP specification section
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Non-critical issues detected
+        details:
+          type: object
+          description: Granular validation results
+
+    MetadataHints:
+      type: object
+      description: Low-confidence hints based on metadata only
+      properties:
+        confidence:
+          type: string
+          enum:
+            - low
+        requiresManualVerification:
+          type: boolean
+        transportHints:
+          type: object
+          properties:
+            detectedTransport:
+              type: string
+            supportsStdio:
+              type: boolean
+            supportsHTTP:
+              type: boolean
+            supportsSSE:
+              type: boolean
+            detectionMethod:
+              type: string
+              enum:
+                - metadata
+                - assumed
+        oauthHints:
+          type: object
+          properties:
+            hasOAuthConfig:
+              type: boolean
+            supportsOAuth:
+              type: boolean
+            supportsPKCE:
+              type: boolean
+            resourceIndicators:
+              type: array
+              items:
+                type: string
+        annotationHints:
+          type: object
+          properties:
+            supportsReadOnlyHint:
+              type: boolean
+            supportsDestructiveHint:
+              type: boolean
+            supportsTitleAnnotation:
+              type: boolean
+            customAnnotations:
+              type: array
+              items:
+                type: string
+        streamingHints:
+          type: object
+          properties:
+            supportsStreaming:
+              type: boolean
+            streamingProtocol:
+              type: string
+              enum:
+                - http-streaming
+                - sse
+                - websocket
+
+    TransportComplianceMetrics:
+      type: object
+      description: Transport mechanism compliance (legacy field)
+      properties:
+        supportsStreamableHTTP:
+          type: boolean
+        deprecatedSSE:
+          type: boolean
+        transportValidation:
+          type: string
+          enum:
+            - passed
+            - failed
+            - partial
+        supportsStdio:
+          type: boolean
+        supportsSSE:
+          type: boolean
+        confidence:
+          type: string
+          enum:
+            - high
+            - medium
+            - low
+        detectionMethod:
+          type: string
+
+    OAuthComplianceMetrics:
+      type: object
+      description: OAuth implementation validation (legacy field)
+      properties:
+        implementsResourceServer:
+          type: boolean
+        supportsRFC8707:
+          type: boolean
+        resourceIndicators:
+          type: array
+          items:
+            type: string
+        tokenValidation:
+          type: boolean
+        scopeEnforcement:
+          type: boolean
+        supportsOAuth:
+          type: boolean
+        supportsPKCE:
+          type: boolean
+
+    AnnotationSupportMetrics:
+      type: object
+      description: Tool annotation support validation (legacy field)
+      properties:
+        supportsReadOnlyHint:
+          type: boolean
+        supportsDestructiveHint:
+          type: boolean
+        supportsTitleAnnotation:
+          type: boolean
+        customAnnotations:
+          type: array
+          items:
+            type: string
+
+    StreamingSupportMetrics:
+      type: object
+      description: Streaming capability support (legacy field)
+      properties:
+        supportsStreaming:
+          type: boolean
+        streamingProtocol:
+          type: string
+          enum:
+            - http-streaming
+            - sse
+            - websocket
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_CONTEXT
+            - ASSESSMENT_ERROR
+            - TIMEOUT
+            - INTERNAL_ERROR
+        message:
+          type: string
+          description: Error description
+        details:
+          type: object
+          description: Optional error details
+        timestamp:
+          type: string
+          format: date-time
+          description: When error occurred
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+  - url: https://inspector.example.com/api
+    description: Production server

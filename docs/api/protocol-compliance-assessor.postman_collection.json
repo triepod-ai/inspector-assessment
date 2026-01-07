@@ -1,0 +1,294 @@
+{
+  "info": {
+    "_postman_id": "protocol-compliance-assessor-v1",
+    "name": "Protocol Compliance Assessor API",
+    "description": "Collection for testing the ProtocolComplianceAssessor unified module",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.25.2"
+  },
+  "item": [
+    {
+      "name": "Assess Protocol Compliance",
+      "item": [
+        {
+          "name": "1. Full Compliance Assessment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Response status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has required fields', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('protocolVersion');",
+                  "    pm.expect(jsonData).to.have.property('complianceScore');",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData).to.have.property('protocolChecks');",
+                  "    pm.expect(jsonData).to.have.property('conformanceChecks');",
+                  "});",
+                  "",
+                  "pm.test('Compliance score is between 0-100', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.complianceScore).to.be.at.least(0);",
+                  "    pm.expect(jsonData.complianceScore).to.be.at.most(100);",
+                  "});",
+                  "",
+                  "pm.test('Status is valid enum', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const validStatuses = ['PASS', 'FAIL', 'NEED_MORE_INFO'];",
+                  "    pm.expect(validStatuses).to.include(jsonData.status);",
+                  "});",
+                  "",
+                  "pm.test('Protocol checks contain all 7 checks', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const checks = jsonData.protocolChecks;",
+                  "    pm.expect(checks).to.have.property('jsonRpcCompliance');",
+                  "    pm.expect(checks).to.have.property('serverInfoValidity');",
+                  "    pm.expect(checks).to.have.property('schemaCompliance');",
+                  "    pm.expect(checks).to.have.property('errorResponseCompliance');",
+                  "    pm.expect(checks).to.have.property('contentTypeSupport');",
+                  "    pm.expect(checks).to.have.property('structuredOutputSupport');",
+                  "    pm.expect(checks).to.have.property('capabilitiesCompliance');",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "package": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serverInfo\": {\n    \"name\": \"advanced-calculator\",\n    \"version\": \"2.0.0\",\n    \"metadata\": {\n      \"transport\": \"streamable-http\",\n      \"protocolVersion\": \"2025-06-18\",\n      \"oauth\": {\n        \"enabled\": true,\n        \"supportsPKCE\": true,\n        \"scopes\": [\n          \"read\",\n          \"write\"\n        ]\n      },\n      \"annotations\": {\n        \"supported\": true,\n        \"types\": [\n          \"readOnly\",\n          \"destructive\"\n        ]\n      },\n      \"streaming\": {\n        \"supported\": true,\n        \"protocol\": \"http-streaming\"\n      }\n    }\n  },\n  \"tools\": [\n    {\n      \"name\": \"add\",\n      \"description\": \"Add two numbers together\",\n      \"inputSchema\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"a\": {\n            \"type\": \"number\",\n            \"description\": \"First number\"\n          },\n          \"b\": {\n            \"type\": \"number\",\n            \"description\": \"Second number\"\n          }\n        },\n        \"required\": [\n          \"a\",\n          \"b\"\n        ]\n      },\n      \"outputSchema\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"result\": {\n            \"type\": \"number\"\n          }\n        }\n      }\n    },\n    {\n      \"name\": \"multiply\",\n      \"description\": \"Multiply two numbers\",\n      \"inputSchema\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"a\": {\n            \"type\": \"number\"\n          },\n          \"b\": {\n            \"type\": \"number\"\n          }\n        },\n        \"required\": [\n          \"a\",\n          \"b\"\n        ]\n      },\n      \"outputSchema\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"result\": {\n            \"type\": \"number\"\n          }\n        }\n      }\n    }\n  ],\n  \"serverCapabilities\": {\n    \"tools\": true,\n    \"resources\": false,\n    \"prompts\": false\n  },\n  \"callTool\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/assess",
+              "host": ["{{baseUrl}}"],
+              "path": ["assess"]
+            },
+            "description": "Perform comprehensive protocol compliance assessment on a fully configured server"
+          },
+          "response": [
+            {
+              "name": "200 - Full Compliance Pass",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"serverInfo\": {\n    \"name\": \"advanced-calculator\",\n    \"version\": \"2.0.0\",\n    \"metadata\": {\n      \"transport\": \"streamable-http\"\n    }\n  },\n  \"tools\": [],\n  \"serverCapabilities\": {\n    \"tools\": true\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/assess",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["assess"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"protocolVersion\": \"2025-06-18\",\n  \"complianceScore\": 95.7,\n  \"status\": \"PASS\",\n  \"explanation\": \"Excellent MCP protocol compliance. Server meets all critical requirements verified through protocol testing.\",\n  \"recommendations\": [\n    \"Excellent MCP compliance! All protocol checks passed. Server is ready for directory submission.\"\n  ],\n  \"testCount\": 10,\n  \"protocolChecks\": {\n    \"jsonRpcCompliance\": {\n      \"passed\": true,\n      \"confidence\": \"high\",\n      \"evidence\": \"Verified via actual tool call\"\n    },\n    \"serverInfoValidity\": {\n      \"passed\": true,\n      \"confidence\": \"high\",\n      \"evidence\": \"Validated server info structure\"\n    },\n    \"schemaCompliance\": {\n      \"passed\": true,\n      \"confidence\": \"high\"\n    },\n    \"errorResponseCompliance\": {\n      \"passed\": true,\n      \"confidence\": \"high\"\n    },\n    \"contentTypeSupport\": {\n      \"passed\": true,\n      \"confidence\": \"high\"\n    },\n    \"structuredOutputSupport\": {\n      \"passed\": true,\n      \"confidence\": \"high\"\n    },\n    \"capabilitiesCompliance\": {\n      \"passed\": true,\n      \"confidence\": \"high\"\n    }\n  },\n  \"conformanceChecks\": {\n    \"errorResponseFormat\": {\n      \"passed\": true,\n      \"confidence\": \"high\",\n      \"evidence\": \"Tested 3 tool(s): 3/3 passed error format validation\"\n    },\n    \"contentTypeSupport\": {\n      \"passed\": true,\n      \"confidence\": \"high\",\n      \"evidence\": \"4/4 content type checks passed\"\n    },\n    \"initializationHandshake\": {\n      \"passed\": true,\n      \"confidence\": \"high\",\n      \"evidence\": \"4/4 initialization checks passed\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "2. Minimal Server Assessment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Response status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Minimal server can still be assessed', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('complianceScore');",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "package": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serverInfo\": {\n    \"name\": \"minimal-server\"\n  },\n  \"tools\": [],\n  \"serverCapabilities\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/assess",
+              "host": ["{{baseUrl}}"],
+              "path": ["assess"]
+            },
+            "description": "Assess a server with minimal metadata - edge case testing"
+          },
+          "response": []
+        },
+        {
+          "name": "3. Server with Protocol Issues",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Response status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Failed compliance detected', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(['FAIL', 'NEED_MORE_INFO']).to.include(jsonData.status);",
+                  "});",
+                  "",
+                  "pm.test('Recommendations generated for issues', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.recommendations.length).to.be.greaterThan(0);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "package": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serverInfo\": {\n    \"name\": \"broken-server\"\n  },\n  \"tools\": [\n    {\n      \"name\": \"invalid_tool\",\n      \"description\": \"Tool with invalid schema\",\n      \"inputSchema\": {\n        \"type\": \"object\"\n      }\n    }\n  ],\n  \"serverCapabilities\": {\n    \"tools\": true,\n    \"resources\": true,\n    \"prompts\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/assess",
+              "host": ["{{baseUrl}}"],
+              "path": ["assess"]
+            },
+            "description": "Assess a server with known protocol compliance issues"
+          },
+          "response": []
+        },
+        {
+          "name": "4. Server with Missing Resources",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Capability validation warnings detected', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const capCheck = jsonData.protocolChecks.capabilitiesCompliance;",
+                  "    pm.expect(capCheck).to.have.property('warnings');",
+                  "    pm.expect(capCheck.warnings.length).to.be.greaterThan(0);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "package": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serverInfo\": {\n    \"name\": \"incomplete-server\",\n    \"version\": \"1.0.0\"\n  },\n  \"tools\": [],\n  \"serverCapabilities\": {\n    \"tools\": true,\n    \"resources\": true,\n    \"prompts\": true\n  },\n  \"resources\": [],\n  \"prompts\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/assess",
+              "host": ["{{baseUrl}}"],
+              "path": ["assess"]
+            },
+            "description": "Test capability mismatch detection - server claims capabilities but doesn't provide implementations"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Get Test Count",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/test-count",
+          "host": ["{{baseUrl}}"],
+          "path": ["test-count"]
+        },
+        "description": "Retrieve test count from the last assessment"
+      },
+      "response": [
+        {
+          "name": "200 - Test Count",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/test-count",
+              "host": ["{{baseUrl}}"],
+              "path": ["test-count"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"testCount\": 10\n}"
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    }
+  ]
+}
