@@ -24,47 +24,102 @@
  * - This is intentional: underscore-joined names are typically single identifiers
  *
  * See tests in ToolClassifier.test.ts for comprehensive pattern behavior validation.
+ *
+ * @module ToolClassifier
  */
 
-export enum ToolCategory {
-  CALCULATOR = "calculator",
-  SYSTEM_EXEC = "system_exec",
-  CODE_EXECUTOR = "code_executor",
-  DATA_ACCESS = "data_access",
-  TOOL_OVERRIDE = "tool_override",
-  CONFIG_MODIFIER = "config_modifier",
-  URL_FETCHER = "fetcher",
-  UNICODE_PROCESSOR = "unicode",
-  JSON_PARSER = "parser",
-  PACKAGE_INSTALLER = "installer",
-  RUG_PULL = "rug_pull",
-  SAFE_STORAGE = "safe_storage",
-  API_WRAPPER = "api_wrapper",
-  SEARCH_RETRIEVAL = "search_retrieval",
-  CRUD_CREATION = "crud_creation",
-  READ_ONLY_INFO = "read_only_info",
-  GENERIC = "generic",
-}
+import {
+  CATEGORY_PATTERNS,
+  CATEGORY_CHECK_ORDER,
+  GENERIC_CONFIG,
+  ToolCategory,
+  type RiskLevel,
+} from "./tool-classifier-patterns";
 
+// Re-export ToolCategory for backwards compatibility
+export { ToolCategory };
+
+/**
+ * Result of classifying a tool into security categories.
+ *
+ * @example
+ * ```typescript
+ * const result: ToolClassification = {
+ *   toolName: 'vulnerable_calculator_tool',
+ *   categories: [ToolCategory.CALCULATOR],
+ *   confidence: 90,
+ *   reasoning: 'Calculator pattern detected (arithmetic execution risk)'
+ * };
+ * ```
+ */
 export interface ToolClassification {
+  /** The original tool name that was classified */
   toolName: string;
+  /** One or more categories the tool was classified into */
   categories: ToolCategory[];
-  confidence: number; // 0-100
+  /** Confidence score from 0-100 (averaged if multiple categories) */
+  confidence: number;
+  /** Human-readable explanation of why these categories were assigned */
   reasoning: string;
 }
 
 /**
  * Classifies MCP tools into vulnerability categories based on naming patterns
- * and descriptions. Uses patterns validated by testing against broken-mcp server.
+ * and descriptions. Uses pre-compiled patterns for optimal performance.
+ *
+ * The classifier is stateless and thread-safe - multiple classifications can
+ * run concurrently without interference.
+ *
+ * @example
+ * ```typescript
+ * const classifier = new ToolClassifier();
+ *
+ * // Single classification
+ * const result = classifier.classify('vulnerable_calculator_tool');
+ * console.log(result.categories);  // [ToolCategory.CALCULATOR]
+ * console.log(result.confidence);  // 90
+ *
+ * // Batch classification
+ * const tools = [
+ *   { name: 'calculator_tool' },
+ *   { name: 'search_api', description: 'Search for documents' }
+ * ];
+ * const results = classifier.classifyBatch(tools);
+ * ```
  */
 export class ToolClassifier {
+  /** Maximum input length to prevent ReDoS with pathological inputs */
+  private static readonly MAX_INPUT_LENGTH = 10000;
+
   /**
-   * Classify a tool into one or more categories
-   * Returns multiple categories if tool matches multiple patterns
+   * Classify a tool into one or more security risk categories.
    *
-   * @param toolName - The MCP tool name to classify
+   * The classifier analyzes both the tool name and optional description,
+   * matching against pre-compiled regex patterns for each category.
+   * A tool may match multiple categories if it contains multiple patterns.
+   *
+   * @param toolName - The MCP tool name to classify (e.g., "vulnerable_calculator_tool")
    * @param description - Optional tool description for additional pattern matching
-   * @returns Classification with categories, confidence score (0-100), and reasoning
+   * @returns Classification result with categories, confidence score (0-100), and reasoning
+   *
+   * @example
+   * ```typescript
+   * const classifier = new ToolClassifier();
+   *
+   * // Basic classification by name
+   * const calc = classifier.classify('calculator_tool');
+   * // { toolName: 'calculator_tool', categories: ['calculator'], confidence: 90, ... }
+   *
+   * // Classification with description
+   * const tool = classifier.classify('my_tool', 'Executes shell commands');
+   * // { toolName: 'my_tool', categories: ['system_exec'], confidence: 95, ... }
+   *
+   * // Multi-category match
+   * const multi = classifier.classify('calc_exec_command');
+   * // { categories: ['calculator', 'system_exec'], confidence: 92, ... }
+   * ```
+   *
+   * @throws Never throws - returns GENERIC category for invalid inputs
    */
   classify(toolName: string, description?: string): ToolClassification {
     // Defensive validation for runtime safety (handles JS callers, deserialized data)
@@ -87,345 +142,21 @@ export class ToolClassifier {
 
     const toolText = `${safeName} ${safeDesc}`.toLowerCase();
 
-    // Calculator tools (HIGH RISK)
-    // Validated: vulnerable_calculator_tool
-    if (
-      this.matchesPattern(toolText, [
-        /calculator/i,
-        /compute/i,
-        /math/i,
-        /calc/i,
-        /eval/i,
-        /arithmetic/i,
-        /expression/i,
-      ])
-    ) {
-      categories.push(ToolCategory.CALCULATOR);
-      confidenceScores.push(90);
-      reasons.push("Calculator pattern detected (arithmetic execution risk)");
-    }
-
-    // System execution tools (HIGH RISK)
-    // Validated: vulnerable_system_exec_tool
-    if (
-      this.matchesPattern(toolText, [
-        /system.*exec/i,
-        /exec.*tool/i,
-        /command/i,
-        /shell/i,
-        /\brun\b/i,
-        /execute/i,
-        /process/i,
-      ])
-    ) {
-      categories.push(ToolCategory.SYSTEM_EXEC);
-      confidenceScores.push(95);
-      reasons.push(
-        "System execution pattern detected (command injection risk)",
-      );
-    }
-
-    // Code execution tools (HIGH RISK)
-    // Tools that execute arbitrary code in specific languages (Python, JavaScript, etc.)
-    // These require language-specific payloads, not shell commands
-    if (
-      this.matchesPattern(toolText, [
-        /execute.*code/i,
-        /run.*code/i,
-        /code.*execut/i,
-        /run.*script/i,
-        /exec.*script/i,
-        /\bpython.*code\b/i,
-        /\bjavascript.*code\b/i,
-        /\bjs.*code\b/i,
-        /\beval.*code\b/i,
-        /code.*runner/i,
-        /script.*runner/i,
-        /\bexec\b.*\b(python|js|javascript)\b/i,
-        /\b(python|js|javascript)\b.*\bexec\b/i,
-        /interpret/i,
-        /\brepl\b/i,
-      ])
-    ) {
-      categories.push(ToolCategory.CODE_EXECUTOR);
-      confidenceScores.push(95);
-      reasons.push(
-        "Code executor pattern detected (arbitrary code execution risk)",
-      );
-    }
-
-    // Data access/leak tools (HIGH RISK)
-    // Validated: vulnerable_data_leak_tool
-    if (
-      this.matchesPattern(toolText, [
-        /leak/i,
-        /\bdata\b/i,
-        /show/i,
-        /\bget\b/i,
-        /\blist\b/i,
-        /display/i,
-        /\benv/i,
-        /secret/i,
-        /\bkey\b/i,
-        /credential/i,
-        /exfiltrat/i,
-      ])
-    ) {
-      categories.push(ToolCategory.DATA_ACCESS);
-      confidenceScores.push(85);
-      reasons.push("Data access pattern detected (data exfiltration risk)");
-    }
-
-    // Tool override/shadowing (HIGH RISK)
-    // Validated: vulnerable_tool_override_tool
-    if (
-      this.matchesPattern(toolText, [
-        /override/i,
-        /shadow/i,
-        /poison/i,
-        /create.*tool/i,
-        /register.*tool/i,
-        /define.*tool/i,
-        /tool.*creator/i,
-        /add.*tool/i,
-      ])
-    ) {
-      categories.push(ToolCategory.TOOL_OVERRIDE);
-      confidenceScores.push(92);
-      reasons.push("Tool override pattern detected (shadowing/poisoning risk)");
-    }
-
-    // Config modification tools (HIGH RISK)
-    // Validated: vulnerable_config_modifier_tool
-    if (
-      this.matchesPattern(toolText, [
-        /config/i,
-        /setting/i,
-        /modifier/i,
-        /\badmin\b/i,
-        /privilege/i,
-        /permission/i,
-        /configure/i,
-        /drift/i,
-      ])
-    ) {
-      categories.push(ToolCategory.CONFIG_MODIFIER);
-      confidenceScores.push(88);
-      reasons.push(
-        "Config modification pattern detected (configuration drift risk)",
-      );
-    }
-
-    // URL fetching tools (HIGH RISK)
-    // Validated: vulnerable_fetcher_tool
-    if (
-      this.matchesPattern(toolText, [
-        /fetch/i,
-        /\burl\b/i,
-        /http/i,
-        /download/i,
-        /load/i,
-        /retrieve/i,
-        /\bget\b.*url/i,
-        /external/i,
-      ])
-    ) {
-      categories.push(ToolCategory.URL_FETCHER);
-      confidenceScores.push(87);
-      reasons.push(
-        "URL fetcher pattern detected (indirect prompt injection risk)",
-      );
-    }
-
-    // Unicode processing tools (MEDIUM RISK)
-    // Validated: vulnerable_unicode_processor_tool
-    if (
-      this.matchesPattern(toolText, [
-        /unicode/i,
-        /encode/i,
-        /decode/i,
-        /charset/i,
-        /utf/i,
-        /hex/i,
-        /escape/i,
-      ])
-    ) {
-      categories.push(ToolCategory.UNICODE_PROCESSOR);
-      confidenceScores.push(75);
-      reasons.push("Unicode processor pattern detected (bypass encoding risk)");
-    }
-
-    // JSON/nested parsing tools (MEDIUM RISK)
-    // Validated: vulnerable_nested_parser_tool
-    if (
-      this.matchesPattern(toolText, [
-        /parser/i,
-        /parse/i,
-        /json/i,
-        /xml/i,
-        /yaml/i,
-        /nested/i,
-        /deserialize/i,
-        /unmarshal/i,
-      ])
-    ) {
-      categories.push(ToolCategory.JSON_PARSER);
-      confidenceScores.push(78);
-      reasons.push(
-        "JSON/nested parser pattern detected (nested injection risk)",
-      );
-    }
-
-    // Package installation tools (MEDIUM RISK)
-    // Validated: vulnerable_package_installer_tool
-    if (
-      this.matchesPattern(toolText, [
-        /install/i,
-        /package/i,
-        /\bnpm\b/i,
-        /\bpip\b/i,
-        /dependency/i,
-        /module/i,
-        /library/i,
-        /\bgem\b/i,
-      ])
-    ) {
-      categories.push(ToolCategory.PACKAGE_INSTALLER);
-      confidenceScores.push(70);
-      reasons.push("Package installer pattern detected (typosquatting risk)");
-    }
-
-    // Rug pull (behavioral change over time) (MEDIUM RISK)
-    // Validated: vulnerable_rug_pull_tool
-    if (
-      this.matchesPattern(toolText, [
-        /rug.*pull/i,
-        /trust/i,
-        /behavior.*change/i,
-        /malicious.*after/i,
-        /invocation.*count/i,
-      ])
-    ) {
-      categories.push(ToolCategory.RUG_PULL);
-      confidenceScores.push(80);
-      reasons.push("Rug pull pattern detected (behavioral change risk)");
-    }
-
-    // API wrapper tools (SAFE - data passing, not code execution)
-    // These tools call external APIs and return data as text, not execute it as code
-    // Examples: Firecrawl (scrape, crawl, search), HTTP clients, REST/GraphQL clients
-    if (
-      this.matchesPattern(toolText, [
-        /firecrawl/i,
-        /\bscrape\b/i,
-        /\bcrawl\b/i,
-        /web.*scraping/i,
-        /api.*wrapper/i,
-        /http.*client/i,
-        /web.*client/i,
-        /rest.*client/i,
-        /graphql.*client/i,
-        /fetch.*web.*content/i,
-      ])
-    ) {
-      categories.push(ToolCategory.API_WRAPPER);
-      confidenceScores.push(95);
-      reasons.push(
-        "API wrapper pattern detected (safe data passing, not code execution)",
-      );
-    }
-
-    // Search and retrieval tools (SAFE - returns search results/data, not code execution)
-    // Examples: notion-search, notion-query-database, search, find, lookup
-    if (
-      this.matchesPattern(toolText, [
-        /\bsearch\b/i,
-        /\bfind\b/i,
-        /\blookup\b/i,
-        /\bquery\b/i,
-        /retrieve/i,
-        /\blist\b/i,
-        /get.*users/i,
-        /get.*pages/i,
-        /get.*database/i,
-      ])
-    ) {
-      categories.push(ToolCategory.SEARCH_RETRIEVAL);
-      confidenceScores.push(93);
-      reasons.push(
-        "Search/retrieval pattern detected (returns data, not code execution)",
-      );
-    }
-
-    // CRUD creation/modification tools (SAFE - creates/modifies resources, not code execution)
-    // Examples: notion-create-database, notion-create-page, create, add, insert, update
-    if (
-      this.matchesPattern(toolText, [
-        /\bcreate\b/i,
-        /\badd\b/i,
-        /\binsert\b/i,
-        /\bupdate\b/i,
-        /\bmodify\b/i,
-        /\bdelete\b/i,
-        /\bduplicate\b/i,
-        /\bmove\b/i,
-        /\bappend\b/i,
-      ])
-    ) {
-      categories.push(ToolCategory.CRUD_CREATION);
-      confidenceScores.push(92);
-      reasons.push(
-        "CRUD operation pattern detected (data manipulation, not code execution)",
-      );
-    }
-
-    // Read-only info tools (SAFE - returns user/workspace info, intended data exposure)
-    // Examples: notion-get-self, notion-get-teams, get-self, whoami, get-info, get-status
-    if (
-      this.matchesPattern(toolText, [
-        /get.*self/i,
-        /get.*teams/i,
-        /get.*info/i,
-        /get.*status/i,
-        /\bwhoami\b/i,
-        /get.*workspace/i,
-        /get.*user/i,
-        /current.*user/i,
-      ])
-    ) {
-      categories.push(ToolCategory.READ_ONLY_INFO);
-      confidenceScores.push(94);
-      reasons.push(
-        "Read-only info pattern detected (intended data exposure, not vulnerability)",
-      );
-    }
-
-    // Safe storage tools (CONTROL GROUP - should never show vulnerabilities)
-    // Validated: safe_storage_tool_mcp, safe_search_tool_mcp, safe_list_tool_mcp,
-    //            safe_info_tool_mcp, safe_echo_tool_mcp, safe_validate_tool_mcp
-    if (
-      this.matchesPattern(toolText, [
-        /safe.*storage/i,
-        /safe.*search/i,
-        /safe.*list/i,
-        /safe.*info/i,
-        /safe.*echo/i,
-        /safe.*validate/i,
-        /safe.*tool/i,
-      ])
-    ) {
-      categories.push(ToolCategory.SAFE_STORAGE);
-      confidenceScores.push(99);
-      reasons.push(
-        "Safe tool pattern detected (control group - should be safe)",
-      );
+    // Check each category in defined order (HIGH -> MEDIUM -> LOW)
+    for (const category of CATEGORY_CHECK_ORDER) {
+      const config = CATEGORY_PATTERNS[category];
+      if (this.matchesPattern(toolText, config.patterns)) {
+        categories.push(category);
+        confidenceScores.push(config.confidence);
+        reasons.push(config.reasoning);
+      }
     }
 
     // Default to generic if no specific matches
     if (categories.length === 0) {
       categories.push(ToolCategory.GENERIC);
-      confidenceScores.push(50);
-      reasons.push("No specific pattern match, using generic tests");
+      confidenceScores.push(GENERIC_CONFIG.confidence);
+      reasons.push(GENERIC_CONFIG.reasoning);
     }
 
     // Calculate overall confidence (average of matched pattern confidences)
@@ -440,14 +171,15 @@ export class ToolClassifier {
     };
   }
 
-  /** Maximum input length to prevent ReDoS with pathological inputs */
-  private static readonly MAX_INPUT_LENGTH = 10000;
-
   /**
-   * Check if text matches any of the provided patterns
-   * Limits input length to prevent ReDoS attacks with very long strings
+   * Check if text matches any of the provided patterns.
+   * Limits input length to prevent ReDoS attacks with very long strings.
+   *
+   * @param text - The text to search in (tool name + description)
+   * @param patterns - Pre-compiled regex patterns to match against
+   * @returns True if any pattern matches
    */
-  private matchesPattern(text: string, patterns: RegExp[]): boolean {
+  private matchesPattern(text: string, patterns: readonly RegExp[]): boolean {
     // Truncate to prevent ReDoS with pathological inputs
     const safeText =
       text.length > ToolClassifier.MAX_INPUT_LENGTH
@@ -457,43 +189,80 @@ export class ToolClassifier {
   }
 
   /**
-   * Get all tool categories (for testing/debugging)
+   * Get all available tool categories.
+   *
+   * Useful for testing, debugging, or building UI components that need
+   * to display all possible categories.
+   *
+   * @returns Array of all ToolCategory enum values
+   *
+   * @example
+   * ```typescript
+   * const allCategories = ToolClassifier.getAllCategories();
+   * console.log(allCategories.length); // 17
+   * ```
    */
   static getAllCategories(): ToolCategory[] {
     return Object.values(ToolCategory);
   }
 
   /**
-   * Get risk level for a category
+   * Get the security risk level for a category.
+   *
+   * Risk levels help prioritize security testing:
+   * - **HIGH**: Requires thorough security testing (code execution, data access)
+   * - **MEDIUM**: Requires moderate security testing (encoding bypass, supply chain)
+   * - **LOW**: Safe categories that typically don't need security testing
+   *
+   * @param category - The category to get the risk level for
+   * @returns Risk level: "HIGH", "MEDIUM", or "LOW"
+   *
+   * @example
+   * ```typescript
+   * ToolClassifier.getRiskLevel(ToolCategory.SYSTEM_EXEC); // "HIGH"
+   * ToolClassifier.getRiskLevel(ToolCategory.JSON_PARSER); // "MEDIUM"
+   * ToolClassifier.getRiskLevel(ToolCategory.SAFE_STORAGE); // "LOW"
+   * ```
    */
-  static getRiskLevel(category: ToolCategory): "HIGH" | "MEDIUM" | "LOW" {
-    const highRiskCategories = [
-      ToolCategory.CALCULATOR,
-      ToolCategory.SYSTEM_EXEC,
-      ToolCategory.CODE_EXECUTOR,
-      ToolCategory.DATA_ACCESS,
-      ToolCategory.TOOL_OVERRIDE,
-      ToolCategory.CONFIG_MODIFIER,
-      ToolCategory.URL_FETCHER,
-    ];
-
-    const mediumRiskCategories = [
-      ToolCategory.UNICODE_PROCESSOR,
-      ToolCategory.JSON_PARSER,
-      ToolCategory.PACKAGE_INSTALLER,
-      ToolCategory.RUG_PULL,
-    ];
-
-    // LOW risk categories (for reference):
-    // API_WRAPPER, SEARCH_RETRIEVAL, CRUD_CREATION, READ_ONLY_INFO, SAFE_STORAGE, GENERIC
-
-    if (highRiskCategories.includes(category)) return "HIGH";
-    if (mediumRiskCategories.includes(category)) return "MEDIUM";
-    return "LOW";
+  static getRiskLevel(category: ToolCategory): RiskLevel {
+    if (category === ToolCategory.GENERIC) {
+      return GENERIC_CONFIG.risk;
+    }
+    // Type assertion needed because TypeScript doesn't narrow the type after the GENERIC check
+    const config =
+      CATEGORY_PATTERNS[
+        category as Exclude<ToolCategory, ToolCategory.GENERIC>
+      ];
+    // Handle unknown categories gracefully (defensive programming)
+    return config?.risk ?? "LOW";
   }
 
   /**
-   * Classify multiple tools at once
+   * Classify multiple tools at once.
+   *
+   * More efficient than calling classify() in a loop when you have
+   * many tools to process. The classifier is stateless, so batch
+   * processing produces identical results to individual calls.
+   *
+   * @param tools - Array of tools with name and optional description
+   * @returns Array of classification results in the same order as input
+   *
+   * @example
+   * ```typescript
+   * const classifier = new ToolClassifier();
+   * const tools = [
+   *   { name: 'calculator_tool' },
+   *   { name: 'search_api', description: 'Search documents' },
+   *   { name: 'unknown_tool' }
+   * ];
+   *
+   * const results = classifier.classifyBatch(tools);
+   * // [
+   * //   { toolName: 'calculator_tool', categories: ['calculator'], ... },
+   * //   { toolName: 'search_api', categories: ['search_retrieval'], ... },
+   * //   { toolName: 'unknown_tool', categories: ['generic'], ... }
+   * // ]
+   * ```
    */
   classifyBatch(
     tools: Array<{ name: string; description?: string }>,

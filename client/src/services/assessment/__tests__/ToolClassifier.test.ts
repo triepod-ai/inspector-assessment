@@ -1388,5 +1388,102 @@ describe("ToolClassifier", () => {
       const result = classifier.classify("safe_search_tool_mcp");
       expect(result).toMatchSnapshot();
     });
+
+    // Additional edge case snapshots (Code Review Suggestion #5)
+    it("matches snapshot for empty tool name", () => {
+      const result = classifier.classify("");
+      expect(result).toMatchSnapshot();
+    });
+
+    it("matches snapshot for unicode tool name with pattern", () => {
+      const result = classifier.classify("计算器_compute_math");
+      expect(result).toMatchSnapshot();
+    });
+
+    it("matches snapshot for maximum category overlap via description", () => {
+      // Tool that matches many categories through description
+      const result = classifier.classify(
+        "neutral_tool",
+        "calculator that executes shell commands to fetch data and modify config settings",
+      );
+      expect(result).toMatchSnapshot();
+    });
+
+    it("matches snapshot for tool matching all HIGH risk categories", () => {
+      const result = classifier.classify(
+        "calc_exec_data_override_config_fetch_tool",
+      );
+      expect(result).toMatchSnapshot();
+    });
+  });
+
+  // ============================================================================
+  // CONCURRENT CLASSIFICATION SAFETY (Code Review Suggestion #4)
+  // ============================================================================
+
+  describe("Concurrent classification safety", () => {
+    it("handles concurrent classifications without interference", async () => {
+      // Create 100 concurrent classification promises
+      // Use full pattern-matching names: "calculator" and "command" (matches SYSTEM_EXEC)
+      const promises = Array.from({ length: 100 }, (_, i) =>
+        Promise.resolve(
+          classifier.classify(
+            `tool_${i}_${i % 2 === 0 ? "calculator" : "command"}`,
+          ),
+        ),
+      );
+      const results = await Promise.all(promises);
+
+      // Verify each result matches expected category based on index
+      results.forEach((result, i) => {
+        if (i % 2 === 0) {
+          expect(result.categories).toContain(ToolCategory.CALCULATOR);
+        } else {
+          expect(result.categories).toContain(ToolCategory.SYSTEM_EXEC);
+        }
+      });
+    });
+
+    it("produces identical results for same input across concurrent calls", async () => {
+      const toolName = "vulnerable_calculator_tool";
+
+      // Run 50 concurrent classifications of the same tool
+      const promises = Array.from({ length: 50 }, () =>
+        Promise.resolve(classifier.classify(toolName)),
+      );
+      const results = await Promise.all(promises);
+
+      // All results should be identical
+      const firstResult = results[0];
+      results.forEach((result) => {
+        expect(result.categories).toEqual(firstResult.categories);
+        expect(result.confidence).toBe(firstResult.confidence);
+        expect(result.reasoning).toBe(firstResult.reasoning);
+      });
+    });
+
+    it("maintains isolation between classifier instances", async () => {
+      const classifiers = Array.from(
+        { length: 10 },
+        () => new ToolClassifier(),
+      );
+
+      // Each classifier processes a different tool concurrently
+      const promises = classifiers.map((c, i) =>
+        Promise.resolve(
+          c.classify(i % 2 === 0 ? "calculator_tool" : "system_exec_tool"),
+        ),
+      );
+      const results = await Promise.all(promises);
+
+      // Results should match expected categories based on tool name
+      results.forEach((result, i) => {
+        if (i % 2 === 0) {
+          expect(result.categories).toContain(ToolCategory.CALCULATOR);
+        } else {
+          expect(result.categories).toContain(ToolCategory.SYSTEM_EXEC);
+        }
+      });
+    });
   });
 });

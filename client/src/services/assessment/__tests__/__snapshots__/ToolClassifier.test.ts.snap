@@ -1,5 +1,32 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`ToolClassifier Snapshot tests for complex classifications matches snapshot for empty tool name 1`] = `
+{
+  "categories": [
+    "generic",
+  ],
+  "confidence": 0,
+  "reasoning": "Invalid or empty tool name provided",
+  "toolName": "",
+}
+`;
+
+exports[`ToolClassifier Snapshot tests for complex classifications matches snapshot for maximum category overlap via description 1`] = `
+{
+  "categories": [
+    "calculator",
+    "system_exec",
+    "data_access",
+    "config_modifier",
+    "fetcher",
+    "crud_creation",
+  ],
+  "confidence": 90,
+  "reasoning": "Calculator pattern detected (arithmetic execution risk); System execution pattern detected (command injection risk); Data access pattern detected (data exfiltration risk); Config modification pattern detected (configuration drift risk); URL fetcher pattern detected (indirect prompt injection risk); CRUD operation pattern detected (data manipulation, not code execution)",
+  "toolName": "neutral_tool",
+}
+`;
+
 exports[`ToolClassifier Snapshot tests for complex classifications matches snapshot for multi-pattern tool (calculator + command) 1`] = `
 {
   "categories": [
@@ -32,5 +59,31 @@ exports[`ToolClassifier Snapshot tests for complex classifications matches snaps
   "confidence": 99,
   "reasoning": "Safe tool pattern detected (control group - should be safe)",
   "toolName": "safe_search_tool_mcp",
+}
+`;
+
+exports[`ToolClassifier Snapshot tests for complex classifications matches snapshot for tool matching all HIGH risk categories 1`] = `
+{
+  "categories": [
+    "calculator",
+    "system_exec",
+    "tool_override",
+    "config_modifier",
+    "fetcher",
+  ],
+  "confidence": 90,
+  "reasoning": "Calculator pattern detected (arithmetic execution risk); System execution pattern detected (command injection risk); Tool override pattern detected (shadowing/poisoning risk); Config modification pattern detected (configuration drift risk); URL fetcher pattern detected (indirect prompt injection risk)",
+  "toolName": "calc_exec_data_override_config_fetch_tool",
+}
+`;
+
+exports[`ToolClassifier Snapshot tests for complex classifications matches snapshot for unicode tool name with pattern 1`] = `
+{
+  "categories": [
+    "calculator",
+  ],
+  "confidence": 90,
+  "reasoning": "Calculator pattern detected (arithmetic execution risk)",
+  "toolName": "计算器_compute_math",
 }
 `;
