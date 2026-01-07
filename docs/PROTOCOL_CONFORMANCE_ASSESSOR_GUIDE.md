@@ -123,6 +123,43 @@ Using the `--skip-modules` flag:
 mcp-assess-full --server my-server --config config.json --skip-modules protocolConformance
 ```
 
+### MCP Specification Version Configuration
+
+The Protocol Conformance Assessor can validate against different MCP specification versions via the `mcpProtocolVersion` configuration option.
+
+**Configuration Example**:
+
+```typescript
+const config: Partial<AssessmentConfiguration> = {
+  enableExtendedAssessment: true,
+  assessmentCategories: {
+    protocolConformance: true,
+  },
+  mcpProtocolVersion: "2025-06-18", // Specify the MCP spec version
+};
+```
+
+**Spec Version Behavior**:
+
+| Scenario                        | Version Used      | Example URL                                                    |
+| ------------------------------- | ----------------- | -------------------------------------------------------------- |
+| `mcpProtocolVersion` configured | Configured value  | `https://modelcontextprotocol.io/specification/2025-06-18/...` |
+| Not configured                  | Default "2025-06" | `https://modelcontextprotocol.io/specification/2025-06/...`    |
+
+**Dynamic URL Construction** (v1.24.2+):
+
+The assessor uses helper methods to construct spec URLs:
+
+```typescript
+// Internal helper methods
+getSpecVersion()        → "2025-06" (default) or configured version
+getSpecBaseUrl()        → "https://modelcontextprotocol.io/specification/{version}"
+getSpecLifecycleUrl()   → "{baseUrl}/basic/lifecycle"
+getSpecToolsUrl()       → "{baseUrl}/server/tools"
+```
+
+This allows validation against different MCP specification versions without code changes.
+
 ---
 
 ## Protocol Checks
@@ -140,14 +177,28 @@ The assessor performs **3 mandatory protocol checks**:
 - Content items must have `type: "text"` or `type: "resource"`
 - Error messages must be present in content array
 
-**Test Method**: Call a tool with invalid parameters (`__test_invalid_param__: "should_cause_error"`)
+**Test Method**: Call up to 3 representative tools with invalid parameters (`__test_invalid_param__: "should_cause_error"`)
 
-**MCP Spec Reference**: https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle
+**Multi-Tool Testing** (v1.24.2+):
+
+To ensure consistent error handling across diverse tools, the assessor tests multiple tools:
+
+- **Tool Selection Strategy**:
+  - If 1-3 tools available: Tests all tools
+  - If 4+ tools available: Tests 3 representative tools (first, middle, last)
+  - Example: With 5 tools [A, B, C, D, E], tests A, C, E (indices 0, 2, 4)
+
+- **Result Aggregation**:
+  - All tested tools must pass for the check to pass
+  - Evidence shows: `"Tested 3 tool(s): 3/3 passed error format validation"`
+  - Per-tool results available in `details.toolResults`
+
+**MCP Spec Reference**: Configurable via `config.mcpProtocolVersion` (see [MCP Specification Version Configuration](#mcp-specification-version-configuration))
 
 **Confidence Levels**:
 
-- **High**: Error response with proper `isError: true` flag and valid content structure
-- **Medium**: Tool accepts parameters without error, but content structure is valid
+- **High**: All tested tools returned proper error responses with `isError: true`
+- **Medium**: Some tools accepted invalid params without error, or mixed results
 - **Low**: No tools available to test
 
 **Example Pass Response**:
@@ -194,7 +245,7 @@ The assessor performs **3 mandatory protocol checks**:
 
 **Test Method**: Call first tool with empty parameters (if no required params)
 
-**MCP Spec Reference**: https://modelcontextprotocol.io/specification/2025-06-18/server/tools
+**MCP Spec Reference**: Configurable via `config.mcpProtocolVersion` (see [MCP Specification Version Configuration](#mcp-specification-version-configuration))
 
 **Confidence Levels**:
 
@@ -249,13 +300,39 @@ The assessor performs **3 mandatory protocol checks**:
 
 **Test Method**: Inspect `context.serverInfo` and `context.serverCapabilities` (no tool calls needed)
 
-**MCP Spec Reference**: https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle
+**MCP Spec Reference**: Configurable via `config.mcpProtocolVersion` (see [MCP Specification Version Configuration](#mcp-specification-version-configuration))
+
+**Null-Safety Behavior** (v1.24.2+):
+
+The assessor handles missing initialization data gracefully:
+
+```typescript
+// Validation treats null/undefined as missing
+const validations = {
+  hasServerInfo: serverInfo !== undefined && serverInfo !== null,
+  hasServerName:
+    typeof serverInfo?.name === "string" && serverInfo.name.length > 0,
+  hasServerVersion:
+    typeof serverInfo?.version === "string" && serverInfo.version.length > 0,
+  hasCapabilities: serverCapabilities !== undefined,
+};
+
+// Minimum requirement: name must be present for pass
+const hasMinimumInfo = validations.hasServerInfo && validations.hasServerName;
+const passed = hasMinimumInfo; // Missing version/capabilities are warnings, not failures
+```
+
+**CLI Behavior**: When serverInfo is missing, the CLI logs a warning:
+
+```
+⚠️  Server did not provide serverInfo during initialization
+```
 
 **Confidence Levels**:
 
 - **High**: All checks pass (name, version, capabilities present)
 - **Medium**: Only minimum requirements met (name present, version/capabilities missing)
-- **Low**: Unable to validate
+- **Low**: Unable to validate (serverInfo undefined)
 
 **Example Pass Initialization**:
 
@@ -788,13 +865,15 @@ export { ProtocolConformanceAssessor } from "./ProtocolConformanceAssessor";
 
 **File**: `client/src/services/assessment/__tests__/ProtocolConformanceAssessor.test.ts`
 
-**Coverage**:
+**Coverage** (24 test cases total):
 
-- Error Response Format (6 test cases)
-- Content Type Support (3 test cases)
-- Initialization Handshake (4 test cases)
-- Overall Assessment (4 test cases)
-- Spec References (1 test case)
+- Error Response Format (6 test cases) - Single tool validation
+- Content Type Support (3 test cases) - Type validation
+- Initialization Handshake (4 test cases) - Server metadata
+- Overall Assessment (4 test cases) - Status and scoring
+- Spec References (1 test case) - URL generation
+- **Multi-Tool Error Format Testing (4 test cases)** - v1.24.2+ representative selection
+- **Config-based Spec Version (2 test cases)** - v1.24.2+ dynamic URL generation
 
 ### 6. Assessment Catalog Documentation
 

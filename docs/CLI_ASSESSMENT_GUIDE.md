@@ -1316,6 +1316,72 @@ mcp-assess-full --server my-server --format markdown
 
 ---
 
+### Issue: Server Not Providing serverInfo (v1.24.2+)
+
+**Warning:**
+
+```
+⚠️  Server did not provide serverInfo during initialization
+```
+
+**What This Means:**
+
+Some MCP servers may not fully populate `serverInfo` or `serverCapabilities` during the initialization handshake. This is handled gracefully:
+
+1. Assessment continues with available data
+2. Protocol Conformance checks receive "medium" or "low" confidence
+3. Other assessments (functionality, security) are unaffected
+
+**Example Output (when serverInfo missing):**
+
+```json
+{
+  "protocolConformance": {
+    "checks": {
+      "initializationHandshake": {
+        "passed": false,
+        "confidence": "low",
+        "evidence": "1/4 initialization checks passed",
+        "warnings": [
+          "Server should provide version for better compatibility tracking",
+          "Server should declare capabilities for feature negotiation"
+        ]
+      }
+    }
+  }
+}
+```
+
+**Assessment Impact:**
+
+| Aspect               | Impact                           |
+| -------------------- | -------------------------------- |
+| Functionality        | None - tests run normally        |
+| Security             | None - tests run normally        |
+| Protocol Conformance | Degraded confidence              |
+| Overall Score        | Slightly lower conformance score |
+
+**Solutions:**
+
+1. **If you control the server:** Update it to return proper `serverInfo`:
+
+   ```json
+   {
+     "name": "my-server",
+     "version": "1.0.0"
+   }
+   ```
+
+2. **If you can't modify the server:** Accept the warning - assessment still provides value for other modules.
+
+3. **To suppress for known limitation:** Focus on other module results:
+
+   ```bash
+   mcp-assess-full --server my-server --skip-modules protocolConformance
+   ```
+
+---
+
 ## Advanced Options
 
 ### Option: Claude Code Integration

@@ -689,20 +689,31 @@ Tools with "run" prefix and analysis-related suffixes are treated as read-only o
 
 **MCP Specification References**:
 
-- Lifecycle: https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle
-- Tools: https://modelcontextprotocol.io/specification/2025-06-18/server/tools
+Spec URLs are configurable via `config.mcpProtocolVersion` (defaults to "2025-06"):
+
+- Lifecycle: `https://modelcontextprotocol.io/specification/{version}/basic/lifecycle`
+- Tools: `https://modelcontextprotocol.io/specification/{version}/server/tools`
 
 **Test Details**:
 
-| Test           | Method                            | What It Validates                                           |
-| -------------- | --------------------------------- | ----------------------------------------------------------- |
-| Error Format   | Call tool with invalid params     | `isError: true`, content array with `type: "text"`          |
-| Content Types  | Call tool with empty/valid params | Content array uses only valid types                         |
-| Initialization | Inspect serverInfo                | Server name (required), version (recommended), capabilities |
+| Test           | Method                                                | What It Validates                                              |
+| -------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
+| Error Format   | Call up to 3 representative tools with invalid params | `isError: true`, content array with `type: "text"` (all tools) |
+| Content Types  | Call tool with empty/valid params                     | Content array uses only valid types                            |
+| Initialization | Inspect serverInfo                                    | Server name (required), version (recommended), capabilities    |
+
+**Multi-Tool Testing** (v1.24.2+):
+
+The error format check tests up to 3 representative tools for better coverage:
+
+- If 1-3 tools: Tests all tools
+- If 4+ tools: Tests first, middle, and last tools (indices 0, floor(n/2), n-1)
+- All tested tools must pass for the check to pass
+- Results are aggregated with per-tool details in the output
 
 **Pass Criteria**:
 
-- Error responses include `isError: true` flag when errors occur
+- Error responses include `isError: true` flag when errors occur (across all tested tools)
 - All content items use valid MCP content types
 - Server provides name during initialization
 - No tools throw exceptions instead of returning error responses
