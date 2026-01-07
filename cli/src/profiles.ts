@@ -103,33 +103,37 @@ export const ALL_MODULES = [
 /**
  * Assessment profile definitions
  * Each profile includes a specific set of modules optimized for the use case.
+ *
+ * Note: Time estimates are based on testing a server with ~30 tools.
+ * The SecurityAssessor runs 23 attack patterns per tool (~3400+ tests),
+ * which dominates runtime across all profiles that include it.
  */
 export const ASSESSMENT_PROFILES: Record<AssessmentProfileName, string[]> = {
   /**
    * Quick profile: Minimal testing for fast CI/CD checks
    * Use when: Pre-commit hooks, quick validation
-   * Time: ~30 seconds
+   * Time: ~3-4 minutes (security module dominates)
    */
   quick: ["functionality", "security"],
 
   /**
    * Security profile: Core security modules (Tier 1)
    * Use when: Security-focused audits, vulnerability scanning
-   * Time: ~2-3 minutes
+   * Time: ~8-10 minutes
    */
   security: [...TIER_1_CORE_SECURITY],
 
   /**
    * Compliance profile: Security + Directory compliance (Tier 1 + 2)
    * Use when: Pre-submission validation for MCP Directory
-   * Time: ~5 minutes
+   * Time: ~8-10 minutes
    */
   compliance: [...TIER_1_CORE_SECURITY, ...TIER_2_COMPLIANCE],
 
   /**
    * Full profile: All modules (Tier 1 + 2 + 3 + 4)
    * Use when: Comprehensive audits, initial server review
-   * Time: ~10-15 minutes
+   * Time: ~8-12 minutes
    */
   full: [
     ...TIER_1_CORE_SECURITY,
@@ -153,25 +157,25 @@ export const PROFILE_METADATA: Record<AssessmentProfileName, ProfileMetadata> =
   {
     quick: {
       description: "Fast validation (functionality + security only)",
-      estimatedTime: "~30 seconds",
+      estimatedTime: "~3-4 minutes",
       moduleCount: ASSESSMENT_PROFILES.quick.length,
       tiers: ["Tier 1 (partial)"],
     },
     security: {
       description: "Core security modules for vulnerability scanning",
-      estimatedTime: "~2-3 minutes",
+      estimatedTime: "~8-10 minutes",
       moduleCount: ASSESSMENT_PROFILES.security.length,
       tiers: ["Tier 1 (Core Security)"],
     },
     compliance: {
       description: "Security + MCP Directory compliance validation",
-      estimatedTime: "~5 minutes",
+      estimatedTime: "~8-10 minutes",
       moduleCount: ASSESSMENT_PROFILES.compliance.length,
       tiers: ["Tier 1 (Core Security)", "Tier 2 (Compliance)"],
     },
     full: {
       description: "Comprehensive audit with all assessment modules",
-      estimatedTime: "~10-15 minutes",
+      estimatedTime: "~8-12 minutes",
       moduleCount: ASSESSMENT_PROFILES.full.length,
       tiers: [
         "Tier 1 (Core Security)",
