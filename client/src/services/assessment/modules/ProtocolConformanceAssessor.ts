@@ -28,14 +28,6 @@ interface ContentItem {
   mimeType?: string;
 }
 
-// MCP specification references
-// NOTE: Update this URL when targeting a newer MCP spec version
-// See: https://modelcontextprotocol.io/specification for available versions
-const MCP_SPEC_VERSION = "2025-06-18";
-const MCP_SPEC_BASE = `https://modelcontextprotocol.io/specification/${MCP_SPEC_VERSION}`;
-const SPEC_LIFECYCLE = `${MCP_SPEC_BASE}/basic/lifecycle`;
-const SPEC_TOOLS = `${MCP_SPEC_BASE}/server/tools`;
-
 // Valid MCP content types
 const VALID_CONTENT_TYPES = [
   "text",
@@ -46,6 +38,46 @@ const VALID_CONTENT_TYPES = [
 ] as const;
 
 export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanceAssessment> {
+  /**
+   * Select representative tools for testing (first, middle, last for diversity)
+   */
+  private selectToolsForTesting(
+    tools: Array<{ name: string; inputSchema?: unknown }>,
+    maxTools: number = 3,
+  ): Array<{ name: string; inputSchema?: unknown }> {
+    if (tools.length <= maxTools) return tools;
+    const indices = [0, Math.floor(tools.length / 2), tools.length - 1];
+    return [...new Set(indices)].slice(0, maxTools).map((i) => tools[i]);
+  }
+
+  /**
+   * Get MCP spec version from config or use default
+   */
+  private getSpecVersion(): string {
+    return this.config.mcpProtocolVersion || "2025-06";
+  }
+
+  /**
+   * Get base URL for MCP specification
+   */
+  private getSpecBaseUrl(): string {
+    return `https://modelcontextprotocol.io/specification/${this.getSpecVersion()}`;
+  }
+
+  /**
+   * Get lifecycle spec URL
+   */
+  private getSpecLifecycleUrl(): string {
+    return `${this.getSpecBaseUrl()}/basic/lifecycle`;
+  }
+
+  /**
+   * Get tools spec URL
+   */
+  private getSpecToolsUrl(): string {
+    return `${this.getSpecBaseUrl()}/server/tools`;
+  }
+
   async assess(
     context: AssessmentContext,
   ): Promise<ProtocolConformanceAssessment> {
@@ -89,6 +121,7 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
    * Check 1: Error Response Format
    * Validates that error responses follow MCP protocol structure
    *
+   * Tests multiple tools (up to 3) for representative coverage.
    * Based on conformance's ToolsCallErrorScenario:
    * - isError flag must be true
    * - content must be an array
@@ -97,101 +130,117 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
   private async checkErrorResponseFormat(
     context: AssessmentContext,
   ): Promise<ProtocolCheck> {
-    try {
-      const testTool = context.tools[0];
-      if (!testTool) {
-        return {
-          passed: false,
-          confidence: "low",
-          evidence: "No tools available to test error response format",
-          specReference: SPEC_LIFECYCLE,
-          warnings: ["Cannot validate error format without tools"],
-        };
-      }
+    const testTools = this.selectToolsForTesting(context.tools, 3);
 
-      // Call with parameters designed to cause an error
-      // (invalid param that doesn't match schema)
-      const result = await this.executeWithTimeout(
-        context.callTool(testTool.name, {
-          __test_invalid_param__: "should_cause_error",
-        }),
-        this.config.testTimeout,
-      );
-
-      // Validate MCP error response structure
-      const contentArray = Array.isArray(result.content) ? result.content : [];
-      const validations = {
-        hasIsErrorFlag: result.isError === true,
-        hasContentArray: Array.isArray(result.content),
-        contentNotEmpty: contentArray.length > 0,
-        firstContentHasType: contentArray[0]?.type !== undefined,
-        firstContentIsTextOrResource:
-          contentArray[0]?.type === "text" ||
-          contentArray[0]?.type === "resource",
-        hasErrorMessage:
-          typeof contentArray[0]?.text === "string" &&
-          contentArray[0].text.length > 0,
-      };
-
-      const passedValidations = Object.values(validations).filter((v) => v);
-      const allPassed =
-        passedValidations.length === Object.keys(validations).length;
-
-      // If result is not an error, that's okay - the tool might have accepted the params
-      // In that case, we can't validate error format, but it's not a failure
-      if (!result.isError && contentArray.length > 0) {
-        return {
-          passed: true,
-          confidence: "medium",
-          evidence:
-            "Tool did not return an error with invalid params (may have accepted them). Content structure is valid.",
-          specReference: SPEC_LIFECYCLE,
-          details: {
-            note: "Tool accepted test params without error - cannot validate error format",
-            contentStructure: (contentArray as ContentItem[]).map((c) => ({
-              type: c.type,
-            })),
-          },
-        };
-      }
-
-      return {
-        passed: allPassed,
-        confidence: allPassed ? "high" : "medium",
-        evidence: `${passedValidations.length}/${Object.keys(validations).length} error format validations passed`,
-        specReference: SPEC_LIFECYCLE,
-        details: {
-          validations,
-          sampleResponse: {
-            isError: result.isError,
-            contentLength: contentArray.length,
-            firstContentType: contentArray[0]?.type,
-          },
-        },
-        warnings: allPassed
-          ? undefined
-          : [
-              "Error response does not fully comply with MCP protocol format",
-              "Ensure errors have isError: true and content array with text type",
-            ],
-      };
-    } catch (error) {
-      // If the call threw an exception instead of returning an error response,
-      // that's also a protocol violation (but might be SDK-level)
+    if (testTools.length === 0) {
       return {
         passed: false,
-        confidence: "medium",
-        evidence: "Tool threw exception instead of returning error response",
-        specReference: SPEC_LIFECYCLE,
-        details: {
-          error: error instanceof Error ? error.message : String(error),
-        },
-        warnings: [
-          "Tools should return error responses, not throw exceptions",
-          "This may be caused by transport-level issues or SDK handling",
-        ],
+        confidence: "low",
+        evidence: "No tools available to test error response format",
+        specReference: this.getSpecLifecycleUrl(),
+        warnings: ["Cannot validate error format without tools"],
       };
     }
+
+    // Test each selected tool and collect results
+    const results: Array<{
+      toolName: string;
+      passed: boolean;
+      isErrorResponse: boolean;
+      validations?: Record<string, boolean>;
+      error?: string;
+    }> = [];
+
+    for (const testTool of testTools) {
+      try {
+        // Call with parameters designed to cause an error
+        const result = await this.executeWithTimeout(
+          context.callTool(testTool.name, {
+            __test_invalid_param__: "should_cause_error",
+          }),
+          this.config.testTimeout,
+        );
+
+        // Validate MCP error response structure
+        const contentArray = Array.isArray(result.content)
+          ? result.content
+          : [];
+        const validations = {
+          hasIsErrorFlag: result.isError === true,
+          hasContentArray: Array.isArray(result.content),
+          contentNotEmpty: contentArray.length > 0,
+          firstContentHasType: contentArray[0]?.type !== undefined,
+          firstContentIsTextOrResource:
+            contentArray[0]?.type === "text" ||
+            contentArray[0]?.type === "resource",
+          hasErrorMessage:
+            typeof contentArray[0]?.text === "string" &&
+            contentArray[0].text.length > 0,
+        };
+
+        // Tool did not return error - might have accepted params
+        if (!result.isError && contentArray.length > 0) {
+          results.push({
+            toolName: testTool.name,
+            passed: true,
+            isErrorResponse: false,
+            validations,
+          });
+        } else {
+          const passedValidations = Object.values(validations).filter((v) => v);
+          const allPassed =
+            passedValidations.length === Object.keys(validations).length;
+          results.push({
+            toolName: testTool.name,
+            passed: allPassed,
+            isErrorResponse: true,
+            validations,
+          });
+        }
+      } catch (error) {
+        // Tool threw exception instead of returning error response
+        results.push({
+          toolName: testTool.name,
+          passed: false,
+          isErrorResponse: false,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    // Aggregate results
+    const errorResponseResults = results.filter((r) => r.isErrorResponse);
+    const passedCount = results.filter((r) => r.passed).length;
+    const allPassed = passedCount === results.length;
+
+    // Determine confidence based on error response coverage
+    let confidence: "high" | "medium" | "low";
+    if (errorResponseResults.length === 0) {
+      // No tools returned errors - all accepted invalid params
+      confidence = "medium";
+    } else if (allPassed) {
+      confidence = "high";
+    } else {
+      confidence = "medium";
+    }
+
+    return {
+      passed: allPassed,
+      confidence,
+      evidence: `Tested ${results.length} tool(s): ${passedCount}/${results.length} passed error format validation`,
+      specReference: this.getSpecLifecycleUrl(),
+      details: {
+        toolResults: results,
+        testedToolCount: results.length,
+        errorResponseCount: errorResponseResults.length,
+      },
+      warnings: allPassed
+        ? undefined
+        : [
+            "Error response format issues detected in some tools",
+            "Ensure all errors have isError: true and content array with text type",
+          ],
+    };
   }
 
   /**
@@ -210,7 +259,7 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
           passed: false,
           confidence: "low",
           evidence: "No tools available to test content types",
-          specReference: SPEC_TOOLS,
+          specReference: this.getSpecToolsUrl(),
         };
       }
 
@@ -227,7 +276,7 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
           confidence: "low",
           evidence:
             "Cannot test content types without knowing valid parameters - tool has required params",
-          specReference: SPEC_TOOLS,
+          specReference: this.getSpecToolsUrl(),
           warnings: [
             "Content type validation requires valid tool parameters",
             "Consider adding a tool without required params for protocol testing",
@@ -273,7 +322,7 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
         passed: allPassed,
         confidence: allPassed ? "high" : "medium",
         evidence: `${passedValidations.length}/${Object.keys(validations).length} content type checks passed`,
-        specReference: SPEC_TOOLS,
+        specReference: this.getSpecToolsUrl(),
         details: {
           validations,
           detectedContentTypes: detectedTypes,
@@ -290,7 +339,7 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
         passed: false,
         confidence: "medium",
         evidence: "Could not test content types due to error",
-        specReference: SPEC_TOOLS,
+        specReference: this.getSpecToolsUrl(),
         details: {
           error: error instanceof Error ? error.message : String(error),
         },
@@ -335,7 +384,7 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
       passed: hasMinimumInfo,
       confidence: allPassed ? "high" : "medium",
       evidence: `${passedValidations.length}/${Object.keys(validations).length} initialization checks passed`,
-      specReference: SPEC_LIFECYCLE,
+      specReference: this.getSpecLifecycleUrl(),
       details: {
         validations,
         serverInfo: {
@@ -468,7 +517,9 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
         "Protocol conformance is good. Consider testing with official @modelcontextprotocol/conformance suite for comprehensive validation.",
       );
     } else {
-      recommendations.push(`Review MCP specification: ${MCP_SPEC_BASE}/`);
+      recommendations.push(
+        `Review MCP specification: ${this.getSpecBaseUrl()}/`,
+      );
     }
 
     return recommendations;

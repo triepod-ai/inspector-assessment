@@ -127,9 +127,14 @@ describe("ProtocolConformanceAssessor", () => {
       const result = await assessor.assess(context);
 
       expect(result.checks.errorResponseFormat.passed).toBe(false);
+      // New aggregated evidence format
       expect(result.checks.errorResponseFormat.evidence).toContain(
-        "threw exception",
+        "0/1 passed",
       );
+      // Tool error captured in details
+      const toolResults =
+        result.checks.errorResponseFormat.details?.toolResults;
+      expect(toolResults?.[0]?.error).toContain("Tool crashed");
     });
 
     it("should have low confidence when no tools available", async () => {
@@ -371,6 +376,143 @@ describe("ProtocolConformanceAssessor", () => {
       );
       expect(result.checks.initializationHandshake.specReference).toContain(
         "modelcontextprotocol.io",
+      );
+    });
+  });
+
+  describe("Multi-Tool Error Format Testing", () => {
+    it("should test up to 3 tools when 5+ available", async () => {
+      const assessor = new ProtocolConformanceAssessor(createConfig());
+      const tools = [
+        createTool("tool1"),
+        createTool("tool2"),
+        createTool("tool3"),
+        createTool("tool4"),
+        createTool("tool5"),
+      ];
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        isError: true,
+        content: [{ type: "text", text: "Error message" }],
+      });
+
+      const context = createMockContext(tools, mockCallTool);
+      const result = await assessor.assess(context);
+
+      // Should test up to 3 tools (first, middle, last) for error format
+      // Note: checkContentTypeSupport also calls a tool, so total calls is higher
+      expect(result.checks.errorResponseFormat.details?.testedToolCount).toBe(
+        3,
+      );
+      // Verify 3 error format tests + 1 content type test = 4 total
+      expect(mockCallTool).toHaveBeenCalledTimes(4);
+    });
+
+    it("should test all tools when 3 or fewer available", async () => {
+      const assessor = new ProtocolConformanceAssessor(createConfig());
+      const tools = [createTool("tool1"), createTool("tool2")];
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        isError: true,
+        content: [{ type: "text", text: "Error message" }],
+      });
+
+      const context = createMockContext(tools, mockCallTool);
+      const result = await assessor.assess(context);
+
+      // Should test 2 tools for error format + 1 for content type
+      expect(result.checks.errorResponseFormat.details?.testedToolCount).toBe(
+        2,
+      );
+      expect(mockCallTool).toHaveBeenCalledTimes(3);
+    });
+
+    it("should aggregate results - fail if any tool fails", async () => {
+      const assessor = new ProtocolConformanceAssessor(createConfig());
+      const tools = [createTool("good_tool"), createTool("bad_tool")];
+
+      // First tool passes, second throws exception
+      const mockCallTool = jest
+        .fn()
+        .mockResolvedValueOnce({
+          isError: true,
+          content: [{ type: "text", text: "Error" }],
+        })
+        .mockRejectedValueOnce(new Error("Crash"));
+
+      const context = createMockContext(tools, mockCallTool);
+      const result = await assessor.assess(context);
+
+      // Should fail because not all tools passed
+      expect(result.checks.errorResponseFormat.passed).toBe(false);
+      expect(result.checks.errorResponseFormat.evidence).toContain(
+        "1/2 passed",
+      );
+    });
+
+    it("should include tool results in details", async () => {
+      const assessor = new ProtocolConformanceAssessor(createConfig());
+      const tools = [
+        createTool("tool_a"),
+        createTool("tool_b"),
+        createTool("tool_c"),
+      ];
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        isError: true,
+        content: [{ type: "text", text: "Error" }],
+      });
+
+      const context = createMockContext(tools, mockCallTool);
+      const result = await assessor.assess(context);
+
+      const details = result.checks.errorResponseFormat.details;
+      expect(details?.toolResults).toHaveLength(3);
+      expect(details?.toolResults[0].toolName).toBe("tool_a");
+      expect(details?.toolResults[1].toolName).toBe("tool_b");
+      expect(details?.toolResults[2].toolName).toBe("tool_c");
+    });
+  });
+
+  describe("Config-based Spec Version", () => {
+    it("should use mcpProtocolVersion from config for spec URLs", async () => {
+      const config = createConfig({ mcpProtocolVersion: "2025-06" });
+      const assessor = new ProtocolConformanceAssessor(config);
+      const tool = createTool("test_tool", { required: [] });
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        content: [{ type: "text", text: "Success" }],
+      });
+
+      const context = createMockContext([tool], mockCallTool, { config });
+      const result = await assessor.assess(context);
+
+      expect(result.checks.errorResponseFormat.specReference).toContain(
+        "2025-06",
+      );
+      expect(result.checks.contentTypeSupport.specReference).toContain(
+        "2025-06",
+      );
+    });
+
+    it("should use default spec version when config not provided", async () => {
+      const config = createConfig(); // No mcpProtocolVersion
+      const assessor = new ProtocolConformanceAssessor(config);
+      const tool = createTool("test_tool", { required: [] });
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        content: [{ type: "text", text: "Success" }],
+      });
+
+      const context = createMockContext([tool], mockCallTool);
+      const result = await assessor.assess(context);
+
+      // Should still have valid spec reference with default version
+      expect(result.checks.errorResponseFormat.specReference).toContain(
+        "modelcontextprotocol.io",
+      );
+      expect(result.checks.errorResponseFormat.specReference).toContain(
+        "2025-06",
       );
     });
   });
