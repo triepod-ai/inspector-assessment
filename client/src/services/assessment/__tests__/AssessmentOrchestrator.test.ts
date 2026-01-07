@@ -267,6 +267,28 @@ describe("AssessmentOrchestrator constructor", () => {
       // Verify it's a single instance (not array)
       expect(Array.isArray(assessor)).toBe(false);
     });
+
+    it("should not initialize assessor when enableExtendedAssessment is false even with BC flags true", () => {
+      const orchestrator = new AssessmentOrchestrator({
+        enableExtendedAssessment: false, // This guard should prevent initialization
+        assessmentCategories: {
+          functionality: true,
+          security: true,
+          documentation: true,
+          errorHandling: true,
+          usability: true,
+          protocolCompliance: true, // Ignored because enableExtendedAssessment is false
+          mcpSpecCompliance: true, // BC flag true, but should be ignored
+          protocolConformance: true, // BC flag true, but should be ignored
+        },
+      });
+
+      // No protocol assessor should be initialized due to enableExtendedAssessment guard
+      expect(
+        (orchestrator as unknown as { protocolComplianceAssessor: unknown })
+          .protocolComplianceAssessor,
+      ).toBeUndefined();
+    });
   });
 });
 
