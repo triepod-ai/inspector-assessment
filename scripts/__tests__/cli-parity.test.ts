@@ -14,6 +14,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
+import { getAllModulesConfig } from "../../client/src/lib/assessment/coreTypes";
 
 const CLI_PATH = path.join(__dirname, "../../cli/src/assess-full.ts");
 const SCRIPT_PATH = path.join(__dirname, "../run-full-assessment.ts");
@@ -128,17 +129,18 @@ function extractDestructuredVars(content: string): string[] {
 }
 
 /**
- * Extract allModules object keys from buildConfig() function using AST parsing.
- * This catches missing modules like the authentication bug fixed in v1.22.2.
+ * Check if buildConfig() uses getAllModulesConfig() function call.
+ * This is the expected pattern after the refactoring in v1.22.x.
+ * Completeness is verified via the imported getAllModulesConfig function.
  */
-function extractAllModulesKeys(content: string): string[] {
+function usesGetAllModulesConfig(content: string): boolean {
   const sourceFile = ts.createSourceFile(
     "temp.ts",
     content,
     ts.ScriptTarget.Latest,
     true,
   );
-  const moduleKeys: string[] = [];
+  let found = false;
   let inBuildConfig = false;
 
   function visit(node: ts.Node) {
@@ -150,24 +152,21 @@ function extractAllModulesKeys(content: string): string[] {
       return;
     }
 
-    // Look for: const allModules: Record<string, boolean> = { ... }
+    // Look for: const allModules = getAllModulesConfig(...)
     if (
       inBuildConfig &&
       ts.isVariableDeclaration(node) &&
       ts.isIdentifier(node.name) &&
       node.name.text === "allModules" &&
       node.initializer &&
-      ts.isObjectLiteralExpression(node.initializer)
+      ts.isCallExpression(node.initializer)
     ) {
-      // Extract all property names from the object literal
-      for (const prop of node.initializer.properties) {
-        if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name)) {
-          moduleKeys.push(prop.name.text);
-        }
-        // Handle shorthand properties like { foo } instead of { foo: true }
-        if (ts.isShorthandPropertyAssignment(prop)) {
-          moduleKeys.push(prop.name.text);
-        }
+      const callExpr = node.initializer;
+      if (
+        ts.isIdentifier(callExpr.expression) &&
+        callExpr.expression.text === "getAllModulesConfig"
+      ) {
+        found = true;
       }
     }
 
@@ -175,12 +174,7 @@ function extractAllModulesKeys(content: string): string[] {
   }
 
   visit(sourceFile);
-
-  if (moduleKeys.length === 0) {
-    throw new Error("Could not find allModules object in buildConfig");
-  }
-
-  return moduleKeys.sort();
+  return found;
 }
 
 /**
@@ -333,70 +327,105 @@ describe("CLI Binary & Script Parity", () => {
   });
 
   describe("buildConfig allModules completeness", () => {
-    // All modules from ASSESSMENT_CATEGORY_METADATA (source of truth)
-    // This list should match Object.keys(ASSESSMENT_CATEGORY_METADATA) from assessmentTypes.ts
-    const EXPECTED_MODULES = [
-      "functionality",
-      "security",
-      "documentation",
-      "errorHandling",
-      "usability",
-      "mcpSpecCompliance",
-      "aupCompliance",
-      "toolAnnotations",
-      "prohibitedLibraries",
-      "manifestValidation",
-      "portability",
-      "externalAPIScanner",
-      "authentication",
-      "temporal",
-      "resources",
-      "prompts",
-      "crossCapability",
-    ].sort();
+    // Use the actual getAllModulesConfig function as the source of truth
+    // This ensures tests stay in sync with the implementation automatically
+    const actualModules = getAllModulesConfig({});
+    const EXPECTED_MODULES = Object.keys(actualModules).sort();
 
-    it("should have identical allModules keys in buildConfig", () => {
-      const cliModules = extractAllModulesKeys(cliContent);
-      const scriptModules = extractAllModulesKeys(scriptContent);
-
-      expect(cliModules).toEqual(scriptModules);
+    it("should use getAllModulesConfig in CLI buildConfig", () => {
+      expect(usesGetAllModulesConfig(cliContent)).toBe(true);
     });
 
-    it("should have all 17 modules in allModules (regression test for authentication bug)", () => {
-      const cliModules = extractAllModulesKeys(cliContent);
+    it("should use getAllModulesConfig in script buildConfig", () => {
+      expect(usesGetAllModulesConfig(scriptContent)).toBe(true);
+    });
 
-      expect(cliModules.length).toBe(17);
-      expect(cliModules).toEqual(EXPECTED_MODULES);
+    it("should have identical allModules pattern in buildConfig (parity)", () => {
+      // Both files should use the same getAllModulesConfig pattern
+      const cliUses = usesGetAllModulesConfig(cliContent);
+      const scriptUses = usesGetAllModulesConfig(scriptContent);
+
+      expect(cliUses).toEqual(scriptUses);
+    });
+
+    it("should have all 18 modules via getAllModulesConfig", () => {
+      // Verify getAllModulesConfig returns expected count
+      // This should match Object.keys(ASSESSMENT_CATEGORY_METADATA).length
+      expect(EXPECTED_MODULES.length).toBe(18);
     });
 
     it("should include authentication module (v1.22.2 regression)", () => {
-      const cliModules = extractAllModulesKeys(cliContent);
-      const scriptModules = extractAllModulesKeys(scriptContent);
-
-      expect(cliModules).toContain("authentication");
-      expect(scriptModules).toContain("authentication");
+      // Verify via the actual function
+      expect(actualModules).toHaveProperty("authentication");
     });
 
-    it("should include externalAPIScanner in both files", () => {
-      const cliModules = extractAllModulesKeys(cliContent);
-      const scriptModules = extractAllModulesKeys(scriptContent);
-
-      expect(cliModules).toContain("externalAPIScanner");
-      expect(scriptModules).toContain("externalAPIScanner");
+    it("should include externalAPIScanner module", () => {
+      // Verify via the actual function
+      expect(actualModules).toHaveProperty("externalAPIScanner");
     });
 
-    it("should have 1:1 mapping with ASSESSMENT_CATEGORY_METADATA", () => {
-      const cliModules = extractAllModulesKeys(cliContent);
+    it("should have getAllModulesConfig imported in both files", () => {
+      // Verify the import statement exists
+      expect(cliContent).toContain("getAllModulesConfig");
+      expect(scriptContent).toContain("getAllModulesConfig");
+    });
 
-      // Every expected module should be in allModules
-      for (const module of EXPECTED_MODULES) {
-        expect(cliModules).toContain(module);
-      }
+    it("should derive from ASSESSMENT_CATEGORY_METADATA (verified via function)", () => {
+      // Core modules
+      expect(actualModules).toHaveProperty("functionality");
+      expect(actualModules).toHaveProperty("security");
+      expect(actualModules).toHaveProperty("documentation");
+      expect(actualModules).toHaveProperty("errorHandling");
+      expect(actualModules).toHaveProperty("usability");
 
-      // allModules should not have extra modules not in metadata
-      for (const module of cliModules) {
-        expect(EXPECTED_MODULES).toContain(module);
-      }
+      // Extended modules
+      expect(actualModules).toHaveProperty("mcpSpecCompliance");
+      expect(actualModules).toHaveProperty("aupCompliance");
+      expect(actualModules).toHaveProperty("toolAnnotations");
+      expect(actualModules).toHaveProperty("prohibitedLibraries");
+      expect(actualModules).toHaveProperty("manifestValidation");
+      expect(actualModules).toHaveProperty("portability");
+      expect(actualModules).toHaveProperty("externalAPIScanner");
+      expect(actualModules).toHaveProperty("authentication");
+      expect(actualModules).toHaveProperty("temporal");
+
+      // Capability modules
+      expect(actualModules).toHaveProperty("resources");
+      expect(actualModules).toHaveProperty("prompts");
+      expect(actualModules).toHaveProperty("crossCapability");
+
+      // Protocol modules
+      expect(actualModules).toHaveProperty("protocolConformance");
+    });
+  });
+
+  describe("serverInfo capture parity", () => {
+    it("should have getServerVersion call in both files", () => {
+      expect(cliContent).toContain("getServerVersion");
+      expect(scriptContent).toContain("getServerVersion");
+    });
+
+    it("should have getServerCapabilities call in both files", () => {
+      expect(cliContent).toContain("getServerCapabilities");
+      expect(scriptContent).toContain("getServerCapabilities");
+    });
+
+    it("should pass serverInfo to context in both files", () => {
+      // Verify serverInfo is assigned to context (not just mentioned in comments)
+      expect(cliContent).toMatch(/serverInfo[,\s]*$/m);
+      expect(scriptContent).toMatch(/serverInfo[,\s]*$/m);
+    });
+
+    it("should pass serverCapabilities to context in both files", () => {
+      // Verify serverCapabilities is assigned to context
+      expect(cliContent).toMatch(/serverCapabilities[:\s]/);
+      expect(scriptContent).toMatch(/serverCapabilities[:\s]/);
+    });
+
+    it('should have "unknown" fallback for missing server name in both files', () => {
+      // Both files should handle missing name with "unknown" fallback
+      expect(cliContent).toContain('"unknown"');
+      expect(scriptContent).toContain('"unknown"');
     });
   });
 });

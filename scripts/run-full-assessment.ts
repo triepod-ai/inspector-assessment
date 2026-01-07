@@ -537,6 +537,28 @@ async function runFullAssessment(
   // Emit server_connected JSONL event
   emitServerConnected(options.serverName, serverConfig.transport || "stdio");
 
+  // Capture server info from initialization for protocol conformance checks
+  // Apply defensive null checks for protocol conformance validation
+  const rawServerInfo = client.getServerVersion();
+  const rawServerCapabilities = client.getServerCapabilities();
+
+  // Build serverInfo with safe fallbacks
+  const serverInfo = rawServerInfo
+    ? {
+        name: rawServerInfo.name || "unknown",
+        version: rawServerInfo.version,
+        metadata: (rawServerInfo as Record<string, unknown>).metadata,
+      }
+    : undefined;
+
+  // ServerCapabilities can be undefined - that's valid per MCP spec
+  const serverCapabilities = rawServerCapabilities ?? undefined;
+
+  // Log warning if server didn't provide initialization info
+  if (!serverInfo && !options.jsonOnly) {
+    console.log("⚠️  Server did not provide serverInfo during initialization");
+  }
+
   // Get tools
   const response = await client.listTools();
   const tools = response.tools || [];
@@ -665,6 +687,10 @@ async function runFullAssessment(
     config,
     sourceCodePath: options.sourceCodePath,
     onProgress,
+    // Server info for protocol conformance checks
+    serverInfo,
+    serverCapabilities:
+      serverCapabilities as AssessmentContext["serverCapabilities"],
     ...sourceFiles,
   };
 
