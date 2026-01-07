@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Profile Time Estimates**: Updated based on testbed validation (~30 tools)
+  - quick: ~30s → ~3-4 minutes (security module dominates)
+  - security: ~2-3 min → ~8-10 minutes
+  - compliance: ~5 min → ~8-10 minutes
+  - full: ~10-15 min → ~8-12 minutes
+
+## [1.25.0] - 2026-01-07
+
+### Added
+
+- **CLI Assessment Profiles** (`--profile` flag): Pre-configured module sets for common scenarios
+  - `quick`: Fast validation (functionality + security only)
+  - `security`: Core security modules (Tier 1 - 6 modules)
+  - `compliance`: Security + MCP Directory compliance (Tier 1 + 2 - 10 modules)
+  - `full`: Comprehensive audit with all modules (16 modules)
+
+- **4-Tier Module Organization**: Restructured 18 modules into logical tiers
+  - Tier 1 (Core Security): functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance
+  - Tier 2 (Compliance): toolAnnotations, prohibitedLibraries, manifestValidation, authentication
+  - Tier 3 (Capability): resources, prompts, crossCapability
+  - Tier 4 (Extended): developerExperience, portability, externalAPIScanner
+
+- **DeveloperExperienceAssessor**: New merged module combining documentation + usability assessment
+  - Naming convention evaluation
+  - Documentation quality checks
+  - API design analysis
+
+- **ProtocolComplianceAssessor**: New merged module for MCP protocol validation
+  - JSON-RPC compliance
+  - Schema validation
+  - Error format verification
+  - Content type validation
+
+### Changed
+
+- **Module Consolidation**: Reduced from 18 to 16 active modules (4 deprecated)
+  - `protocolCompliance` replaces mcpSpecCompliance + protocolConformance
+  - `developerExperience` replaces documentation + usability
+
+### Deprecated
+
+- **DocumentationAssessor**: Use DeveloperExperienceAssessor instead (removal in v2.0.0)
+- **UsabilityAssessor**: Use DeveloperExperienceAssessor instead (removal in v2.0.0)
+- **MCPSpecComplianceAssessor**: Use ProtocolComplianceAssessor instead (removal in v2.0.0)
+- **ProtocolConformanceAssessor**: Use ProtocolComplianceAssessor instead (removal in v2.0.0)
+
+### Notes
+
+- Backward compatibility maintained via module aliases (deprecated names still work with warnings)
+- Legacy config mapping in `modulesToLegacyConfig()` supports existing orchestrator integration
+
 ## [1.23.10] - 2026-01-06
 
 ### Fixed
