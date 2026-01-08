@@ -35,13 +35,8 @@ console.warn(
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { EventEmitter } from "events";
+import { ScopedListenerConfig } from "../cli/src/lib/event-config.js";
 
-// Increase max listeners to prevent warning during security testing
-// Full assessment runs 234+ sequential tool calls (6 tools × 13 patterns × 3 payloads)
-// Each call may add listeners to the underlying socket
-EventEmitter.defaultMaxListeners = 300;
-process.setMaxListeners(300);
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
@@ -1054,6 +1049,11 @@ Examples:
  * Main execution
  */
 async function main() {
+  // Use scoped listener configuration instead of global modification
+  // See GitHub Issue #33 for rationale
+  // TODO(v2.0.0): Remove this file entirely - see GitHub Issue #19
+  const listenerConfig = new ScopedListenerConfig(50);
+
   try {
     const options = parseArgs();
 
@@ -1061,6 +1061,9 @@ async function main() {
     if (options.helpRequested) {
       return;
     }
+
+    // Apply scoped listener configuration for assessment
+    listenerConfig.apply();
 
     // Run assessment
     const results = await runFullAssessment(options);
@@ -1105,6 +1108,9 @@ async function main() {
       console.error(error.stack);
     }
     setTimeout(() => process.exit(1), 10);
+  } finally {
+    // Restore original listener configuration
+    listenerConfig.restore();
   }
 }
 
