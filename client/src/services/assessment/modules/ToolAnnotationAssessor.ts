@@ -139,6 +139,14 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       none: 0,
     };
 
+    // Extended metadata counters (Issue #54)
+    const extendedMetadataCounts = {
+      toolsWithRateLimits: 0,
+      toolsWithPermissions: 0,
+      toolsWithReturnSchema: 0,
+      toolsWithBulkSupport: 0,
+    };
+
     // Detect server persistence model from tool names
     const toolNames = context.tools.map((t) => t.name);
     this.persistenceContext = detectPersistenceModel(toolNames);
@@ -222,6 +230,22 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         annotationSourceCounts.none++;
       }
 
+      // Track extended metadata (Issue #54)
+      if (latestResult.extendedMetadata) {
+        if (latestResult.extendedMetadata.rateLimit) {
+          extendedMetadataCounts.toolsWithRateLimits++;
+        }
+        if (latestResult.extendedMetadata.permissions) {
+          extendedMetadataCounts.toolsWithPermissions++;
+        }
+        if (latestResult.extendedMetadata.returnSchema?.hasSchema) {
+          extendedMetadataCounts.toolsWithReturnSchema++;
+        }
+        if (latestResult.extendedMetadata.bulkOperations) {
+          extendedMetadataCounts.toolsWithBulkSupport++;
+        }
+      }
+
       // Emit poisoned description event
       if (latestResult.descriptionPoisoning?.detected) {
         poisonedDescriptionsCount++;
@@ -289,6 +313,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         alignmentBreakdown,
         annotationSources: annotationSourceCounts,
         poisonedDescriptionsDetected: poisonedDescriptionsCount,
+        extendedMetadataMetrics: extendedMetadataCounts,
         claudeEnhanced: true,
         highConfidenceMisalignments,
       };
@@ -306,6 +331,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       alignmentBreakdown,
       annotationSources: annotationSourceCounts,
       poisonedDescriptionsDetected: poisonedDescriptionsCount,
+      extendedMetadataMetrics: extendedMetadataCounts,
     };
   }
 
@@ -705,6 +731,9 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       );
     }
 
+    // Extract extended metadata (Issue #54)
+    const extendedMetadata = this.extractExtendedMetadata(tool);
+
     return {
       toolName: tool.name,
       hasAnnotations,
@@ -715,6 +744,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       issues,
       recommendations,
       descriptionPoisoning,
+      extendedMetadata,
     };
   }
 
@@ -791,6 +821,76 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       description: tool.description,
       source: "none",
     };
+  }
+
+  /**
+   * Extract extended metadata from tool (Issue #54)
+   * Extracts rate limits, permissions, return schemas, and bulk operation support
+   */
+  private extractExtendedMetadata(
+    tool: Tool,
+  ): ToolAnnotationResult["extendedMetadata"] {
+    const toolAny = tool as any;
+    const metadata: NonNullable<ToolAnnotationResult["extendedMetadata"]> = {};
+
+    // Rate limiting - check annotations, metadata, and direct props
+    const rateLimit =
+      toolAny.rateLimit ||
+      toolAny.annotations?.rateLimit ||
+      toolAny.metadata?.rateLimit;
+    if (rateLimit && typeof rateLimit === "object") {
+      metadata.rateLimit = {
+        windowMs: rateLimit.windowMs,
+        maxRequests: rateLimit.maxRequests,
+        requestsPerMinute: rateLimit.requestsPerMinute,
+        requestsPerSecond: rateLimit.requestsPerSecond,
+      };
+    }
+
+    // Permissions - check requiredPermission, permissions, scopes
+    const permissions =
+      toolAny.requiredPermission ||
+      toolAny.permissions ||
+      toolAny.annotations?.permissions ||
+      toolAny.metadata?.requiredPermission ||
+      toolAny.metadata?.permissions;
+    if (permissions) {
+      const required = Array.isArray(permissions) ? permissions : [permissions];
+      const scopes =
+        toolAny.scopes ||
+        toolAny.annotations?.scopes ||
+        toolAny.metadata?.scopes;
+      metadata.permissions = {
+        required: required.filter((p: unknown) => typeof p === "string"),
+        scopes: Array.isArray(scopes)
+          ? scopes.filter((s: unknown) => typeof s === "string")
+          : undefined,
+      };
+    }
+
+    // Return schema - check outputSchema (MCP 2025-06-18 spec)
+    if (toolAny.outputSchema) {
+      metadata.returnSchema = {
+        hasSchema: true,
+        schema: toolAny.outputSchema,
+      };
+    }
+
+    // Bulk operations - check metadata for batch support
+    const bulkSupport =
+      toolAny.supportsBulkOperations ||
+      toolAny.annotations?.supportsBulkOperations ||
+      toolAny.metadata?.supportsBulkOperations;
+    const maxBatchSize = toolAny.metadata?.maxBatchSize;
+    if (bulkSupport !== undefined || maxBatchSize !== undefined) {
+      metadata.bulkOperations = {
+        supported: !!bulkSupport,
+        maxBatchSize:
+          typeof maxBatchSize === "number" ? maxBatchSize : undefined,
+      };
+    }
+
+    return Object.keys(metadata).length > 0 ? metadata : undefined;
   }
 
   /**

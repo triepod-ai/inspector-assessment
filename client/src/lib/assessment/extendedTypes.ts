@@ -113,6 +113,31 @@ export interface ToolAnnotationResult {
     }>;
     riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH";
   };
+  /** Extended metadata extraction (Issue #54) */
+  extendedMetadata?: {
+    /** Rate limiting configuration */
+    rateLimit?: {
+      windowMs?: number;
+      maxRequests?: number;
+      requestsPerMinute?: number;
+      requestsPerSecond?: number;
+    };
+    /** Permission/scope requirements */
+    permissions?: {
+      required?: string[];
+      scopes?: string[];
+    };
+    /** Return schema presence */
+    returnSchema?: {
+      hasSchema: boolean;
+      schema?: object;
+    };
+    /** Bulk operation support */
+    bulkOperations?: {
+      supported: boolean;
+      maxBatchSize?: number;
+    };
+  };
 }
 
 export interface ToolAnnotationAssessment {
@@ -155,6 +180,13 @@ export interface ToolAnnotationAssessment {
   };
   /** Count of tools with poisoned descriptions detected (Issue #8) */
   poisonedDescriptionsDetected?: number;
+  /** Extended metadata coverage metrics (Issue #54) */
+  extendedMetadataMetrics?: {
+    toolsWithRateLimits: number;
+    toolsWithPermissions: number;
+    toolsWithReturnSchema: number;
+    toolsWithBulkSupport: number;
+  };
 }
 
 // ============================================================================
