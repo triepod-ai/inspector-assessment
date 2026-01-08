@@ -19,6 +19,8 @@ import {
   CodeExample,
   AssessmentStatus,
   ToolDocGap,
+  DocumentationQualityChecks,
+  DocumentationQualityScore,
 } from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
@@ -51,25 +53,40 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
   ): Promise<DeveloperExperienceAssessment> {
     this.log("Starting developer experience assessment");
 
+    const readmeContent = context.readmeContent || "";
+
     // Assess documentation
     const documentationMetrics = this.analyzeDocumentation(
-      context.readmeContent || "",
+      readmeContent,
       context.tools,
       "verbose",
     );
-    const documentationScore =
-      this.calculateDocumentationScore(documentationMetrics);
+
+    // Issue #55: Add quality scoring
+    const { checks: qualityChecks, score: qualityScore } =
+      this.assessDocumentationQuality(readmeContent, context);
+
+    // Add quality data to metrics
+    documentationMetrics.qualityChecks = qualityChecks;
+    documentationMetrics.qualityScore = qualityScore;
+    documentationMetrics.readmeSizeBytes = Buffer.byteLength(
+      readmeContent,
+      "utf8",
+    );
+
+    // Use quality score for documentation scoring (Issue #55)
+    const documentationScore = qualityScore.total;
 
     // Assess usability
     const usabilityMetrics = this.analyzeUsability(context.tools);
     const usabilityScore = this.calculateUsabilityScore(usabilityMetrics);
 
-    // Calculate overall score (weighted average)
+    // Calculate overall score (weighted average: 60% docs, 40% usability)
     const overallScore = Math.round(
       documentationScore * 0.6 + usabilityScore * 0.4,
     );
 
-    // Determine status
+    // Determine status using Issue #55 thresholds
     const status = this.determineOverallStatus(overallScore);
 
     // Generate explanation and recommendations
@@ -83,7 +100,7 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
       usabilityMetrics,
     );
 
-    this.testCount = 9; // Documentation (5) + Usability (4) checks
+    this.testCount = 15; // Documentation (5) + Quality (6) + Usability (4) checks
 
     return {
       documentation: documentationMetrics,
@@ -459,17 +476,203 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
     return "functional";
   }
 
-  private calculateDocumentationScore(metrics: DocumentationMetrics): number {
-    let score = 0;
-    const maxScore = 5;
+  // ============================================================================
+  // Issue #55: Documentation Quality Scoring
+  // ============================================================================
 
-    if (metrics.hasReadme) score++;
-    if (metrics.hasInstallInstructions) score++;
-    if (metrics.hasUsageGuide) score++;
-    if (metrics.hasAPIReference) score++;
-    if (metrics.exampleCount >= metrics.requiredExamples) score++;
+  /**
+   * Assess documentation quality using Issue #55 point-based scoring
+   * Max 100 points: README (30), Install (20), Config (20), Examples (20), License (10)
+   */
+  private assessDocumentationQuality(
+    content: string,
+    context: AssessmentContext,
+  ): { checks: DocumentationQualityChecks; score: DocumentationQualityScore } {
+    const checks: DocumentationQualityChecks = {
+      hasReadme: content.length > 0,
+      readmeQuality: this.determineReadmeQuality(content),
+      hasInstallation: this.checkInstallInstructions(content),
+      hasConfiguration: this.checkConfigurationSection(content),
+      hasExamples: this.checkUsageGuide(content),
+      hasLicense: this.detectLicense(context),
+      licenseType: this.detectLicenseType(context),
+    };
 
-    return Math.round((score / maxScore) * 100);
+    const score = this.calculateQualityScore(checks, content);
+    return { checks, score };
+  }
+
+  /**
+   * Determine README quality tier based on size
+   * - minimal: <5KB
+   * - adequate: 5KB-15KB
+   * - comprehensive: >15KB
+   */
+  private determineReadmeQuality(
+    content: string,
+  ): "minimal" | "adequate" | "comprehensive" {
+    const sizeBytes = Buffer.byteLength(content, "utf8");
+    const sizeKB = sizeBytes / 1024;
+
+    if (sizeKB > 15) return "comprehensive";
+    if (sizeKB > 5) return "adequate";
+    return "minimal";
+  }
+
+  /**
+   * Calculate point-based quality score per Issue #55
+   * Max 100 points:
+   * - README exists: +10
+   * - README >5KB: +10 (adequate)
+   * - README >15KB: +10 more (comprehensive = +20 total)
+   * - Installation section: +20
+   * - Configuration section: +20
+   * - Examples present: +20
+   * - License file: +10
+   */
+  private calculateQualityScore(
+    checks: DocumentationQualityChecks,
+    content: string,
+  ): DocumentationQualityScore {
+    const sizeBytes = Buffer.byteLength(content, "utf8");
+    const sizeKB = sizeBytes / 1024;
+
+    // Calculate README size bonus
+    let readmeComprehensive = 0;
+    if (checks.hasReadme) {
+      if (sizeKB > 15) {
+        readmeComprehensive = 20; // comprehensive: +10 + +10
+      } else if (sizeKB > 5) {
+        readmeComprehensive = 10; // adequate: +10
+      }
+    }
+
+    const breakdown = {
+      readmeExists: checks.hasReadme ? 10 : 0,
+      readmeComprehensive,
+      installation: checks.hasInstallation ? 20 : 0,
+      configuration: checks.hasConfiguration ? 20 : 0,
+      examples: checks.hasExamples ? 20 : 0,
+      license: checks.hasLicense ? 10 : 0,
+    };
+
+    return {
+      total: Object.values(breakdown).reduce((sum, v) => sum + v, 0),
+      breakdown,
+    };
+  }
+
+  /**
+   * Check for configuration/environment section
+   * Looks for: configuration, config, environment, env vars, .env
+   */
+  private checkConfigurationSection(content: string): boolean {
+    const configKeywords = [
+      "configuration",
+      "config",
+      "environment variable",
+      "env var",
+      ".env",
+      "api key",
+      "api_key",
+      "apikey",
+      "setup",
+    ];
+    const contentLower = content.toLowerCase();
+    return configKeywords.some((keyword) => contentLower.includes(keyword));
+  }
+
+  /**
+   * Detect license presence from context
+   * Checks sourceCodeFiles for LICENSE/LICENSE.md or README for license section
+   */
+  private detectLicense(context: AssessmentContext): boolean {
+    // Check source code files if available
+    if (context.sourceCodeFiles) {
+      const licenseFiles = [
+        "LICENSE",
+        "LICENSE.md",
+        "LICENSE.txt",
+        "LICENCE",
+        "LICENCE.md",
+      ];
+      for (const file of licenseFiles) {
+        if (context.sourceCodeFiles.has(file)) return true;
+      }
+    }
+
+    // Fallback: check README for license section
+    const content = context.readmeContent || "";
+    return /^#+\s*licen[sc]e/im.test(content);
+  }
+
+  /**
+   * Detect license type (MIT, Apache-2.0, GPL, BSD, etc.)
+   */
+  private detectLicenseType(context: AssessmentContext): string | undefined {
+    if (!context.sourceCodeFiles) return undefined;
+
+    // Try common license file names
+    const licenseFiles = [
+      "LICENSE",
+      "LICENSE.md",
+      "LICENSE.txt",
+      "LICENCE",
+      "LICENCE.md",
+    ];
+    let licenseContent: string | undefined;
+
+    for (const file of licenseFiles) {
+      if (context.sourceCodeFiles.has(file)) {
+        licenseContent = context.sourceCodeFiles.get(file);
+        break;
+      }
+    }
+
+    if (!licenseContent) return undefined;
+
+    // Simple license detection patterns
+    if (
+      licenseContent.includes("MIT License") ||
+      licenseContent.includes("Permission is hereby granted, free of charge")
+    ) {
+      return "MIT";
+    }
+    if (
+      licenseContent.includes("Apache License") &&
+      licenseContent.includes("2.0")
+    ) {
+      return "Apache-2.0";
+    }
+    if (licenseContent.includes("GNU GENERAL PUBLIC LICENSE")) {
+      if (licenseContent.includes("Version 3")) return "GPL-3.0";
+      if (licenseContent.includes("Version 2")) return "GPL-2.0";
+      return "GPL";
+    }
+    if (licenseContent.includes("BSD")) {
+      if (licenseContent.includes("3-Clause") || licenseContent.includes("New"))
+        return "BSD-3-Clause";
+      if (
+        licenseContent.includes("2-Clause") ||
+        licenseContent.includes("Simplified")
+      )
+        return "BSD-2-Clause";
+      return "BSD";
+    }
+    if (licenseContent.includes("ISC License")) {
+      return "ISC";
+    }
+    if (licenseContent.includes("Mozilla Public License")) {
+      return "MPL-2.0";
+    }
+    if (
+      licenseContent.includes("UNLICENSE") ||
+      licenseContent.includes("unlicense")
+    ) {
+      return "Unlicense";
+    }
+
+    return "Unknown";
   }
 
   // ============================================================================

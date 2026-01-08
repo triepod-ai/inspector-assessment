@@ -166,6 +166,45 @@ export interface ToolDocGap {
   documentedInReadme: boolean;
 }
 
+/**
+ * Issue #55: Documentation quality checks with point-based scoring
+ * Used to assess README quality, installation docs, config docs, examples, and license
+ */
+export interface DocumentationQualityChecks {
+  hasReadme: boolean;
+  /** Size-based quality tier: minimal (<5KB), adequate (5-15KB), comprehensive (>15KB) */
+  readmeQuality: "minimal" | "adequate" | "comprehensive";
+  hasInstallation: boolean;
+  hasConfiguration: boolean;
+  hasExamples: boolean;
+  hasLicense: boolean;
+  licenseType?: string;
+}
+
+/**
+ * Issue #55: Point-based documentation quality score breakdown
+ * Max 100 points total
+ */
+export interface DocumentationQualityScore {
+  /** Total points earned out of 100 */
+  total: number;
+  /** Points breakdown by check */
+  breakdown: {
+    /** README exists: 10 points */
+    readmeExists: number;
+    /** README size bonus: >5KB +10, >15KB +20 total */
+    readmeComprehensive: number;
+    /** Installation section present: 20 points */
+    installation: number;
+    /** Configuration/env vars documented: 20 points */
+    configuration: number;
+    /** Usage examples present: 20 points */
+    examples: number;
+    /** License file present: 10 points */
+    license: number;
+  };
+}
+
 export interface DocumentationMetrics {
   hasReadme: boolean;
   exampleCount: number;
@@ -199,6 +238,13 @@ export interface DocumentationMetrics {
   toolsTotal: number;
   /** Tools with missing or inadequate (<50 chars) descriptions */
   toolDocGaps: ToolDocGap[];
+  // Issue #55: Documentation quality scoring
+  /** Point-based quality checks (Issue #55) */
+  qualityChecks?: DocumentationQualityChecks;
+  /** Point-based quality score breakdown (Issue #55) */
+  qualityScore?: DocumentationQualityScore;
+  /** README size in bytes for quality tier calculation */
+  readmeSizeBytes?: number;
 }
 
 // ============================================================================
