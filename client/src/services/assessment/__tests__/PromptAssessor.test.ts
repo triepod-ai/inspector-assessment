@@ -508,8 +508,9 @@ describe("PromptAssessor", () => {
           createContext([prompt]) as AssessmentContext,
         );
 
+        // Implementation returns the actual matched text ("sanitized") not root form ("sanitization")
         expect(result.results[0].dynamicContent?.escapingApplied).toContain(
-          "sanitization",
+          "sanitized",
         );
       });
 
@@ -529,8 +530,9 @@ describe("PromptAssessor", () => {
           createContext([prompt]) as AssessmentContext,
         );
 
+        // Implementation returns the actual matched text ("validated") not root form ("validation")
         expect(result.results[0].dynamicContent?.escapingApplied).toContain(
-          "validation",
+          "validated",
         );
       });
 

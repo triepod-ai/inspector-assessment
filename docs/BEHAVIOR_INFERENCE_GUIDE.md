@@ -418,14 +418,14 @@ A result is marked **ambiguous** (`isAmbiguous: true`) when:
 import {
   inferBehavior,
   inferBehaviorEnhanced,
-} from "@bryan-thompson/inspector-assessment/client/dist/lib";
+} from "@bryan-thompson/inspector-assessment/annotations";
 
 // Types
 import type {
   BehaviorInferenceResult,
   EnhancedBehaviorInferenceResult,
   InferenceSignal,
-} from "@bryan-thompson/inspector-assessment/client/dist/lib";
+} from "@bryan-thompson/inspector-assessment/annotations";
 ```
 
 ---

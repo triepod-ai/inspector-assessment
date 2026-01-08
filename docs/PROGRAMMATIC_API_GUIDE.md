@@ -643,7 +643,7 @@ Detect server infrastructure characteristics programmatically.
 ### Basic Usage
 
 ```typescript
-import { detectArchitecture } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { detectArchitecture } from "@bryan-thompson/inspector-assessment/annotations";
 
 // Minimal context (tools only)
 const analysis = detectArchitecture({ tools: serverTools });
@@ -656,7 +656,7 @@ console.log(`Network required: ${analysis.requiresNetworkAccess}`);
 ### With Package Dependencies (Higher Confidence)
 
 ```typescript
-import { detectArchitecture } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { detectArchitecture } from "@bryan-thompson/inspector-assessment/annotations";
 
 const analysis = detectArchitecture({
   tools: serverTools,
@@ -682,7 +682,7 @@ if (analysis.serverType === "remote") {
 ### Checking for Database Operations
 
 ```typescript
-import { hasDatabaseToolPatterns } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { hasDatabaseToolPatterns } from "@bryan-thompson/inspector-assessment/annotations";
 
 // Quick check before full analysis
 if (hasDatabaseToolPatterns(serverTools)) {
@@ -700,7 +700,7 @@ Classify tool behavior (read-only, write, destructive) programmatically.
 ### Basic Single-Signal Inference
 
 ```typescript
-import { inferBehavior } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { inferBehavior } from "@bryan-thompson/inspector-assessment/annotations";
 
 const result = inferBehavior("delete_user", "Permanently removes a user");
 
@@ -715,7 +715,7 @@ console.log(`Ambiguous: ${result.isAmbiguous}`);
 ### Enhanced Multi-Signal Inference
 
 ```typescript
-import { inferBehaviorEnhanced } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { inferBehaviorEnhanced } from "@bryan-thompson/inspector-assessment/annotations";
 
 const result = inferBehaviorEnhanced(
   "list_users",
@@ -774,7 +774,7 @@ import {
   loadPerformanceConfig,
   validatePerformanceConfig,
   PERFORMANCE_PRESETS,
-} from "@bryan-thompson/inspector-assessment/client/dist/lib";
+} from "@bryan-thompson/inspector-assessment/performance";
 
 // Use defaults
 const config = loadPerformanceConfig();
@@ -789,7 +789,7 @@ const fastConfig = PERFORMANCE_PRESETS.fast;
 ### Validating Configuration
 
 ```typescript
-import { validatePerformanceConfig } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { validatePerformanceConfig } from "@bryan-thompson/inspector-assessment/performance";
 
 const errors = validatePerformanceConfig({
   testTimeoutMs: 50, // Too low!
@@ -809,7 +809,7 @@ if (errors.length > 0) {
 ### Creating Custom Configuration
 
 ```typescript
-import { mergeWithDefaults } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { mergeWithDefaults } from "@bryan-thompson/inspector-assessment/performance";
 
 // Only specify what you want to change
 const config = mergeWithDefaults({

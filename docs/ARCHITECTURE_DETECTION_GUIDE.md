@@ -443,7 +443,7 @@ import {
   detectArchitecture,
   hasDatabaseToolPatterns,
   extractDatabasesFromDependencies,
-} from "@bryan-thompson/inspector-assessment/client/dist/lib";
+} from "@bryan-thompson/inspector-assessment/annotations";
 
 // Types
 import type {
@@ -452,5 +452,5 @@ import type {
   DatabaseBackend,
   TransportMode,
   ServerArchitectureType,
-} from "@bryan-thompson/inspector-assessment/client/dist/lib";
+} from "@bryan-thompson/inspector-assessment/annotations";
 ```

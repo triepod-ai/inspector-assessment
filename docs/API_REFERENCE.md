@@ -736,7 +736,7 @@ Functions for inferring tool behavior from names, descriptions, and schemas.
 ### inferBehavior()
 
 ```typescript
-import { inferBehavior } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { inferBehavior } from "@bryan-thompson/inspector-assessment/annotations";
 
 function inferBehavior(
   toolName: string,
@@ -764,7 +764,7 @@ const result = inferBehavior("delete_user", "Permanently removes a user");
 ### inferBehaviorEnhanced()
 
 ```typescript
-import { inferBehaviorEnhanced } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { inferBehaviorEnhanced } from "@bryan-thompson/inspector-assessment/annotations";
 
 function inferBehaviorEnhanced(
   toolName: string,
@@ -827,7 +827,7 @@ Functions for detecting MCP server infrastructure characteristics.
 ### detectArchitecture()
 
 ```typescript
-import { detectArchitecture } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { detectArchitecture } from "@bryan-thompson/inspector-assessment/annotations";
 
 function detectArchitecture(context: ArchitectureContext): ArchitectureAnalysis;
 ```
@@ -892,7 +892,7 @@ Functions for tuning assessment execution parameters.
 ### loadPerformanceConfig()
 
 ```typescript
-import { loadPerformanceConfig } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { loadPerformanceConfig } from "@bryan-thompson/inspector-assessment/performance";
 
 function loadPerformanceConfig(
   configPath?: string,
@@ -915,7 +915,7 @@ const defaultConfig = loadPerformanceConfig();
 ### validatePerformanceConfig()
 
 ```typescript
-import { validatePerformanceConfig } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { validatePerformanceConfig } from "@bryan-thompson/inspector-assessment/performance";
 
 function validatePerformanceConfig(
   config: Partial<PerformanceConfig>,
@@ -941,7 +941,7 @@ interface PerformanceConfig {
 ### PERFORMANCE_PRESETS
 
 ```typescript
-import { PERFORMANCE_PRESETS } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import { PERFORMANCE_PRESETS } from "@bryan-thompson/inspector-assessment/performance";
 
 PERFORMANCE_PRESETS.default; // Balanced configuration
 PERFORMANCE_PRESETS.fast; // Larger batches for speed

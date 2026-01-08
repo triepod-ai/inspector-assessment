@@ -127,6 +127,13 @@ const NEGATION_PATTERNS = [
 ];
 
 /**
+ * Threshold for write signals to override read-only classification.
+ * Write signals at 50%+ of read-only score indicate mixed operation tools
+ * (e.g., "fetch and update" should classify as write, not read-only).
+ */
+const WRITE_OVERRIDE_THRESHOLD = 0.5;
+
+/**
  * Check if a keyword match is negated by surrounding context.
  *
  * @param description - Full description text
@@ -254,7 +261,10 @@ export function analyzeDescription(description: string): InferenceSignal {
   if (readOnlyScore > 0 && !expectedDestructive) {
     // Write operations take precedence when present (even if equal score)
     // Multi-operation tools like "fetch and update" should be classified as write
-    if (writeScore > 0 && writeScore >= readOnlyScore * 0.5) {
+    if (
+      writeScore > 0 &&
+      writeScore >= readOnlyScore * WRITE_OVERRIDE_THRESHOLD
+    ) {
       // Write signal is significant enough to override read-only
       confidence = Math.min(100, writeScore);
       evidence.push(

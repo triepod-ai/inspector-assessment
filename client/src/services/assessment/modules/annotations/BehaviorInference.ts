@@ -443,12 +443,12 @@ function aggregateSignals(
       if (writeAvg >= readAvg * 0.9) {
         // Write is dominant - but still a conflict
         expectedReadOnly = false;
-        confidence = Math.round(writeAvg - 10); // Reduce due to conflict
+        confidence = Math.max(0, Math.round(writeAvg - 10)); // Reduce due to conflict, prevent underflow
         reason = `Write behavior detected from: ${strongWriteSignals.map((s) => formatSignalName(s.name)).join(", ")} (conflicts with read-only signals)`;
       } else {
         // Read-only is dominant - still a conflict
         expectedReadOnly = true;
-        confidence = Math.round(readAvg - 15);
+        confidence = Math.max(0, Math.round(readAvg - 15)); // Reduce due to conflict, prevent underflow
         reason = `Read-only behavior detected from: ${readOnlySignals.map((s) => formatSignalName(s.name)).join(", ")} (conflicts with write signals)`;
       }
     } else {

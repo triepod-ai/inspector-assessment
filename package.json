@@ -45,6 +45,14 @@
     "./progress": {
       "types": "./client/lib/lib/assessment/progressTypes.d.ts",
       "default": "./client/lib/lib/assessment/progressTypes.js"
+    },
+    "./annotations": {
+      "types": "./client/lib/services/assessment/modules/annotations/index.d.ts",
+      "default": "./client/lib/services/assessment/modules/annotations/index.js"
+    },
+    "./performance": {
+      "types": "./client/lib/services/assessment/config/performanceConfig.d.ts",
+      "default": "./client/lib/services/assessment/config/performanceConfig.js"
     }
   },
   "bin": {

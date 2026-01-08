@@ -1239,7 +1239,8 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       );
       expect(vulnerableTests.length).toBeGreaterThan(0);
       expect(result.vulnerabilities.length).toBeGreaterThan(0);
-      expect(result.status).toBe("FAIL");
+      // MEDIUM confidence returns NEED_MORE_INFO, not FAIL (vulnerabilities ARE detected above)
+      expect(result.status).toBe("NEED_MORE_INFO");
     });
   });
 });

@@ -38,7 +38,7 @@ mcp-assess-full --server my-server --config server.json --performance-config /tm
 import {
   loadPerformanceConfig,
   PERFORMANCE_PRESETS,
-} from "@bryan-thompson/inspector-assessment/client/dist/lib";
+} from "@bryan-thompson/inspector-assessment/performance";
 
 // Load from file
 const config = loadPerformanceConfig("/path/to/config.json");
@@ -489,8 +489,8 @@ import {
   mergeWithDefaults,
   DEFAULT_PERFORMANCE_CONFIG,
   PERFORMANCE_PRESETS,
-} from "@bryan-thompson/inspector-assessment/client/dist/lib";
+} from "@bryan-thompson/inspector-assessment/performance";
 
 // Types
-import type { PerformanceConfig } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+import type { PerformanceConfig } from "@bryan-thompson/inspector-assessment/performance";
 ```
