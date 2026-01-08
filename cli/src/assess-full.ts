@@ -635,7 +635,9 @@ async function runFullAssessment(
     ? {
         name: rawServerInfo.name || "unknown",
         version: rawServerInfo.version,
-        metadata: (rawServerInfo as Record<string, unknown>).metadata,
+        metadata: (rawServerInfo as Record<string, unknown>).metadata as
+          | Record<string, unknown>
+          | undefined,
       }
     : undefined;
 

@@ -15,7 +15,13 @@
  */
 
 import { EventEmitter } from "events";
-import { DEFAULT_PERFORMANCE_CONFIG } from "../../../client/src/services/assessment/config/performanceConfig.js";
+
+/**
+ * Default max listeners for event emitters in CLI operations.
+ * This value matches PerformanceConfig.eventEmitterMaxListeners from Issue #37.
+ * Defined locally to avoid cross-workspace import issues in the monorepo.
+ */
+const CLI_DEFAULT_MAX_LISTENERS = 50;
 
 /**
  * Expected listener counts for different transport types and CLI operations.
@@ -101,12 +107,10 @@ export class ScopedListenerConfig {
   /**
    * Create a new scoped listener configuration.
    *
-   * @param maxListeners - The max listeners value to use (default from PerformanceConfig)
+   * @param maxListeners - The max listeners value to use (default: 50)
    * @see PerformanceConfig.eventEmitterMaxListeners (Issue #37)
    */
-  constructor(
-    private maxListeners: number = DEFAULT_PERFORMANCE_CONFIG.eventEmitterMaxListeners,
-  ) {
+  constructor(private maxListeners: number = CLI_DEFAULT_MAX_LISTENERS) {
     this.originalDefault = EventEmitter.defaultMaxListeners;
     this.originalProcess = process.getMaxListeners();
   }
