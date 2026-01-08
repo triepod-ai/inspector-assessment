@@ -1477,6 +1477,26 @@ function parseArgs(): AssessmentOptions {
     return options as AssessmentOptions;
   }
 
+  // Environment variable fallbacks (matches run-security-assessment.ts behavior)
+  // INSPECTOR_CLAUDE=true enables Claude with HTTP transport
+  if (process.env.INSPECTOR_CLAUDE === "true" && !options.claudeEnabled) {
+    options.claudeEnabled = true;
+    options.claudeHttp = true; // HTTP transport when enabled via env var
+  }
+
+  // INSPECTOR_MCP_AUDITOR_URL overrides default URL (only if not set via CLI)
+  if (process.env.INSPECTOR_MCP_AUDITOR_URL && !options.mcpAuditorUrl) {
+    const envUrl = process.env.INSPECTOR_MCP_AUDITOR_URL;
+    try {
+      new URL(envUrl);
+      options.mcpAuditorUrl = envUrl;
+    } catch {
+      console.warn(
+        `Warning: Invalid INSPECTOR_MCP_AUDITOR_URL: ${envUrl}, using default`,
+      );
+    }
+  }
+
   return options as AssessmentOptions;
 }
 
@@ -1518,6 +1538,11 @@ Options:
   --log-level <level>    Set log level: silent, error, warn, info (default), debug
                          Also supports LOG_LEVEL environment variable
   --help, -h             Show this help message
+
+Environment Variables:
+  INSPECTOR_CLAUDE=true         Enable Claude with HTTP transport (same as --claude-http)
+  INSPECTOR_MCP_AUDITOR_URL     Override default mcp-auditor URL (default: http://localhost:8085)
+  LOG_LEVEL                     Set log level (overridden by --log-level flag)
 
 ${getProfileHelpText()}
 Module Selection:
