@@ -96,6 +96,60 @@ describe("TestDataGenerator", () => {
   });
 
   // ===========================================================================
+  // Logger Configuration (BC Tests for Issue #32)
+  // ===========================================================================
+  describe("Logger Configuration", () => {
+    beforeEach(() => {
+      TestDataGenerator.setLogger(null);
+    });
+
+    it("should work without logger set (backwards compatible)", () => {
+      // All existing generateTestScenarios tests verify this
+      const tool = createTool("test", { name: { type: "string" } });
+      const scenarios = TestDataGenerator.generateTestScenarios(tool);
+      expect(scenarios.length).toBeGreaterThan(0);
+    });
+
+    it("should accept logger via setLogger", () => {
+      const mockLogger = {
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        child: jest.fn().mockReturnThis(),
+        isLevelEnabled: jest.fn().mockReturnValue(true),
+      };
+
+      // Should not throw
+      TestDataGenerator.setLogger(mockLogger);
+
+      // Functionality still works
+      const tool = createTool("test", { name: { type: "string" } });
+      const scenarios = TestDataGenerator.generateTestScenarios(tool);
+      expect(scenarios.length).toBeGreaterThan(0);
+    });
+
+    it("should allow clearing logger with null", () => {
+      const mockLogger = {
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        child: jest.fn().mockReturnThis(),
+        isLevelEnabled: jest.fn().mockReturnValue(true),
+      };
+
+      TestDataGenerator.setLogger(mockLogger);
+      TestDataGenerator.setLogger(null);
+
+      // Functionality still works after clearing
+      const tool = createTool("test", { name: { type: "string" } });
+      const scenarios = TestDataGenerator.generateTestScenarios(tool);
+      expect(scenarios.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ===========================================================================
   // Field Name Detection - String Types
   // ===========================================================================
   describe("Field Name Detection - Strings", () => {
