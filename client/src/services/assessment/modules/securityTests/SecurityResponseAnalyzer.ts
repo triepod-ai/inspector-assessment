@@ -44,6 +44,9 @@ export class SecurityResponseAnalyzer {
   /**
    * Analyze response with evidence-based detection
    * CRITICAL: Distinguish between safe reflection and actual execution
+   *
+   * Refactored to reduce cyclomatic complexity (Issue #36).
+   * Detection flow: Error checks → Tool behavior → Evidence matching
    */
   analyzeResponse(
     response: CompatibilityCallToolResult,
@@ -51,11 +54,35 @@ export class SecurityResponseAnalyzer {
     tool: Tool,
   ): AnalysisResult {
     const responseText = this.extractResponseContent(response).toLowerCase();
-    const payloadText = payload.payload.toLowerCase();
+    const errorInfo = this.extractErrorInfo(response);
 
+    // Check 1: Safe error responses (MCP validation, HTTP errors)
+    const errorResult = this.checkSafeErrorResponses(responseText, errorInfo);
+    if (errorResult) return errorResult;
+
+    // Check 2: Safe tool behavior (categories, reflection, math, validation)
+    const behaviorResult = this.checkSafeToolBehavior(
+      response,
+      payload,
+      tool,
+      responseText,
+    );
+    if (behaviorResult) return behaviorResult;
+
+    // Check 3: Vulnerability evidence matching
+    return this.checkVulnerabilityEvidence(response, payload, responseText);
+  }
+
+  /**
+   * Check for safe error responses that indicate proper input rejection
+   * Handles: MCP validation errors (-32602), HTTP 4xx/5xx errors
+   */
+  private checkSafeErrorResponses(
+    responseText: string,
+    errorInfo: { code?: string | number; message?: string },
+  ): AnalysisResult | null {
     // ✅ STEP 1: Check for MCP validation errors (HIGHEST PRIORITY)
     // Tools that reject invalid input before processing are SECURE
-    const errorInfo = this.extractErrorInfo(response);
     if (this.isMCPValidationError(errorInfo, responseText)) {
       const errorCode = errorInfo.code ? ` (${errorInfo.code})` : "";
       return {
@@ -74,6 +101,19 @@ export class SecurityResponseAnalyzer {
       };
     }
 
+    return null; // Continue to next check
+  }
+
+  /**
+   * Check for safe tool behavior patterns
+   * Handles: Tool categories, reflection, computed math, validation rejection
+   */
+  private checkSafeToolBehavior(
+    response: CompatibilityCallToolResult,
+    payload: SecurityPayload,
+    tool: Tool,
+    responseText: string,
+  ): AnalysisResult | null {
     // ✅ STEP 1.5: Classify tool and check for safe categories (prevents false positives)
     const classifier = new ToolClassifier();
     const classification = classifier.classify(tool.name, tool.description);
@@ -113,7 +153,7 @@ export class SecurityResponseAnalyzer {
       };
     }
 
-    // ✅ STEP 1: Check if response is just reflecting/echoing input (SAFE)
+    // ✅ STEP 2: Check if response is just reflecting/echoing input (SAFE)
     const isJustReflection = this.isReflectionResponse(responseText);
     if (isJustReflection) {
       return {
@@ -137,6 +177,20 @@ export class SecurityResponseAnalyzer {
         evidence: "Tool correctly rejected invalid input with validation error",
       };
     }
+
+    return null; // Continue to next check
+  }
+
+  /**
+   * Check for vulnerability evidence in response
+   * Handles: Evidence pattern matching, fallback injection analysis
+   */
+  private checkVulnerabilityEvidence(
+    response: CompatibilityCallToolResult,
+    payload: SecurityPayload,
+    responseText: string,
+  ): AnalysisResult {
+    const payloadText = payload.payload.toLowerCase();
 
     // ✅ STEP 3: Check for expected evidence of execution
     if (payload.evidence && payload.evidence.test(responseText)) {
