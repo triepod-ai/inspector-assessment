@@ -24,6 +24,7 @@ import {
 import { createConcurrencyLimit } from "../../lib/concurrencyLimit";
 import { SecurityResponseAnalyzer } from "./SecurityResponseAnalyzer";
 import { SecurityPayloadGenerator } from "./SecurityPayloadGenerator";
+import { SanitizationDetector } from "./SanitizationDetector";
 import { DEFAULT_PERFORMANCE_CONFIG } from "../../config/performanceConfig";
 
 /**
@@ -55,6 +56,7 @@ export interface TestLogger {
 export class SecurityPayloadTester {
   private responseAnalyzer: SecurityResponseAnalyzer;
   private payloadGenerator: SecurityPayloadGenerator;
+  private sanitizationDetector: SanitizationDetector;
   private testCount = 0;
 
   constructor(
@@ -67,6 +69,7 @@ export class SecurityPayloadTester {
   ) {
     this.responseAnalyzer = new SecurityResponseAnalyzer();
     this.payloadGenerator = new SecurityPayloadGenerator();
+    this.sanitizationDetector = new SanitizationDetector();
   }
 
   /**
@@ -467,13 +470,25 @@ export class SecurityPayloadTester {
         tool,
       );
 
-      // Calculate confidence
+      // Issue #56: Detect sanitization for false positive reduction
+      const responseText =
+        this.responseAnalyzer.extractResponseContent(response);
+      const toolSanitization = this.sanitizationDetector.detect(tool);
+      const responseSanitization =
+        this.sanitizationDetector.detectInResponse(responseText);
+      const combinedSanitization = this.sanitizationDetector.mergeResults(
+        toolSanitization,
+        responseSanitization,
+      );
+
+      // Calculate confidence with sanitization awareness
       const confidenceResult = this.responseAnalyzer.calculateConfidence(
         tool,
         isVulnerable,
         evidence || "",
-        this.responseAnalyzer.extractResponseContent(response),
+        responseText,
         payload,
+        combinedSanitization, // Issue #56: Pass sanitization detection result
       );
 
       return {
@@ -484,7 +499,10 @@ export class SecurityPayloadTester {
         toolName: tool.name,
         vulnerable: isVulnerable,
         evidence,
-        response: this.responseAnalyzer.extractResponseContent(response),
+        response: responseText,
+        // Issue #56: Include sanitization info for transparency
+        sanitizationDetected: combinedSanitization.detected,
+        sanitizationLibraries: combinedSanitization.libraries,
         ...confidenceResult,
       };
     } catch (error) {

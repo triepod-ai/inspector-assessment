@@ -41,6 +41,7 @@ export enum ToolCategory {
   SEARCH_RETRIEVAL = "search_retrieval",
   CRUD_CREATION = "crud_creation",
   READ_ONLY_INFO = "read_only_info",
+  DATA_FETCHER = "data_fetcher",
 
   // DEFAULT
   GENERIC = "generic",
@@ -346,6 +347,23 @@ export const CATEGORY_PATTERNS: Readonly<
     risk: "LOW",
   },
 
+  [ToolCategory.DATA_FETCHER]: {
+    patterns: [
+      /get_.*_data/i, // get_company_data, get_user_data
+      /fetch_.*_info/i, // fetch_user_info
+      /list_.*records/i, // list_all_records
+      /retrieve_.*details/i, // retrieve_order_details
+      /read_.*entries/i, // read_log_entries
+      /\bget_\w+$/i, // get_users, get_orders (simple get_ prefix)
+      /\blist_\w+$/i, // list_items, list_records
+      /\bfetch_\w+$/i, // fetch_data, fetch_info
+    ],
+    confidence: 88,
+    reasoning:
+      "Read-only data fetcher pattern detected (returns external data, unlikely to compute)",
+    risk: "LOW",
+  },
+
   [ToolCategory.SAFE_STORAGE]: {
     patterns: [
       /safe.*storage/i,
@@ -401,5 +419,6 @@ export const CATEGORY_CHECK_ORDER: readonly Exclude<
   ToolCategory.SEARCH_RETRIEVAL,
   ToolCategory.CRUD_CREATION,
   ToolCategory.READ_ONLY_INFO,
+  ToolCategory.DATA_FETCHER,
   ToolCategory.SAFE_STORAGE,
 ] as const;

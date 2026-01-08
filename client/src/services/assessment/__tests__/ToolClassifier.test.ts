@@ -970,9 +970,9 @@ describe("ToolClassifier", () => {
   // ============================================================================
 
   describe("Static method: getAllCategories", () => {
-    it("returns all 17 categories", () => {
+    it("returns all 18 categories", () => {
       const categories = ToolClassifier.getAllCategories();
-      expect(categories).toHaveLength(17);
+      expect(categories).toHaveLength(18);
     });
 
     it("includes all HIGH RISK categories", () => {
@@ -1000,6 +1000,7 @@ describe("ToolClassifier", () => {
       expect(categories).toContain(ToolCategory.SEARCH_RETRIEVAL);
       expect(categories).toContain(ToolCategory.CRUD_CREATION);
       expect(categories).toContain(ToolCategory.READ_ONLY_INFO);
+      expect(categories).toContain(ToolCategory.DATA_FETCHER);
       expect(categories).toContain(ToolCategory.SAFE_STORAGE);
     });
 

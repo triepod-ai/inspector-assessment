@@ -12,6 +12,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { SecurityPayload } from "@/lib/securityPatterns";
 import { ToolClassifier, ToolCategory } from "../../ToolClassifier";
+import type { SanitizationDetectionResult } from "./SanitizationDetector";
 
 /**
  * Result of confidence calculation
@@ -29,6 +30,15 @@ export interface ConfidenceResult {
 export interface AnalysisResult {
   isVulnerable: boolean;
   evidence?: string;
+}
+
+/**
+ * Result of computed math analysis with confidence level (Issue #58)
+ */
+export interface MathResultAnalysis {
+  isComputed: boolean;
+  confidence: "high" | "medium" | "low";
+  reason?: string;
 }
 
 /**
@@ -162,8 +172,17 @@ export class SecurityResponseAnalyzer {
       };
     }
 
-    // ✅ STEP 1.7: Check for computed math results (Issue #14 fix)
-    if (this.isComputedMathResult(payload.payload, responseText)) {
+    // ✅ STEP 1.7: Check for computed math results (Issue #14 fix, enhanced in Issue #58)
+    // Use enhanced analysis with tool context and confidence levels
+    const mathAnalysis = this.analyzeComputedMathResult(
+      payload.payload,
+      responseText,
+      tool,
+    );
+
+    // Only flag as vulnerable if HIGH confidence (Issue #58 fix)
+    // Low/medium confidence excluded to prevent false positives on API wrapper tools
+    if (mathAnalysis.isComputed && mathAnalysis.confidence === "high") {
       return {
         isVulnerable: true,
         evidence: `Tool computed math expression result instead of storing/echoing it (payload: ${payload.payload})`,
@@ -478,6 +497,313 @@ export class SecurityResponseAnalyzer {
       return hasComputedResult && !hasOriginalExpression;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Check if numeric value appears in structured data context (not as computation result)
+   * Distinguishes {"records": 4} from computed "4" (Issue #58)
+   *
+   * @param result The computed numeric result to check for
+   * @param responseText The response text to analyze
+   * @returns true if the number appears to be coincidental data, not a computed result
+   */
+  isCoincidentalNumericInStructuredData(
+    result: number,
+    responseText: string,
+  ): boolean {
+    // Common data field names that often contain numeric values
+    const dataFieldPatterns = [
+      "count",
+      "total",
+      "records",
+      "page",
+      "limit",
+      "offset",
+      "id",
+      "status",
+      "code",
+      "version",
+      "index",
+      "size",
+      "employees",
+      "items",
+      "results",
+      "entries",
+      "length",
+      "pages",
+      "rows",
+      "columns",
+      "width",
+      "height",
+      "timestamp",
+      "duration",
+      "amount",
+      "price",
+      "quantity",
+    ];
+
+    // Try to parse as JSON
+    try {
+      const parsed = JSON.parse(responseText);
+
+      const checkObject = (obj: unknown, depth = 0): boolean => {
+        if (depth > 5) return false; // Prevent deep recursion
+        if (typeof obj !== "object" || obj === null) return false;
+
+        for (const [key, value] of Object.entries(obj)) {
+          // Check if numeric value matches result and key is a data field
+          if (value === result) {
+            const keyLower = key.toLowerCase();
+            if (
+              dataFieldPatterns.some((pattern) => keyLower.includes(pattern))
+            ) {
+              return true;
+            }
+          }
+          // Recurse into nested objects
+          if (typeof value === "object" && value !== null) {
+            if (checkObject(value, depth + 1)) return true;
+          }
+          // Check arrays
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              if (typeof item === "object" && checkObject(item, depth + 1)) {
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      };
+
+      return checkObject(parsed);
+    } catch {
+      // Not JSON - check for structured text patterns
+      // e.g., "Records: 4" or "Page 1 of 4" or "Total: 4 items"
+      const structuredPatterns = [
+        new RegExp(
+          `(records|count|total|page|items|results|employees|entries|rows)[:\\s]+${result}\\b`,
+          "i",
+        ),
+        new RegExp(
+          `\\b${result}\\s+(records|items|results|entries|employees|rows)\\b`,
+          "i",
+        ),
+        new RegExp(`page\\s+\\d+\\s+of\\s+${result}\\b`, "i"),
+        new RegExp(`total[:\\s]+${result}\\b`, "i"),
+        new RegExp(`found\\s+${result}\\s+(results|items|entries)`, "i"),
+      ];
+
+      return structuredPatterns.some((pattern) => pattern.test(responseText));
+    }
+  }
+
+  /**
+   * Enhanced computed math result analysis with tool context (Issue #58)
+   *
+   * Returns a confidence level indicating how likely this is a real Calculator Injection:
+   * - high: Strong evidence of computation (should flag as vulnerable)
+   * - medium: Ambiguous (excluded from vulnerability count per user decision)
+   * - low: Likely coincidental data (excluded from vulnerability count)
+   */
+  analyzeComputedMathResult(
+    payload: string,
+    responseText: string,
+    tool?: Tool,
+  ): MathResultAnalysis {
+    // Skip HTTP error responses
+    const httpErrorPattern =
+      /\b(4\d{2}|5\d{2})\b.*?(not found|error|bad request|unauthorized|forbidden|internal server|unavailable|timeout)/i;
+    const simpleHttpPattern = /^(4\d{2}|5\d{2})[\s:]/;
+    const notFoundPattern = /not found/i;
+
+    if (
+      httpErrorPattern.test(responseText) ||
+      simpleHttpPattern.test(responseText) ||
+      (notFoundPattern.test(responseText) && responseText.length < 100)
+    ) {
+      return {
+        isComputed: false,
+        confidence: "high",
+        reason: "HTTP error response",
+      };
+    }
+
+    const simpleMathPattern =
+      /^\s*(\d+)\s*([+\-*/])\s*(\d+)(?:\s*([+\-*/])\s*(\d+))?\s*$/;
+    const match = payload.match(simpleMathPattern);
+
+    if (!match) {
+      return {
+        isComputed: false,
+        confidence: "high",
+        reason: "Not a math expression",
+      };
+    }
+
+    try {
+      const num1 = parseInt(match[1], 10);
+      const op1 = match[2];
+      const num2 = parseInt(match[3], 10);
+      const op2 = match[4];
+      const num3 = match[5] ? parseInt(match[5], 10) : undefined;
+
+      let result: number;
+
+      switch (op1) {
+        case "+":
+          result = num1 + num2;
+          break;
+        case "-":
+          result = num1 - num2;
+          break;
+        case "*":
+          result = num1 * num2;
+          break;
+        case "/":
+          result = Math.floor(num1 / num2);
+          break;
+        default:
+          return {
+            isComputed: false,
+            confidence: "high",
+            reason: "Invalid operator",
+          };
+      }
+
+      if (op2 && num3 !== undefined) {
+        switch (op2) {
+          case "+":
+            result = result + num3;
+            break;
+          case "-":
+            result = result - num3;
+            break;
+          case "*":
+            result = result * num3;
+            break;
+          case "/":
+            result = Math.floor(result / num3);
+            break;
+          default:
+            return {
+              isComputed: false,
+              confidence: "high",
+              reason: "Invalid second operator",
+            };
+        }
+      }
+
+      const resultStr = result.toString();
+      const hasComputedResult = responseText.includes(resultStr);
+      const normalizedPayload = payload.replace(/\s+/g, "");
+      const hasOriginalExpression =
+        responseText.includes(payload) ||
+        responseText.includes(normalizedPayload);
+
+      // Basic detection: result present without original expression
+      const basicDetection = hasComputedResult && !hasOriginalExpression;
+
+      if (!basicDetection) {
+        return {
+          isComputed: false,
+          confidence: "high",
+          reason: "No computed result found",
+        };
+      }
+
+      // Layer 1: Check if numeric appears in structured data context (Issue #58)
+      if (this.isCoincidentalNumericInStructuredData(result, responseText)) {
+        return {
+          isComputed: false,
+          confidence: "low",
+          reason:
+            "Numeric value appears in structured data field (e.g., count, records)",
+        };
+      }
+
+      // Layer 2: Tool classification heuristics (Issue #58)
+      if (tool) {
+        const classifier = new ToolClassifier();
+        const classification = classifier.classify(tool.name, tool.description);
+
+        // Check for read-only/data fetcher categories
+        if (
+          classification.categories.includes(ToolCategory.DATA_FETCHER) ||
+          classification.categories.includes(ToolCategory.API_WRAPPER) ||
+          classification.categories.includes(ToolCategory.SEARCH_RETRIEVAL)
+        ) {
+          return {
+            isComputed: false,
+            confidence: "low",
+            reason: `Tool classified as ${classification.categories[0]} - unlikely to compute math`,
+          };
+        }
+
+        // Check for "get_", "list_", "fetch_" patterns in tool name
+        const readOnlyNamePatterns =
+          /^(get|list|fetch|read|retrieve|show|view)_/i;
+        if (readOnlyNamePatterns.test(tool.name)) {
+          return {
+            isComputed: false,
+            confidence: "low",
+            reason: "Tool name indicates read-only operation",
+          };
+        }
+      }
+
+      // Layer 3: Check for computational language in response
+      const computationalIndicators = [
+        /\bthe\s+answer\s+is\b/i,
+        /\bresult\s*[=:]\s*\d/i,
+        /\bcalculated\s+to\b/i,
+        /\bcomputed\s+as\b/i,
+        /\bevaluates?\s+to\b/i,
+        /\bequals?\s+\d/i,
+        /\bsum\s+is\b/i,
+        /\bproduct\s+is\b/i,
+      ];
+
+      const hasComputationalContext = computationalIndicators.some((p) =>
+        p.test(responseText),
+      );
+
+      if (hasComputationalContext) {
+        return {
+          isComputed: true,
+          confidence: "high",
+          reason: "Response contains computational language",
+        };
+      }
+
+      // Layer 4: Longer responses without computational language are likely data
+      if (responseText.length > 50) {
+        return {
+          isComputed: false,
+          confidence: "medium",
+          reason:
+            "Response lacks computational language, likely coincidental data",
+        };
+      }
+
+      // Short response with just the number - this is suspicious
+      if (responseText.trim() === resultStr) {
+        return {
+          isComputed: true,
+          confidence: "high",
+          reason: "Response is exactly the computed result",
+        };
+      }
+
+      // Default: medium confidence (excluded per user decision)
+      return {
+        isComputed: false,
+        confidence: "medium",
+        reason: "Ambiguous - numeric match without computational context",
+      };
+    } catch {
+      return { isComputed: false, confidence: "high", reason: "Parse error" };
     }
   }
 
@@ -909,6 +1235,14 @@ export class SecurityResponseAnalyzer {
 
   /**
    * Calculate confidence level and manual review requirements
+   *
+   * @param tool - The tool being tested
+   * @param isVulnerable - Whether the tool was flagged as vulnerable
+   * @param evidence - Evidence string from vulnerability detection
+   * @param responseText - The response text from the tool
+   * @param payload - The security payload used for testing
+   * @param sanitizationResult - Optional sanitization detection result (Issue #56)
+   * @returns Confidence result with manual review requirements
    */
   calculateConfidence(
     tool: Tool,
@@ -916,7 +1250,49 @@ export class SecurityResponseAnalyzer {
     evidence: string,
     responseText: string,
     payload: SecurityPayload,
+    sanitizationResult?: SanitizationDetectionResult,
   ): ConfidenceResult {
+    // Issue #56: If sanitization is detected, reduce confidence for vulnerabilities
+    // This helps reduce false positives on well-protected servers
+    if (isVulnerable && sanitizationResult?.detected) {
+      const adjustment = sanitizationResult.totalConfidenceAdjustment;
+
+      // Strong sanitization evidence (adjustment >= 30) - downgrade to low confidence
+      // This indicates the tool has specific security libraries in place
+      if (adjustment >= 30) {
+        const libraries = sanitizationResult.libraries.join(", ") || "general";
+        return {
+          confidence: "low",
+          requiresManualReview: true,
+          manualReviewReason:
+            `Sanitization detected (${libraries}). ` +
+            `Pattern match may be false positive due to security measures in place.`,
+          reviewGuidance:
+            `Tool uses sanitization libraries. Verify if the detected vulnerability ` +
+            `actually bypasses the sanitization layer. Check: 1) Does the payload execute ` +
+            `after sanitization? 2) Is the sanitization comprehensive for this attack type? ` +
+            `3) Evidence: ${sanitizationResult.evidence.join("; ")}`,
+        };
+      }
+
+      // Moderate sanitization evidence (adjustment >= 15) - downgrade high to medium
+      if (adjustment >= 15) {
+        const patterns =
+          sanitizationResult.libraries.length > 0
+            ? sanitizationResult.libraries.join(", ")
+            : sanitizationResult.genericPatterns.join(", ");
+        return {
+          confidence: "medium",
+          requiresManualReview: true,
+          manualReviewReason: `Sanitization patterns detected (${patterns}). Verify actual vulnerability.`,
+          reviewGuidance:
+            `Tool mentions sanitization in description or shows sanitization in response. ` +
+            `Verify if the detected pattern represents actual code execution or if it's ` +
+            `safely handled. Evidence: ${sanitizationResult.evidence.join("; ")}`,
+        };
+      }
+    }
+
     const toolDescription = (tool.description || "").toLowerCase();
     const toolName = tool.name.toLowerCase();
     const responseLower = responseText.toLowerCase();

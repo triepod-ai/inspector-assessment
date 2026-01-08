@@ -16,6 +16,7 @@ import {
 } from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext, MCPPrompt } from "../AssessmentOrchestrator";
+import { SanitizationDetector } from "./securityTests/SanitizationDetector";
 
 // AUP violation patterns in prompt descriptions/content
 const AUP_VIOLATION_PATTERNS = [
@@ -583,6 +584,7 @@ export class PromptAssessor extends BaseAssessor {
 
   /**
    * Analyze dynamic content characteristics for enrichment (Issue #9)
+   * Enhanced with SanitizationDetector for library-aware detection (Issue #56)
    */
   private analyzeDynamicContent(prompt: MCPPrompt): {
     hasInterpolation: boolean;
@@ -601,13 +603,15 @@ export class PromptAssessor extends BaseAssessor {
       /\{[a-zA-Z_][a-zA-Z0-9_]*\}/i.test(fullText) ||
       (prompt.arguments?.length || 0) > 0;
 
-    // Detect escaping mechanisms mentioned
-    const escapingApplied: string[] = [];
-    if (/sanitiz/i.test(fullText)) escapingApplied.push("sanitization");
-    if (/escap/i.test(fullText)) escapingApplied.push("escaping");
-    if (/encod/i.test(fullText)) escapingApplied.push("encoding");
-    if (/validat/i.test(fullText)) escapingApplied.push("validation");
-    if (/filter/i.test(fullText)) escapingApplied.push("filtering");
+    // Issue #56: Use SanitizationDetector for library-aware detection
+    const sanitizationDetector = new SanitizationDetector();
+    const sanitizationResult = sanitizationDetector.detectFromText(fullText);
+
+    // Combine library detection with generic patterns for escapingApplied
+    const escapingApplied: string[] = [
+      ...sanitizationResult.libraries,
+      ...sanitizationResult.genericPatterns,
+    ];
 
     // Infer injection safety from multiple signals
     const hasTypeChecks = prompt.arguments?.some(
@@ -621,9 +625,14 @@ export class PromptAssessor extends BaseAssessor {
         a.description?.toLowerCase().includes("limit"),
     );
 
-    // Consider injection safe if escaping is mentioned or validation exists
+    // Issue #56: Enhanced injection safety determination
+    // Now considers specific libraries (stronger signal) in addition to generic patterns
     const injectionSafe =
-      escapingApplied.length > 0 || hasTypeChecks || hasLengthLimits || false;
+      sanitizationResult.libraries.length > 0 || // Specific library = strong signal
+      sanitizationResult.genericPatterns.length >= 2 || // Multiple generic patterns
+      hasTypeChecks ||
+      hasLengthLimits ||
+      false;
 
     return {
       hasInterpolation,

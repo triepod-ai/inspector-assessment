@@ -139,6 +139,9 @@ export interface SecurityTestResult {
   connectionError?: boolean; // True if test failed due to connection/server failure
   errorType?: "connection" | "server" | "protocol"; // Classify error type
   testReliability?: "completed" | "failed" | "retried"; // Test execution status
+  // Issue #56: Sanitization detection fields for false positive reduction
+  sanitizationDetected?: boolean; // Whether sanitization was detected in tool/response
+  sanitizationLibraries?: string[]; // Specific libraries detected (e.g., "DOMPurify")
 }
 
 // ============================================================================
