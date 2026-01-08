@@ -112,6 +112,7 @@ import {
   SecurityAssessment,
 } from "../../client/lib/lib/assessmentTypes.js";
 import { AssessmentContext } from "../../client/lib/services/assessment/AssessmentOrchestrator.js";
+import { loadPerformanceConfig } from "../../client/lib/services/assessment/config/performanceConfig.js";
 
 interface ServerConfig {
   transport?: "stdio" | "http" | "sse";
@@ -153,6 +154,8 @@ interface AssessmentOptions {
   toolName?: string;
   verbose?: boolean;
   helpRequested?: boolean;
+  /** Path to performance configuration JSON (Issue #37) */
+  performanceConfigPath?: string;
 }
 
 /**
@@ -356,6 +359,30 @@ async function runSecurityAssessment(
     options.serverConfigPath,
   );
 
+  // Load custom performance config if provided (Issue #37)
+  // Note: Currently, modules use DEFAULT_PERFORMANCE_CONFIG directly.
+  // This validates the config file but doesn't override runtime values yet.
+  if (options.performanceConfigPath) {
+    try {
+      const performanceConfig = loadPerformanceConfig(
+        options.performanceConfigPath,
+      );
+      console.log(
+        `📊 Performance config loaded from: ${options.performanceConfigPath}`,
+      );
+      console.log(
+        `   Batch interval: ${performanceConfig.batchFlushIntervalMs}ms, ` +
+          `Security batch: ${performanceConfig.securityBatchSize}`,
+      );
+      // TODO: Wire performanceConfig through to SecurityAssessor
+    } catch (error) {
+      console.error(
+        `❌ Failed to load performance config: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
   const client = await connectToServer(serverConfig);
   console.log("✅ Connected successfully");
 
@@ -479,6 +506,9 @@ function parseArgs(): AssessmentOptions {
       case "-v":
         options.verbose = true;
         break;
+      case "--performance-config":
+        options.performanceConfigPath = args[++i];
+        break;
       case "--help":
       case "-h":
         printHelp();
@@ -524,6 +554,7 @@ Options:
   --config, -c <path>    Path to server config JSON
   --output, -o <path>    Output JSON path (default: /tmp/inspector-security-assessment-<server>.json)
   --tool, -t <name>      Test only specific tool (default: test all tools)
+  --performance-config <path>  Path to performance tuning JSON (batch sizes, timeouts, etc.)
   --verbose, -v          Enable verbose logging
   --help, -h             Show this help message
 

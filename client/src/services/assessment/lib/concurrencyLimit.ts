@@ -4,6 +4,7 @@
  */
 
 import { Logger } from "./logger";
+import { DEFAULT_PERFORMANCE_CONFIG } from "../config/performanceConfig";
 
 /**
  * Warning threshold for queue depth monitoring.
@@ -15,8 +16,11 @@ import { Logger } from "./logger";
  *
  * Threshold of 10,000 provides ~146% headroom to accommodate larger
  * tool sets while catching true runaway scenarios.
+ *
+ * @see PerformanceConfig.queueWarningThreshold (Issue #37)
  */
-export const QUEUE_WARNING_THRESHOLD = 10000;
+export const QUEUE_WARNING_THRESHOLD =
+  DEFAULT_PERFORMANCE_CONFIG.queueWarningThreshold;
 
 export type LimitFunction = <T>(fn: () => Promise<T>) => Promise<T>;
 

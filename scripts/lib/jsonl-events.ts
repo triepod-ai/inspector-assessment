@@ -28,6 +28,7 @@ import {
   normalizeModuleKey,
   INSPECTOR_VERSION,
 } from "../../client/src/lib/moduleScoring.js";
+import { DEFAULT_PERFORMANCE_CONFIG } from "../../client/src/services/assessment/config/performanceConfig.js";
 
 // ============================================================================
 // Types
@@ -688,11 +689,19 @@ export class EventBatcher {
   private onBatchCallback?: (batch: TestBatch) => void;
   private flushTimer?: ReturnType<typeof setTimeout>;
 
+  /**
+   * Create a new EventBatcher.
+   *
+   * @param module - Module name for progress tracking
+   * @param total - Total number of tests expected
+   * @param flushIntervalMs - Interval between flushes (default from PerformanceConfig)
+   * @param maxBatchSize - Maximum batch size before flush (default from PerformanceConfig)
+   */
   constructor(
     module: string,
     total: number,
-    flushIntervalMs: number = 500,
-    maxBatchSize: number = 10,
+    flushIntervalMs: number = DEFAULT_PERFORMANCE_CONFIG.batchFlushIntervalMs,
+    maxBatchSize: number = DEFAULT_PERFORMANCE_CONFIG.securityBatchSize,
   ) {
     this.module = module;
     this.total = total;

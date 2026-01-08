@@ -24,6 +24,7 @@ import {
 import { createConcurrencyLimit } from "../../lib/concurrencyLimit";
 import { SecurityResponseAnalyzer } from "./SecurityResponseAnalyzer";
 import { SecurityPayloadGenerator } from "./SecurityPayloadGenerator";
+import { DEFAULT_PERFORMANCE_CONFIG } from "../../config/performanceConfig";
 
 /**
  * Re-export ProgressCallback for external use
@@ -93,6 +94,7 @@ export class SecurityPayloadTester {
     const limit = createConcurrencyLimit(concurrency);
 
     // Progress tracking for batched events
+    // Uses centralized PerformanceConfig values (Issue #37)
     let totalPayloads = 0;
     for (const pattern of attackPatterns) {
       totalPayloads += getPayloadsForAttack(pattern.attackName).length;
@@ -101,8 +103,8 @@ export class SecurityPayloadTester {
     let completedTests = 0;
     let lastBatchTime = Date.now();
     const startTime = Date.now();
-    const BATCH_INTERVAL = 500;
-    const BATCH_SIZE = 10;
+    const BATCH_INTERVAL = DEFAULT_PERFORMANCE_CONFIG.batchFlushIntervalMs;
+    const BATCH_SIZE = DEFAULT_PERFORMANCE_CONFIG.securityBatchSize;
     let batchCount = 0;
 
     const emitProgressBatch = () => {
@@ -260,12 +262,14 @@ export class SecurityPayloadTester {
       criticalPatterns.includes(p.attackName),
     );
 
+    // Progress tracking for batched events
+    // Uses centralized PerformanceConfig values (Issue #37)
     const totalEstimate = tools.length * basicPatterns.length;
     let completedTests = 0;
     let lastBatchTime = Date.now();
     const startTime = Date.now();
-    const BATCH_INTERVAL = 500;
-    const BATCH_SIZE = 10;
+    const BATCH_INTERVAL = DEFAULT_PERFORMANCE_CONFIG.batchFlushIntervalMs;
+    const BATCH_SIZE = DEFAULT_PERFORMANCE_CONFIG.securityBatchSize;
     let batchCount = 0;
 
     const emitProgressBatch = () => {
@@ -428,7 +432,10 @@ export class SecurityPayloadTester {
         };
       }
 
-      const securityTimeout = this.config.securityTestTimeout ?? 5000;
+      // Use config timeout or fall back to centralized PerformanceConfig (Issue #37)
+      const securityTimeout =
+        this.config.securityTestTimeout ??
+        DEFAULT_PERFORMANCE_CONFIG.securityTestTimeoutMs;
       const response = await this.executeWithTimeout(
         callTool(tool.name, params),
         securityTimeout,

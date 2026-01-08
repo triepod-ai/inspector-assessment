@@ -58,6 +58,10 @@ import {
   emitAnnotationAligned,
   emitModulesConfigured,
 } from "./lib/jsonl-events.js";
+import {
+  loadPerformanceConfig,
+  PerformanceConfig,
+} from "../../client/lib/services/assessment/config/performanceConfig.js";
 import { ScopedListenerConfig } from "./lib/event-config.js";
 import {
   ASSESSMENT_PROFILES,
@@ -116,6 +120,8 @@ interface AssessmentOptions {
   outputPath?: string;
   sourceCodePath?: string;
   patternConfigPath?: string;
+  /** Path to performance configuration JSON (Issue #37) */
+  performanceConfigPath?: string;
   claudeEnabled?: boolean;
   fullAssessment?: boolean;
   verbose?: boolean;
@@ -557,6 +563,32 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
   // Pass custom annotation pattern config path
   if (options.patternConfigPath) {
     config.patternConfigPath = options.patternConfigPath;
+  }
+
+  // Load custom performance config if provided (Issue #37)
+  // Note: Currently, modules use DEFAULT_PERFORMANCE_CONFIG directly.
+  // This validates the config file but doesn't override runtime values yet.
+  // Future enhancement: Pass performanceConfig through AssessmentContext.
+  if (options.performanceConfigPath) {
+    try {
+      const performanceConfig = loadPerformanceConfig(
+        options.performanceConfigPath,
+      );
+      console.log(
+        `📊 Performance config loaded from: ${options.performanceConfigPath}`,
+      );
+      console.log(
+        `   Batch interval: ${performanceConfig.batchFlushIntervalMs}ms, ` +
+          `Security batch: ${performanceConfig.securityBatchSize}, ` +
+          `Functionality batch: ${performanceConfig.functionalityBatchSize}`,
+      );
+      // TODO: Wire performanceConfig through AssessmentContext to modules
+    } catch (error) {
+      console.error(
+        `❌ Failed to load performance config: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   // Logging configuration
@@ -1207,6 +1239,9 @@ function parseArgs(): AssessmentOptions {
       case "-p":
         options.patternConfigPath = args[++i];
         break;
+      case "--performance-config":
+        options.performanceConfigPath = args[++i];
+        break;
       case "--claude-enabled":
         options.claudeEnabled = true;
         break;
@@ -1406,6 +1441,7 @@ Options:
   --output, -o <path>    Output path (default: /tmp/inspector-full-assessment-<server>.<ext>)
   --source <path>        Source code path for deep analysis (AUP, portability, etc.)
   --pattern-config, -p <path>  Path to custom annotation pattern JSON
+  --performance-config <path>  Path to performance tuning JSON (batch sizes, timeouts, etc.)
   --format, -f <type>    Output format: json (default) or markdown
   --include-policy       Include policy compliance mapping in report (30 requirements)
   --preflight            Run quick validation only (tools exist, manifest valid, server responds)

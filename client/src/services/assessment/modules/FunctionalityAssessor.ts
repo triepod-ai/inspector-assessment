@@ -17,6 +17,7 @@ import { TestDataGenerator } from "../TestDataGenerator";
 import { cleanParams } from "@/utils/paramUtils";
 import { JsonSchemaType } from "@/utils/jsonUtils";
 import { resolveRef, normalizeUnionType } from "@/utils/schemaUtils";
+import { DEFAULT_PERFORMANCE_CONFIG } from "../config/performanceConfig";
 
 export class FunctionalityAssessor extends BaseAssessor {
   private toolClassifier = new ToolClassifier();
@@ -77,12 +78,13 @@ export class FunctionalityAssessor extends BaseAssessor {
     const limit = createConcurrencyLimit(concurrency, this.logger);
 
     // Progress tracking for batched events
+    // Uses centralized PerformanceConfig values (Issue #37)
     const totalEstimate = toolsToTest.length;
     let completedTests = 0;
     let lastBatchTime = Date.now();
     const startTime = Date.now();
-    const BATCH_INTERVAL = 500;
-    const BATCH_SIZE = 5; // Smaller batch for functionality (fewer tests)
+    const BATCH_INTERVAL = DEFAULT_PERFORMANCE_CONFIG.batchFlushIntervalMs;
+    const BATCH_SIZE = DEFAULT_PERFORMANCE_CONFIG.functionalityBatchSize;
     let batchCount = 0;
 
     const emitProgressBatch = () => {
