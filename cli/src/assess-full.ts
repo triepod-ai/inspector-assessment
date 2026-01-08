@@ -14,13 +14,6 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { EventEmitter } from "events";
-
-// Increase max listeners to prevent warning during security testing
-// Full assessment runs 234+ sequential tool calls (6 tools × 13 patterns × 3 payloads)
-// Each call may add listeners to the underlying socket
-EventEmitter.defaultMaxListeners = 300;
-process.setMaxListeners(300);
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -65,6 +58,7 @@ import {
   emitAnnotationAligned,
   emitModulesConfigured,
 } from "./lib/jsonl-events.js";
+import { ScopedListenerConfig } from "./lib/event-config.js";
 import {
   ASSESSMENT_PROFILES,
   PROFILE_METADATA,
@@ -1499,12 +1493,19 @@ Examples:
  * Main execution
  */
 async function main() {
+  // Use scoped listener configuration instead of global modification
+  // See GitHub Issue #33 for rationale
+  const listenerConfig = new ScopedListenerConfig(50);
+
   try {
     const options = parseArgs();
 
     if (options.helpRequested) {
       return;
     }
+
+    // Apply scoped listener configuration for assessment
+    listenerConfig.apply();
 
     const results = await runFullAssessment(options);
 
@@ -1615,6 +1616,9 @@ async function main() {
       console.error(error.stack);
     }
     setTimeout(() => process.exit(1), 10);
+  } finally {
+    // Restore original listener configuration
+    listenerConfig.restore();
   }
 }
 

@@ -14,8 +14,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { EventEmitter } from "events";
 import { execSync } from "child_process";
+import { ScopedListenerConfig } from "../cli/src/lib/event-config.js";
 
 /**
  * Validate that a command is safe to execute
@@ -96,11 +96,6 @@ function safeJsonParse<T>(content: string, filePath: string): T {
     );
   }
 }
-
-// Increase max listeners to prevent warning during security testing
-// Security assessment runs 234+ sequential tool calls (tools × 13 patterns × payloads)
-EventEmitter.defaultMaxListeners = 300;
-process.setMaxListeners(300);
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -769,9 +764,16 @@ function displayCombinedSummary(results: CombinedAssessmentResults) {
 async function main() {
   const startTime = Date.now();
 
+  // Use scoped listener configuration instead of global modification
+  // See GitHub Issue #33 for rationale
+  const listenerConfig = new ScopedListenerConfig(50);
+
   try {
     const options = parseArgs();
     const modules = options.modules!; // Always set by parseArgs
+
+    // Apply scoped listener configuration for assessment
+    listenerConfig.apply();
 
     console.log(`\n🔍 Connecting to MCP server: ${options.serverName}`);
     console.log(`📦 Modules to run: ${modules.join(", ")}`);
@@ -981,6 +983,9 @@ async function main() {
       console.error(error.stack);
     }
     process.exit(1);
+  } finally {
+    // Restore original listener configuration
+    listenerConfig.restore();
   }
 }
 
