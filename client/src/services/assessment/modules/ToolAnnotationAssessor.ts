@@ -43,6 +43,8 @@ import {
   detectAnnotationDeception,
   isActionableConfidence,
   inferBehavior,
+  detectArchitecture,
+  type ArchitectureContext,
 } from "./annotations";
 
 /**
@@ -154,6 +156,37 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       `Persistence model detected: ${this.persistenceContext.model} (confidence: ${this.persistenceContext.confidence})`,
     );
 
+    // Issue #57: Detect server architecture
+    const architectureContext: ArchitectureContext = {
+      tools: context.tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        inputSchema: t.inputSchema,
+      })),
+      transportType: context.transportConfig?.type,
+      sourceCodeFiles: context.sourceCodeFiles,
+      packageJson:
+        context.packageJson && typeof context.packageJson === "object"
+          ? (context.packageJson as {
+              dependencies?: Record<string, string>;
+              devDependencies?: Record<string, string>;
+            })
+          : undefined,
+    };
+    const architectureAnalysis = detectArchitecture(architectureContext);
+    this.log(
+      `Architecture detected: ${architectureAnalysis.serverType} server, databases: ${architectureAnalysis.databaseBackends.join(", ") || "none"}, network: ${architectureAnalysis.requiresNetworkAccess}`,
+    );
+
+    // Issue #57: Behavior inference metrics tracking
+    const behaviorInferenceMetrics = {
+      namePatternMatches: 0,
+      descriptionMatches: 0,
+      schemaMatches: 0,
+      aggregatedConfidenceSum: 0,
+      toolCount: 0,
+    };
+
     const useClaudeInference = this.isClaudeEnabled();
     if (useClaudeInference) {
       this.log(
@@ -246,6 +279,33 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         }
       }
 
+      // Issue #57: Track behavior inference metrics
+      if (latestResult.inferredBehavior) {
+        behaviorInferenceMetrics.toolCount++;
+        // Check if name pattern was primary signal
+        if (
+          latestResult.inferredBehavior.reason.includes("pattern") ||
+          latestResult.inferredBehavior.confidence === "high"
+        ) {
+          behaviorInferenceMetrics.namePatternMatches++;
+        }
+        // Check if description was a factor
+        if (
+          latestResult.inferredBehavior.reason.includes("Description") ||
+          latestResult.inferredBehavior.reason.includes("description")
+        ) {
+          behaviorInferenceMetrics.descriptionMatches++;
+        }
+        // Calculate confidence contribution
+        const confVal =
+          latestResult.inferredBehavior.confidence === "high"
+            ? 90
+            : latestResult.inferredBehavior.confidence === "medium"
+              ? 70
+              : 40;
+        behaviorInferenceMetrics.aggregatedConfidenceSum += confVal;
+      }
+
       // Emit poisoned description event
       if (latestResult.descriptionPoisoning?.detected) {
         poisonedDescriptionsCount++;
@@ -314,6 +374,20 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         annotationSources: annotationSourceCounts,
         poisonedDescriptionsDetected: poisonedDescriptionsCount,
         extendedMetadataMetrics: extendedMetadataCounts,
+        // Issue #57: Architecture and behavior inference
+        architectureAnalysis,
+        behaviorInferenceMetrics: {
+          namePatternMatches: behaviorInferenceMetrics.namePatternMatches,
+          descriptionMatches: behaviorInferenceMetrics.descriptionMatches,
+          schemaMatches: behaviorInferenceMetrics.schemaMatches,
+          aggregatedConfidenceAvg:
+            behaviorInferenceMetrics.toolCount > 0
+              ? Math.round(
+                  behaviorInferenceMetrics.aggregatedConfidenceSum /
+                    behaviorInferenceMetrics.toolCount,
+                )
+              : 0,
+        },
         claudeEnhanced: true,
         highConfidenceMisalignments,
       };
@@ -332,6 +406,20 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       annotationSources: annotationSourceCounts,
       poisonedDescriptionsDetected: poisonedDescriptionsCount,
       extendedMetadataMetrics: extendedMetadataCounts,
+      // Issue #57: Architecture and behavior inference
+      architectureAnalysis,
+      behaviorInferenceMetrics: {
+        namePatternMatches: behaviorInferenceMetrics.namePatternMatches,
+        descriptionMatches: behaviorInferenceMetrics.descriptionMatches,
+        schemaMatches: behaviorInferenceMetrics.schemaMatches,
+        aggregatedConfidenceAvg:
+          behaviorInferenceMetrics.toolCount > 0
+            ? Math.round(
+                behaviorInferenceMetrics.aggregatedConfidenceSum /
+                  behaviorInferenceMetrics.toolCount,
+              )
+            : 0,
+      },
     };
   }
 

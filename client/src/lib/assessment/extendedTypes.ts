@@ -187,6 +187,19 @@ export interface ToolAnnotationAssessment {
     toolsWithReturnSchema: number;
     toolsWithBulkSupport: number;
   };
+  /** Server architecture analysis (Issue #57) */
+  architectureAnalysis?: ArchitectureAnalysis;
+  /** Enhanced behavior inference metrics (Issue #57) */
+  behaviorInferenceMetrics?: {
+    /** Count of tools matched by name patterns */
+    namePatternMatches: number;
+    /** Count of tools matched by description analysis */
+    descriptionMatches: number;
+    /** Count of tools matched by schema analysis */
+    schemaMatches: number;
+    /** Average aggregated confidence across all tools (0-100) */
+    aggregatedConfidenceAvg: number;
+  };
 }
 
 // ============================================================================
@@ -621,4 +634,114 @@ export interface ProtocolConformanceAssessment {
   explanation: string;
   /** Recommendations for improving protocol conformance */
   recommendations: string[];
+}
+
+// ============================================================================
+// Architecture Detection Types (Issue #57)
+// Detects database backends, server types, and transport capabilities
+// ============================================================================
+
+/**
+ * Database backend types detected from patterns
+ */
+export type DatabaseBackend =
+  | "neo4j"
+  | "mongodb"
+  | "sqlite"
+  | "postgresql"
+  | "mysql"
+  | "redis"
+  | "dynamodb"
+  | "firestore"
+  | "supabase"
+  | "cassandra"
+  | "elasticsearch"
+  | "unknown";
+
+/**
+ * Transport mode capabilities
+ */
+export type TransportMode = "stdio" | "http" | "sse";
+
+/**
+ * Server architecture classification
+ */
+export type ServerArchitectureType = "local" | "hybrid" | "remote";
+
+/**
+ * Result of architecture analysis
+ * Provides insights into server infrastructure and dependencies
+ */
+export interface ArchitectureAnalysis {
+  /** Classification of server architecture */
+  serverType: ServerArchitectureType;
+  /** Primary detected database backend (if any) */
+  databaseBackend?: DatabaseBackend;
+  /** All detected database backends (may include multiple) */
+  databaseBackends: DatabaseBackend[];
+  /** Detected transport modes the server supports */
+  transportModes: TransportMode[];
+  /** External services detected (e.g., GitHub, AWS, OpenAI) */
+  externalDependencies: string[];
+  /** Whether the server requires network/internet access */
+  requiresNetworkAccess: boolean;
+  /** Confidence level of the analysis */
+  confidence: "high" | "medium" | "low";
+  /** Evidence supporting the analysis */
+  evidence: {
+    /** Strings matched that indicate database usage */
+    databaseIndicators: string[];
+    /** Strings matched that indicate transport modes */
+    transportIndicators: string[];
+    /** Strings matched that indicate network requirements */
+    networkIndicators: string[];
+  };
+}
+
+// ============================================================================
+// Enhanced Behavior Inference Types (Issue #57)
+// Multi-signal behavior inference with aggregated confidence
+// ============================================================================
+
+/**
+ * Signal from a single inference source (name, description, or schema)
+ */
+export interface InferenceSignal {
+  /** Whether this signal indicates read-only behavior */
+  expectedReadOnly: boolean;
+  /** Whether this signal indicates destructive behavior */
+  expectedDestructive: boolean;
+  /** Confidence level (0-100) */
+  confidence: number;
+  /** Evidence explaining why this signal was detected */
+  evidence: string[];
+}
+
+/**
+ * Enhanced behavior inference result with multi-signal analysis
+ * Aggregates signals from name patterns, descriptions, and schemas
+ */
+export interface EnhancedBehaviorInferenceResult {
+  /** Final inferred behavior */
+  expectedReadOnly: boolean;
+  expectedDestructive: boolean;
+  /** Primary reason for the inference */
+  reason: string;
+  /** Overall confidence level */
+  confidence: "high" | "medium" | "low";
+  /** Whether the inference is ambiguous */
+  isAmbiguous: boolean;
+  /** Individual signals from each source */
+  signals: {
+    /** Signal from tool name pattern matching */
+    namePatternSignal?: InferenceSignal;
+    /** Signal from description keyword analysis */
+    descriptionSignal?: InferenceSignal;
+    /** Signal from input schema analysis */
+    inputSchemaSignal?: InferenceSignal;
+    /** Signal from output schema analysis */
+    outputSchemaSignal?: InferenceSignal;
+  };
+  /** Aggregated confidence from all signals (0-100) */
+  aggregatedConfidence: number;
 }
