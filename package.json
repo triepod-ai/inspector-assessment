@@ -103,6 +103,7 @@
     "test:mcp": "ts-node mcp-test-harness.ts --url http://localhost:3000 --token $MCP_TOKEN --badToken $MCP_BAD_TOKEN --protocol 2025-06-18 --fuzz 500",
     "validate:testbed": "npm run build-cli && node cli/build/validate-testbed.js",
     "validate:publish": "node scripts/validate-publish.js",
+    "validate:tarball": "node scripts/validate-tarball.js",
     "prettier-fix": "prettier --write .",
     "prettier-check": "prettier --check .",
     "lint": "prettier --check . && cd client && npm run lint",

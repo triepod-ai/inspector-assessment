@@ -108,6 +108,11 @@ import {
 
 // Import assessment modules WITHOUT modification
 import { SecurityAssessor } from "../client/src/services/assessment/modules/SecurityAssessor.js";
+// Import ClaudeCodeBridge for semantic analysis
+import {
+  ClaudeCodeBridge,
+  HTTP_CLAUDE_CODE_CONFIG,
+} from "../client/src/services/assessment/lib/claudeCodeBridge.js";
 import { AUPComplianceAssessor } from "../client/src/services/assessment/modules/AUPComplianceAssessor.js";
 import { FunctionalityAssessor } from "../client/src/services/assessment/modules/FunctionalityAssessor.js";
 import { DocumentationAssessor } from "../client/src/services/assessment/modules/DocumentationAssessor.js";
@@ -268,6 +273,8 @@ interface AssessmentOptions {
   verbose?: boolean;
   runAUP?: boolean; // DEPRECATED: use --module instead
   modules?: string[]; // Optional: specific modules to run (default: security,aupCompliance)
+  enableClaude?: boolean; // Enable Claude semantic analysis via mcp-auditor
+  mcpAuditorUrl?: string; // mcp-auditor URL (default: http://localhost:8085)
 }
 
 /**
@@ -526,6 +533,12 @@ function parseArgs(): AssessmentOptions {
         // DEPRECATED: Keep for backward compatibility
         options.runAUP = true;
         break;
+      case "--claude":
+        options.enableClaude = true;
+        break;
+      case "--mcp-auditor-url":
+        options.mcpAuditorUrl = args[++i];
+        break;
       case "--module":
       case "-m":
         options.modules = args[++i].split(",").map((m) => m.trim());
@@ -571,6 +584,14 @@ function parseArgs(): AssessmentOptions {
     options.modules = DEFAULT_MODULES;
   }
 
+  // Environment variable fallbacks for Claude semantic analysis
+  options.enableClaude =
+    options.enableClaude ?? process.env.INSPECTOR_CLAUDE === "true";
+  options.mcpAuditorUrl =
+    options.mcpAuditorUrl ??
+    process.env.INSPECTOR_MCP_AUDITOR_URL ??
+    "http://localhost:8085";
+
   return options as AssessmentOptions;
 }
 
@@ -591,9 +612,15 @@ Options:
   --module, -m <names>     Modules to run, comma-separated (default: security,aupCompliance)
                            Available: ${moduleList}
                            Use "all" to run all modules
+  --claude                 Enable Claude semantic analysis via mcp-auditor
+  --mcp-auditor-url <url>  mcp-auditor URL (default: http://localhost:8085)
   --aup                    [DEPRECATED] Use --module security,aupCompliance instead
   --verbose, -v            Enable verbose logging
   --help, -h               Show this help message
+
+Environment Variables:
+  INSPECTOR_CLAUDE=true      Enable Claude semantic analysis
+  INSPECTOR_MCP_AUDITOR_URL  mcp-auditor URL (overridden by --mcp-auditor-url)
 
 Examples:
   npm run assess -- --server my-server                           # default: security + aupCompliance
@@ -602,6 +629,8 @@ Examples:
   npm run assess -- --server my-server --module security,functionality
   npm run assess -- --server my-server --module all              # run all 13 modules
   npm run assess -- --server my-server --tool calc --module functionality
+  npm run assess -- --server my-server --claude                  # with Claude semantic analysis
+  INSPECTOR_CLAUDE=true npm run assess -- --server my-server     # via env var
   `);
 }
 
@@ -633,7 +662,7 @@ interface CombinedAssessmentResults {
  */
 async function runModule(
   moduleName: string,
-  context: AssessmentContext,
+  context: AssessmentContext & { claudeBridge?: ClaudeCodeBridge | null },
   config: AssessmentConfiguration,
 ): Promise<{
   result: unknown;
@@ -657,6 +686,12 @@ async function runModule(
 
   // Create assessor and run
   const assessor = new AssessorClass(config);
+
+  // Wire ClaudeCodeBridge for security module when enabled
+  if (moduleName === "security" && context.claudeBridge) {
+    (assessor as SecurityAssessor).setClaudeBridge(context.claudeBridge);
+  }
+
   const result = await assessor.assess(context);
 
   const duration = Date.now() - startTime;
@@ -874,13 +909,45 @@ async function main() {
       }
     };
 
-    // Create assessment context
-    const context: AssessmentContext = {
+    // Initialize ClaudeCodeBridge for semantic analysis if enabled
+    let claudeBridge: ClaudeCodeBridge | null = null;
+
+    if (options.enableClaude) {
+      console.log(
+        `🧠 Initializing Claude semantic analysis via ${options.mcpAuditorUrl}...`,
+      );
+
+      const bridgeConfig = {
+        ...HTTP_CLAUDE_CODE_CONFIG,
+        httpConfig: {
+          baseUrl: options.mcpAuditorUrl!,
+        },
+      };
+
+      claudeBridge = new ClaudeCodeBridge(bridgeConfig);
+
+      // Health check
+      const isHealthy = await claudeBridge.checkHttpHealth();
+      if (!isHealthy) {
+        console.warn(
+          "⚠️ mcp-auditor not available - running without semantic analysis",
+        );
+        claudeBridge = null;
+      } else {
+        console.log("✅ Claude semantic analysis enabled");
+      }
+    }
+
+    // Create assessment context (extended with optional claudeBridge)
+    const context: AssessmentContext & {
+      claudeBridge?: ClaudeCodeBridge | null;
+    } = {
       serverName: options.serverName,
       tools,
       callTool: createCallToolWrapper(client),
       config,
       onProgress,
+      claudeBridge,
     };
 
     // Run each requested module
@@ -904,6 +971,22 @@ async function main() {
         // Display detailed results for security module
         if (moduleName === "security" && result) {
           displaySecuritySummary(result as SecurityAssessment);
+
+          // Report semantic analysis stats if Claude was enabled
+          if (context.claudeBridge) {
+            const secResult = result as SecurityAssessment;
+            const refinedCount = secResult.promptInjectionTests.filter(
+              (t) =>
+                (t as { semanticAnalysis?: unknown }).semanticAnalysis !==
+                undefined,
+            ).length;
+
+            if (refinedCount > 0) {
+              console.log(
+                `🧠 ${refinedCount} test(s) refined with Claude semantic analysis`,
+              );
+            }
+          }
         }
 
         // Display detailed results for AUP module

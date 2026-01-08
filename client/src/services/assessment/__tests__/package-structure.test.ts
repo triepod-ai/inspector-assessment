@@ -138,4 +138,82 @@ describe("Package Structure Validation", () => {
       }
     });
   });
+
+  describe("Runtime Dependencies", () => {
+    /**
+     * Regression test for v1.25.7 bug where workspace package.json files
+     * were missing from the npm tarball, causing import failures.
+     *
+     * Built code imports workspace package.json files for version info:
+     * - client/lib/lib/moduleScoring.js → ../../package.json (client/package.json)
+     * - cli/build/index.js → ../package.json (cli/package.json)
+     */
+    it("should include workspace package.json files for runtime imports", () => {
+      const requiredFiles = [
+        "client/package.json",
+        "server/package.json",
+        "cli/package.json",
+      ];
+
+      const files: string[] = rootPkg.files || [];
+
+      for (const file of requiredFiles) {
+        const isIncluded = files.includes(file);
+
+        if (!isIncluded) {
+          throw new Error(
+            `Missing runtime dependency: ${file} must be in files array.\n` +
+              `Built code imports workspace package.json files - they must be included in npm tarball.\n` +
+              `Example: client/lib/lib/moduleScoring.js imports ../../package.json\n` +
+              `Fix: Add "${file}" to the files array in root package.json`,
+          );
+        }
+
+        expect(isIncluded).toBe(true);
+      }
+    });
+  });
+
+  describe("ESM Import Attributes", () => {
+    /**
+     * Regression test for v1.25.8 bug where JSON imports in built code
+     * were missing the required `with { type: "json" }` import attribute.
+     *
+     * Node.js ESM requires import attributes for JSON files.
+     */
+    it("should have ESM import attributes for JSON imports in lib output", () => {
+      const moduleScoringPath = path.join(
+        projectRoot,
+        "client/lib/lib/moduleScoring.js",
+      );
+
+      // Only run this test if the lib build exists
+      if (!fs.existsSync(moduleScoringPath)) {
+        console.warn("Skipping ESM import attribute test - lib not built yet");
+        return;
+      }
+
+      const content = fs.readFileSync(moduleScoringPath, "utf-8");
+
+      // Check that JSON imports have the required import attribute
+      const jsonImportRegex =
+        /import\s+\w+\s+from\s+["'][^"']+\.json["']\s*(?:with\s*\{\s*type:\s*["']json["']\s*\})?/g;
+      const jsonImports = content.match(jsonImportRegex) || [];
+
+      for (const importStatement of jsonImports) {
+        const hasAttribute = importStatement.includes('type: "json"');
+
+        if (!hasAttribute) {
+          throw new Error(
+            `ESM import attribute missing in moduleScoring.js:\n` +
+              `  Found: ${importStatement}\n` +
+              `  Expected: import with { type: "json" }\n` +
+              `  Fix: Add 'with { type: "json" }' to the JSON import in source file`,
+          );
+        }
+
+        expect(hasAttribute).toBe(true);
+      }
+    });
+  });
 });

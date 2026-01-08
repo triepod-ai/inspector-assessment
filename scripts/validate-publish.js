@@ -164,6 +164,95 @@ if (missingBuilds.length > 0) {
   success("All build directories exist");
 }
 
+// Check 5: Workspace package.json files included for runtime imports
+// Regression test for v1.25.7 bug
+console.log(
+  "\n5. Checking workspace package.json files for runtime imports...",
+);
+
+const requiredPackageJsons = [
+  "client/package.json",
+  "server/package.json",
+  "cli/package.json",
+];
+
+const missingPackageJsons = requiredPackageJsons.filter(
+  (file) => !files.includes(file),
+);
+
+if (missingPackageJsons.length > 0) {
+  for (const file of missingPackageJsons) {
+    error(`Missing ${file} in files array (required for runtime imports)`);
+  }
+  console.log("");
+  console.log("   WHY THIS IS A PROBLEM:");
+  console.log("   Built code imports workspace package.json files:");
+  console.log("   - client/lib/lib/moduleScoring.js → ../../package.json");
+  console.log("   - cli/build/index.js → ../package.json");
+  console.log(
+    "   If these files are missing, the published package will fail at runtime.",
+  );
+  console.log("");
+  console.log(
+    "   FIX: Add missing files to 'files' array in root package.json",
+  );
+} else {
+  success("All workspace package.json files included for runtime imports");
+}
+
+// Check 6: ESM import attributes for JSON imports
+// Regression test for v1.25.8 bug
+console.log("\n6. Checking ESM import attributes for JSON imports...");
+
+const moduleScoringPath = path.join(
+  projectRoot,
+  "client/lib/lib/moduleScoring.js",
+);
+
+if (fs.existsSync(moduleScoringPath)) {
+  const content = fs.readFileSync(moduleScoringPath, "utf-8");
+
+  // Find JSON imports
+  const jsonImportRegex = /import\s+\w+\s+from\s+["']([^"']+\.json)["']/g;
+  let match;
+  let hasEsmError = false;
+
+  while ((match = jsonImportRegex.exec(content)) !== null) {
+    const fullMatch = match[0];
+    const jsonFile = match[1];
+
+    // Check if this import has the required attribute
+    // Look for the full import statement including potential attribute
+    const importStart = match.index;
+    const afterImport = content.slice(importStart, importStart + 200);
+    const hasAttribute = afterImport.includes('with { type: "json" }');
+
+    if (!hasAttribute) {
+      error(`JSON import missing ESM attribute: ${jsonFile}`);
+      console.log(`   Found: ${fullMatch}`);
+      console.log(`   Expected: ${fullMatch} with { type: "json" }`);
+      hasEsmError = true;
+    }
+  }
+
+  if (!hasEsmError) {
+    success("All JSON imports have required ESM import attributes");
+  } else {
+    console.log("");
+    console.log("   WHY THIS IS A PROBLEM:");
+    console.log("   Node.js ESM requires import attributes for JSON files.");
+    console.log(
+      "   Without 'with { type: \"json\" }', imports fail at runtime.",
+    );
+    console.log("");
+    console.log(
+      "   FIX: Add 'with { type: \"json\" }' to JSON imports in source files",
+    );
+  }
+} else {
+  warn("Skipping ESM check - client/lib not built yet");
+}
+
 // Summary
 console.log("\n=== Summary ===\n");
 
