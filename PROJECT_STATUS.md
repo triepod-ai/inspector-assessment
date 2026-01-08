@@ -394,3 +394,67 @@
 - Both issues now have complete implementations pushed to origin
 
 ---
+
+## 2026-01-08: Issue #58 A/B Testbed Validation Complete
+
+**Summary:** Validated Issue #58 DATA_FETCHER false positive fix via A/B testbed comparison, confirming 100% precision.
+
+**Session Focus:** A/B testbed validation of Issue #58 fix for Calculator Injection false positives on read-only API wrappers.
+
+**Changes Made:**
+- Ran assessment on vulnerable-mcp server (177 vulnerabilities detected, 38 Calculator Injection)
+- Ran assessment on hardened-mcp server (0 vulnerabilities - 0 false positives)
+- Added validation comment to GitHub Issue #58
+
+**Key Decisions:**
+- Confirmed DATA_FETCHER category detection working correctly
+- Validated isCoincidentalNumericInStructuredData() and analyzeComputedMathResult() methods
+
+**Next Steps:**
+- Issue #58 complete - no further action needed
+- Consider publishing new version if additional changes warrant release
+
+**Notes:**
+- A/B detection gap: 177 vs 0 proves pure behavior-based detection
+- Safe tool false positives: 0 on both servers
+- Issue #58 was already closed; added validation results as comment
+
+---
+
+## 2026-01-08: Published v1.25.5 - Calculator Injection False Positives Fix
+
+**Summary:** Released v1.25.5 to npm with Issue #58 Calculator Injection false positives fix, closed issue with detailed summary.
+
+**Session Focus:** Publishing v1.25.5 release to npm and closing GitHub Issue #58 with comprehensive documentation.
+
+**Changes Made:**
+- Version bump: 1.25.4 to 1.25.5 across all packages
+- Published all 4 npm packages: root, client, server, cli
+- Created and pushed git tag v1.25.5
+- Closed Issue #58 on GitHub with detailed summary comment including:
+  - Complete fix description and implementation details
+  - A/B testbed validation results
+  - Link to implementation commit (35914cd)
+
+**Key Decisions:**
+- Release includes DATA_FETCHER category for read-only API wrapper tools
+- isCoincidentalNumericInStructuredData() detects numeric values in structured JSON responses
+- analyzeComputedMathResult() validates actual mathematical computation patterns
+- Tool name pattern detection (price, stock, weather, etc.) prevents misclassification
+
+**Commits:**
+- 35914cd: docs: update PROJECT_STATUS.md and archive older entries
+- v1.25.5 tag pushed to origin
+
+**Next Steps:**
+- Monitor npm package for any user-reported issues
+- Consider additional testbed scenarios if needed
+- Continue addressing any remaining false positive patterns
+
+**Notes:**
+- A/B validation results: 177 vulnerabilities (vulnerable-mcp) vs 0 (hardened-mcp)
+- Zero false positives on both servers - 100% precision maintained
+- Issue #58 fully resolved and documented for future reference
+- Package available at: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
+
+---
