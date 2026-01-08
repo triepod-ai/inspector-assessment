@@ -1,0 +1,531 @@
+/**
+ * Security Payload Tester
+ * Executes security tests with payloads against MCP tools
+ *
+ * Extracted from SecurityAssessor.ts for maintainability.
+ * Handles test execution, batching, and progress tracking.
+ */
+
+import { SecurityTestResult } from "@/lib/assessmentTypes";
+import {
+  ProgressCallback,
+  TestBatchProgress,
+  VulnerabilityFoundProgress,
+} from "@/lib/assessment/progressTypes";
+import {
+  CompatibilityCallToolResult,
+  Tool,
+} from "@modelcontextprotocol/sdk/types.js";
+import {
+  getAllAttackPatterns,
+  getPayloadsForAttack,
+  SecurityPayload,
+} from "@/lib/securityPatterns";
+import { createConcurrencyLimit } from "../../lib/concurrencyLimit";
+import { SecurityResponseAnalyzer } from "./SecurityResponseAnalyzer";
+import { SecurityPayloadGenerator } from "./SecurityPayloadGenerator";
+
+/**
+ * Re-export ProgressCallback for external use
+ */
+export type TestProgressCallback = ProgressCallback;
+
+/**
+ * Configuration for payload testing
+ */
+export interface PayloadTestConfig {
+  enableDomainTesting?: boolean;
+  maxParallelTests?: number;
+  securityTestTimeout?: number;
+  selectedToolsForTesting?: string[];
+}
+
+/**
+ * Logger interface for test execution
+ */
+export interface TestLogger {
+  log: (message: string) => void;
+  logError: (message: string, error: unknown) => void;
+}
+
+/**
+ * Executes security tests with payloads against MCP tools
+ */
+export class SecurityPayloadTester {
+  private responseAnalyzer: SecurityResponseAnalyzer;
+  private payloadGenerator: SecurityPayloadGenerator;
+  private testCount = 0;
+
+  constructor(
+    private config: PayloadTestConfig,
+    private logger: TestLogger,
+    private executeWithTimeout: <T>(
+      promise: Promise<T>,
+      timeout: number,
+    ) => Promise<T>,
+  ) {
+    this.responseAnalyzer = new SecurityResponseAnalyzer();
+    this.payloadGenerator = new SecurityPayloadGenerator();
+  }
+
+  /**
+   * Run comprehensive security tests (advanced mode)
+   * Tests selected tools with ALL 23 security patterns using diverse payloads
+   */
+  async runUniversalSecurityTests(
+    tools: Tool[],
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<CompatibilityCallToolResult>,
+    onProgress?: TestProgressCallback,
+  ): Promise<SecurityTestResult[]> {
+    // Check if advanced security testing is enabled
+    if (!this.config.enableDomainTesting) {
+      return this.runBasicSecurityTests(tools, callTool, onProgress);
+    }
+
+    const results: SecurityTestResult[] = [];
+    const attackPatterns = getAllAttackPatterns();
+
+    // Parallel tool testing with concurrency limit
+    const concurrency = this.config.maxParallelTests ?? 5;
+    const limit = createConcurrencyLimit(concurrency);
+
+    // Progress tracking for batched events
+    let totalPayloads = 0;
+    for (const pattern of attackPatterns) {
+      totalPayloads += getPayloadsForAttack(pattern.attackName).length;
+    }
+    const totalEstimate = tools.length * totalPayloads;
+    let completedTests = 0;
+    let lastBatchTime = Date.now();
+    const startTime = Date.now();
+    const BATCH_INTERVAL = 500;
+    const BATCH_SIZE = 10;
+    let batchCount = 0;
+
+    const emitProgressBatch = () => {
+      if (onProgress) {
+        const event: TestBatchProgress = {
+          type: "test_batch",
+          module: "security",
+          completed: completedTests,
+          total: totalEstimate,
+          batchSize: batchCount,
+          elapsed: Date.now() - startTime,
+        };
+        onProgress(event);
+      }
+      batchCount = 0;
+      lastBatchTime = Date.now();
+    };
+
+    this.logger.log(
+      `Starting ADVANCED security assessment - testing ${tools.length} tools with ${attackPatterns.length} security patterns (~${totalEstimate} tests) [concurrency: ${concurrency}]`,
+    );
+
+    const allToolResults = await Promise.all(
+      tools.map((tool) =>
+        limit(async () => {
+          const toolResults: SecurityTestResult[] = [];
+
+          // Tools with no input parameters can't be exploited
+          if (!this.payloadGenerator.hasInputParameters(tool)) {
+            this.logger.log(
+              `${tool.name} has no input parameters - adding passing results`,
+            );
+
+            for (const attackPattern of attackPatterns) {
+              const payloads = getPayloadsForAttack(attackPattern.attackName);
+
+              for (const payload of payloads) {
+                toolResults.push({
+                  testName: attackPattern.attackName,
+                  description: payload.description,
+                  payload: payload.payload,
+                  riskLevel: payload.riskLevel,
+                  toolName: tool.name,
+                  vulnerable: false,
+                  evidence:
+                    "Tool has no input parameters - cannot be exploited via payload injection",
+                });
+              }
+            }
+            return toolResults;
+          }
+
+          this.logger.log(`Testing ${tool.name} with all attack patterns`);
+
+          for (const attackPattern of attackPatterns) {
+            const payloads = getPayloadsForAttack(attackPattern.attackName);
+
+            for (const payload of payloads) {
+              this.testCount++;
+              completedTests++;
+              batchCount++;
+
+              try {
+                const result = await this.testPayload(
+                  tool,
+                  attackPattern.attackName,
+                  payload,
+                  callTool,
+                );
+
+                toolResults.push(result);
+
+                if (result.vulnerable && onProgress) {
+                  this.logger.log(
+                    `🚨 VULNERABILITY: ${tool.name} - ${attackPattern.attackName} (${payload.payloadType}: ${payload.description})`,
+                  );
+
+                  const vulnEvent: VulnerabilityFoundProgress = {
+                    type: "vulnerability_found",
+                    tool: tool.name,
+                    pattern: attackPattern.attackName,
+                    confidence: result.confidence || "medium",
+                    evidence: result.evidence || "Vulnerability detected",
+                    riskLevel: payload.riskLevel,
+                    requiresReview: result.requiresManualReview || false,
+                    payload: payload.payload,
+                  };
+                  onProgress(vulnEvent);
+                }
+              } catch (error) {
+                this.logger.logError(
+                  `Error testing ${tool.name} with ${attackPattern.attackName}`,
+                  error,
+                );
+              }
+
+              const timeSinceLastBatch = Date.now() - lastBatchTime;
+              if (
+                batchCount >= BATCH_SIZE ||
+                timeSinceLastBatch >= BATCH_INTERVAL
+              ) {
+                emitProgressBatch();
+              }
+
+              if (this.testCount % 5 === 0) {
+                await this.sleep(100);
+              }
+            }
+          }
+
+          return toolResults;
+        }),
+      ),
+    );
+
+    for (const toolResults of allToolResults) {
+      results.push(...toolResults);
+    }
+
+    if (batchCount > 0) {
+      emitProgressBatch();
+    }
+
+    this.logger.log(
+      `ADVANCED security assessment complete: ${results.length} tests executed, ${results.filter((r) => r.vulnerable).length} vulnerabilities found`,
+    );
+
+    return results;
+  }
+
+  /**
+   * Run basic security tests (fast mode)
+   * Tests only 5 critical injection patterns with 1 generic payload each
+   */
+  async runBasicSecurityTests(
+    tools: Tool[],
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<CompatibilityCallToolResult>,
+    onProgress?: TestProgressCallback,
+  ): Promise<SecurityTestResult[]> {
+    const results: SecurityTestResult[] = [];
+
+    const criticalPatterns = [
+      "Command Injection",
+      "Calculator Injection",
+      "SQL Injection",
+      "Path Traversal",
+      "Unicode Bypass",
+    ];
+
+    const allPatterns = getAllAttackPatterns();
+    const basicPatterns = allPatterns.filter((p) =>
+      criticalPatterns.includes(p.attackName),
+    );
+
+    const totalEstimate = tools.length * basicPatterns.length;
+    let completedTests = 0;
+    let lastBatchTime = Date.now();
+    const startTime = Date.now();
+    const BATCH_INTERVAL = 500;
+    const BATCH_SIZE = 10;
+    let batchCount = 0;
+
+    const emitProgressBatch = () => {
+      if (onProgress) {
+        const event: TestBatchProgress = {
+          type: "test_batch",
+          module: "security",
+          completed: completedTests,
+          total: totalEstimate,
+          batchSize: batchCount,
+          elapsed: Date.now() - startTime,
+        };
+        onProgress(event);
+      }
+      batchCount = 0;
+      lastBatchTime = Date.now();
+    };
+
+    this.logger.log(
+      `Starting BASIC security assessment - testing ${tools.length} tools with ${basicPatterns.length} critical injection patterns (~${totalEstimate} tests)`,
+    );
+
+    for (const tool of tools) {
+      if (!this.payloadGenerator.hasInputParameters(tool)) {
+        this.logger.log(
+          `${tool.name} has no input parameters - adding passing results`,
+        );
+
+        for (const attackPattern of basicPatterns) {
+          const allPayloads = getPayloadsForAttack(attackPattern.attackName);
+          const payload = allPayloads[0];
+
+          if (payload) {
+            results.push({
+              testName: attackPattern.attackName,
+              description: payload.description,
+              payload: payload.payload,
+              riskLevel: payload.riskLevel,
+              toolName: tool.name,
+              vulnerable: false,
+              evidence:
+                "Tool has no input parameters - cannot be exploited via payload injection",
+            });
+          }
+        }
+        continue;
+      }
+
+      this.logger.log(
+        `Testing ${tool.name} with ${basicPatterns.length} critical patterns`,
+      );
+
+      for (const attackPattern of basicPatterns) {
+        const allPayloads = getPayloadsForAttack(attackPattern.attackName);
+        const payload = allPayloads[0];
+
+        if (!payload) continue;
+
+        this.testCount++;
+        completedTests++;
+        batchCount++;
+
+        try {
+          const result = await this.testPayload(
+            tool,
+            attackPattern.attackName,
+            payload,
+            callTool,
+          );
+
+          results.push(result);
+
+          if (result.vulnerable && onProgress) {
+            this.logger.log(
+              `🚨 VULNERABILITY: ${tool.name} - ${attackPattern.attackName}`,
+            );
+
+            const vulnEvent: VulnerabilityFoundProgress = {
+              type: "vulnerability_found",
+              tool: tool.name,
+              pattern: attackPattern.attackName,
+              confidence: result.confidence || "medium",
+              evidence: result.evidence || "Vulnerability detected",
+              riskLevel: payload.riskLevel,
+              requiresReview: result.requiresManualReview || false,
+              payload: payload.payload,
+            };
+            onProgress(vulnEvent);
+          }
+        } catch (error) {
+          this.logger.logError(
+            `Error testing ${tool.name} with ${attackPattern.attackName}`,
+            error,
+          );
+        }
+
+        const timeSinceLastBatch = Date.now() - lastBatchTime;
+        if (batchCount >= BATCH_SIZE || timeSinceLastBatch >= BATCH_INTERVAL) {
+          emitProgressBatch();
+        }
+
+        if (this.testCount % 5 === 0) {
+          await this.sleep(100);
+        }
+      }
+    }
+
+    if (batchCount > 0) {
+      emitProgressBatch();
+    }
+
+    this.logger.log(
+      `BASIC security assessment complete: ${results.length} tests executed, ${results.filter((r) => r.vulnerable).length} vulnerabilities found`,
+    );
+
+    return results;
+  }
+
+  /**
+   * Test tool with a specific payload
+   */
+  async testPayload(
+    tool: Tool,
+    attackName: string,
+    payload: SecurityPayload,
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<CompatibilityCallToolResult>,
+  ): Promise<SecurityTestResult> {
+    // Skip execution-based tests for API wrappers
+    if (
+      this.payloadGenerator.isApiWrapper(tool) &&
+      this.payloadGenerator.isExecutionTest(attackName)
+    ) {
+      return {
+        testName: attackName,
+        description: payload.description,
+        payload: payload.payload,
+        riskLevel: payload.riskLevel,
+        toolName: tool.name,
+        vulnerable: false,
+        evidence:
+          "API wrapper tool - skips execution tests (returns external data as text, does not execute it as code)",
+      };
+    }
+
+    try {
+      const params = this.payloadGenerator.createTestParameters(payload, tool);
+
+      if (Object.keys(params).length === 0) {
+        return {
+          testName: attackName,
+          description: payload.description,
+          payload: payload.payload,
+          riskLevel: payload.riskLevel,
+          toolName: tool.name,
+          vulnerable: false,
+          evidence: "No compatible parameters for testing",
+        };
+      }
+
+      const securityTimeout = this.config.securityTestTimeout ?? 5000;
+      const response = await this.executeWithTimeout(
+        callTool(tool.name, params),
+        securityTimeout,
+      );
+
+      // Check for connection errors FIRST
+      if (this.responseAnalyzer.isConnectionError(response)) {
+        return {
+          testName: attackName,
+          description: payload.description,
+          payload: payload.payload,
+          riskLevel: payload.riskLevel,
+          toolName: tool.name,
+          vulnerable: true,
+          evidence: `CONNECTION ERROR: Test could not complete due to server/network failure`,
+          response: this.responseAnalyzer.extractResponseContent(response),
+          connectionError: true,
+          errorType: this.responseAnalyzer.classifyError(response),
+          testReliability: "failed",
+          confidence: "high",
+          requiresManualReview: true,
+        };
+      }
+
+      // Analyze with evidence-based detection
+      const { isVulnerable, evidence } = this.responseAnalyzer.analyzeResponse(
+        response,
+        payload,
+        tool,
+      );
+
+      // Calculate confidence
+      const confidenceResult = this.responseAnalyzer.calculateConfidence(
+        tool,
+        isVulnerable,
+        evidence || "",
+        this.responseAnalyzer.extractResponseContent(response),
+        payload,
+      );
+
+      return {
+        testName: attackName,
+        description: payload.description,
+        payload: payload.payload,
+        riskLevel: payload.riskLevel,
+        toolName: tool.name,
+        vulnerable: isVulnerable,
+        evidence,
+        response: this.responseAnalyzer.extractResponseContent(response),
+        ...confidenceResult,
+      };
+    } catch (error) {
+      // Check if error is a connection/server failure
+      if (this.responseAnalyzer.isConnectionErrorFromException(error)) {
+        return {
+          testName: attackName,
+          description: payload.description,
+          payload: payload.payload,
+          riskLevel: payload.riskLevel,
+          toolName: tool.name,
+          vulnerable: false,
+          evidence: `CONNECTION ERROR: Test could not complete due to server/network failure`,
+          response: this.extractErrorMessage(error),
+          connectionError: true,
+          errorType: this.responseAnalyzer.classifyErrorFromException(error),
+          testReliability: "failed",
+          confidence: "high",
+          requiresManualReview: true,
+        };
+      }
+
+      return {
+        testName: attackName,
+        description: payload.description,
+        payload: payload.payload,
+        riskLevel: payload.riskLevel,
+        toolName: tool.name,
+        vulnerable: false,
+        evidence: `Tool rejected input: ${this.extractErrorMessage(error)}`,
+      };
+    }
+  }
+
+  /**
+   * Extract error message from caught exception
+   */
+  private extractErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return String(error);
+  }
+
+  /**
+   * Sleep for specified milliseconds
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+}

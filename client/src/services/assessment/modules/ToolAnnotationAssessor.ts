@@ -7,8 +7,14 @@
  * - destructiveHint presence and accuracy
  * - Tool behavior inference from name patterns
  * - Annotation misalignment detection
+ * - Description poisoning detection (Issue #8)
  *
  * Reference: Anthropic MCP Directory Policy #17
+ *
+ * This module orchestrates annotation assessment by coordinating:
+ * - BehaviorInference: Infers expected behavior from tool names
+ * - AnnotationDeceptionDetector: Detects keyword-based misalignments
+ * - DescriptionPoisoningDetector: Detects malicious content in descriptions
  */
 
 import { BaseAssessor } from "./BaseAssessor";
@@ -18,7 +24,6 @@ import type {
   ToolAnnotationResult,
   AssessmentStatus,
   AlignmentStatus,
-  InferenceConfidence,
   ToolParamProgress,
   AssessmentConfiguration,
   AnnotationSource,
@@ -29,452 +34,16 @@ import {
   type CompiledPatterns,
   type ServerPersistenceContext,
   getDefaultCompiledPatterns,
-  matchToolPattern,
   detectPersistenceModel,
-  checkDescriptionForImmediatePersistence,
 } from "../config/annotationPatterns";
 
-/**
- * Tool description poisoning patterns (Issue #8)
- * Detects hidden instructions and malicious content in tool descriptions
- */
-interface PoisoningPattern {
-  name: string;
-  pattern: RegExp;
-  severity: "LOW" | "MEDIUM" | "HIGH";
-  category: string;
-}
-
-/**
- * High-confidence deception detection patterns
- * These patterns detect obvious misalignment between annotations and tool names
- * where keywords appear ANYWHERE in the tool name (not just as prefixes)
- */
-
-/** Keywords that contradict readOnlyHint=true (these tools modify state) */
-const READONLY_CONTRADICTION_KEYWORDS = [
-  // Execution keywords - tools that execute code/commands are never read-only
-  "exec",
-  "execute",
-  "run",
-  "shell",
-  "command",
-  "cmd",
-  "spawn",
-  "invoke",
-  // Write/modify keywords
-  "write",
-  "create",
-  "delete",
-  "remove",
-  "modify",
-  "update",
-  "edit",
-  "change",
-  "set",
-  "put",
-  "patch",
-  // Deployment/installation keywords
-  "install",
-  "deploy",
-  "upload",
-  "push",
-  // Communication keywords (sending data)
-  "send",
-  "post",
-  "submit",
-  "publish",
-  // Destructive keywords
-  "destroy",
-  "drop",
-  "purge",
-  "wipe",
-  "clear",
-  "truncate",
-  "reset",
-  "kill",
-  "terminate",
-];
-
-/**
- * Suffixes that exempt "run" from readOnlyHint contradiction detection.
- * Tools matching "run" + these suffixes are legitimately read-only (fetch analysis data).
- * Issue #18: browser-tools-mcp uses runAccessibilityAudit, runSEOAudit, etc.
- */
-const RUN_READONLY_EXEMPT_SUFFIXES = [
-  "audit", // runAccessibilityAudit, runPerformanceAudit, runSEOAudit
-  "check", // runHealthCheck, runSecurityCheck
-  "mode", // runAuditMode, runDebuggerMode
-  "test", // runTest, runUnitTest (analysis, not execution)
-  "scan", // runSecurityScan, runVulnerabilityScan
-  "analyze", // runAnalyze, runCodeAnalyze
-  "report", // runReport, runStatusReport
-  "status", // runStatus, runHealthStatus
-  "validate", // runValidate, runSchemaValidate
-  "verify", // runVerify, runIntegrityVerify
-  "inspect", // runInspect, runCodeInspect
-  "lint", // runLint, runEslint
-  "benchmark", // runBenchmark, runPerfBenchmark
-  "diagnostic", // runDiagnostic
-];
-
-/** Keywords that contradict destructiveHint=false (these tools delete/destroy data) */
-const DESTRUCTIVE_CONTRADICTION_KEYWORDS = [
-  "delete",
-  "remove",
-  "drop",
-  "destroy",
-  "purge",
-  "wipe",
-  "erase",
-  "truncate",
-  "clear",
-  "reset",
-  "kill",
-  "terminate",
-  "revoke",
-  "cancel",
-  "force",
-];
-
-/**
- * Check if a tool name contains any of the given keywords (case-insensitive)
- * Uses word segment matching to avoid false positives (e.g., "put" in "output")
- * Issue #25: Substring matching caused false positives for words like "output", "input", "compute"
- *
- * Handles: camelCase (putFile), snake_case (put_file), kebab-case (put-file), PascalCase (PutFile)
- */
-function containsKeyword(toolName: string, keywords: string[]): string | null {
-  // Normalize camelCase/PascalCase by inserting separator before uppercase letters
-  // "putFile" → "put_File", "updateUser" → "update_User", "GetOutput" → "Get_Output"
-  const normalized = toolName.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase();
-
-  // Split by common separators (underscore, hyphen)
-  const segments = normalized.split(/[_-]/);
-
-  for (const keyword of keywords) {
-    for (const segment of segments) {
-      // Match if segment equals keyword or starts with keyword
-      // This handles: "exec" matches "exec" segment, "exec_command" segment starts with "exec"
-      if (segment === keyword || segment.startsWith(keyword)) {
-        return keyword;
-      }
-    }
-  }
-  return null;
-}
-
-/**
- * Check if a tool name with "run" keyword is exempt from readOnlyHint contradiction.
- * Tools like "runAccessibilityAudit" are genuinely read-only (fetch analysis data).
- * Issue #18: Prevents false positives for analysis/audit tools.
- */
-function isRunKeywordExempt(toolName: string): boolean {
-  const lowerName = toolName.toLowerCase();
-  // Only applies when "run" is detected
-  if (!lowerName.includes("run")) {
-    return false;
-  }
-  // Check if any exempt suffix is present
-  return RUN_READONLY_EXEMPT_SUFFIXES.some((suffix) =>
-    lowerName.includes(suffix),
-  );
-}
-
-/**
- * Type guard for confidence levels that warrant event emission or status changes.
- * Uses positive check for acceptable levels (safer than !== "low" if new levels added).
- */
-function isActionableConfidence(confidence: string): boolean {
-  return confidence === "high" || confidence === "medium";
-}
-
-/**
- * Detect high-confidence annotation deception
- * Returns misalignment info if obvious deception detected, null otherwise
- */
-function detectAnnotationDeception(
-  toolName: string,
-  annotations: { readOnlyHint?: boolean; destructiveHint?: boolean },
-): {
-  field: "readOnlyHint" | "destructiveHint";
-  matchedKeyword: string;
-  reason: string;
-} | null {
-  // Check readOnlyHint=true contradiction
-  if (annotations.readOnlyHint === true) {
-    const keyword = containsKeyword(toolName, READONLY_CONTRADICTION_KEYWORDS);
-    if (keyword) {
-      // Issue #18: Skip deception flagging for "run" + analysis suffix combinations
-      // Tools like "runAccessibilityAudit" are genuinely read-only
-      if (keyword === "run" && isRunKeywordExempt(toolName)) {
-        // Tool matches "run" but has an analysis suffix - not deceptive
-        // Fall through to normal pattern-based inference
-      } else {
-        return {
-          field: "readOnlyHint",
-          matchedKeyword: keyword,
-          reason: `Tool name contains '${keyword}' but claims readOnlyHint=true - this is likely deceptive`,
-        };
-      }
-    }
-  }
-
-  // Check destructiveHint=false contradiction
-  if (annotations.destructiveHint === false) {
-    const keyword = containsKeyword(
-      toolName,
-      DESTRUCTIVE_CONTRADICTION_KEYWORDS,
-    );
-    if (keyword) {
-      return {
-        field: "destructiveHint",
-        matchedKeyword: keyword,
-        reason: `Tool name contains '${keyword}' but claims destructiveHint=false - this is likely deceptive`,
-      };
-    }
-  }
-
-  return null;
-}
-
-const DESCRIPTION_POISONING_PATTERNS: PoisoningPattern[] = [
-  // Hidden instruction tags
-  {
-    name: "hidden_tag",
-    pattern: /<HIDDEN>[\s\S]*?<\/HIDDEN>/gi,
-    severity: "HIGH",
-    category: "hidden_instructions",
-  },
-  {
-    name: "important_tag",
-    pattern: /<IMPORTANT>[\s\S]*?<\/IMPORTANT>/gi,
-    severity: "HIGH",
-    category: "hidden_instructions",
-  },
-  {
-    name: "system_tag",
-    pattern: /<SYSTEM>[\s\S]*?<\/SYSTEM>/gi,
-    severity: "HIGH",
-    category: "hidden_instructions",
-  },
-  {
-    name: "instruction_tag",
-    pattern: /<INSTRUCTION>[\s\S]*?<\/INSTRUCTION>/gi,
-    severity: "HIGH",
-    category: "hidden_instructions",
-  },
-
-  // Override commands
-  {
-    name: "ignore_instructions",
-    pattern: /ignore\s+(all\s+)?(previous|prior|above)\s+instructions/i,
-    severity: "HIGH",
-    category: "override",
-  },
-  {
-    name: "disregard_instructions",
-    pattern: /disregard\s+(all\s+)?(previous|prior)\s+instructions/i,
-    severity: "HIGH",
-    category: "override",
-  },
-  {
-    name: "you_are_now",
-    pattern: /you\s+are\s+now\s+(a|an|the)/i,
-    severity: "MEDIUM",
-    category: "override",
-  },
-  {
-    name: "system_override",
-    pattern: /system:\s*override/i,
-    severity: "HIGH",
-    category: "override",
-  },
-
-  // Secrecy/concealment
-  {
-    name: "do_not_mention",
-    pattern: /do\s+not\s+(mention|tell|inform|reveal)/i,
-    severity: "HIGH",
-    category: "concealment",
-  },
-  {
-    name: "secretly",
-    pattern: /\bsecretly\b/i,
-    severity: "MEDIUM",
-    category: "concealment",
-  },
-  {
-    name: "hide_from_user",
-    pattern: /hide\s+(this\s+)?from\s+(the\s+)?user/i,
-    severity: "HIGH",
-    category: "concealment",
-  },
-
-  // Data exfiltration
-  {
-    name: "return_keys",
-    pattern: /return\s+(all\s+)?(api\s*)?keys/i,
-    severity: "HIGH",
-    category: "exfiltration",
-  },
-  {
-    name: "include_credentials",
-    // More specific: requires directive context (in/with/when/to) to reduce false positives
-    // from legitimate documentation like "does not include credential storage"
-    pattern:
-      /include\s+(the\s+|all\s+|your\s+)?(api.?key|credential|password|secret)s?\s*(in|with|when|to)/i,
-    severity: "HIGH",
-    category: "exfiltration",
-  },
-  {
-    name: "reveal_secrets",
-    pattern: /reveal\s+(all\s+)?(secrets|credentials|api\s*keys)/i,
-    severity: "HIGH",
-    category: "exfiltration",
-  },
-  {
-    name: "access_internal_secrets",
-    pattern:
-      /access\s+(the\s+)?internal\s+(api\s*)?(key|secret|credential|password|token)/i,
-    severity: "HIGH",
-    category: "exfiltration",
-  },
-
-  // Delimiter injection
-  {
-    name: "system_codeblock",
-    pattern: /```system[\s\S]*?```/gi,
-    severity: "HIGH",
-    category: "delimiter",
-  },
-  {
-    name: "inst_tags",
-    pattern: /\[INST\][\s\S]*?\[\/INST\]/gi,
-    severity: "HIGH",
-    category: "delimiter",
-  },
-  {
-    name: "chatml_system",
-    pattern: /<\|im_start\|>system/gi,
-    severity: "HIGH",
-    category: "delimiter",
-  },
-  {
-    name: "llama_sys",
-    pattern: /<<SYS>>/gi,
-    severity: "HIGH",
-    category: "delimiter",
-  },
-  {
-    name: "user_assistant_block",
-    pattern: /\[USER\][\s\S]*?\[ASSISTANT\]/gi,
-    severity: "HIGH",
-    category: "delimiter",
-  },
-
-  // Role/persona injection (Warning #4)
-  {
-    name: "act_as",
-    pattern: /act\s+(like|as)\s+(a|an|the)/i,
-    severity: "MEDIUM",
-    category: "override",
-  },
-  {
-    name: "pretend_to_be",
-    pattern: /pretend\s+(to\s+be|you\s*'?re)/i,
-    severity: "MEDIUM",
-    category: "override",
-  },
-  {
-    name: "roleplay_as",
-    pattern: /role\s*play\s+(as|like)/i,
-    severity: "MEDIUM",
-    category: "override",
-  },
-  {
-    name: "new_task",
-    pattern: /new\s+(task|instruction|objective):\s*/i,
-    severity: "HIGH",
-    category: "override",
-  },
-
-  // Encoding bypass detection (Warning #1)
-  {
-    name: "base64_encoded_block",
-    pattern: /[A-Za-z0-9+/]{50,}={0,2}/g, // Large Base64 strings (50+ chars)
-    severity: "MEDIUM",
-    category: "encoding_bypass",
-  },
-  {
-    name: "unicode_escape_sequence",
-    pattern: /(?:\\u[0-9a-fA-F]{4}){3,}/gi, // 3+ consecutive Unicode escapes
-    severity: "MEDIUM",
-    category: "encoding_bypass",
-  },
-  {
-    name: "html_entity_block",
-    pattern: /(?:&#x?[0-9a-fA-F]+;){3,}/gi, // 3+ consecutive HTML entities
-    severity: "MEDIUM",
-    category: "encoding_bypass",
-  },
-
-  // Typoglycemia/evasion patterns (Warning #2)
-  {
-    name: "ignore_instructions_typo",
-    pattern:
-      /ign[o0]r[e3]?\s+(all\s+)?(pr[e3]v[i1][o0]us|pr[i1][o0]r|ab[o0]v[e3])\s+[i1]nstruct[i1][o0]ns?/i,
-    severity: "HIGH",
-    category: "override",
-  },
-  {
-    name: "disregard_typo",
-    pattern:
-      /d[i1]sr[e3]g[a4]rd\s+(all\s+)?(pr[e3]v[i1][o0]us|pr[i1][o0]r)\s+[i1]nstruct[i1][o0]ns?/i,
-    severity: "HIGH",
-    category: "override",
-  },
-
-  // DVMCP-specific patterns (CTF testbed coverage)
-  {
-    name: "override_auth_protocol",
-    pattern: /override[-_]?auth[-_]?protocol/gi,
-    severity: "HIGH",
-    category: "auth_bypass",
-  },
-  {
-    name: "internal_resource_uri",
-    pattern:
-      /(?:internal|system|admin|secret|company|confidential):\/\/[a-z_\-/]+/gi,
-    severity: "HIGH",
-    category: "resource_access",
-  },
-  {
-    name: "get_secrets_call",
-    pattern: /get[-_]?secrets?\s*\(/gi,
-    severity: "HIGH",
-    category: "secret_access",
-  },
-  {
-    name: "master_password",
-    pattern: /master[-_]?password/gi,
-    severity: "HIGH",
-    category: "credential_exposure",
-  },
-  {
-    name: "access_confidential",
-    pattern: /access\s+(the\s+)?confidential/gi,
-    severity: "HIGH",
-    category: "exfiltration",
-  },
-  {
-    name: "hidden_trigger_phrase",
-    pattern:
-      /if\s+(the\s+)?(query|input|text)\s+contains\s+(the\s+)?(exact\s+)?(phrase|word)/gi,
-    severity: "HIGH",
-    category: "hidden_trigger",
-  },
-];
+// Import from extracted modules
+import {
+  scanDescriptionForPoisoning,
+  detectAnnotationDeception,
+  isActionableConfidence,
+  inferBehavior,
+} from "./annotations";
 
 /**
  * Enhanced tool annotation result with Claude inference
@@ -505,9 +74,6 @@ export interface EnhancedToolAnnotationAssessment extends ToolAnnotationAssessme
   highConfidenceMisalignments: EnhancedToolAnnotationResult[];
 }
 
-// NOTE: Pattern arrays moved to config/annotationPatterns.ts for configurability
-// The patterns are now loaded from getDefaultCompiledPatterns() or custom config
-
 export class ToolAnnotationAssessor extends BaseAssessor {
   private claudeBridge?: ClaudeCodeBridge;
   private compiledPatterns: CompiledPatterns;
@@ -515,7 +81,6 @@ export class ToolAnnotationAssessor extends BaseAssessor {
 
   constructor(config: AssessmentConfiguration) {
     super(config);
-    // Initialize with default patterns (can be overridden via setPatterns)
     this.compiledPatterns = getDefaultCompiledPatterns();
   }
 
@@ -567,7 +132,6 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     let misalignedAnnotationsCount = 0;
     let poisonedDescriptionsCount = 0;
 
-    // Track annotation sources
     const annotationSourceCounts = {
       mcp: 0,
       sourceCode: 0,
@@ -575,15 +139,12 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       none: 0,
     };
 
-    // Detect server persistence model from tool names (Three-Tier Classification)
+    // Detect server persistence model from tool names
     const toolNames = context.tools.map((t) => t.name);
     this.persistenceContext = detectPersistenceModel(toolNames);
     this.log(
       `Persistence model detected: ${this.persistenceContext.model} (confidence: ${this.persistenceContext.confidence})`,
     );
-    for (const indicator of this.persistenceContext.indicators) {
-      this.log(`  - ${indicator}`);
-    }
 
     const useClaudeInference = this.isClaudeEnabled();
     if (useClaudeInference) {
@@ -604,7 +165,6 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         );
         toolResults.push(enhancedResult);
 
-        // Count based on Claude analysis if high confidence
         if (
           enhancedResult.claudeInference &&
           enhancedResult.claudeInference.confidence >= 70 &&
@@ -615,7 +175,6 @@ export class ToolAnnotationAssessor extends BaseAssessor {
           misalignedAnnotationsCount++;
         }
       } else {
-        // Standard pattern-based result
         const inferredBehavior = result.inferredBehavior ?? {
           expectedReadOnly: false,
           expectedDestructive: false,
@@ -626,7 +185,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
           claudeInference: {
             expectedReadOnly: inferredBehavior.expectedReadOnly,
             expectedDestructive: inferredBehavior.expectedDestructive,
-            confidence: 50, // Lower confidence for pattern-based
+            confidence: 50,
             reasoning: inferredBehavior.reason,
             suggestedAnnotations: {
               readOnlyHint: inferredBehavior.expectedReadOnly,
@@ -663,7 +222,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         annotationSourceCounts.none++;
       }
 
-      // Track and emit poisoned description detection (Issue #8)
+      // Emit poisoned description event
       if (latestResult.descriptionPoisoning?.detected) {
         poisonedDescriptionsCount++;
         this.log(
@@ -680,144 +239,8 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         }
       }
 
-      // Emit annotation_missing event with tool details
-      if (!latestResult.hasAnnotations) {
-        if (context.onProgress && latestResult.inferredBehavior) {
-          const annotations = this.extractAnnotations(tool);
-          context.onProgress({
-            type: "annotation_missing",
-            tool: tool.name,
-            title: annotations.title,
-            description: tool.description,
-            parameters: this.extractToolParams(tool.inputSchema),
-            inferredBehavior: {
-              expectedReadOnly: latestResult.inferredBehavior.expectedReadOnly,
-              expectedDestructive:
-                latestResult.inferredBehavior.expectedDestructive,
-              reason: latestResult.inferredBehavior.reason,
-            },
-          });
-        }
-      }
-
-      // Emit annotation_aligned event when annotations correctly match behavior
-      if (
-        latestResult.hasAnnotations &&
-        latestResult.alignmentStatus === "ALIGNED"
-      ) {
-        if (context.onProgress) {
-          const annotations = latestResult.annotations;
-          const inferredConfidence =
-            latestResult.inferredBehavior?.confidence ?? "medium";
-          context.onProgress({
-            type: "annotation_aligned",
-            tool: tool.name,
-            confidence: inferredConfidence,
-            annotations: {
-              readOnlyHint: annotations?.readOnlyHint,
-              destructiveHint: annotations?.destructiveHint,
-              openWorldHint: annotations?.openWorldHint,
-              idempotentHint: annotations?.idempotentHint,
-            },
-          });
-        }
-      }
-
-      // Emit appropriate event based on alignment status
-      if (context.onProgress && latestResult.inferredBehavior) {
-        const annotations = latestResult.annotations;
-        const inferred = latestResult.inferredBehavior;
-        const confidence = latestResult.claudeInference?.confidence ?? 50;
-        const toolParams = this.extractToolParams(tool.inputSchema);
-        const toolAnnotations = this.extractAnnotations(tool);
-        const alignmentStatus = latestResult.alignmentStatus;
-
-        // Check readOnlyHint mismatch
-        // Only emit events when inference is confident enough to contradict explicit annotations
-        if (
-          annotations?.readOnlyHint !== undefined &&
-          annotations.readOnlyHint !== inferred.expectedReadOnly
-        ) {
-          if (alignmentStatus === "REVIEW_RECOMMENDED") {
-            // Emit review_recommended for ambiguous cases
-            context.onProgress({
-              type: "annotation_review_recommended",
-              tool: tool.name,
-              title: toolAnnotations.title,
-              description: tool.description,
-              parameters: toolParams,
-              field: "readOnlyHint",
-              actual: annotations.readOnlyHint,
-              inferred: inferred.expectedReadOnly,
-              confidence: inferred.confidence,
-              isAmbiguous: inferred.isAmbiguous,
-              reason: inferred.reason,
-            });
-          } else if (
-            !inferred.isAmbiguous &&
-            isActionableConfidence(inferred.confidence)
-          ) {
-            // Emit misaligned only for medium/high-confidence mismatches
-            // When inference is low-confidence/ambiguous, trust explicit annotation
-            context.onProgress({
-              type: "annotation_misaligned",
-              tool: tool.name,
-              title: toolAnnotations.title,
-              description: tool.description,
-              parameters: toolParams,
-              field: "readOnlyHint",
-              actual: annotations.readOnlyHint,
-              expected: inferred.expectedReadOnly,
-              confidence,
-              reason: `Tool has readOnlyHint=${annotations.readOnlyHint}, but ${inferred.reason}`,
-            });
-          }
-          // When inference is ambiguous/low-confidence, trust explicit annotation - no event emitted
-        }
-
-        // Check destructiveHint mismatch
-        // Only emit events when inference is confident enough to contradict explicit annotations
-        if (
-          annotations?.destructiveHint !== undefined &&
-          annotations.destructiveHint !== inferred.expectedDestructive
-        ) {
-          if (alignmentStatus === "REVIEW_RECOMMENDED") {
-            // Emit review_recommended for ambiguous cases
-            context.onProgress({
-              type: "annotation_review_recommended",
-              tool: tool.name,
-              title: toolAnnotations.title,
-              description: tool.description,
-              parameters: toolParams,
-              field: "destructiveHint",
-              actual: annotations.destructiveHint,
-              inferred: inferred.expectedDestructive,
-              confidence: inferred.confidence,
-              isAmbiguous: inferred.isAmbiguous,
-              reason: inferred.reason,
-            });
-          } else if (
-            !inferred.isAmbiguous &&
-            isActionableConfidence(inferred.confidence)
-          ) {
-            // Emit misaligned only for medium/high-confidence mismatches
-            // When inference is low-confidence/ambiguous, trust explicit annotation
-            context.onProgress({
-              type: "annotation_misaligned",
-              tool: tool.name,
-              title: toolAnnotations.title,
-              description: tool.description,
-              parameters: toolParams,
-              field: "destructiveHint",
-              actual: annotations.destructiveHint,
-              expected: inferred.expectedDestructive,
-              confidence,
-              reason: `Tool has destructiveHint=${annotations.destructiveHint}, but ${inferred.reason}`,
-            });
-          }
-          // When inference is ambiguous/low-confidence, trust explicit annotation - no event emitted
-        }
-      }
+      // Emit annotation events
+      this.emitAnnotationEvents(context, tool, latestResult);
     }
 
     const status = this.determineAnnotationStatus(
@@ -832,7 +255,6 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     );
     const recommendations = this.generateRecommendations(toolResults);
 
-    // Calculate new metrics and alignment breakdown
     const { metrics, alignmentBreakdown } = this.calculateMetrics(
       toolResults,
       context.tools.length,
@@ -842,17 +264,12 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       `Assessment complete: ${annotatedCount}/${context.tools.length} tools annotated, ${misalignedAnnotationsCount} misaligned, ${alignmentBreakdown.reviewRecommended} need review, ${poisonedDescriptionsCount} poisoned`,
     );
 
-    // Return enhanced assessment if Claude was used
     if (useClaudeInference) {
       const highConfidenceMisalignments = toolResults.filter(
         (r) =>
           r.claudeInference &&
           r.claudeInference.confidence >= 70 &&
           r.claudeInference.misalignmentDetected,
-      );
-
-      this.log(
-        `Claude inference found ${highConfidenceMisalignments.length} high-confidence misalignments`,
       );
 
       return {
@@ -890,6 +307,144 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       annotationSources: annotationSourceCounts,
       poisonedDescriptionsDetected: poisonedDescriptionsCount,
     };
+  }
+
+  /**
+   * Emit annotation-related progress events
+   */
+  private emitAnnotationEvents(
+    context: AssessmentContext,
+    tool: Tool,
+    result: EnhancedToolAnnotationResult,
+  ): void {
+    if (!context.onProgress || !result.inferredBehavior) return;
+
+    const annotations = result.annotations;
+    const inferred = result.inferredBehavior;
+    const confidence = result.claudeInference?.confidence ?? 50;
+    const toolParams = this.extractToolParams(tool.inputSchema);
+    const toolAnnotations = this.extractAnnotations(tool);
+
+    // Emit missing annotation event
+    if (!result.hasAnnotations) {
+      context.onProgress({
+        type: "annotation_missing",
+        tool: tool.name,
+        title: toolAnnotations.title,
+        description: tool.description,
+        parameters: toolParams,
+        inferredBehavior: {
+          expectedReadOnly: inferred.expectedReadOnly,
+          expectedDestructive: inferred.expectedDestructive,
+          reason: inferred.reason,
+        },
+      });
+      return;
+    }
+
+    // Emit aligned event
+    if (result.alignmentStatus === "ALIGNED") {
+      context.onProgress({
+        type: "annotation_aligned",
+        tool: tool.name,
+        confidence: inferred.confidence ?? "medium",
+        annotations: {
+          readOnlyHint: annotations?.readOnlyHint,
+          destructiveHint: annotations?.destructiveHint,
+          openWorldHint: annotations?.openWorldHint,
+          idempotentHint: annotations?.idempotentHint,
+        },
+      });
+      return;
+    }
+
+    // Check readOnlyHint mismatch
+    if (
+      annotations?.readOnlyHint !== undefined &&
+      annotations.readOnlyHint !== inferred.expectedReadOnly
+    ) {
+      this.emitMismatchEvent(
+        context,
+        tool,
+        toolParams,
+        toolAnnotations,
+        "readOnlyHint",
+        annotations.readOnlyHint,
+        inferred.expectedReadOnly,
+        confidence,
+        inferred,
+        result.alignmentStatus!,
+      );
+    }
+
+    // Check destructiveHint mismatch
+    if (
+      annotations?.destructiveHint !== undefined &&
+      annotations.destructiveHint !== inferred.expectedDestructive
+    ) {
+      this.emitMismatchEvent(
+        context,
+        tool,
+        toolParams,
+        toolAnnotations,
+        "destructiveHint",
+        annotations.destructiveHint,
+        inferred.expectedDestructive,
+        confidence,
+        inferred,
+        result.alignmentStatus!,
+      );
+    }
+  }
+
+  /**
+   * Emit mismatch event (misaligned or review_recommended)
+   */
+  private emitMismatchEvent(
+    context: AssessmentContext,
+    tool: Tool,
+    toolParams: ToolParamProgress[],
+    toolAnnotations: { title?: string },
+    field: "readOnlyHint" | "destructiveHint",
+    actual: boolean | undefined,
+    expected: boolean,
+    confidence: number,
+    inferred: NonNullable<ToolAnnotationResult["inferredBehavior"]>,
+    alignmentStatus: AlignmentStatus,
+  ): void {
+    if (!context.onProgress) return;
+
+    if (alignmentStatus === "REVIEW_RECOMMENDED") {
+      context.onProgress({
+        type: "annotation_review_recommended",
+        tool: tool.name,
+        title: toolAnnotations.title,
+        description: tool.description,
+        parameters: toolParams,
+        field,
+        actual,
+        inferred: expected,
+        confidence: inferred.confidence,
+        isAmbiguous: inferred.isAmbiguous,
+        reason: inferred.reason,
+      });
+    } else if (
+      !inferred.isAmbiguous &&
+      isActionableConfidence(inferred.confidence)
+    ) {
+      context.onProgress({
+        type: "annotation_misaligned",
+        tool: tool.name,
+        title: toolAnnotations.title,
+        description: tool.description,
+        parameters: toolParams,
+        field,
+        actual,
+        expected,
+        confidence,
+        reason: `Tool has ${field}=${actual}, but ${inferred.reason}`,
+      });
+    }
   }
 
   /**
@@ -938,7 +493,6 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         currentAnnotations,
       );
 
-      // Handle null result (Claude unavailable or error)
       if (!inference) {
         return {
           ...baseResult,
@@ -950,17 +504,14 @@ export class ToolAnnotationAssessor extends BaseAssessor {
               "Claude inference unavailable. Using pattern-based analysis.",
             suggestedAnnotations: {},
             misalignmentDetected: false,
-            misalignmentDetails: undefined,
             source: "pattern-based",
           },
         };
       }
 
-      // Merge Claude inference with pattern-based findings
       const updatedIssues = [...baseResult.issues];
       const updatedRecommendations = [...baseResult.recommendations];
 
-      // Add Claude-detected misalignment if high confidence
       if (inference.misalignmentDetected && inference.confidence >= 70) {
         const misalignmentMsg = inference.misalignmentDetails
           ? `Claude analysis (${inference.confidence}% confidence): ${inference.misalignmentDetails}`
@@ -970,7 +521,6 @@ export class ToolAnnotationAssessor extends BaseAssessor {
           updatedIssues.push(misalignmentMsg);
         }
 
-        // Add specific recommendations based on Claude inference
         if (inference.suggestedAnnotations) {
           const { readOnlyHint, destructiveHint, idempotentHint } =
             inference.suggestedAnnotations;
@@ -1017,7 +567,6 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     } catch (error) {
       this.logError(`Claude inference failed for ${tool.name}`, error);
 
-      // Fall back to pattern-based (use inferredBehavior from top of function)
       return {
         ...baseResult,
         claudeInference: {
@@ -1039,150 +588,26 @@ export class ToolAnnotationAssessor extends BaseAssessor {
   }
 
   /**
-   * Generate enhanced explanation with Claude analysis
-   */
-  private generateEnhancedExplanation(
-    annotatedCount: number,
-    missingCount: number,
-    highConfidenceMisalignments: number,
-    totalTools: number,
-  ): string {
-    const parts: string[] = [];
-
-    if (totalTools === 0) {
-      return "No tools found to assess for annotations.";
-    }
-
-    parts.push(
-      `Tool annotation coverage: ${annotatedCount}/${totalTools} tools have annotations.`,
-    );
-
-    if (missingCount > 0) {
-      parts.push(
-        `${missingCount} tool(s) are missing required annotations (readOnlyHint, destructiveHint).`,
-      );
-    }
-
-    if (highConfidenceMisalignments > 0) {
-      parts.push(
-        `Claude analysis identified ${highConfidenceMisalignments} high-confidence annotation misalignment(s).`,
-      );
-    }
-
-    parts.push("Analysis enhanced with Claude semantic behavior inference.");
-
-    return parts.join(" ");
-  }
-
-  /**
-   * Generate enhanced recommendations with Claude analysis
-   */
-  private generateEnhancedRecommendations(
-    results: EnhancedToolAnnotationResult[],
-  ): string[] {
-    const recommendations: string[] = [];
-
-    // Prioritize Claude high-confidence misalignments
-    const claudeMisalignments = results.filter(
-      (r) =>
-        r.claudeInference &&
-        r.claudeInference.source === "claude-inferred" &&
-        r.claudeInference.confidence >= 70 &&
-        r.claudeInference.misalignmentDetected,
-    );
-
-    if (claudeMisalignments.length > 0) {
-      recommendations.push(
-        "HIGH CONFIDENCE: Claude analysis identified the following annotation issues:",
-      );
-      for (const result of claudeMisalignments.slice(0, 5)) {
-        if (result.claudeInference) {
-          recommendations.push(
-            `  - ${result.toolName}: ${result.claudeInference.reasoning}`,
-          );
-        }
-      }
-    }
-
-    // Collect Claude suggestions
-    const claudeSuggestions = results
-      .filter(
-        (r) =>
-          r.claudeInference &&
-          r.claudeInference.source === "claude-inferred" &&
-          r.claudeInference.confidence >= 60,
-      )
-      .flatMap((r) =>
-        r.recommendations.filter((rec) => rec.includes("Claude")),
-      );
-
-    if (claudeSuggestions.length > 0) {
-      recommendations.push(...claudeSuggestions.slice(0, 5));
-    }
-
-    // Add pattern-based recommendations for remaining tools
-    const patternRecs = new Set<string>();
-    for (const result of results) {
-      for (const rec of result.recommendations) {
-        if (!rec.includes("Claude")) {
-          patternRecs.add(rec);
-        }
-      }
-    }
-
-    const destructiveRecs = Array.from(patternRecs).filter((r) =>
-      r.includes("destructive"),
-    );
-    const otherRecs = Array.from(patternRecs).filter(
-      (r) => !r.includes("destructive"),
-    );
-
-    if (destructiveRecs.length > 0) {
-      recommendations.push(
-        "PRIORITY: Potential destructive tools without proper hints:",
-      );
-      recommendations.push(...destructiveRecs.slice(0, 3));
-    }
-
-    if (otherRecs.length > 0 && recommendations.length < 10) {
-      recommendations.push(...otherRecs.slice(0, 3));
-    }
-
-    if (recommendations.length === 0) {
-      recommendations.push(
-        "All tools have proper annotations. No action required.",
-      );
-    } else {
-      recommendations.push(
-        "Reference: MCP Directory Policy #17 requires tools to have readOnlyHint and destructiveHint annotations.",
-      );
-    }
-
-    return recommendations;
-  }
-
-  /**
    * Assess a single tool's annotations
-   * Now includes alignment status with confidence-aware logic
-   * Enhanced with high-confidence deception detection for obvious misalignments
    */
   private assessTool(tool: Tool): ToolAnnotationResult {
     const issues: string[] = [];
     const recommendations: string[] = [];
 
-    // Extract annotations from tool
     const annotations = this.extractAnnotations(tool);
     const hasAnnotations =
       annotations.readOnlyHint !== undefined ||
       annotations.destructiveHint !== undefined;
 
-    // Infer expected behavior from tool name
-    const inferredBehavior = this.inferBehavior(tool.name, tool.description);
+    const inferredBehavior = inferBehavior(
+      tool.name,
+      tool.description,
+      this.compiledPatterns,
+      this.persistenceContext,
+    );
 
-    // Determine alignment status
     let alignmentStatus: AlignmentStatus = "ALIGNED";
 
-    // Check for missing annotations
     if (!hasAnnotations) {
       issues.push("Missing tool annotations (readOnlyHint, destructiveHint)");
       recommendations.push(
@@ -1190,22 +615,19 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       );
       alignmentStatus = "UNKNOWN";
     } else {
-      // FIRST: Check for high-confidence deception (keywords anywhere in tool name)
-      // This catches obvious cases like "vulnerable_system_exec_tool" + readOnlyHint=true
+      // Check for high-confidence deception
       const deception = detectAnnotationDeception(tool.name, {
         readOnlyHint: annotations.readOnlyHint,
         destructiveHint: annotations.destructiveHint,
       });
 
       if (deception) {
-        // High-confidence deception detected - this is MISALIGNED, not REVIEW_RECOMMENDED
         alignmentStatus = "MISALIGNED";
         issues.push(`DECEPTIVE ANNOTATION: ${deception.reason}`);
         recommendations.push(
           `CRITICAL: Fix deceptive ${deception.field} for ${tool.name} - tool name contains '${deception.matchedKeyword}' which contradicts the annotation`,
         );
 
-        // Override inferred behavior to match the detected deception
         if (deception.field === "readOnlyHint") {
           inferredBehavior.expectedReadOnly = false;
           inferredBehavior.confidence = "high";
@@ -1218,7 +640,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
           inferredBehavior.reason = deception.reason;
         }
       } else {
-        // Normal flow: Check for misaligned annotations with confidence-aware logic
+        // Check for misaligned annotations
         const readOnlyMismatch =
           annotations.readOnlyHint !== undefined &&
           annotations.readOnlyHint !== inferredBehavior.expectedReadOnly;
@@ -1228,15 +650,10 @@ export class ToolAnnotationAssessor extends BaseAssessor {
           annotations.destructiveHint !== inferredBehavior.expectedDestructive;
 
         if (readOnlyMismatch || destructiveMismatch) {
-          // Only flag misalignment for medium/high confidence inference
-          // When confidence is low/ambiguous, trust the explicit annotation
-          // Note: High-confidence deception detection (exec/install keywords)
-          // is handled in the `deception` block above, not here
           if (
             !inferredBehavior.isAmbiguous &&
             isActionableConfidence(inferredBehavior.confidence)
           ) {
-            // Medium/high confidence mismatch: MISALIGNED
             alignmentStatus = "MISALIGNED";
 
             if (readOnlyMismatch) {
@@ -1256,13 +673,11 @@ export class ToolAnnotationAssessor extends BaseAssessor {
               );
             }
           }
-          // When inference is ambiguous/low confidence, trust the explicit annotation
-          // and keep alignmentStatus as ALIGNED (no change needed)
         }
       }
     }
 
-    // Check for destructive tools without explicit hint (only for high-confidence patterns)
+    // Check for destructive tools without explicit hint
     if (
       inferredBehavior.expectedDestructive &&
       isActionableConfidence(inferredBehavior.confidence) &&
@@ -1274,14 +689,13 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       recommendations.push(
         `Set destructiveHint=true for ${tool.name} - this tool appears to perform destructive operations`,
       );
-      // Only upgrade to MISALIGNED if we have high confidence
       if (inferredBehavior.confidence === "high") {
         alignmentStatus = "MISALIGNED";
       }
     }
 
-    // Scan for description poisoning (Issue #8)
-    const descriptionPoisoning = this.scanDescriptionForPoisoning(tool);
+    // Scan for description poisoning
+    const descriptionPoisoning = scanDescriptionForPoisoning(tool);
     if (descriptionPoisoning.detected) {
       issues.push(
         `Tool description contains suspicious patterns: ${descriptionPoisoning.patterns.map((p) => p.name).join(", ")}`,
@@ -1305,77 +719,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
   }
 
   /**
-   * Scan tool description for poisoning patterns (Issue #8)
-   * Detects hidden instructions, override commands, concealment, and exfiltration attempts
-   */
-  private scanDescriptionForPoisoning(tool: Tool): {
-    detected: boolean;
-    patterns: Array<{
-      name: string;
-      pattern: string;
-      severity: "LOW" | "MEDIUM" | "HIGH";
-      category: string;
-      evidence: string;
-    }>;
-    riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH";
-  } {
-    const description = tool.description || "";
-    const matches: Array<{
-      name: string;
-      pattern: string;
-      severity: "LOW" | "MEDIUM" | "HIGH";
-      category: string;
-      evidence: string;
-    }> = [];
-
-    for (const patternDef of DESCRIPTION_POISONING_PATTERNS) {
-      // Create a fresh regex to reset lastIndex
-      const regex = new RegExp(
-        patternDef.pattern.source,
-        patternDef.pattern.flags,
-      );
-      // Loop to find all matches (not just first)
-      let match;
-      while ((match = regex.exec(description)) !== null) {
-        matches.push({
-          name: patternDef.name,
-          pattern: patternDef.pattern.toString(),
-          severity: patternDef.severity,
-          category: patternDef.category,
-          evidence:
-            match[0].substring(0, 100) + (match[0].length > 100 ? "..." : ""),
-        });
-        // Prevent infinite loop for patterns without 'g' flag
-        if (!regex.global) break;
-      }
-    }
-
-    // Determine overall risk level based on highest severity match
-    let riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH" = "NONE";
-    if (matches.some((m) => m.severity === "HIGH")) {
-      riskLevel = "HIGH";
-    } else if (matches.some((m) => m.severity === "MEDIUM")) {
-      riskLevel = "MEDIUM";
-    } else if (matches.length > 0) {
-      riskLevel = "LOW";
-    }
-
-    return {
-      detected: matches.length > 0,
-      patterns: matches,
-      riskLevel,
-    };
-  }
-
-  /**
    * Extract annotations from a tool
-   * MCP SDK may have annotations in different locations
-   *
-   * Priority order:
-   * 1. tool.annotations (MCP 2024-11 spec) - "mcp" source
-   * 2. Direct properties on tool - "mcp" source
-   * 3. tool.metadata - "mcp" source
-   * 4. No annotations found - "none" source
    */
   private extractAnnotations(tool: Tool): {
     readOnlyHint?: boolean;
@@ -1388,7 +732,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
   } {
     const toolAny = tool as any;
 
-    // Priority 1: Check annotations object (MCP 2024-11 spec) - primary source
+    // Priority 1: Check annotations object (MCP 2024-11 spec)
     if (toolAny.annotations) {
       const hasAnnotations =
         toolAny.annotations.readOnlyHint !== undefined ||
@@ -1407,7 +751,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       }
     }
 
-    // Priority 2: Check direct properties on tool object
+    // Priority 2: Check direct properties
     if (
       toolAny.readOnlyHint !== undefined ||
       toolAny.destructiveHint !== undefined
@@ -1423,7 +767,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       };
     }
 
-    // Priority 3: Check metadata (some servers use this)
+    // Priority 3: Check metadata
     if (toolAny.metadata) {
       const hasMetadataAnnotations =
         toolAny.metadata.readOnlyHint !== undefined ||
@@ -1442,7 +786,6 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       }
     }
 
-    // No annotations found from MCP protocol
     return {
       title: toolAny.title,
       description: tool.description,
@@ -1451,7 +794,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
   }
 
   /**
-   * Extract parameters from tool input schema for event emission
+   * Extract parameters from tool input schema
    */
   private extractToolParams(schema: unknown): ToolParamProgress[] {
     if (!schema || typeof schema !== "object") return [];
@@ -1477,187 +820,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
   }
 
   /**
-   * Infer expected behavior from tool name and description
-   * Now returns confidence level and ambiguity flag for better handling
-   */
-  private inferBehavior(
-    toolName: string,
-    description?: string,
-  ): {
-    expectedReadOnly: boolean;
-    expectedDestructive: boolean;
-    reason: string;
-    confidence: InferenceConfidence;
-    isAmbiguous: boolean;
-  } {
-    const lowerDesc = (description || "").toLowerCase();
-
-    // Issue #18: Early check for run + analysis suffix pattern
-    // Tools like "runAccessibilityAudit" are genuinely read-only (fetch analysis data)
-    // Check this BEFORE pattern matching to override the generic "run_" write pattern
-    if (isRunKeywordExempt(toolName)) {
-      return {
-        expectedReadOnly: true,
-        expectedDestructive: false,
-        reason: `Tool name contains 'run' with analysis suffix (audit, check, scan, etc.) - this is a read-only analysis operation`,
-        confidence: "medium",
-        isAmbiguous: false,
-      };
-    }
-
-    // Use the configurable pattern matching system
-    const patternMatch = matchToolPattern(toolName, this.compiledPatterns);
-
-    // Handle pattern match results
-    switch (patternMatch.category) {
-      case "ambiguous":
-        // Ambiguous patterns - don't make strong assertions
-        return {
-          expectedReadOnly: false,
-          expectedDestructive: false,
-          reason: `Tool name matches ambiguous pattern '${patternMatch.pattern}' - behavior varies by implementation context`,
-          confidence: "low",
-          isAmbiguous: true,
-        };
-
-      case "destructive":
-        return {
-          expectedReadOnly: false,
-          expectedDestructive: true,
-          reason: `Tool name matches destructive pattern: ${patternMatch.pattern}`,
-          confidence: "high",
-          isAmbiguous: false,
-        };
-
-      case "readOnly":
-        return {
-          expectedReadOnly: true,
-          expectedDestructive: false,
-          reason: `Tool name matches read-only pattern: ${patternMatch.pattern}`,
-          confidence: "high",
-          isAmbiguous: false,
-        };
-
-      case "write": {
-        // CREATE operations are NEVER destructive - they only ADD new data
-        // Only UPDATE/MODIFY operations can be considered destructive when they modify existing data
-        const isCreateOperation = /^(create|add|insert|new|generate)[_-]/i.test(
-          toolName,
-        );
-        if (isCreateOperation) {
-          return {
-            expectedReadOnly: false,
-            expectedDestructive: false,
-            reason: `Tool name matches create pattern: ${patternMatch.pattern} - create operations only add data and are not destructive`,
-            confidence: "high",
-            isAmbiguous: false,
-          };
-        }
-
-        // Three-Tier Classification: Check persistence model for UPDATE/MODIFY operations
-        // If immediate persistence detected, update operations should be marked destructive
-        const descriptionCheck = checkDescriptionForImmediatePersistence(
-          description || "",
-        );
-
-        // Priority 1: Description explicitly indicates deferred persistence
-        if (descriptionCheck.indicatesDeferred) {
-          return {
-            expectedReadOnly: false,
-            expectedDestructive: false,
-            reason: `Tool name matches write pattern (${patternMatch.pattern}), description indicates deferred/in-memory operation`,
-            confidence: "medium",
-            isAmbiguous: false,
-          };
-        }
-
-        // Priority 2: Description explicitly indicates immediate persistence
-        if (descriptionCheck.indicatesImmediate) {
-          return {
-            expectedReadOnly: false,
-            expectedDestructive: true,
-            reason: `Tool name matches write pattern (${patternMatch.pattern}), description indicates immediate persistence to storage (${descriptionCheck.matchedPatterns.slice(0, 2).join(", ")})`,
-            confidence: "medium",
-            isAmbiguous: false,
-          };
-        }
-
-        // Priority 3: Server-level persistence model (no save operations = immediate)
-        if (this.persistenceContext?.model === "immediate") {
-          return {
-            expectedReadOnly: false,
-            expectedDestructive: true,
-            reason: `Tool name matches write pattern (${patternMatch.pattern}), server has no save operations → write operations likely persist immediately`,
-            confidence: "medium",
-            isAmbiguous: false,
-          };
-        }
-
-        // Priority 4: Server has save operations = deferred (in-memory until save)
-        if (this.persistenceContext?.model === "deferred") {
-          return {
-            expectedReadOnly: false,
-            expectedDestructive: false,
-            reason: `Tool name matches write pattern (${patternMatch.pattern}), server has save operations → write operations likely in-memory until explicit save`,
-            confidence: "medium",
-            isAmbiguous: false,
-          };
-        }
-
-        // Default: Unknown persistence model - conservative approach (not destructive)
-        return {
-          expectedReadOnly: false,
-          expectedDestructive: false,
-          reason: `Tool name matches write pattern: ${patternMatch.pattern}`,
-          confidence: "medium",
-          isAmbiguous: false,
-        };
-      }
-
-      case "unknown":
-      default:
-        // Fall through to description-based analysis
-        break;
-    }
-
-    // Check description for hints (medium confidence)
-    if (lowerDesc.includes("delete") || lowerDesc.includes("remove")) {
-      return {
-        expectedReadOnly: false,
-        expectedDestructive: true,
-        reason: "Description mentions delete/remove operations",
-        confidence: "medium",
-        isAmbiguous: false,
-      };
-    }
-
-    if (
-      lowerDesc.includes("read") ||
-      lowerDesc.includes("get") ||
-      lowerDesc.includes("fetch")
-    ) {
-      return {
-        expectedReadOnly: true,
-        expectedDestructive: false,
-        reason: "Description suggests read-only operation",
-        confidence: "medium",
-        isAmbiguous: false,
-      };
-    }
-
-    // Default: assume write with low confidence (ambiguous)
-    return {
-      expectedReadOnly: false,
-      expectedDestructive: false,
-      reason: "Could not infer behavior from name pattern",
-      confidence: "low",
-      isAmbiguous: true,
-    };
-  }
-
-  /**
-   * Determine overall status using alignment status.
-   * Only MISALIGNED counts as failure; REVIEW_RECOMMENDED does not fail.
+   * Determine overall status
    */
   private determineAnnotationStatus(
     results: ToolAnnotationResult[],
@@ -1666,21 +829,16 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     if (totalTools === 0) return "PASS";
 
     const annotatedCount = results.filter((r) => r.hasAnnotations).length;
-
-    // Check for poisoned descriptions (Issue #8) - critical security issue
     const poisonedCount = results.filter(
       (r) => r.descriptionPoisoning?.detected === true,
     ).length;
-    if (poisonedCount > 0) {
-      return "FAIL";
-    }
 
-    // Only count actual MISALIGNED, not REVIEW_RECOMMENDED
+    if (poisonedCount > 0) return "FAIL";
+
     const misalignedCount = results.filter(
       (r) => r.alignmentStatus === "MISALIGNED",
     ).length;
 
-    // Count high-confidence destructive tools without proper hints
     const destructiveWithoutHint = results.filter(
       (r) =>
         r.inferredBehavior?.expectedDestructive === true &&
@@ -1688,37 +846,19 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         r.annotations?.destructiveHint !== true,
     ).length;
 
-    // Destructive tools without proper hints = FAIL (critical safety issue)
-    if (destructiveWithoutHint > 0) {
-      return "FAIL";
-    }
+    if (destructiveWithoutHint > 0) return "FAIL";
+    if (misalignedCount > 0) return "FAIL";
+    if (annotatedCount === totalTools) return "PASS";
 
-    // High-confidence misalignments = FAIL
-    if (misalignedCount > 0) {
-      return "FAIL";
-    }
-
-    // All tools annotated = PASS
-    if (annotatedCount === totalTools) {
-      return "PASS";
-    }
-
-    // Some annotations missing = NEED_MORE_INFO
     const annotationRate = annotatedCount / totalTools;
-    if (annotationRate >= 0.8) {
-      return "NEED_MORE_INFO";
-    }
-
-    // Mostly missing annotations = FAIL
-    if (annotationRate < 0.5) {
-      return "FAIL";
-    }
+    if (annotationRate >= 0.8) return "NEED_MORE_INFO";
+    if (annotationRate < 0.5) return "FAIL";
 
     return "NEED_MORE_INFO";
   }
 
   /**
-   * Calculate metrics and alignment breakdown for the assessment
+   * Calculate metrics and alignment breakdown
    */
   private calculateMetrics(
     results: ToolAnnotationResult[],
@@ -1750,19 +890,15 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     const annotatedCount = results.filter((r) => r.hasAnnotations).length;
 
     const metrics = {
-      // Coverage: percentage of tools with annotations
       coverage: totalTools > 0 ? (annotatedCount / totalTools) * 100 : 100,
-      // Consistency: percentage without contradictions (not MISALIGNED)
       consistency:
         totalTools > 0
           ? ((totalTools - alignmentBreakdown.misaligned) / totalTools) * 100
           : 100,
-      // Correctness: percentage of annotated tools that are ALIGNED
       correctness:
         annotatedCount > 0
           ? (alignmentBreakdown.aligned / annotatedCount) * 100
           : 0,
-      // Review required: count of tools needing manual review
       reviewRequired: alignmentBreakdown.reviewRecommended,
     };
 
@@ -1808,12 +944,46 @@ export class ToolAnnotationAssessor extends BaseAssessor {
   }
 
   /**
+   * Generate enhanced explanation with Claude analysis
+   */
+  private generateEnhancedExplanation(
+    annotatedCount: number,
+    missingCount: number,
+    highConfidenceMisalignments: number,
+    totalTools: number,
+  ): string {
+    const parts: string[] = [];
+
+    if (totalTools === 0) {
+      return "No tools found to assess for annotations.";
+    }
+
+    parts.push(
+      `Tool annotation coverage: ${annotatedCount}/${totalTools} tools have annotations.`,
+    );
+
+    if (missingCount > 0) {
+      parts.push(
+        `${missingCount} tool(s) are missing required annotations (readOnlyHint, destructiveHint).`,
+      );
+    }
+
+    if (highConfidenceMisalignments > 0) {
+      parts.push(
+        `Claude analysis identified ${highConfidenceMisalignments} high-confidence annotation misalignment(s).`,
+      );
+    }
+
+    parts.push("Analysis enhanced with Claude semantic behavior inference.");
+
+    return parts.join(" ");
+  }
+
+  /**
    * Generate recommendations
    */
   private generateRecommendations(results: ToolAnnotationResult[]): string[] {
     const recommendations: string[] = [];
-
-    // Collect unique recommendations from all tools
     const allRecs = new Set<string>();
 
     for (const result of results) {
@@ -1822,7 +992,6 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       }
     }
 
-    // Prioritize destructive tool warnings
     const destructiveRecs = Array.from(allRecs).filter((r) =>
       r.includes("destructive"),
     );
@@ -1839,6 +1008,90 @@ export class ToolAnnotationAssessor extends BaseAssessor {
 
     if (otherRecs.length > 0) {
       recommendations.push(...otherRecs.slice(0, 5));
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push(
+        "All tools have proper annotations. No action required.",
+      );
+    } else {
+      recommendations.push(
+        "Reference: MCP Directory Policy #17 requires tools to have readOnlyHint and destructiveHint annotations.",
+      );
+    }
+
+    return recommendations;
+  }
+
+  /**
+   * Generate enhanced recommendations with Claude analysis
+   */
+  private generateEnhancedRecommendations(
+    results: EnhancedToolAnnotationResult[],
+  ): string[] {
+    const recommendations: string[] = [];
+
+    const claudeMisalignments = results.filter(
+      (r) =>
+        r.claudeInference &&
+        r.claudeInference.source === "claude-inferred" &&
+        r.claudeInference.confidence >= 70 &&
+        r.claudeInference.misalignmentDetected,
+    );
+
+    if (claudeMisalignments.length > 0) {
+      recommendations.push(
+        "HIGH CONFIDENCE: Claude analysis identified the following annotation issues:",
+      );
+      for (const result of claudeMisalignments.slice(0, 5)) {
+        if (result.claudeInference) {
+          recommendations.push(
+            `  - ${result.toolName}: ${result.claudeInference.reasoning}`,
+          );
+        }
+      }
+    }
+
+    const claudeSuggestions = results
+      .filter(
+        (r) =>
+          r.claudeInference &&
+          r.claudeInference.source === "claude-inferred" &&
+          r.claudeInference.confidence >= 60,
+      )
+      .flatMap((r) =>
+        r.recommendations.filter((rec) => rec.includes("Claude")),
+      );
+
+    if (claudeSuggestions.length > 0) {
+      recommendations.push(...claudeSuggestions.slice(0, 5));
+    }
+
+    const patternRecs = new Set<string>();
+    for (const result of results) {
+      for (const rec of result.recommendations) {
+        if (!rec.includes("Claude")) {
+          patternRecs.add(rec);
+        }
+      }
+    }
+
+    const destructiveRecs = Array.from(patternRecs).filter((r) =>
+      r.includes("destructive"),
+    );
+    const otherRecs = Array.from(patternRecs).filter(
+      (r) => !r.includes("destructive"),
+    );
+
+    if (destructiveRecs.length > 0) {
+      recommendations.push(
+        "PRIORITY: Potential destructive tools without proper hints:",
+      );
+      recommendations.push(...destructiveRecs.slice(0, 3));
+    }
+
+    if (otherRecs.length > 0 && recommendations.length < 10) {
+      recommendations.push(...otherRecs.slice(0, 3));
     }
 
     if (recommendations.length === 0) {
