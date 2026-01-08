@@ -123,6 +123,10 @@ interface AssessmentOptions {
   /** Path to performance configuration JSON (Issue #37) */
   performanceConfigPath?: string;
   claudeEnabled?: boolean;
+  /** Enable HTTP transport for Claude Bridge (connects to mcp-auditor proxy) */
+  claudeHttp?: boolean;
+  /** URL for mcp-auditor Claude proxy (default: http://localhost:8085) */
+  mcpAuditorUrl?: string;
   fullAssessment?: boolean;
   verbose?: boolean;
   jsonOnly?: boolean;
@@ -547,10 +551,25 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
   }
 
   if (options.claudeEnabled) {
+    // Check for HTTP transport via --claude-http flag or environment variables
+    const useHttpTransport =
+      options.claudeHttp || process.env.INSPECTOR_CLAUDE === "true";
+    const auditorUrl =
+      options.mcpAuditorUrl ||
+      process.env.INSPECTOR_MCP_AUDITOR_URL ||
+      "http://localhost:8085";
+
     config.claudeCode = {
       enabled: true,
       timeout: FULL_CLAUDE_CODE_CONFIG.timeout || 60000,
       maxRetries: FULL_CLAUDE_CODE_CONFIG.maxRetries || 2,
+      // Use HTTP transport when --claude-http flag or INSPECTOR_CLAUDE env is set
+      ...(useHttpTransport && {
+        transport: "http" as const,
+        httpConfig: {
+          baseUrl: auditorUrl,
+        },
+      }),
       features: {
         intelligentTestGeneration: true,
         aupSemanticAnalysis: true,
@@ -558,6 +577,10 @@ function buildConfig(options: AssessmentOptions): AssessmentConfiguration {
         documentationQuality: true,
       },
     };
+
+    if (useHttpTransport) {
+      console.log(`🔗 Claude Bridge HTTP transport: ${auditorUrl}`);
+    }
   }
 
   // Pass custom annotation pattern config path
@@ -1247,6 +1270,14 @@ function parseArgs(): AssessmentOptions {
       case "--claude-enabled":
         options.claudeEnabled = true;
         break;
+      case "--claude-http":
+        // Enable Claude Bridge with HTTP transport (connects to mcp-auditor)
+        options.claudeEnabled = true;
+        options.claudeHttp = true;
+        break;
+      case "--mcp-auditor-url":
+        options.mcpAuditorUrl = args[++i];
+        break;
       case "--full":
         options.fullAssessment = true;
         break;
@@ -1451,7 +1482,9 @@ Options:
   --diff-only            Output only the comparison diff (requires --compare)
   --resume               Resume from previous interrupted assessment
   --no-resume            Force fresh start, clear any existing state
-  --claude-enabled       Enable Claude Code integration for intelligent analysis
+  --claude-enabled       Enable Claude Code integration (CLI transport: requires 'claude' binary)
+  --claude-http          Enable Claude Code via HTTP transport (connects to mcp-auditor proxy)
+  --mcp-auditor-url <url>  mcp-auditor URL for HTTP transport (default: http://localhost:8085)
   --full                 Enable all assessment modules (default)
   --profile <name>       Use predefined module profile (quick, security, compliance, full)
   --temporal-invocations <n>  Number of invocations per tool for rug pull detection (default: 25)
