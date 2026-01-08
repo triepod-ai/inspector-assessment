@@ -142,6 +142,13 @@ export interface SecurityTestResult {
   // Issue #56: Sanitization detection fields for false positive reduction
   sanitizationDetected?: boolean; // Whether sanitization was detected in tool/response
   sanitizationLibraries?: string[]; // Specific libraries detected (e.g., "DOMPurify")
+  // Claude semantic analysis results for false positive reduction (progressive enhancement)
+  semanticAnalysis?: {
+    originalConfidence: "high" | "medium" | "low";
+    refinedConfidence: "high" | "medium" | "low";
+    reasoning: string;
+    source: "claude-refined";
+  };
 }
 
 // ============================================================================

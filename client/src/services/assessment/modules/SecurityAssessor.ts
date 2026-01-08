@@ -32,10 +32,66 @@ import {
   type TestLogger,
 } from "./securityTests";
 import { ToolClassifier, ToolCategory } from "../ToolClassifier";
+import {
+  ClaudeCodeBridge,
+  SecurityAnalysisContext,
+  SecuritySemanticAnalysisResult,
+} from "../lib/claudeCodeBridge";
 
 export class SecurityAssessor extends BaseAssessor {
   private payloadTester: SecurityPayloadTester;
   private payloadGenerator: SecurityPayloadGenerator;
+  private claudeBridge: ClaudeCodeBridge | null = null;
+
+  /**
+   * Set the ClaudeCodeBridge for semantic analysis of security test results
+   * Enables progressive enhancement: pattern-based detection first, Claude refinement for uncertain cases
+   */
+  setClaudeBridge(bridge: ClaudeCodeBridge | null): void {
+    this.claudeBridge = bridge;
+    if (bridge) {
+      this.log(
+        `ClaudeCodeBridge enabled for security semantic analysis (transport: ${bridge.getTransport()})`,
+      );
+    }
+  }
+
+  /**
+   * Check if semantic analysis is available and enabled
+   */
+  private isSemanticAnalysisEnabled(): boolean {
+    return (
+      this.claudeBridge !== null &&
+      this.claudeBridge.isFeatureEnabled("securitySemanticAnalysis")
+    );
+  }
+
+  /**
+   * Refine a security test result using Claude semantic analysis
+   * Only called for medium/low confidence detections (progressive enhancement)
+   */
+  private async refineWithSemanticAnalysis(
+    test: SecurityTestResult,
+    tool: Tool,
+  ): Promise<SecuritySemanticAnalysisResult | null> {
+    if (!this.claudeBridge) return null;
+
+    const context: SecurityAnalysisContext = {
+      toolName: tool.name,
+      toolDescription: tool.description || "",
+      attackPattern: test.testName,
+      payload: test.payload,
+      response: test.response || "",
+      originalConfidence: test.confidence || "medium",
+    };
+
+    try {
+      return await this.claudeBridge.analyzeSecurityResponse(context);
+    } catch (error) {
+      this.logError("Claude semantic analysis failed", error);
+      return null;
+    }
+  }
 
   constructor(
     config: import("@/lib/assessment/configTypes").AssessmentConfiguration,
@@ -91,6 +147,69 @@ export class SecurityAssessor extends BaseAssessor {
       this.log(
         `Connection errors: ${connectionErrors.map((e) => `${e.toolName}:${e.testName} (${e.errorType})`).join(", ")}`,
       );
+    }
+
+    // Progressive enhancement: refine medium/low confidence detections with Claude semantic analysis
+    // HIGH confidence detections bypass Claude (cost efficient), only uncertain cases get API calls
+    if (this.isSemanticAnalysisEnabled()) {
+      // Create tool lookup map for quick access
+      const toolMap = new Map(toolsToTest.map((t) => [t.name, t]));
+
+      // Find tests that need semantic refinement (medium/low confidence vulnerabilities)
+      const testsToRefine = validTests.filter(
+        (t) =>
+          t.vulnerable && (t.confidence === "medium" || t.confidence === "low"),
+      );
+
+      if (testsToRefine.length > 0) {
+        this.log(
+          `🧠 Running Claude semantic analysis on ${testsToRefine.length} medium/low confidence detection(s)...`,
+        );
+
+        let refinedCount = 0;
+        let falsePositivesRemoved = 0;
+
+        for (const test of testsToRefine) {
+          const tool = toolMap.get(test.toolName || "");
+          if (!tool) continue;
+
+          const refinement = await this.refineWithSemanticAnalysis(test, tool);
+          if (refinement) {
+            refinedCount++;
+
+            // Store semantic analysis result on the test
+            (
+              test as SecurityTestResult & { semanticAnalysis?: unknown }
+            ).semanticAnalysis = {
+              originalConfidence: test.confidence || "medium",
+              refinedConfidence: refinement.refinedConfidence,
+              reasoning: refinement.reasoning,
+              source: "claude-refined" as const,
+            };
+
+            if (!refinement.isVulnerable) {
+              // False positive - mark as not vulnerable
+              test.vulnerable = false;
+              falsePositivesRemoved++;
+              this.log(
+                `  ✅ ${test.toolName}:${test.testName} - marked safe (${refinement.reasoning.substring(0, 100)}...)`,
+              );
+            } else {
+              // Confirmed or upgraded - update confidence
+              test.confidence = refinement.refinedConfidence;
+              if (refinement.refinedConfidence === "high") {
+                this.log(
+                  `  ⚠️ ${test.toolName}:${test.testName} - confirmed vulnerable (${refinement.reasoning.substring(0, 100)}...)`,
+                );
+              }
+            }
+          }
+        }
+
+        this.log(
+          `🧠 Semantic analysis complete: ${refinedCount} refined, ${falsePositivesRemoved} false positives removed`,
+        );
+      }
     }
 
     // Count vulnerabilities from VALID tests only

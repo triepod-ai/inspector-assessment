@@ -51,6 +51,7 @@ export interface ClaudeCodeBridgeConfig {
     annotationInference?: boolean; // Alias for behaviorInference (used by ToolAnnotationAssessor)
     documentationAssessment?: boolean;
     documentationQuality?: boolean; // Alias for documentationAssessment (used by ClaudeCodeConfig)
+    securitySemanticAnalysis?: boolean; // Semantic analysis for security false positive reduction
   };
 }
 
@@ -110,6 +111,29 @@ export interface TestGenerationResult {
 }
 
 /**
+ * Context for security response semantic analysis
+ */
+export interface SecurityAnalysisContext {
+  toolName: string;
+  toolDescription: string;
+  attackPattern: string;
+  payload: string;
+  response: string;
+  originalConfidence: "high" | "medium" | "low";
+}
+
+/**
+ * Result of security semantic analysis for false positive reduction
+ */
+export interface SecuritySemanticAnalysisResult {
+  isVulnerable: boolean;
+  refinedConfidence: "high" | "medium" | "low";
+  reasoning: string;
+  contextFactors: string[];
+  suggestedAction: "flag_vulnerable" | "flag_for_review" | "mark_safe";
+}
+
+/**
  * Default configuration with minimal features
  */
 export const DEFAULT_CLAUDE_CODE_CONFIG: ClaudeCodeBridgeConfig = {
@@ -123,6 +147,7 @@ export const DEFAULT_CLAUDE_CODE_CONFIG: ClaudeCodeBridgeConfig = {
     annotationInference: false,
     documentationAssessment: false,
     documentationQuality: false,
+    securitySemanticAnalysis: false,
   },
 };
 
@@ -140,6 +165,7 @@ export const FULL_CLAUDE_CODE_CONFIG: ClaudeCodeBridgeConfig = {
     annotationInference: true,
     documentationAssessment: true,
     documentationQuality: true,
+    securitySemanticAnalysis: true,
   },
 };
 
@@ -162,6 +188,7 @@ export const HTTP_CLAUDE_CODE_CONFIG: ClaudeCodeBridgeConfig = {
     annotationInference: true,
     documentationAssessment: true,
     documentationQuality: true,
+    securitySemanticAnalysis: true,
   },
 };
 
@@ -700,5 +727,73 @@ Respond with JSON only:
       issues: string[];
       suggestions: string[];
     }>(response);
+  }
+
+  /**
+   * Analyze a security test response for false positive reduction
+   * Uses semantic analysis to distinguish true vulnerabilities from safe behavior
+   *
+   * @param context - The security analysis context including tool info, payload, and response
+   * @returns Analysis result with refined confidence and reasoning, or null if feature disabled
+   */
+  async analyzeSecurityResponse(
+    context: SecurityAnalysisContext,
+  ): Promise<SecuritySemanticAnalysisResult | null> {
+    if (!this.isFeatureEnabled("securitySemanticAnalysis")) {
+      return null;
+    }
+
+    // Truncate very long responses to avoid token limits
+    const truncatedResponse =
+      context.response.length > 5000
+        ? context.response.substring(0, 5000) + "\n...[truncated]..."
+        : context.response;
+
+    const prompt = `You are analyzing a security test result to determine if it's a TRUE VULNERABILITY or a FALSE POSITIVE.
+
+CONTEXT:
+- Tool Name: ${context.toolName}
+- Tool Description: ${context.toolDescription || "No description provided"}
+- Attack Pattern: ${context.attackPattern}
+- Test Payload: ${context.payload}
+- Original Detection Confidence: ${context.originalConfidence}
+
+TOOL RESPONSE:
+${truncatedResponse}
+
+TASK:
+Determine if this is a TRUE vulnerability or a FALSE POSITIVE. Consider:
+
+1. **Tool Purpose**: Does the tool's actual purpose explain the response?
+   - Search/retrieval tools may return content containing the payload (safe echo)
+   - Data storage tools may store and return the payload (safe storage)
+   - API wrapper tools may return numeric data coincidentally matching payloads
+
+2. **Response Semantics**: Is the payload being EXECUTED or just REFLECTED?
+   - "Stored query: rm -rf /" = safe (data storage)
+   - "Command output: [file listing]" = vulnerable (execution)
+   - "{"records": 4}" vs "2+2 = 4" (data vs computation)
+
+3. **Evidence Quality**: What does the response actually show?
+   - Error messages indicating rejection = safe
+   - Actual command/code output = vulnerable
+   - JSON data structures = typically safe
+
+4. **Context Factors**: Any mitigating circumstances?
+   - Input validation evidence
+   - Sanitization library usage
+   - Clear rejection messages
+
+Respond with JSON only:
+{
+  "isVulnerable": boolean,
+  "refinedConfidence": "high" | "medium" | "low",
+  "reasoning": "detailed explanation of your analysis",
+  "contextFactors": ["factor1", "factor2", "factor3"],
+  "suggestedAction": "flag_vulnerable" | "flag_for_review" | "mark_safe"
+}`;
+
+    const response = await this.executeWithRetry(prompt);
+    return this.parseJsonResponse<SecuritySemanticAnalysisResult>(response);
   }
 }

@@ -237,6 +237,10 @@ export class AssessmentOrchestrator {
     }
     if (this.config.assessmentCategories?.security !== false) {
       this.securityAssessor = new SecurityAssessor(this.config);
+      // Wire up Claude bridge for security semantic analysis
+      if (this.claudeBridge) {
+        this.securityAssessor.setClaudeBridge(this.claudeBridge);
+      }
     }
     if (this.config.assessmentCategories?.documentation !== false) {
       this.documentationAssessor = new DocumentationAssessor(this.config);
@@ -384,6 +388,9 @@ export class AssessmentOrchestrator {
       }
       if (this.toolAnnotationAssessor) {
         this.toolAnnotationAssessor.setClaudeBridge(this.claudeBridge);
+      }
+      if (this.securityAssessor) {
+        this.securityAssessor.setClaudeBridge(this.claudeBridge);
       }
       TestDataGenerator.setClaudeBridge(this.claudeBridge);
     }
