@@ -1275,9 +1275,30 @@ function parseArgs(): AssessmentOptions {
         options.claudeEnabled = true;
         options.claudeHttp = true;
         break;
-      case "--mcp-auditor-url":
-        options.mcpAuditorUrl = args[++i];
+      case "--mcp-auditor-url": {
+        const urlValue = args[++i];
+        if (!urlValue || urlValue.startsWith("-")) {
+          console.error("Error: --mcp-auditor-url requires a URL argument");
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        try {
+          new URL(urlValue); // Validate URL format
+          options.mcpAuditorUrl = urlValue;
+        } catch {
+          console.error(
+            `Error: Invalid URL for --mcp-auditor-url: ${urlValue}`,
+          );
+          console.error(
+            "  Expected format: http://hostname:port or https://hostname:port",
+          );
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
         break;
+      }
       case "--full":
         options.fullAssessment = true;
         break;
