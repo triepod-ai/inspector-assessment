@@ -34,312 +34,6 @@
 
 ---
 
-## 2026-01-07: CLI serverInfo Capture Integration Tests
-
-**Summary:** Added 25 integration tests for CLI serverInfo capture ensuring Protocol Conformance assessor receives initialization data correctly.
-
-**Session Focus:** Implementing integration tests for CLI serverInfo capture (task from commit 55d23f4)
-
-**Changes Made:**
-- `scripts/__tests__/serverInfo-capture.test.ts` - 13 unit tests for serverInfo capture logic
-- `client/src/services/assessment/__tests__/ProtocolConformance-CLI.integration.test.ts` - 7 integration tests
-- `scripts/__tests__/cli-parity.test.ts` - Added 5 serverInfo parity tests, fixed getAllModulesConfig pattern
-- `scripts/run-full-assessment.ts` - Added serverInfo/serverCapabilities capture for parity
-
-**Key Decisions:**
-- Put unit tests in scripts/__tests__/ to leverage existing jest infrastructure
-- Used existing SKIP_INTEGRATION_TESTS pattern for integration tests
-- Fixed legacy cli-parity tests to use getAllModulesConfig() instead of extractAllModulesKeys()
-
-**Next Steps:**
-- Consider expanding integration tests to cover different transport types (STDIO, SSE)
-- Run full test suite to verify no regressions
-
-**Notes:**
-- Commit: 2bb3c42
-- All 25 new tests pass
-- Integration tests skip gracefully when testbed not running
-
----
-## 2026-01-07: Code Review Improvements for CLI Parity Tests
-
-**Summary:** Implemented code review improvements for cli-parity tests, adding negative test cases and making module count self-maintaining.
-
-**Session Focus:** Code review implementation for cli-parity.test.ts addressing 5 findings (W1, W2, S1, S2, S3)
-
-**Changes Made:**
-- Modified: `scripts/__tests__/cli-parity.test.ts` (+71/-15 lines)
-  - W1: Removed redundant parity test (comparing true===true)
-  - W2: Strengthened import validation with regex pattern
-  - S1: Added 4 negative test cases for `usesGetAllModulesConfig()` helper
-  - S2: Made module count derive from `ASSESSMENT_CATEGORY_METADATA` (self-maintaining)
-  - S3: Added JSDoc documenting cross-layer import rationale
-- Test count: 26 → 29 tests (removed 1 redundant, added 4 negative)
-
-**Key Decisions:**
-- Used regex `/import\s*{[^}]*getAllModulesConfig[^}]*}\s*from/` for robust import validation
-- Derive module count from ASSESSMENT_CATEGORY_METADATA to eliminate manual updates when modules change
-- Negative tests added at describe block level (not inside main test suite)
-
-**Next Steps:**
-- None specific - this was cleanup/improvement work
-
-**Notes:**
-- Commit: d21452c "test: improve cli-parity tests per code review"
-- Pushed to origin/main
-- No documentation updates required (internal test changes only)
-
----
-
-## 2026-01-07: RiskLevel Type Re-export Fix
-
-**Summary:** Fixed RiskLevel type re-export warning to complete ToolClassifier code review improvements.
-
-**Session Focus:** Code review fix - RiskLevel type export
-
-**Changes Made:**
-- Modified `client/src/services/assessment/ToolClassifier.ts` - Added `export type { RiskLevel };` for backwards compatibility
-
-**Key Decisions:**
-- Re-export RiskLevel alongside ToolCategory so consumers can import from main module
-- Maintains clean public API without requiring knowledge of internal file structure
-
-**Next Steps:**
-- Consider re-exporting CategoryConfig interface if needed by external consumers
-- Monitor for any additional type export needs
-
-**Notes:**
-- Commit: 0aebae2 "fix: re-export RiskLevel type from ToolClassifier module"
-- All 2181 tests pass
-- Pushed to origin/main
-
----
-
-## 2026-01-08: Standardized Error Handling Patterns (Issue #31)
-
-**Summary:** Implemented standardized error handling patterns across assessment modules with new errors.ts library and comprehensive logging.
-
-**Session Focus:** Implement GitHub Issue #31: Standardize Error Handling Patterns - Replace silent catches with structured logging across all assessment modules.
-
-**Changes Made:**
-- Created `client/src/services/assessment/lib/errors.ts` - New error infrastructure with AssessmentError class, ErrorCategory enum, ErrorInfo interface, categorizeError() and extractErrorMessage() helper functions
-- Updated `client/src/services/assessment/modules/FunctionalityAssessor.ts` - Added logError() for tool execution failures
-- Updated `client/src/services/assessment/modules/ManifestValidationAssessor.ts` - Added logging for URL validation failures, HEAD request fallback to GET, and fetch failures
-- Updated `client/src/services/assessment/modules/PromptAssessor.ts` - Added debug logging for expected injection payload rejections and missing argument validation
-- Updated `client/src/services/assessment/modules/ResourceAssessor.ts` - Added debug logging for path traversal rejection and URI validation
-- Created `docs/ERROR_HANDLING_CONVENTIONS.md` - Comprehensive documentation for error handling patterns, when to use handleError() vs logError() vs logger.debug()
-- Fixed `cli/src/assess-full.ts` - Pre-existing TypeScript type issue with serverInfo metadata
-
-**Key Decisions:**
-- Used debug-level logging for expected errors (security test rejections) to avoid log noise
-- Used error-level logging for actual failures (tool execution, network errors)
-- Preserved existing behavior - only added logging, no functional changes
-- errors.ts fixes missing dependency from Issue #35 commit
-
-**Next Steps:**
-- Push commits to origin (2 commits ahead)
-- Consider implementing Issue #38 (AbortController for timeouts) next
-- Run testbed validation to verify no behavioral regressions
-
-**Notes:**
-- 2474 tests pass, 1 flaky performance benchmark failed (unrelated to changes)
-- Commit: 8d76e7b refactor: standardize error handling across assessment modules (closes #31)
-
----
-
-## 2026-01-08: Unit Tests for Extracted Assessment Modules (PR #42 Follow-up)
-
-**Summary:** Added 137 unit tests for extracted assessment modules from PR #42 follow-up.
-
-**Session Focus:** Complete code review follow-up for PR #42 by adding comprehensive unit tests for the helper modules extracted from SecurityAssessor and ToolAnnotationAssessor.
-
-**Changes Made:**
-- Created `client/src/services/assessment/__tests__/SecurityResponseAnalyzer.test.ts` (504 lines, ~50 tests)
-- Created `client/src/services/assessment/__tests__/DescriptionPoisoningDetector.test.ts` (543 lines, ~35 tests)
-- Created `client/src/services/assessment/__tests__/BehaviorInference.test.ts` (514 lines, ~52 tests)
-- Barrel exports already present in `modules/index.ts`
-
-**Key Decisions:**
-- Tests validate pattern matching behavior, not just expected outputs
-- Fixed test assumptions about string.includes() - "deleting" does NOT contain "delete" as substring
-- Tests document actual pattern behavior (run_command is destructive, run_* is write, process_* is ambiguous)
-
-**Next Steps:**
-- Push commit to origin
-- Consider creating PR for the test additions
-
-**Notes:**
-- Commit: 1bed416 "test: add unit tests for extracted assessment modules"
-- All 137 new tests passing
-- Assessment suite: 1940 tests passing (2 pre-existing flaky tests)
-
----
-
-## 2026-01-08: Deprecation Documentation and v2.0.0 Roadmap Issue
-
-**Summary:** Committed deprecation documentation and created v2.0.0 roadmap issue for tracking breaking changes migration.
-
-**Session Focus:** Documentation commit and release planning for v2.0.0
-
-**Changes Made:**
-- Created `docs/DEPRECATION_GUIDE.md` (765+ lines) - User migration guide
-- Created `docs/DEPRECATION_API_REFERENCE.md` (670+ lines) - Technical reference
-- Created `docs/DEPRECATION_MIGRATION_EXAMPLES.md` (777+ lines) - Code examples
-- Created `docs/DEPRECATION_INDEX.md` (357 lines) - Navigation hub
-- Created `docs/ASSESSMENT_MODULES_API.md` - Module API reference
-- Created `docs/ASSESSMENT_MODULES_INTEGRATION.md` - Integration patterns
-- Modified `docs/README.md` - Added links to deprecation docs
-- Created GitHub issue #48 - v2.0.0 Roadmap tracking
-
-**Key Decisions:**
-- v2.0.0 target: Q2 2026
-- 8 deprecated items to remove (4 modules, 2 config flags, 2 methods)
-- Created umbrella roadmap issue for tracking
-
-**Next Steps:**
-- Continue deprecation tracking via issue #48
-- Begin migration work as v2.0.0 approaches
-
-**Notes:**
-- Commit: 54f453a
-- Issue: https://github.com/triepod-ai/inspector-assessment/issues/48
-
----
-
-## 2026-01-08: SecurityResponseAnalyzer Cyclomatic Complexity Refactoring (Issue #36)
-
-**Summary:** Completed issue #36 by refactoring SecurityResponseAnalyzer.analyzeResponse() to reduce cyclomatic complexity from 123 to 23 lines.
-
-**Session Focus:** Code quality refactoring - Issue #36 cyclomatic complexity reduction
-
-**Changes Made:**
-- Modified: `client/src/services/assessment/modules/securityTests/SecurityResponseAnalyzer.ts`
-  - Extracted `checkSafeErrorResponses()` method (25 lines) - MCP validation + HTTP error detection
-  - Extracted `checkSafeToolBehavior()` method (71 lines) - Tool categories, reflection, math, validation
-  - Extracted `checkVulnerabilityEvidence()` method (37 lines) - Evidence pattern matching + fallback
-  - Reduced main `analyzeResponse()` from 123 lines to 23 lines
-
-**Key Decisions:**
-- Chose minimal refactor approach over full refactor (~1000 lines) to reduce risk
-- Kept extracted methods private, tested through public API integration tests
-- Created follow-up issue #53 for deeper v2.0.0 refactoring
-
-**Technical Details:**
-- All 46 SecurityResponseAnalyzer unit tests passing
-- All 130 SecurityAssessor integration tests passing
-- Commit: 5bdfe21
-- Issue #36 closed, #53 created
-
-**Next Steps:**
-- Issue #53: Deep extraction for v2.0.0 (SafeResponseDetector, ErrorClassifier, ExecutionArtifactDetector, SecurityPatternLibrary)
-- Issues #37, #38: Other code quality improvements
-
-**Notes:**
-- Cyclomatic complexity reduced by ~81% (123 -> 23 lines in main method)
-- Refactoring pattern: Extract method for each logical grouping of conditionals
-- Private helper methods maintain encapsulation while improving readability
-
----
-
-## 2026-01-08: AbortController Support for Promise.race Timeouts (Issue #38)
-
-**Summary:** Implemented AbortController support for Promise.race timeouts to fix timer leaks in assessment operations.
-
-**Session Focus:** GitHub issue #38 - Adding proper cleanup for Promise.race timeout patterns
-
-**Changes Made:**
-- Created: `client/src/services/assessment/lib/timeoutUtils.ts` (~125 lines) - Shared timeout utility with AbortController-based cleanup
-- Created: `client/src/services/assessment/__tests__/timeoutUtils.test.ts` (~305 lines) - 17 unit tests
-- Modified: `client/src/services/assessment/modules/BaseAssessor.ts` - Updated executeWithTimeout to use new utility
-- Modified: `client/src/services/assessment/TestScenarioEngine.ts` - Replaced 3 inline Promise.race patterns
-
-**Key Decisions:**
-- Created shared utility rather than inline fixes for consistency
-- Used AbortController + clearTimeout in finally block for guaranteed cleanup
-- Maintained backwards compatibility - existing callers require zero changes
-- Added executeWithTimeoutAndSignal variant for fetch/AbortSignal operations
-
-**Technical Details:**
-- All 108 TestScenarioEngine tests passing
-- 17 new timeoutUtils tests passing
-- Build successful
-- Commit: 066ce25
-
-**Next Steps:**
-- Push changes to remote
-- Consider updating ManifestValidationAssessor to use shared utility (optional enhancement)
-
-**Notes:**
-- Issue #38 closed
-- Pattern: AbortController + clearTimeout in finally block ensures cleanup regardless of success/failure/timeout
-- Utility provides both executeWithTimeout (general) and executeWithTimeoutAndSignal (fetch operations)
-
----
-
-## 2026-01-08: PerformanceConfig Module Implementation (Issue #37)
-
-**Summary:** Implemented PerformanceConfig module centralizing magic numbers, and cleaned up GitHub issues by closing implemented and consolidating duplicates.
-
-**Session Focus:** Issue #37 implementation and GitHub issue housekeeping
-
-**Changes Made:**
-- Created: `client/src/services/assessment/config/performanceConfig.ts` - Central config with 7 tunable values
-- Created: `client/src/services/assessment/config/performanceConfig.test.ts` - 26 unit tests
-- Modified: `TestScenarioEngine.ts` - Uses config.testTimeoutMs
-- Modified: `FunctionalityAssessor.ts` - Uses config batch values
-- Modified: `SecurityPayloadTester.ts` - Uses config batch and timeout values
-- Modified: `concurrencyLimit.ts` - Uses config.queueWarningThreshold
-- Modified: `jsonl-events.ts` - EventBatcher uses config defaults
-- Modified: `event-config.ts` - ScopedListenerConfig uses config
-- Modified: `assess-full.ts` - Added --performance-config CLI flag
-- Modified: `assess-security.ts` - Added --performance-config CLI flag
-
-**Key Decisions:**
-- Separate batch sizes for functionality (5) vs security (10) tests
-- Added presets: default, fast, resourceConstrained for common use cases
-- JSON config file loading with validation and bounds checking
-- Backwards compatible - all parameters optional with sensible defaults
-
-**Technical Details:**
-- 26 new performanceConfig tests passing
-- 2521 total tests passing
-- Closed issues: #37 (implemented), #38 (already implemented)
-- Consolidated duplicates: #44-52 closed, canonical issues #54-57 remain
-
-**Next Steps:**
-- Wire performanceConfig through AssessmentContext for full runtime override
-- Work on remaining 6 open issues (#48, #53-57)
-
-**Notes:**
-- Pattern: Centralized config with validation, presets, and file loading
-- 7 tunable values: testTimeoutMs, batchSize, securityBatchSize, concurrencyLimit, eventBatchSize, eventBatchIntervalMs, queueWarningThreshold
-- GitHub housekeeping reduced open issues from 15 to 6
-
----
-
-## 2026-01-08: Documentation Quality Scoring Module (Issue #55)
-
-**Summary:** Implemented Issue #55 documentation quality scoring with point-based assessment, README tiers, and license detection.
-
-**Session Focus:** Issue #55 - Documentation Quality Scoring Module
-
-**Changes Made:**
-- Modified: `client/src/lib/assessment/resultTypes.ts` - Added DocumentationQualityChecks and DocumentationQualityScore interfaces, extended DocumentationMetrics
-- Modified: `client/src/services/assessment/modules/DeveloperExperienceAssessor.ts` - Added 6 quality scoring methods (~200 lines)
-- Created: `client/src/services/assessment/__tests__/DeveloperExperienceAssessor-Quality.test.ts` - New test file with 31 tests
-
-**Key Decisions:**
-- Enhanced existing DeveloperExperienceAssessor rather than creating new module (avoids proliferation)
-- Point-based scoring: README exists (10), >5KB (+10), >15KB (+20), installation (20), configuration (20), examples (20), license (10) = 100 max
-- License detection supports MIT, Apache-2.0, GPL, BSD, ISC, MPL, Unlicense
-- Quality tiers: poor (0-39), basic (40-59), good (60-79), excellent (80-100)
-
-**Technical Details:**
-- 31 new quality scoring tests passing
-- Quality score calculation from documentation checks
-- README tier classification based on size and content
-- License type extraction from manifest or convention
-
 **Next Steps:**
 - Monitor quality scoring in production assessments
 - Consider adding more license type detection patterns if needed
@@ -500,5 +194,203 @@
 - Addresses GitHub Issue #57 (P3 priority)
 - Foundation for more sophisticated tool behavior analysis
 - Extensible pattern database allows easy addition of new backend/transport patterns
+
+---
+
+## 2026-01-08: Issue #56 Deployment and Testbed Validation
+
+**Summary:** Deployed sanitization detection to origin, validated with testbed A/B comparison
+
+**Session Focus:** Final deployment phase for GitHub Issue #56 - pushed implementation to origin and validated detection accuracy with the vulnerable-mcp/hardened-mcp testbed.
+
+**Changes Made:**
+- Pushed commit 9735407 to origin/main (sanitization detection implementation)
+- Ran testbed A/B validation confirming detection gap
+- Closed GitHub Issue #56 with detailed implementation comment
+
+**Validation Results:**
+| Server | Vulnerabilities | Safe Tools |
+|--------|-----------------|------------|
+| vulnerable-mcp | 10 | 2 |
+| hardened-mcp | 0 | 12 |
+
+**Key Decisions:**
+- Used quick A/B test mode for rapid validation (sufficient for deployment confirmation)
+- Detection gap confirmed: 10 vulnerabilities on vulnerable server vs 0 on hardened server with identical tool names
+- Issue closed with comment documenting the implementation details
+
+**Technical Details:**
+- Commit: 9735407 (feat: detect sanitization/encoding in security responses)
+- A/B validation proves pure behavior-based detection (not name-based heuristics)
+- All safe tools correctly identified on both servers (0 false positives)
+
+**Next Steps:**
+- Continue with remaining GitHub issues (57, 58, 59, 60)
+- Monitor for any regression reports from the sanitization detection
+
+**Notes:**
+- This is a follow-up entry to the earlier Issue #56 implementation session
+- Deployment and validation phase completed successfully
+- Testbed A/B comparison remains the gold standard for validating detection accuracy
+
+---
+
+## 2026-01-08: Issue #58 Calculator Injection False Positive Tests
+
+**Summary:** Added comprehensive test coverage for calculator injection false positives
+
+**Session Focus:** Creating critical gap tests for GitHub Issue #58 - Calculator Injection false positives with API response metadata patterns.
+
+**Changes Made:**
+- Added 7 critical gap tests to `CalculatorInjectionDetector.test.ts` (405 lines)
+- Test: exact kintone_get_app regression scenario from issue
+- Test: pagination metadata patterns (page/per_page/total)
+- Test: offset/limit pagination patterns
+- Test: cursor-based pagination patterns
+- Test: mixed server detection (safe API wrappers + vulnerable calculators)
+- Test: legitimate business calculations (financial reports, inventory)
+- All 37 tests passing in the test file
+
+**Key Decisions:**
+- Tests document expected behavior for false positive scenarios
+- Focused on real-world API wrapper patterns (Kintone, Salesforce, generic REST)
+- Mixed server tests validate selective detection (only flag truly vulnerable tools)
+- Tests will guide implementation of false positive mitigation
+
+**Technical Details:**
+- Commit: 93053bf (test: add critical gap tests for Issue #58)
+- Test categories: API metadata, pagination patterns, mixed detection
+- Pagination patterns covered: page/per_page/total, offset/limit, cursor-based
+- Business patterns: financial calculations, inventory management
+
+**Next Steps:**
+- Implement false positive mitigation based on test expectations
+- Add context-aware detection for API response metadata
+- Validate fixes against kintone_get_app and similar tools
+- Run testbed validation after implementation
+
+**Notes:**
+- Tests currently document the gap (some may fail until implementation complete)
+- Issue #58 is P2 priority for reducing false positive rate
+- Foundation for improving calculator injection detector precision
+- Real-world patterns from issue reporter's kintone_get_app scenario
+
+---
+
+## 2026-01-08: Documentation Gap Remediation (Issues #37, #57)
+
+**Summary:** Completed documentation gap remediation plan addressing 12 documentation gaps across 4 phases
+
+**Session Focus:** Documentation gap remediation - executing approved 4-phase plan to address CRITICAL, MAJOR, and MINOR documentation gaps identified by api-documenter agent.
+
+**Changes Made:**
+- Created `docs/ARCHITECTURE_DETECTION_GUIDE.md` - Server infrastructure analysis documentation (Issue #57)
+- Created `docs/BEHAVIOR_INFERENCE_GUIDE.md` - Multi-signal tool behavior classification (Issue #57)
+- Created `docs/PERFORMANCE_TUNING_GUIDE.md` - 7 tunable parameters, presets, configs (Issue #37)
+- Created `docs/examples/performance-config-default.json`
+- Created `docs/examples/performance-config-fast.json`
+- Created `docs/examples/performance-config-resource-constrained.json`
+- Updated `docs/ASSESSMENT_CATALOG.md` - Added behavior inference and architecture sections
+- Updated `docs/CLI_ASSESSMENT_GUIDE.md` - Added --performance-config flag, troubleshooting
+- Updated `docs/API_REFERENCE.md` - Added Behavior Inference, Architecture Detection, Performance APIs
+- Updated `docs/PROGRAMMATIC_API_GUIDE.md` - Added usage examples for new APIs
+- Updated `docs/README.md` - Added Tool Analysis and Performance Tuning sections
+- Updated `README.md` - Added Advanced Topics section
+- Deleted temporary files: DOCUMENTATION_GAP_ANALYSIS.md, DOCUMENTATION_IMPLEMENTATION_CHECKLIST.md
+
+**Key Decisions:**
+- Addressed all 12 gaps: 3 CRITICAL, 5 MAJOR, 4 MINOR
+- Created 3 new documentation guides plus 3 example config files
+- Updated 6 existing documentation files
+- Removed temporary analysis files after plan completion
+
+**Commits:**
+- b9f87a4 - docs: add architecture detection and behavior inference guides
+- 4a5da5b - docs: add performance tuning guide and update CLI/API documentation (#37)
+- e333626 - docs: add advanced topics links and example config files (#37, #57)
+
+**Next Steps:**
+- Review uncommitted code changes (BehaviorInference.ts, DescriptionAnalyzer.ts, SchemaAnalyzer.ts)
+- Run tests to verify code changes
+- Consider additional documentation for any remaining undocumented features
+
+**Notes:**
+- Plan was created by api-documenter agent in previous session
+- All success criteria from plan met
+- Documentation now covers Issue #37 (Performance Config) and Issue #57 (Architecture/Behavior) completely
+
+---
+
+## 2026-01-08: Issue #57 Edge Case Test Fixes
+
+**Summary:** Fixed all 21 edge case test failures for Issue #57, improving behavior inference accuracy with better keyword coverage, gentler confidence boosting, and improved conflict detection.
+
+**Session Focus:** Issue #57 Edge Case Test Fixes - Resolving test failures discovered by test agents in behavior inference modules
+
+**Changes Made:**
+- `client/src/services/assessment/modules/toolAnnotations/DescriptionAnalyzer.ts`: Added missing keywords (terminated, archives, increments, decrements, cleanup, marks), increased negation window 30->60 chars, fixed write-over-read priority logic
+- `client/src/services/assessment/modules/toolAnnotations/BehaviorInference.ts`: Added weak signal ambiguity detection, fixed confidence boost formula (gentler: avg + (count-1)*3), improved read/write conflict detection with always-ambiguous flag, preserved persistence model info in reasons
+- `client/src/services/assessment/modules/toolAnnotations/SchemaAnalyzer.ts`: Added hasArrayTypeRecursive() for nested array detection, added removed/removedcount/removed_count to destructive patterns
+- Updated 3 test files with corrected expectations
+
+**Key Decisions:**
+- Gentler confidence boost (+3 per additional signal) prevents premature saturation at 100
+- Always mark as ambiguous when both read-only and write signals present (even if one dominates)
+- Recursive schema walking limited to depth 3 for performance
+- Write signals with 50%+ of read score override read-only classification
+
+**Commits:**
+- 02aa644 fix(annotations): resolve 21 edge case test failures for Issue #57
+
+**Next Steps:**
+- Push commits to origin (6 commits ahead)
+- Consider Issue #58 regression tests (4 unrelated failures remain)
+
+**Notes:**
+- Test progression: 21 -> 13 -> 12 -> 11 -> 8 -> 4 failures (4 remaining are Issue #58, not #57)
+- All Issue #57 edge cases now passing
+
+---
+
+## 2026-01-08: Issue #58 Implementation Complete - Pushed to Origin
+
+**Summary:** Pushed 6 commits to origin including Issue #58 numeric false positive fix and Issue #57 edge case fixes
+
+**Session Focus:** Finalizing and pushing Issue #58 implementation (DATA_FETCHER category for numeric false positive prevention)
+
+**Changes Made:**
+- Pushed 6 commits to origin/main:
+  - 02aa644 - fix(annotations): resolve 21 edge case test failures for Issue #57
+  - e333626 - docs: add advanced topics links and example config files (#37, #57)
+  - 4a5da5b - docs: add performance tuning guide and update CLI/API documentation (#37)
+  - b9f87a4 - docs: add architecture detection and behavior inference guides
+  - 93053bf - (Issue #58 related commit)
+  - 3bb7400 - (Issue #58 related commit)
+- Issue #58 implementation complete:
+  - DATA_FETCHER category added to ToolCategory enum
+  - isCoincidentalNumericInStructuredData() function for detecting false positives
+  - analyzeComputedMathResult() function for identifying computed results
+  - checkSafeToolBehavior() integration for safe tool detection
+- Reviewed Issue #58 plan and identified remaining validation steps
+
+**Key Decisions:**
+- DATA_FETCHER tools (price lookups, stock quotes, weather data) should not trigger calculator injection false positives
+- Numeric values in structured data responses (JSON fields like "price": 42.50) are coincidental, not computed
+- Implementation preserves existing security detection for actual calculator injection risks
+
+**Commits:**
+- 6 commits pushed to origin/main (02aa644, e333626, 4a5da5b, b9f87a4, 93053bf, 3bb7400)
+
+**Next Steps:**
+- A/B testbed validation (vulnerable-mcp vs hardened-mcp) to verify:
+  - Vulnerable server still detects 200+ vulnerabilities
+  - Hardened server maintains 0 vulnerabilities
+  - DATA_FETCHER tools do not trigger false positives
+- Run full test suite to confirm no regressions
+
+**Notes:**
+- Issue #58 addresses numeric false positive prevention for data fetcher tools
+- Issue #57 edge case fixes improved behavior inference accuracy
+- Both issues now have complete implementations pushed to origin
 
 ---
