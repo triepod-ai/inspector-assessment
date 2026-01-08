@@ -9,6 +9,7 @@ import {
   DEFAULT_ASSESSMENT_CONFIG,
   ManifestJsonSchema,
   ProgressCallback,
+  ServerInfo,
 } from "@/lib/assessmentTypes";
 import {
   Tool,
@@ -123,11 +124,7 @@ export interface AssessmentContext {
   packageLock?: unknown;
   privacyPolicy?: unknown;
   config: AssessmentConfiguration;
-  serverInfo?: {
-    name: string;
-    version?: string;
-    metadata?: unknown;
-  };
+  serverInfo?: ServerInfo;
 
   // Enhanced mode: Source code analysis (optional)
   // When provided, enables deeper analysis for AUP, prohibited libraries, portability
@@ -974,9 +971,9 @@ export class AssessmentOrchestrator {
       name: string,
       params: Record<string, unknown>,
     ) => Promise<CompatibilityCallToolResult>,
-    serverInfo?: any,
+    serverInfo?: ServerInfo,
     readmeContent?: string,
-    packageJson?: any,
+    packageJson?: Record<string, unknown>,
   ): Promise<MCPDirectoryAssessment> {
     const context: AssessmentContext = {
       serverName,

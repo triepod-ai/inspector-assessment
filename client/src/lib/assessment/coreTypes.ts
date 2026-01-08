@@ -185,3 +185,83 @@ export type {
   PersistenceModel,
   ServerPersistenceContext,
 } from "../../services/assessment/config/annotationPatterns";
+
+/**
+ * JSON Schema Draft 7 compatible interface for tool input/output schemas.
+ * Based on the JSON Schema specification used by MCP SDK.
+ */
+export interface JSONSchema7 {
+  type?: string | string[];
+  properties?: Record<string, JSONSchema7>;
+  required?: string[];
+  items?: JSONSchema7 | JSONSchema7[];
+  enum?: unknown[];
+  const?: unknown;
+  default?: unknown;
+  description?: string;
+  title?: string;
+
+  // Numeric constraints
+  minimum?: number;
+  maximum?: number;
+  exclusiveMinimum?: number;
+  exclusiveMaximum?: number;
+  multipleOf?: number;
+
+  // String constraints
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  format?: string;
+
+  // Array constraints
+  minItems?: number;
+  maxItems?: number;
+  uniqueItems?: boolean;
+
+  // Object constraints
+  additionalProperties?: boolean | JSONSchema7;
+  patternProperties?: Record<string, JSONSchema7>;
+  minProperties?: number;
+  maxProperties?: number;
+
+  // Composition
+  allOf?: JSONSchema7[];
+  anyOf?: JSONSchema7[];
+  oneOf?: JSONSchema7[];
+  not?: JSONSchema7;
+
+  // References
+  $ref?: string;
+  $defs?: Record<string, JSONSchema7>;
+  definitions?: Record<string, JSONSchema7>;
+}
+
+/**
+ * MCP content block interface for tool responses.
+ * Maps to ContentBlock types from @modelcontextprotocol/sdk/types.js
+ */
+export interface MCPContent {
+  type: "text" | "image" | "audio" | "resource_link" | "resource";
+  text?: string;
+  data?: string;
+  mimeType?: string;
+  uri?: string;
+  blob?: string;
+  /** Nested resource structure for resource content type */
+  resource?: {
+    uri: string;
+    text?: string;
+    mimeType?: string;
+    blob?: string;
+  };
+}
+
+/**
+ * Server info for assessment context.
+ */
+export interface ServerInfo {
+  name: string;
+  version?: string;
+  metadata?: Record<string, unknown>;
+}

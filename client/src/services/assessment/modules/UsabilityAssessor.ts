@@ -7,9 +7,17 @@ import {
   UsabilityAssessment,
   UsabilityMetrics,
   AssessmentStatus,
+  JSONSchema7,
 } from "@/lib/assessmentTypes";
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
+
+interface ToolInputSchema {
+  type: string;
+  properties?: Record<string, JSONSchema7>;
+  required?: string[];
+}
 
 export class UsabilityAssessor extends BaseAssessor {
   async assess(context: AssessmentContext): Promise<UsabilityAssessment> {
@@ -28,7 +36,7 @@ export class UsabilityAssessor extends BaseAssessor {
     };
   }
 
-  private analyzeUsability(tools: any[]): UsabilityMetrics {
+  private analyzeUsability(tools: Tool[]): UsabilityMetrics {
     const toolNamingConvention = this.analyzeNamingConvention(tools);
     const parameterClarity = this.analyzeParameterClarity(tools);
     const hasHelpfulDescriptions = this.checkDescriptions(tools);
@@ -42,7 +50,9 @@ export class UsabilityAssessor extends BaseAssessor {
     };
   }
 
-  private analyzeNamingConvention(tools: any[]): "consistent" | "inconsistent" {
+  private analyzeNamingConvention(
+    tools: Tool[],
+  ): "consistent" | "inconsistent" {
     if (tools.length === 0) return "consistent";
 
     const namingPatterns = {
@@ -79,7 +89,9 @@ export class UsabilityAssessor extends BaseAssessor {
     return "inconsistent";
   }
 
-  private analyzeParameterClarity(tools: any[]): "clear" | "unclear" | "mixed" {
+  private analyzeParameterClarity(
+    tools: Tool[],
+  ): "clear" | "unclear" | "mixed" {
     if (tools.length === 0) return "clear";
 
     let clearCount = 0;
@@ -91,7 +103,7 @@ export class UsabilityAssessor extends BaseAssessor {
       if (!schema?.properties) continue;
 
       for (const [paramName, paramDef] of Object.entries(
-        schema.properties as Record<string, any>,
+        schema.properties as Record<string, JSONSchema7>,
       )) {
         // Check if parameter name is self-descriptive
         if (this.isDescriptiveName(paramName)) {
@@ -119,7 +131,7 @@ export class UsabilityAssessor extends BaseAssessor {
     return "mixed";
   }
 
-  private checkDescriptions(tools: any[]): boolean {
+  private checkDescriptions(tools: Tool[]): boolean {
     if (tools.length === 0) return false;
 
     let toolsWithDescriptions = 0;
@@ -134,7 +146,7 @@ export class UsabilityAssessor extends BaseAssessor {
     return toolsWithDescriptions / tools.length >= 0.7;
   }
 
-  private checkBestPractices(tools: any[]): boolean {
+  private checkBestPractices(tools: Tool[]): boolean {
     const practices = {
       hasVersioning: false,
       hasErrorHandling: false,
@@ -154,7 +166,7 @@ export class UsabilityAssessor extends BaseAssessor {
       // Check for proper parameter constraints
       if (schema?.properties) {
         for (const prop of Object.values(
-          schema.properties as Record<string, any>,
+          schema.properties as Record<string, JSONSchema7>,
         )) {
           if (
             prop.enum ||
@@ -215,12 +227,12 @@ export class UsabilityAssessor extends BaseAssessor {
     return name.length > 3 && !/^[a-z]$/.test(name);
   }
 
-  private getToolSchema(tool: any): any {
+  private getToolSchema(tool: Tool): ToolInputSchema | null {
     if (!tool.inputSchema) return null;
 
     return typeof tool.inputSchema === "string"
-      ? this.safeJsonParse(tool.inputSchema)
-      : tool.inputSchema;
+      ? (this.safeJsonParse(tool.inputSchema) as ToolInputSchema | null)
+      : (tool.inputSchema as ToolInputSchema);
   }
 
   private determineUsabilityStatus(
@@ -241,7 +253,10 @@ export class UsabilityAssessor extends BaseAssessor {
     return "FAIL";
   }
 
-  private generateExplanation(metrics: UsabilityMetrics, tools: any[]): string {
+  private generateExplanation(
+    metrics: UsabilityMetrics,
+    tools: Tool[],
+  ): string {
     const parts: string[] = [];
 
     parts.push(`Analyzed ${tools.length} tools for usability.`);

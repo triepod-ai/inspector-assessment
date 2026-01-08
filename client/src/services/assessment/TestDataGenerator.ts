@@ -9,6 +9,7 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { ClaudeCodeBridge } from "./lib/claudeCodeBridge";
 import type { Logger } from "./lib/logger";
+import { JSONSchema7 } from "@/lib/assessmentTypes";
 
 export interface TestScenario {
   name: string;
@@ -328,7 +329,7 @@ export class TestDataGenerator {
     // This prevents running boundary tests on tools that don't define min/max constraints
     let hasBoundaries = false;
     for (const [_key, schema] of Object.entries(properties)) {
-      const schemaObj = schema as any;
+      const schemaObj = schema as JSONSchema7;
       if (
         schemaObj.minimum !== undefined ||
         schemaObj.maximum !== undefined ||
@@ -346,7 +347,7 @@ export class TestDataGenerator {
     }
 
     for (const [key, schema] of Object.entries(properties)) {
-      const schemaObj = schema as any;
+      const schemaObj = schema as JSONSchema7;
 
       // Test numeric boundaries
       if (schemaObj.type === "number" || schemaObj.type === "integer") {
@@ -419,7 +420,7 @@ export class TestDataGenerator {
     ) {
       // Intentionally provide wrong types
       for (const [key, schema] of Object.entries(tool.inputSchema.properties)) {
-        const schemaObj = schema as any;
+        const schemaObj = schema as JSONSchema7;
 
         switch (schemaObj.type) {
           case "string":
@@ -473,7 +474,11 @@ export class TestDataGenerator {
     const properties = tool.inputSchema.properties || {};
 
     for (const [key, schema] of Object.entries(properties)) {
-      params[key] = this.generateRealisticValue(key, schema as any, variant);
+      params[key] = this.generateRealisticValue(
+        key,
+        schema as JSONSchema7,
+        variant,
+      );
     }
 
     return params;
@@ -484,7 +489,7 @@ export class TestDataGenerator {
    */
   private static generateRealisticValue(
     fieldName: string,
-    schema: any,
+    schema: JSONSchema7,
     variant: "typical" | "empty" | "maximum" | "special",
   ): unknown {
     const lowerFieldName = fieldName.toLowerCase();
@@ -692,7 +697,10 @@ export class TestDataGenerator {
 
           if (isMutationField && schema.items) {
             // Generate one minimal item even for "empty" variant
-            const item = this.generateValueFromSchema(schema.items, "empty");
+            const itemSchema = Array.isArray(schema.items)
+              ? schema.items[0]
+              : schema.items;
+            const item = this.generateValueFromSchema(itemSchema, "empty");
             return [item];
           }
           return [];
@@ -702,9 +710,12 @@ export class TestDataGenerator {
           // Generate multiple items
           const count = 10;
           if (schema.items) {
+            const itemSchema = Array.isArray(schema.items)
+              ? schema.items[0]
+              : schema.items;
             return Array(count)
               .fill(0)
-              .map(() => this.generateValueFromSchema(schema.items, variant));
+              .map(() => this.generateValueFromSchema(itemSchema, variant));
           }
           return Array(count)
             .fill(0)
@@ -714,7 +725,10 @@ export class TestDataGenerator {
         // Typical variant - generate realistic array
         if (schema.items) {
           // Generate 1-2 items based on schema.items
-          const item = this.generateValueFromSchema(schema.items, variant);
+          const itemSchema = Array.isArray(schema.items)
+            ? schema.items[0]
+            : schema.items;
+          const item = this.generateValueFromSchema(itemSchema, variant);
           return [item];
         }
 
@@ -790,7 +804,7 @@ export class TestDataGenerator {
     const properties = tool.inputSchema.properties || {};
 
     for (const schema of Object.values(properties)) {
-      if ((schema as any).type === "string") {
+      if ((schema as JSONSchema7).type === "string") {
         return true;
       }
     }
@@ -801,7 +815,7 @@ export class TestDataGenerator {
   /**
    * Generate a single realistic value for backward compatibility
    */
-  static generateSingleValue(fieldName: string, schema: any): unknown {
+  static generateSingleValue(fieldName: string, schema: JSONSchema7): unknown {
     return this.generateRealisticValue(fieldName, schema, "typical");
   }
 
@@ -809,7 +823,7 @@ export class TestDataGenerator {
    * Generate value from JSON schema definition
    */
   private static generateValueFromSchema(
-    schema: any,
+    schema: JSONSchema7,
     variant: "typical" | "empty" | "maximum" | "special",
   ): unknown {
     if (!schema || !schema.type) {
@@ -824,7 +838,7 @@ export class TestDataGenerator {
           for (const [key, propSchema] of Object.entries(schema.properties)) {
             obj[key] = this.generateRealisticValue(
               key,
-              propSchema as any,
+              propSchema as JSONSchema7,
               variant,
             );
           }
@@ -834,7 +848,10 @@ export class TestDataGenerator {
 
       case "array":
         if (schema.items) {
-          const item = this.generateValueFromSchema(schema.items, variant);
+          const itemSchema = Array.isArray(schema.items)
+            ? schema.items[0]
+            : schema.items;
+          const item = this.generateValueFromSchema(itemSchema, variant);
           return [item];
         }
         return [];

@@ -6,6 +6,7 @@
 import {
   AssessmentConfiguration,
   AssessmentStatus,
+  MCPContent,
 } from "@/lib/assessmentTypes";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { Logger, createLogger, DEFAULT_LOGGING_CONFIG } from "../lib/logger";
@@ -112,7 +113,7 @@ export abstract class BaseAssessor<T = unknown> {
   /**
    * Safe JSON parse with error handling
    */
-  protected safeJsonParse(text: string): any {
+  protected safeJsonParse(text: string): unknown {
     try {
       return JSON.parse(text);
     } catch (error) {
@@ -124,17 +125,18 @@ export abstract class BaseAssessor<T = unknown> {
   /**
    * Extract error message from various error types
    */
-  protected extractErrorMessage(error: any): string {
+  protected extractErrorMessage(error: unknown): string {
     if (typeof error === "string") return error;
-    if (error?.message) return error.message;
-    if (error?.error) return this.extractErrorMessage(error.error);
-    if (error?.content) {
-      if (Array.isArray(error.content)) {
-        return error.content
-          .map((c: any) => c.text || c.content || "")
-          .join(" ");
+    if (error && typeof error === "object") {
+      const err = error as Record<string, unknown>;
+      if (err.message && typeof err.message === "string") return err.message;
+      if (err.error) return this.extractErrorMessage(err.error);
+      if (err.content) {
+        if (Array.isArray(err.content)) {
+          return err.content.map((c: MCPContent) => c.text || "").join(" ");
+        }
+        if (typeof err.content === "string") return err.content;
       }
-      return error.content;
     }
     return JSON.stringify(error);
   }
@@ -147,13 +149,14 @@ export abstract class BaseAssessor<T = unknown> {
    * @param strictMode - If true, only check explicit error indicators (default: false)
    */
   protected isErrorResponse(
-    response: any,
+    response: unknown,
     strictMode: boolean = false,
   ): boolean {
-    if (!response) return false;
+    if (!response || typeof response !== "object") return false;
+    const resp = response as Record<string, unknown>;
 
     // Check explicit error flag first (always check these)
-    if (response.isError === true || response.error !== undefined) {
+    if (resp.isError === true || resp.error !== undefined) {
       return true;
     }
 
@@ -165,9 +168,9 @@ export abstract class BaseAssessor<T = unknown> {
 
     // In non-strict mode, also check content for error patterns
     // Used by ErrorHandlingAssessor where we're deliberately triggering errors
-    if (response.content) {
-      if (typeof response.content === "string") {
-        const lower = response.content.toLowerCase();
+    if (resp.content) {
+      if (typeof resp.content === "string") {
+        const lower = resp.content.toLowerCase();
         // Only flag if error appears at start or with strong indicators
         return (
           lower.startsWith("error:") ||
@@ -176,9 +179,9 @@ export abstract class BaseAssessor<T = unknown> {
           lower.includes("failed to") ||
           lower.includes("exception:")
         );
-      } else if (Array.isArray(response.content)) {
+      } else if (Array.isArray(resp.content)) {
         // Check if any text content starts with error indicators
-        return response.content.some((c: any) => {
+        return resp.content.some((c: MCPContent) => {
           if (c.type !== "text" || !c.text) return false;
           const lower = c.text.toLowerCase();
           return (
@@ -198,28 +201,34 @@ export abstract class BaseAssessor<T = unknown> {
   /**
    * Extract error information from a response
    */
-  protected extractErrorInfo(response: any): {
+  protected extractErrorInfo(response: unknown): {
     code?: string | number;
     message?: string;
   } {
-    if (!response) return {};
+    if (!response || typeof response !== "object") return {};
+    const resp = response as Record<string, unknown>;
 
     // Extract text from content array if present
     let contentText: string | undefined;
-    if (Array.isArray(response.content)) {
-      const textContent = response.content.find((c: any) => c.type === "text");
+    if (Array.isArray(resp.content)) {
+      const textContent = resp.content.find(
+        (c: MCPContent) => c.type === "text",
+      );
       contentText = textContent?.text;
-    } else if (typeof response.content === "string") {
-      contentText = response.content;
+    } else if (typeof resp.content === "string") {
+      contentText = resp.content;
     }
 
+    const error = resp.error as Record<string, unknown> | undefined;
     return {
-      code: response.errorCode || response.code || response.error?.code,
+      code: (resp.errorCode ?? resp.code ?? error?.code) as
+        | string
+        | number
+        | undefined,
       message:
-        response.errorMessage ||
-        response.message ||
-        response.error?.message ||
-        contentText,
+        ((resp.errorMessage ?? resp.message ?? error?.message) as
+          | string
+          | undefined) || contentText,
     };
   }
 }
