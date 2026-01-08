@@ -395,6 +395,44 @@ Tools with "run" prefix and analysis-related suffixes are treated as read-only o
 
 **Implementation**: `client/src/services/assessment/modules/ToolAnnotationAssessor.ts`
 
+#### Enhanced Behavior Inference (Issue #57)
+
+The Tool Annotations module now uses **multi-signal behavior inference** for more accurate annotation validation.
+
+**Four Signal Sources**:
+
+1. **Name patterns** - Tool name keywords (high confidence)
+2. **Description analysis** - Description text keywords (medium-high confidence)
+3. **Input schema** - Parameter structure patterns (medium confidence)
+4. **Output schema** - Return value patterns (medium confidence)
+
+**Signal Aggregation**:
+
+- Multiple agreeing signals increase confidence
+- Conflicting signals trigger ambiguity warnings
+- Destructive signals take priority when confidence ≥ 70
+
+**Persistence Classification**:
+
+- CREATE operations (create*, add*, insert\_) are **never** destructive
+- UPDATE operations check server persistence model (immediate vs. deferred)
+- Description keywords override name-pattern inference
+
+See [Behavior Inference Guide](BEHAVIOR_INFERENCE_GUIDE.md) for complete documentation.
+
+#### Architecture Detection (Issue #57)
+
+The assessor can optionally analyze server architecture to provide context for annotation validation.
+
+**Detects**:
+
+- Database backends (Neo4j, MongoDB, PostgreSQL, etc.)
+- Transport modes (stdio, HTTP, SSE)
+- Server classification (local, hybrid, remote)
+- External service dependencies
+
+See [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) for complete documentation.
+
 ---
 
 ### 9. Prohibited Libraries
