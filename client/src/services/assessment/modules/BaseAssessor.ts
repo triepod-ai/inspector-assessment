@@ -16,6 +16,7 @@ import {
   ErrorResult,
   categorizeError,
 } from "../lib/errors";
+import { executeWithTimeout as executeWithTimeoutUtil } from "../lib/timeoutUtils";
 
 export abstract class BaseAssessor<T = unknown> {
   protected config: AssessmentConfiguration;
@@ -170,20 +171,24 @@ export abstract class BaseAssessor<T = unknown> {
   }
 
   /**
-   * Execute with timeout
+   * Execute with timeout and proper cleanup.
+   *
+   * Uses AbortController-based timeout handling that clears the timer
+   * when the operation completes, preventing timer leaks.
+   *
+   * @param promise - The promise to execute
+   * @param timeoutMs - Timeout in milliseconds (defaults to config.testTimeout)
+   * @returns The result of the promise
+   * @throws Error if operation times out
    */
   protected async executeWithTimeout<T>(
     promise: Promise<T>,
     timeoutMs: number = this.config.testTimeout,
   ): Promise<T> {
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(
-        () => reject(new Error(`Operation timed out after ${timeoutMs}ms`)),
-        timeoutMs,
-      );
+    return executeWithTimeoutUtil(promise, {
+      timeoutMs,
+      errorMessage: `Operation timed out after ${timeoutMs}ms`,
     });
-
-    return Promise.race([promise, timeoutPromise]);
   }
 
   /**

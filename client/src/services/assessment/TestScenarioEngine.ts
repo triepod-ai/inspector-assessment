@@ -13,6 +13,11 @@ import {
   ValidationResult,
   ValidationContext,
 } from "./ResponseValidator";
+import {
+  PerformanceConfig,
+  DEFAULT_PERFORMANCE_CONFIG,
+} from "./config/performanceConfig";
+import { executeWithTimeout } from "./lib/timeoutUtils";
 
 export interface ScenarioTestResult {
   scenario: TestScenario;
@@ -61,8 +66,22 @@ export class TestScenarioEngine {
   private testTimeout: number;
   private delayBetweenTests: number;
 
-  constructor(testTimeout: number = 5000, delayBetweenTests: number = 0) {
-    this.testTimeout = testTimeout;
+  /**
+   * Create a new TestScenarioEngine.
+   *
+   * @param testTimeout - Timeout for each test in milliseconds (default from PerformanceConfig)
+   * @param delayBetweenTests - Delay between tests for rate limiting (default: 0)
+   * @param performanceConfig - Optional performance configuration for centralized tuning
+   */
+  constructor(
+    testTimeout?: number,
+    delayBetweenTests: number = 0,
+    performanceConfig?: Partial<PerformanceConfig>,
+  ) {
+    this.testTimeout =
+      testTimeout ??
+      performanceConfig?.testTimeoutMs ??
+      DEFAULT_PERFORMANCE_CONFIG.testTimeoutMs;
     this.delayBetweenTests = delayBetweenTests;
   }
 
@@ -92,12 +111,10 @@ export class TestScenarioEngine {
     // Test 1: Minimal complexity - absolute minimum params
     const minimalParams = this.generateMinimalParams(tool);
     try {
-      const minimalResult = await Promise.race([
+      const minimalResult = await executeWithTimeout(
         callTool(tool.name, minimalParams),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout")), this.testTimeout),
-        ),
-      ]);
+        { timeoutMs: this.testTimeout, errorMessage: "Timeout" },
+      );
 
       // Tool works if it returns successfully OR if it returns a business logic error
       // (business logic errors indicate the tool is validating correctly)
@@ -120,12 +137,10 @@ export class TestScenarioEngine {
     // Test 2: Simple complexity - one required param with simple value
     const simpleParams = this.generateSimpleParams(tool);
     try {
-      const simpleResult = await Promise.race([
+      const simpleResult = await executeWithTimeout(
         callTool(tool.name, simpleParams),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout")), this.testTimeout),
-        ),
-      ]);
+        { timeoutMs: this.testTimeout, errorMessage: "Timeout" },
+      );
 
       // Tool works if it returns successfully OR if it returns a business logic error
       const isBusinessError = simpleResult.isError
@@ -345,12 +360,10 @@ export class TestScenarioEngine {
 
     try {
       // Call tool with timeout
-      const response = await Promise.race([
+      const response = await executeWithTimeout(
         callTool(tool.name, scenario.params),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout")), this.testTimeout),
-        ),
-      ]);
+        { timeoutMs: this.testTimeout, errorMessage: "Timeout" },
+      );
 
       // Validate response
       const validationContext: ValidationContext = {
