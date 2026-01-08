@@ -5,7 +5,7 @@
  * Used by both the AssessmentOrchestrator (client) and CLI runners (scripts).
  */
 
-import packageJson from "../../package.json" with { type: "json" };
+import packageJson from "../../package.json";
 
 /**
  * Normalize module name to snake_case key for consistent machine parsing.
