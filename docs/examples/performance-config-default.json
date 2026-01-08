@@ -1,0 +1,9 @@
+{
+  "batchFlushIntervalMs": 500,
+  "functionalityBatchSize": 5,
+  "securityBatchSize": 10,
+  "testTimeoutMs": 5000,
+  "securityTestTimeoutMs": 5000,
+  "queueWarningThreshold": 10000,
+  "eventEmitterMaxListeners": 50
+}

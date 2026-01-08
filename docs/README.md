@@ -68,6 +68,20 @@ Integration documentation for using the npm package programmatically.
 | --------------------------------------------------------------- | ------------------------ |
 | [Progressive Complexity Guide](PROGRESSIVE_COMPLEXITY_GUIDE.md) | 2-level testing approach |
 
+### Tool Analysis (Issue #57)
+
+| Document                                                        | Purpose                                               |
+| --------------------------------------------------------------- | ----------------------------------------------------- |
+| [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) | Server infrastructure analysis (12 DBs, 3 transports) |
+| [Behavior Inference Guide](BEHAVIOR_INFERENCE_GUIDE.md)         | Multi-signal tool behavior classification             |
+
+### Performance Tuning (Issue #37)
+
+| Document                                                | Purpose                                |
+| ------------------------------------------------------- | -------------------------------------- |
+| [Performance Tuning Guide](PERFORMANCE_TUNING_GUIDE.md) | 7 tunable parameters, presets, configs |
+| [Example Configs](examples/)                            | Ready-to-use performance config files  |
+
 ---
 
 ## JSONL Events API
@@ -152,6 +166,10 @@ These files have been split into focused documents and now serve as navigation p
 ```
 docs/
 ├── README.md                               # This navigation hub
+├── examples/                               # Example configuration files
+│   ├── performance-config-default.json
+│   ├── performance-config-fast.json
+│   └── performance-config-resource-constrained.json
 ├── security/                               # Security audit reports
 │   ├── README.md
 │   ├── temporal_assessor_security_audit.md
@@ -169,6 +187,9 @@ docs/
 ├── SCORING_ALGORITHM_GUIDE.md              # Scoring details
 ├── ASSESSMENT_MODULE_DEVELOPER_GUIDE.md    # Module development
 ├── PROTOCOL_CONFORMANCE_ASSESSOR_GUIDE.md # Module #18 integration guide
+├── ARCHITECTURE_DETECTION_GUIDE.md        # Server infrastructure analysis (#57)
+├── BEHAVIOR_INFERENCE_GUIDE.md            # Tool behavior classification (#57)
+├── PERFORMANCE_TUNING_GUIDE.md            # Assessment execution tuning (#37)
 ├── TEST_DATA_ARCHITECTURE.md               # Test data core
 ├── TEST_DATA_SCENARIOS.md                  # Test scenarios
 ├── TEST_DATA_EXTENSION.md                  # Test data extension

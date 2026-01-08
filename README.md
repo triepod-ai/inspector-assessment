@@ -270,6 +270,14 @@ npm test -- SecurityAssessor     # Security tests
 | [Security Patterns Catalog](docs/SECURITY_PATTERNS_CATALOG.md) | Comprehensive attack patterns        |
 | [Testbed Setup Guide](docs/TESTBED_SETUP_GUIDE.md)             | A/B validation                       |
 
+### Advanced Topics
+
+| Document                                                             | Purpose                           |
+| -------------------------------------------------------------------- | --------------------------------- |
+| [Architecture Detection Guide](docs/ARCHITECTURE_DETECTION_GUIDE.md) | Server infrastructure analysis    |
+| [Behavior Inference Guide](docs/BEHAVIOR_INFERENCE_GUIDE.md)         | Tool behavior classification      |
+| [Performance Tuning Guide](docs/PERFORMANCE_TUNING_GUIDE.md)         | Assessment execution optimization |
+
 For complete documentation, see [docs/README.md](docs/README.md).
 
 ---
