@@ -636,6 +636,228 @@ console.log(`Protocol version: ${result.mcpProtocolVersion}`);
 
 ---
 
+## Using Architecture Detection (Issue #57)
+
+Detect server infrastructure characteristics programmatically.
+
+### Basic Usage
+
+```typescript
+import { detectArchitecture } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+// Minimal context (tools only)
+const analysis = detectArchitecture({ tools: serverTools });
+
+console.log(`Server type: ${analysis.serverType}`); // local, hybrid, or remote
+console.log(`Databases: ${analysis.databaseBackends.join(", ")}`);
+console.log(`Network required: ${analysis.requiresNetworkAccess}`);
+```
+
+### With Package Dependencies (Higher Confidence)
+
+```typescript
+import { detectArchitecture } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+const analysis = detectArchitecture({
+  tools: serverTools,
+  packageJson: {
+    dependencies: {
+      "neo4j-driver": "^5.0.0",
+      express: "^4.18.0",
+    },
+  },
+  transportType: "http", // Known from connection
+});
+
+// High confidence results
+if (analysis.databaseBackend === "neo4j") {
+  console.log("Neo4j database detected - ensure database is accessible");
+}
+
+if (analysis.serverType === "remote") {
+  console.warn("Remote server - data leaves local network");
+}
+```
+
+### Checking for Database Operations
+
+```typescript
+import { hasDatabaseToolPatterns } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+// Quick check before full analysis
+if (hasDatabaseToolPatterns(serverTools)) {
+  const analysis = detectArchitecture({ tools: serverTools });
+  console.log(`Database: ${analysis.databaseBackend}`);
+}
+```
+
+---
+
+## Using Behavior Inference (Issue #57)
+
+Classify tool behavior (read-only, write, destructive) programmatically.
+
+### Basic Single-Signal Inference
+
+```typescript
+import { inferBehavior } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+const result = inferBehavior("delete_user", "Permanently removes a user");
+
+if (result.expectedDestructive) {
+  console.warn(`Destructive tool: ${result.reason}`);
+}
+
+console.log(`Confidence: ${result.confidence}`); // high, medium, low
+console.log(`Ambiguous: ${result.isAmbiguous}`);
+```
+
+### Enhanced Multi-Signal Inference
+
+```typescript
+import { inferBehaviorEnhanced } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+const result = inferBehaviorEnhanced(
+  "list_users",
+  "Returns a paginated list of all users",
+  { type: "object", properties: { limit: { type: "number" } } }, // input schema
+  { type: "array", items: { type: "object" } }, // output schema
+);
+
+// Access individual signals
+console.log("Signals:");
+if (result.signals.namePatternSignal) {
+  console.log(`  Name: ${result.signals.namePatternSignal.confidence}%`);
+}
+if (result.signals.descriptionSignal) {
+  console.log(`  Desc: ${result.signals.descriptionSignal.confidence}%`);
+}
+if (result.signals.inputSchemaSignal) {
+  console.log(`  Input: ${result.signals.inputSchemaSignal.confidence}%`);
+}
+
+console.log(`Aggregated confidence: ${result.aggregatedConfidence}%`);
+```
+
+### Handling Ambiguous Results
+
+```typescript
+const result = inferBehaviorEnhanced(toolName, description, inputSchema);
+
+if (result.isAmbiguous) {
+  console.log("Ambiguous behavior - manual review recommended");
+  console.log(`Reason: ${result.reason}`);
+
+  // Show conflicting signals
+  const signals = result.signals;
+  if (
+    signals.namePatternSignal?.expectedReadOnly &&
+    signals.descriptionSignal?.expectedDestructive
+  ) {
+    console.log(
+      "Conflict: Name suggests read-only, description suggests destructive",
+    );
+  }
+}
+```
+
+---
+
+## Using Performance Configuration (Issue #37)
+
+Tune assessment execution parameters programmatically.
+
+### Loading Configuration
+
+```typescript
+import {
+  loadPerformanceConfig,
+  validatePerformanceConfig,
+  PERFORMANCE_PRESETS,
+} from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+// Use defaults
+const config = loadPerformanceConfig();
+
+// Load from file
+const customConfig = loadPerformanceConfig("/path/to/perf.json");
+
+// Use a preset
+const fastConfig = PERFORMANCE_PRESETS.fast;
+```
+
+### Validating Configuration
+
+```typescript
+import { validatePerformanceConfig } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+const errors = validatePerformanceConfig({
+  testTimeoutMs: 50, // Too low!
+  functionalityBatchSize: 200, // Too high!
+});
+
+if (errors.length > 0) {
+  console.error("Invalid configuration:");
+  errors.forEach((e) => console.error(`  - ${e}`));
+}
+// Output:
+// Invalid configuration:
+//   - testTimeoutMs must be between 100 and 300000
+//   - functionalityBatchSize must be between 1 and 100
+```
+
+### Creating Custom Configuration
+
+```typescript
+import { mergeWithDefaults } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+// Only specify what you want to change
+const config = mergeWithDefaults({
+  testTimeoutMs: 30000, // Longer timeout for slow servers
+  securityBatchSize: 20, // Larger batches for speed
+});
+
+// All other values use defaults
+console.log(config.functionalityBatchSize); // 5 (default)
+console.log(config.queueWarningThreshold); // 10000 (default)
+```
+
+### Environment-Specific Configurations
+
+```typescript
+// CI/CD Pipeline (fast)
+const ciConfig = {
+  functionalityBatchSize: 15,
+  securityBatchSize: 25,
+  testTimeoutMs: 3000,
+  securityTestTimeoutMs: 3000,
+};
+
+// Large Tool Set (100+ tools)
+const largeServerConfig = {
+  functionalityBatchSize: 20,
+  securityBatchSize: 50,
+  queueWarningThreshold: 50000,
+};
+
+// High-Latency Network
+const slowNetworkConfig = {
+  batchFlushIntervalMs: 2000,
+  testTimeoutMs: 30000,
+  securityTestTimeoutMs: 30000,
+};
+
+// Resource-Constrained (512MB RAM)
+const minimalConfig = {
+  functionalityBatchSize: 2,
+  securityBatchSize: 3,
+  queueWarningThreshold: 3000,
+  eventEmitterMaxListeners: 30,
+};
+```
+
+---
+
 ## Related Documentation
 
 - [TYPE_REFERENCE.md](TYPE_REFERENCE.md) - Complete TypeScript type reference
@@ -644,7 +866,10 @@ console.log(`Protocol version: ${result.mcpProtocolVersion}`);
 - [CLI_ASSESSMENT_GUIDE.md](CLI_ASSESSMENT_GUIDE.md) - CLI usage guide
 - [ASSESSMENT_CATALOG.md](ASSESSMENT_CATALOG.md) - Complete assessment module reference
 - [JSONL_EVENTS_REFERENCE.md](JSONL_EVENTS_REFERENCE.md) - Real-time progress events (13 types)
+- [ARCHITECTURE_DETECTION_GUIDE.md](ARCHITECTURE_DETECTION_GUIDE.md) - Server infrastructure analysis
+- [BEHAVIOR_INFERENCE_GUIDE.md](BEHAVIOR_INFERENCE_GUIDE.md) - Tool behavior classification
+- [PERFORMANCE_TUNING_GUIDE.md](PERFORMANCE_TUNING_GUIDE.md) - Execution parameter tuning
 
 ---
 
-_Last updated: 2026-01-06 | Package version: 1.23.5_
+_Last updated: 2026-01-08 | Package version: 1.24.2_

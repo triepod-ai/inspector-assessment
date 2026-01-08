@@ -82,18 +82,19 @@ npm run assess:full -- --server my-server --config /tmp/config.json
 npm run assess:full -- [options] [server-name]
 
 Options:
-  --server, -s <name>     Server name (required or positional)
-  --config, -c <path>     Server config JSON file
-  --output, -o <path>     Output JSON path
-  --source <path>         Source code path for AUP/portability analysis
-  --pattern-config <path> Custom annotation patterns
-  --claude-enabled        Enable Claude Code integration
-  --full                  Enable all modules (default)
-  --skip-modules <list>   Skip specific modules (comma-separated)
-  --only-modules <list>   Run only specific modules (comma-separated)
-  --json                  Output only JSON path (no console summary)
-  --verbose, -v           Enable verbose logging
-  --help, -h              Show help
+  --server, -s <name>        Server name (required or positional)
+  --config, -c <path>        Server config JSON file
+  --output, -o <path>        Output JSON path
+  --source <path>            Source code path for AUP/portability analysis
+  --pattern-config <path>    Custom annotation patterns
+  --performance-config <path> Performance tuning parameters (Issue #37)
+  --claude-enabled           Enable Claude Code integration
+  --full                     Enable all modules (default)
+  --skip-modules <list>      Skip specific modules (comma-separated)
+  --only-modules <list>      Run only specific modules (comma-separated)
+  --json                     Output only JSON path (no console summary)
+  --verbose, -v              Enable verbose logging
+  --help, -h                 Show help
 ```
 
 ### Mode 2: Published npm Binary
@@ -133,17 +134,18 @@ npx @bryan-thompson/inspector-assessment my-server
 mcp-assess-full [options] [server-name]
 
 All local script options, plus:
-  --format, -f <type>         json (default) or markdown
-  --include-policy            Add 30-requirement policy compliance mapping
-  --preflight                 Run quick validation only (30 seconds)
-  --compare <path>            Baseline JSON for comparison
-  --diff-only                 Show only the diff, not full assessment
-  --resume                    Resume interrupted assessment
-  --no-resume                 Force fresh start
-  --temporal-invocations <n>  Rug pull detection invocations (default: 25)
-  --skip-temporal             Skip temporal/rug pull testing
-  --skip-modules <list>       Skip specific modules (comma-separated)
-  --only-modules <list>       Run only specific modules (comma-separated)
+  --format, -f <type>          json (default) or markdown
+  --include-policy             Add 30-requirement policy compliance mapping
+  --preflight                  Run quick validation only (30 seconds)
+  --compare <path>             Baseline JSON for comparison
+  --diff-only                  Show only the diff, not full assessment
+  --resume                     Resume interrupted assessment
+  --no-resume                  Force fresh start
+  --temporal-invocations <n>   Rug pull detection invocations (default: 25)
+  --skip-temporal              Skip temporal/rug pull testing
+  --skip-modules <list>        Skip specific modules (comma-separated)
+  --only-modules <list>        Run only specific modules (comma-separated)
+  --performance-config <path>  Performance tuning config (batch sizes, timeouts)
 ```
 
 ### Mode 3: Security-Only Assessment
@@ -1462,6 +1464,75 @@ mcp-assess-full --server my-server --format markdown
 
 ---
 
+### Issue: "Task queue depth exceeds threshold" (Issue #37)
+
+**Warning:**
+
+```
+Warning: Task queue depth exceeds threshold (10000)
+```
+
+**Causes:**
+
+- Server has many tools (50+ tools)
+- Security assessment generating many payloads
+- Large batch sizes creating backlog
+
+**Solutions:**
+
+1. **Increase queue threshold:**
+
+   ```bash
+   echo '{"queueWarningThreshold": 50000}' > /tmp/perf.json
+   mcp-assess-full --server my-server --config config.json --performance-config /tmp/perf.json
+   ```
+
+2. **Use fast preset with larger batches:**
+
+   ```bash
+   echo '{"functionalityBatchSize": 10, "securityBatchSize": 20}' > /tmp/fast.json
+   mcp-assess-full --server my-server --config config.json --performance-config /tmp/fast.json
+   ```
+
+3. **Run security assessment on tool subsets:**
+
+   ```bash
+   mcp-assess-full --server my-server --only-modules functionality
+   ```
+
+See [PERFORMANCE_TUNING_GUIDE.md](PERFORMANCE_TUNING_GUIDE.md) for detailed guidance.
+
+---
+
+### Issue: "MaxListenersExceededWarning"
+
+**Warning:**
+
+```
+MaxListenersExceededWarning: Possible EventEmitter memory leak detected
+```
+
+**Causes:**
+
+- Assessment creates many event listeners
+- Multiple concurrent assessments
+- Default listener limit exceeded
+
+**Solutions:**
+
+1. **Increase EventEmitter max listeners:**
+
+   ```bash
+   echo '{"eventEmitterMaxListeners": 200}' > /tmp/perf.json
+   mcp-assess-full --server my-server --config config.json --performance-config /tmp/perf.json
+   ```
+
+2. **Note:** This is a warning, not an error - assessment continues normally.
+
+See [PERFORMANCE_TUNING_GUIDE.md](PERFORMANCE_TUNING_GUIDE.md#troubleshooting) for details.
+
+---
+
 ### Issue: Server Not Providing serverInfo (v1.24.2+)
 
 **Warning:**
@@ -1776,6 +1847,79 @@ mcp-assess-full \
 
 ---
 
+### Option: Performance Configuration (Issue #37)
+
+**Purpose**: Tune assessment execution parameters for different environments
+
+**Command:**
+
+```bash
+# Use custom performance config
+mcp-assess-full \
+  --server my-server \
+  --config config.json \
+  --performance-config /path/to/perf.json
+
+# Quick inline config
+echo '{"functionalityBatchSize": 10, "securityBatchSize": 20}' > /tmp/fast.json
+mcp-assess-full --server my-server --config config.json --performance-config /tmp/fast.json
+```
+
+**Configuration File Format:**
+
+```json
+{
+  "batchFlushIntervalMs": 500,
+  "functionalityBatchSize": 5,
+  "securityBatchSize": 10,
+  "testTimeoutMs": 5000,
+  "securityTestTimeoutMs": 5000,
+  "queueWarningThreshold": 10000,
+  "eventEmitterMaxListeners": 50
+}
+```
+
+**Available Parameters:**
+
+| Parameter                  | Default | Range       | Description                    |
+| -------------------------- | ------- | ----------- | ------------------------------ |
+| `batchFlushIntervalMs`     | 500     | 50-10000    | Progress event batch interval  |
+| `functionalityBatchSize`   | 5       | 1-100       | Functionality test batch size  |
+| `securityBatchSize`        | 10      | 1-100       | Security test batch size       |
+| `testTimeoutMs`            | 5000    | 100-300000  | Functionality test timeout     |
+| `securityTestTimeoutMs`    | 5000    | 100-300000  | Security test timeout          |
+| `queueWarningThreshold`    | 10000   | 100-1000000 | Task queue depth warning level |
+| `eventEmitterMaxListeners` | 50      | 10-1000     | Max EventEmitter listeners     |
+
+**Built-in Presets:**
+
+```bash
+# Fast preset (larger batches for speed)
+echo '{"functionalityBatchSize": 10, "securityBatchSize": 20}' > /tmp/fast.json
+
+# Resource-constrained preset (smaller batches, lower thresholds)
+echo '{"functionalityBatchSize": 3, "securityBatchSize": 5, "queueWarningThreshold": 5000}' > /tmp/constrained.json
+
+# High-latency network preset (longer timeouts)
+echo '{"testTimeoutMs": 30000, "securityTestTimeoutMs": 30000, "batchFlushIntervalMs": 2000}' > /tmp/slow-network.json
+```
+
+**When to Use:**
+
+- **CI/CD pipelines**: Use larger batch sizes for speed
+- **Slow MCP servers**: Increase `testTimeoutMs` and `securityTestTimeoutMs`
+- **Large tool sets (100+ tools)**: Increase `queueWarningThreshold`
+- **Resource-constrained environments**: Decrease batch sizes
+
+**Complete Documentation:** See [PERFORMANCE_TUNING_GUIDE.md](PERFORMANCE_TUNING_GUIDE.md) for:
+
+- Detailed parameter explanations
+- Example configurations for various scenarios
+- Troubleshooting performance issues
+- API reference for programmatic usage
+
+---
+
 ## Assessment Modules Reference (v1.25.0+)
 
 The inspector runs 16 assessment modules organized into 4 tiers. Each module can be configured independently via `--skip-modules` and `--only-modules` flags.
@@ -1910,6 +2054,9 @@ mcp-assess-full --server my-server --config config.json \
 
 - **JSONL Events**: [JSONL_EVENTS_API.md](./JSONL_EVENTS_API.md) - Complete event reference
 - **Assessment Catalog**: [ASSESSMENT_CATALOG.md](./ASSESSMENT_CATALOG.md) - Module details
+- **Performance Tuning**: [PERFORMANCE_TUNING_GUIDE.md](./PERFORMANCE_TUNING_GUIDE.md) - Batch sizes, timeouts, presets
+- **Architecture Detection**: [ARCHITECTURE_DETECTION_GUIDE.md](./ARCHITECTURE_DETECTION_GUIDE.md) - Server infrastructure analysis
+- **Behavior Inference**: [BEHAVIOR_INFERENCE_GUIDE.md](./BEHAVIOR_INFERENCE_GUIDE.md) - Tool behavior classification
 - **Source Code**:
   - CLI binary: `/home/bryan/inspector/cli/src/assess-full.ts` (unified for local and npm)
   - Legacy script: `/home/bryan/inspector/scripts/run-full-assessment.ts` (deprecated)

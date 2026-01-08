@@ -729,14 +729,240 @@ See [JSONL Events Reference](JSONL_EVENTS_REFERENCE.md) for complete event schem
 
 ---
 
+## Behavior Inference API (Issue #57)
+
+Functions for inferring tool behavior from names, descriptions, and schemas.
+
+### inferBehavior()
+
+```typescript
+import { inferBehavior } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+function inferBehavior(
+  toolName: string,
+  description?: string,
+  compiledPatterns?: CompiledPatterns,
+  persistenceContext?: ServerPersistenceContext,
+): BehaviorInferenceResult;
+```
+
+Basic single-signal inference using tool name patterns.
+
+**Example:**
+
+```typescript
+const result = inferBehavior("delete_user", "Permanently removes a user");
+// {
+//   expectedReadOnly: false,
+//   expectedDestructive: true,
+//   reason: "Tool name matches destructive pattern: delete_",
+//   confidence: "high",
+//   isAmbiguous: false
+// }
+```
+
+### inferBehaviorEnhanced()
+
+```typescript
+import { inferBehaviorEnhanced } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+function inferBehaviorEnhanced(
+  toolName: string,
+  description?: string,
+  inputSchema?: JSONSchema,
+  outputSchema?: JSONSchema,
+  compiledPatterns?: CompiledPatterns,
+  persistenceContext?: ServerPersistenceContext,
+): EnhancedBehaviorInferenceResult;
+```
+
+Multi-signal inference combining name patterns, description, and schema analysis.
+
+**Example:**
+
+```typescript
+const result = inferBehaviorEnhanced(
+  "list_users",
+  "Returns a paginated list of users",
+  { type: "object", properties: { limit: { type: "number" } } },
+  { type: "array", items: { type: "object" } },
+);
+// aggregatedConfidence: 93, expectedReadOnly: true
+```
+
+### BehaviorInferenceResult Type
+
+```typescript
+interface BehaviorInferenceResult {
+  expectedReadOnly: boolean;
+  expectedDestructive: boolean;
+  reason: string;
+  confidence: "high" | "medium" | "low";
+  isAmbiguous: boolean;
+}
+```
+
+### EnhancedBehaviorInferenceResult Type
+
+```typescript
+interface EnhancedBehaviorInferenceResult extends BehaviorInferenceResult {
+  signals: {
+    namePatternSignal?: InferenceSignal;
+    descriptionSignal?: InferenceSignal;
+    inputSchemaSignal?: InferenceSignal;
+    outputSchemaSignal?: InferenceSignal;
+  };
+  aggregatedConfidence: number; // 0-100
+}
+```
+
+See [BEHAVIOR_INFERENCE_GUIDE.md](BEHAVIOR_INFERENCE_GUIDE.md) for complete documentation.
+
+---
+
+## Architecture Detection API (Issue #57)
+
+Functions for detecting MCP server infrastructure characteristics.
+
+### detectArchitecture()
+
+```typescript
+import { detectArchitecture } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+function detectArchitecture(context: ArchitectureContext): ArchitectureAnalysis;
+```
+
+Analyzes server to identify databases, transport modes, and server type.
+
+**Example:**
+
+```typescript
+const analysis = detectArchitecture({
+  tools: serverTools,
+  packageJson: { dependencies: { "neo4j-driver": "^5.0.0" } },
+});
+// {
+//   serverType: "hybrid",
+//   databaseBackend: "neo4j",
+//   transportModes: ["stdio"],
+//   requiresNetworkAccess: true
+// }
+```
+
+### ArchitectureContext Type
+
+```typescript
+interface ArchitectureContext {
+  tools: Tool[];
+  transportType?: string;
+  sourceCodeFiles?: Map<string, string>;
+  manifestJson?: { dependencies?: Record<string, string> };
+  packageJson?: { dependencies?: Record<string, string> };
+  requirementsTxt?: string;
+}
+```
+
+### ArchitectureAnalysis Type
+
+```typescript
+interface ArchitectureAnalysis {
+  serverType: "local" | "hybrid" | "remote";
+  databaseBackend?: DatabaseBackend;
+  databaseBackends: DatabaseBackend[];
+  transportModes: ("stdio" | "http" | "sse")[];
+  externalDependencies: string[];
+  requiresNetworkAccess: boolean;
+  confidence: "high" | "medium" | "low";
+  evidence: {
+    databaseIndicators: string[];
+    transportIndicators: string[];
+    networkIndicators: string[];
+  };
+}
+```
+
+See [ARCHITECTURE_DETECTION_GUIDE.md](ARCHITECTURE_DETECTION_GUIDE.md) for complete documentation.
+
+---
+
+## Performance Configuration API (Issue #37)
+
+Functions for tuning assessment execution parameters.
+
+### loadPerformanceConfig()
+
+```typescript
+import { loadPerformanceConfig } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+function loadPerformanceConfig(
+  configPath?: string,
+  logger?: Logger,
+): Required<PerformanceConfig>;
+```
+
+Loads configuration from a JSON file, merging with defaults.
+
+**Example:**
+
+```typescript
+// Load from file
+const config = loadPerformanceConfig("/path/to/perf.json");
+
+// Use defaults
+const defaultConfig = loadPerformanceConfig();
+```
+
+### validatePerformanceConfig()
+
+```typescript
+import { validatePerformanceConfig } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+function validatePerformanceConfig(
+  config: Partial<PerformanceConfig>,
+): string[];
+```
+
+Returns array of error messages (empty if valid).
+
+### PerformanceConfig Type
+
+```typescript
+interface PerformanceConfig {
+  batchFlushIntervalMs: number; // 50-10000, default 500
+  functionalityBatchSize: number; // 1-100, default 5
+  securityBatchSize: number; // 1-100, default 10
+  testTimeoutMs: number; // 100-300000, default 5000
+  securityTestTimeoutMs: number; // 100-300000, default 5000
+  queueWarningThreshold: number; // 100-1000000, default 10000
+  eventEmitterMaxListeners: number; // 10-1000, default 50
+}
+```
+
+### PERFORMANCE_PRESETS
+
+```typescript
+import { PERFORMANCE_PRESETS } from "@bryan-thompson/inspector-assessment/client/dist/lib";
+
+PERFORMANCE_PRESETS.default; // Balanced configuration
+PERFORMANCE_PRESETS.fast; // Larger batches for speed
+PERFORMANCE_PRESETS.resourceConstrained; // Conservative for limited resources
+```
+
+See [PERFORMANCE_TUNING_GUIDE.md](PERFORMANCE_TUNING_GUIDE.md) for complete documentation.
+
+---
+
 ## See Also
 
 - [Programmatic API Guide](PROGRAMMATIC_API_GUIDE.md) - Practical examples
 - [Type Reference](TYPE_REFERENCE.md) - Complete type definitions
 - [Assessment Catalog](ASSESSMENT_CATALOG.md) - Complete assessment module reference
 - [JSONL Events Reference](JSONL_EVENTS_REFERENCE.md) - Event stream documentation
+- [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) - Server infrastructure analysis
+- [Behavior Inference Guide](BEHAVIOR_INFERENCE_GUIDE.md) - Tool behavior classification
+- [Performance Tuning Guide](PERFORMANCE_TUNING_GUIDE.md) - Execution parameter tuning
 
 ---
 
-**Version**: 1.23.2+
-**Last Updated**: 2026-01-06
+**Version**: 1.24.2+
+**Last Updated**: 2026-01-08
