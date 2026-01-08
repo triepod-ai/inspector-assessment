@@ -240,3 +240,32 @@
 - Package available at: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
 
 ---
+
+## 2026-01-08: npm Publish Regression Fixes - v1.25.8-9
+
+**Summary:** Fixed npm publish regressions in v1.25.8-9 and added comprehensive three-layer regression testing to prevent recurrence.
+
+**Session Focus:** npm publish bug fixes and regression test implementation
+
+**Changes Made:**
+- `package.json` - Added workspace package.json files to files array, added validate:tarball script
+- `client/src/lib/moduleScoring.ts` - Added ESM import attribute `with { type: "json" }` for JSON import
+- `client/src/services/assessment/__tests__/package-structure.test.ts` - Added 2 regression tests for runtime dependencies and ESM imports
+- `scripts/validate-publish.js` - Added checks 5 & 6 for workspace package.json files and ESM import attributes
+- `scripts/validate-tarball.js` - New script for post-build tarball content validation
+
+**Key Decisions:**
+- Three-layer regression testing approach: unit tests (fast feedback), pre-publish validation (safety gate), tarball validation (ground truth)
+- Fixed lowercase 'k' in regex for npm pack output parsing (kB vs KB)
+
+**Next Steps:**
+- Consider adding tarball validation to CI/CD pipeline
+- Monitor for any additional ESM-related issues
+
+**Notes:**
+- v1.25.8 fixed missing workspace package.json files in tarball
+- v1.25.9 fixed missing ESM import attribute for JSON imports
+- Both versions published to npm and verified working
+- All 8 package-structure tests pass
+
+---

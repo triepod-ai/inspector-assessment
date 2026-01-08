@@ -1073,11 +1073,14 @@ async function main() {
 }
 
 // Run if executed directly (skip during Jest testing)
-// Use require.main check which works in both CJS and ESM contexts
-if (
+// Support both ESM (tsx) and CJS contexts
+const isDirectRun =
   typeof process.env.JEST_WORKER_ID === "undefined" &&
-  typeof require !== "undefined" &&
-  require.main === module
-) {
+  (import.meta.url === `file://${process.argv[1]}` ||
+    (typeof require !== "undefined" &&
+      typeof module !== "undefined" &&
+      require.main === module));
+
+if (isDirectRun) {
   main();
 }
