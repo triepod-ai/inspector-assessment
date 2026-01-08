@@ -9,6 +9,7 @@ import {
   ClaudeCodeBridgeConfig,
   DEFAULT_CLAUDE_CODE_CONFIG,
   FULL_CLAUDE_CODE_CONFIG,
+  HTTP_CLAUDE_CODE_CONFIG,
 } from "./claudeCodeBridge";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 
@@ -418,6 +419,285 @@ describe("ClaudeCodeBridge", () => {
 
       expect(result).not.toBeNull();
       expect(callCount).toBe(2); // First call failed, second succeeded
+    });
+  });
+
+  describe("HTTP Transport", () => {
+    // Store original fetch
+    const originalFetch = global.fetch;
+
+    beforeEach(() => {
+      // Reset fetch mock before each test
+      global.fetch = jest.fn();
+    });
+
+    afterEach(() => {
+      // Restore original fetch
+      global.fetch = originalFetch;
+    });
+
+    describe("Configuration", () => {
+      it("should export HTTP_CLAUDE_CODE_CONFIG with http transport", () => {
+        expect(HTTP_CLAUDE_CODE_CONFIG.enabled).toBe(true);
+        expect(HTTP_CLAUDE_CODE_CONFIG.transport).toBe("http");
+        expect(HTTP_CLAUDE_CODE_CONFIG.httpConfig?.baseUrl).toBe(
+          "http://localhost:8085",
+        );
+        expect(HTTP_CLAUDE_CODE_CONFIG.features.behaviorInference).toBe(true);
+      });
+    });
+
+    describe("Initialization", () => {
+      it("should skip CLI availability check for HTTP transport", () => {
+        // Clear previous calls
+        mockedExecSync.mockClear();
+
+        const bridge = new ClaudeCodeBridge(HTTP_CLAUDE_CODE_CONFIG);
+
+        // Should NOT call which claude for HTTP transport
+        expect(mockedExecSync).not.toHaveBeenCalledWith(
+          "which claude",
+          expect.anything(),
+        );
+        expect(bridge.getTransport()).toBe("http");
+      });
+
+      it("should be unavailable if httpConfig.baseUrl is missing", () => {
+        const config: ClaudeCodeBridgeConfig = {
+          enabled: true,
+          transport: "http",
+          httpConfig: undefined,
+          features: { behaviorInference: true },
+        };
+
+        const bridge = new ClaudeCodeBridge(config);
+        expect(bridge.isFeatureEnabled("behaviorInference")).toBe(false);
+      });
+
+      it("should be available when httpConfig is properly configured", () => {
+        const config: ClaudeCodeBridgeConfig = {
+          enabled: true,
+          transport: "http",
+          httpConfig: { baseUrl: "http://localhost:8085" },
+          features: { behaviorInference: true },
+        };
+
+        const bridge = new ClaudeCodeBridge(config);
+        expect(bridge.isFeatureEnabled("behaviorInference")).toBe(true);
+      });
+    });
+
+    describe("getTransport", () => {
+      it("should return cli for default config", () => {
+        const bridge = new ClaudeCodeBridge(FULL_CLAUDE_CODE_CONFIG);
+        expect(bridge.getTransport()).toBe("cli");
+      });
+
+      it("should return http for HTTP config", () => {
+        const bridge = new ClaudeCodeBridge(HTTP_CLAUDE_CODE_CONFIG);
+        expect(bridge.getTransport()).toBe("http");
+      });
+    });
+
+    describe("HTTP Execution", () => {
+      it("should make HTTP request to Claude API proxy", async () => {
+        const mockResponse = {
+          content: JSON.stringify({
+            expectedReadOnly: true,
+            expectedDestructive: false,
+            confidence: 85,
+            reasoning: "Tool appears to be read-only",
+            suggestedAnnotations: { readOnlyHint: true },
+            misalignmentDetected: false,
+          }),
+        };
+
+        (global.fetch as jest.Mock).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        const bridge = new ClaudeCodeBridge(HTTP_CLAUDE_CODE_CONFIG);
+        const mockTool: Tool = {
+          name: "get_data",
+          description: "Gets data from the system",
+          inputSchema: { type: "object", properties: {} },
+        };
+
+        const result = await bridge.inferToolBehavior(mockTool);
+
+        expect(global.fetch).toHaveBeenCalledWith(
+          "http://localhost:8085/api/claude/messages",
+          expect.objectContaining({
+            method: "POST",
+            headers: expect.objectContaining({
+              "Content-Type": "application/json",
+            }),
+          }),
+        );
+
+        expect(result).not.toBeNull();
+        expect(result!.expectedReadOnly).toBe(true);
+        expect(result!.confidence).toBe(85);
+      });
+
+      it("should handle HTTP errors gracefully", async () => {
+        (global.fetch as jest.Mock).mockResolvedValue({
+          ok: false,
+          status: 500,
+          text: () => Promise.resolve("Internal Server Error"),
+        });
+
+        const bridge = new ClaudeCodeBridge({
+          ...HTTP_CLAUDE_CODE_CONFIG,
+          maxRetries: 0,
+        });
+        const mockTool: Tool = {
+          name: "test_tool",
+          description: "Test",
+          inputSchema: { type: "object", properties: {} },
+        };
+
+        const result = await bridge.inferToolBehavior(mockTool);
+        expect(result).toBeNull();
+      });
+
+      it("should handle network errors gracefully", async () => {
+        (global.fetch as jest.Mock).mockRejectedValue(
+          new Error("Network error"),
+        );
+
+        const bridge = new ClaudeCodeBridge({
+          ...HTTP_CLAUDE_CODE_CONFIG,
+          maxRetries: 0,
+        });
+        const mockTool: Tool = {
+          name: "test_tool",
+          description: "Test",
+          inputSchema: { type: "object", properties: {} },
+        };
+
+        const result = await bridge.inferToolBehavior(mockTool);
+        expect(result).toBeNull();
+      });
+
+      it("should include API key in Authorization header when provided", async () => {
+        (global.fetch as jest.Mock).mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: JSON.stringify({
+                expectedReadOnly: true,
+                expectedDestructive: false,
+                confidence: 80,
+                reasoning: "Test",
+                suggestedAnnotations: {},
+                misalignmentDetected: false,
+              }),
+            }),
+        });
+
+        const config: ClaudeCodeBridgeConfig = {
+          ...HTTP_CLAUDE_CODE_CONFIG,
+          httpConfig: {
+            baseUrl: "http://localhost:8085",
+            apiKey: "test-api-key",
+          },
+        };
+
+        const bridge = new ClaudeCodeBridge(config);
+        const mockTool: Tool = {
+          name: "test_tool",
+          description: "Test",
+          inputSchema: { type: "object", properties: {} },
+        };
+
+        await bridge.inferToolBehavior(mockTool);
+
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            headers: expect.objectContaining({
+              Authorization: "Bearer test-api-key",
+            }),
+          }),
+        );
+      });
+
+      it("should retry HTTP requests on failure", async () => {
+        let callCount = 0;
+        (global.fetch as jest.Mock).mockImplementation(() => {
+          callCount++;
+          if (callCount === 1) {
+            return Promise.resolve({
+              ok: false,
+              status: 503,
+              text: () => Promise.resolve("Service Unavailable"),
+            });
+          }
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: JSON.stringify({
+                  isViolation: false,
+                  confidence: 80,
+                  reasoning: "Test",
+                  category: "A",
+                  suggestedAction: "allow",
+                  contextFactors: [],
+                }),
+              }),
+          });
+        });
+
+        const bridge = new ClaudeCodeBridge({
+          ...HTTP_CLAUDE_CODE_CONFIG,
+          maxRetries: 2,
+        });
+
+        const result = await bridge.analyzeAUPViolation("text", {
+          toolName: "test",
+          toolDescription: "test",
+          category: "A",
+          categoryName: "Category A",
+          location: "tool_description",
+        });
+
+        expect(result).not.toBeNull();
+        expect(callCount).toBe(2); // First call failed, second succeeded
+      });
+    });
+
+    describe("checkHttpHealth", () => {
+      it("should return true when health endpoint responds OK", async () => {
+        (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
+
+        const bridge = new ClaudeCodeBridge(HTTP_CLAUDE_CODE_CONFIG);
+        const healthy = await bridge.checkHttpHealth();
+
+        expect(healthy).toBe(true);
+        expect(global.fetch).toHaveBeenCalledWith(
+          "http://localhost:8085/api/health",
+          expect.objectContaining({ method: "GET" }),
+        );
+      });
+
+      it("should return false when health endpoint fails", async () => {
+        (global.fetch as jest.Mock).mockResolvedValue({ ok: false });
+
+        const bridge = new ClaudeCodeBridge(HTTP_CLAUDE_CODE_CONFIG);
+        const healthy = await bridge.checkHttpHealth();
+
+        expect(healthy).toBe(false);
+      });
+
+      it("should return false for CLI transport", async () => {
+        const bridge = new ClaudeCodeBridge(FULL_CLAUDE_CODE_CONFIG);
+        const healthy = await bridge.checkHttpHealth();
+
+        expect(healthy).toBe(false);
+      });
     });
   });
 });

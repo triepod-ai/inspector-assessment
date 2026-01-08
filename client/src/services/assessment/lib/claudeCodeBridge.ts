@@ -27,12 +27,23 @@ export interface ClaudeCodeResponse {
 }
 
 /**
+ * HTTP transport configuration for connecting to mcp-auditor API
+ */
+export interface HttpTransportConfig {
+  baseUrl: string; // e.g., "http://localhost:8085"
+  apiKey?: string; // Optional API key for authentication
+  headers?: Record<string, string>; // Additional headers
+}
+
+/**
  * Configuration for Claude Code Bridge
  */
 export interface ClaudeCodeBridgeConfig {
   enabled: boolean;
   timeout?: number; // Timeout in milliseconds (default: 30000)
   maxRetries?: number; // Number of retries on failure (default: 1)
+  transport?: "cli" | "http"; // Transport method (default: "cli")
+  httpConfig?: HttpTransportConfig; // Required when transport is "http"
   features: {
     intelligentTestGeneration?: boolean;
     aupSemanticAnalysis?: boolean;
@@ -133,6 +144,28 @@ export const FULL_CLAUDE_CODE_CONFIG: ClaudeCodeBridgeConfig = {
 };
 
 /**
+ * HTTP transport configuration using mcp-auditor as Claude API proxy
+ * Requires mcp-auditor server running on the specified baseUrl
+ */
+export const HTTP_CLAUDE_CODE_CONFIG: ClaudeCodeBridgeConfig = {
+  enabled: true,
+  transport: "http",
+  httpConfig: {
+    baseUrl: "http://localhost:8085",
+  },
+  timeout: 30000,
+  maxRetries: 2,
+  features: {
+    intelligentTestGeneration: true,
+    aupSemanticAnalysis: true,
+    behaviorInference: true,
+    annotationInference: true,
+    documentationAssessment: true,
+    documentationQuality: true,
+  },
+};
+
+/**
  * Claude Code Bridge
  * Executes Claude CLI for intelligent analysis during MCP assessments
  */
@@ -144,10 +177,16 @@ export class ClaudeCodeBridge {
   constructor(config: ClaudeCodeBridgeConfig, logger?: Logger) {
     this.config = config;
     this.logger = logger;
-    this.isAvailable = this.checkClaudeAvailability();
+    this.isAvailable = this.checkAvailability();
 
-    if (!this.isAvailable) {
+    if (!this.isAvailable && this.config.transport !== "http") {
       this.logger?.warn("Claude CLI not available - features will be disabled");
+    }
+
+    if (this.config.transport === "http") {
+      this.logger?.info(
+        `Claude Code Bridge using HTTP transport: ${this.config.httpConfig?.baseUrl || "not configured"}`,
+      );
     }
   }
 
@@ -172,12 +211,70 @@ export class ClaudeCodeBridge {
   }
 
   /**
+   * Get the current transport type
+   */
+  getTransport(): "cli" | "http" {
+    return this.config.transport || "cli";
+  }
+
+  /**
+   * Check availability based on transport type
+   * For CLI: checks if claude binary exists
+   * For HTTP: assumes available (validated on first request)
+   */
+  private checkAvailability(): boolean {
+    // HTTP transport: assume available, will fail on first request if not
+    // This is because we can't do async checks in constructor
+    if (this.config.transport === "http") {
+      // Validate httpConfig is present
+      if (!this.config.httpConfig?.baseUrl) {
+        this.logger?.warn(
+          "HTTP transport configured but baseUrl is missing - features will be disabled",
+        );
+        return false;
+      }
+      return true;
+    }
+
+    // CLI transport: check if claude binary exists
+    return this.checkCliAvailability();
+  }
+
+  /**
    * Check if Claude CLI is available on the system
    */
-  private checkClaudeAvailability(): boolean {
+  private checkCliAvailability(): boolean {
     try {
       execSync("which claude", { stdio: "pipe", timeout: 5000 });
       return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check HTTP endpoint health (async version for runtime checks)
+   * Can be called to verify HTTP transport is working
+   */
+  async checkHttpHealth(): Promise<boolean> {
+    if (this.config.transport !== "http" || !this.config.httpConfig?.baseUrl) {
+      return false;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(
+        `${this.config.httpConfig.baseUrl}/api/health`,
+        {
+          method: "GET",
+          signal: controller.signal,
+        },
+      );
+
+      clearTimeout(timeoutId);
+      return response.ok;
     } catch {
       return false;
     }
@@ -218,14 +315,101 @@ export class ClaudeCodeBridge {
   }
 
   /**
-   * Execute with retries
+   * Execute via HTTP transport using mcp-auditor's Claude API proxy
+   * Requires mcp-auditor server with /api/claude/messages endpoint
+   */
+  private async executeHttpCommand(
+    prompt: string,
+  ): Promise<ClaudeCodeResponse> {
+    const startTime = Date.now();
+
+    if (!this.config.httpConfig) {
+      return {
+        success: false,
+        output: "",
+        error: "HTTP transport configured but httpConfig is missing",
+        executionTimeMs: Date.now() - startTime,
+      };
+    }
+
+    const { baseUrl, apiKey, headers } = this.config.httpConfig;
+    const timeout = this.config.timeout || 30000;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      const response = await fetch(`${baseUrl}/api/claude/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(apiKey && { Authorization: `Bearer ${apiKey}` }),
+          ...headers,
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: prompt }],
+          maxTokens: 4096,
+          stream: false,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "Unknown error");
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = (await response.json()) as {
+        content?: string;
+        text?: string;
+        message?: { content?: string };
+      };
+
+      // Handle various response formats from the API
+      const output =
+        data.content ||
+        data.text ||
+        data.message?.content ||
+        JSON.stringify(data);
+
+      return {
+        success: true,
+        output:
+          typeof output === "string" ? output.trim() : JSON.stringify(output),
+        executionTimeMs: Date.now() - startTime,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.name === "AbortError"
+            ? `Request timeout after ${timeout}ms`
+            : error.message
+          : String(error);
+
+      return {
+        success: false,
+        output: "",
+        error: errorMessage,
+        executionTimeMs: Date.now() - startTime,
+      };
+    }
+  }
+
+  /**
+   * Execute with retries - supports both CLI and HTTP transports
    */
   private async executeWithRetry(prompt: string): Promise<ClaudeCodeResponse> {
     const maxRetries = this.config.maxRetries || 1;
+    const isHttpTransport = this.config.transport === "http";
     let lastError: ClaudeCodeResponse | null = null;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      const response = this.executeClaudeCommand(prompt);
+      // Use appropriate transport
+      const response = isHttpTransport
+        ? await this.executeHttpCommand(prompt)
+        : this.executeClaudeCommand(prompt);
 
       if (response.success) {
         return response;
