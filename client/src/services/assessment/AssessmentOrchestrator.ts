@@ -210,6 +210,22 @@ export class AssessmentOrchestrator {
       this.config.logging ?? DEFAULT_LOGGING_CONFIG,
     );
 
+    // Emit deprecation warnings for deprecated config flags
+    if (this.config.assessmentCategories?.mcpSpecCompliance !== undefined) {
+      this.logger.warn(
+        "Config flag 'mcpSpecCompliance' is deprecated. Use 'protocolCompliance' instead. " +
+          "This flag will be removed in v2.0.0.",
+        { flag: "mcpSpecCompliance", replacement: "protocolCompliance" },
+      );
+    }
+    if (this.config.assessmentCategories?.protocolConformance !== undefined) {
+      this.logger.warn(
+        "Config flag 'protocolConformance' is deprecated. Use 'protocolCompliance' instead. " +
+          "This flag will be removed in v2.0.0.",
+        { flag: "protocolConformance", replacement: "protocolCompliance" },
+      );
+    }
+
     // Initialize Claude Code Bridge if enabled in config
     if (this.config.claudeCode?.enabled) {
       this.initializeClaudeBridge(this.config.claudeCode);

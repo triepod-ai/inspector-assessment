@@ -23,11 +23,22 @@ import type { Ajv as AjvInstance } from "ajv";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 
+/**
+ * @deprecated Use ProtocolComplianceAssessor instead. Will be removed in v2.0.0.
+ */
 export class MCPSpecComplianceAssessor extends BaseAssessor {
   private ajv: AjvInstance;
 
   constructor(config: AssessmentConfiguration) {
     super(config);
+    this.logger.warn(
+      "MCPSpecComplianceAssessor is deprecated. Use ProtocolComplianceAssessor instead. " +
+        "This module will be removed in v2.0.0.",
+      {
+        module: "MCPSpecComplianceAssessor",
+        replacement: "ProtocolComplianceAssessor",
+      },
+    );
     this.ajv = new Ajv({ allErrors: true });
   }
 

@@ -10,10 +10,26 @@ import {
   AssessmentStatus,
   ToolDocGap,
 } from "@/lib/assessmentTypes";
+import { AssessmentConfiguration } from "@/lib/assessment/configTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 
+/**
+ * @deprecated Use DeveloperExperienceAssessor instead. Will be removed in v2.0.0.
+ */
 export class DocumentationAssessor extends BaseAssessor {
+  constructor(config: AssessmentConfiguration) {
+    super(config);
+    this.logger.warn(
+      "DocumentationAssessor is deprecated. Use DeveloperExperienceAssessor instead. " +
+        "This module will be removed in v2.0.0.",
+      {
+        module: "DocumentationAssessor",
+        replacement: "DeveloperExperienceAssessor",
+      },
+    );
+  }
+
   async assess(context: AssessmentContext): Promise<DocumentationAssessment> {
     this.log("Starting documentation assessment");
 

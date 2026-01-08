@@ -13,6 +13,7 @@
  */
 
 import { AssessmentStatus } from "@/lib/assessmentTypes";
+import { AssessmentConfiguration } from "@/lib/assessment/configTypes";
 import type {
   ProtocolConformanceAssessment,
   ProtocolCheck,
@@ -37,7 +38,22 @@ const VALID_CONTENT_TYPES = [
   "resource_link",
 ] as const;
 
+/**
+ * @deprecated Use ProtocolComplianceAssessor instead. Will be removed in v2.0.0.
+ */
 export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanceAssessment> {
+  constructor(config: AssessmentConfiguration) {
+    super(config);
+    this.logger.warn(
+      "ProtocolConformanceAssessor is deprecated. Use ProtocolComplianceAssessor instead. " +
+        "This module will be removed in v2.0.0.",
+      {
+        module: "ProtocolConformanceAssessor",
+        replacement: "ProtocolComplianceAssessor",
+      },
+    );
+  }
+
   /**
    * Select representative tools for testing (first, middle, last for diversity)
    */
@@ -199,6 +215,12 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
         }
       } catch (error) {
         // Tool threw exception instead of returning error response
+        this.logger.debug(
+          `Tool ${testTool.name} threw exception instead of error response`,
+          {
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
         results.push({
           toolName: testTool.name,
           passed: false,
@@ -335,6 +357,7 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
             : undefined,
       };
     } catch (error) {
+      this.logError("Content type validation failed", error);
       return {
         passed: false,
         confidence: "medium",

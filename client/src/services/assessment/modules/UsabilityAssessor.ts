@@ -9,6 +9,7 @@ import {
   AssessmentStatus,
   JSONSchema7,
 } from "@/lib/assessmentTypes";
+import { AssessmentConfiguration } from "@/lib/assessment/configTypes";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
@@ -19,7 +20,22 @@ interface ToolInputSchema {
   required?: string[];
 }
 
+/**
+ * @deprecated Use DeveloperExperienceAssessor instead. Will be removed in v2.0.0.
+ */
 export class UsabilityAssessor extends BaseAssessor {
+  constructor(config: AssessmentConfiguration) {
+    super(config);
+    this.logger.warn(
+      "UsabilityAssessor is deprecated. Use DeveloperExperienceAssessor instead. " +
+        "This module will be removed in v2.0.0.",
+      {
+        module: "UsabilityAssessor",
+        replacement: "DeveloperExperienceAssessor",
+      },
+    );
+  }
+
   async assess(context: AssessmentContext): Promise<UsabilityAssessment> {
     this.log("Starting usability assessment");
 
