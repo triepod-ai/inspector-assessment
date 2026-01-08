@@ -74,7 +74,7 @@ export class FunctionalityAssessor extends BaseAssessor {
 
     // Parallel tool testing with concurrency limit
     const concurrency = this.config.maxParallelTests ?? 5;
-    const limit = createConcurrencyLimit(concurrency);
+    const limit = createConcurrencyLimit(concurrency, this.logger);
 
     // Progress tracking for batched events
     const totalEstimate = toolsToTest.length;

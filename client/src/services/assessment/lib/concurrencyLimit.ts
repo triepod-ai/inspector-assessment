@@ -3,6 +3,8 @@
  * Provides the same interface as p-limit but is CJS-compatible
  */
 
+import { Logger } from "./logger";
+
 /**
  * Warning threshold for queue depth monitoring.
  * If queue exceeds this size, a warning is emitted to help diagnose
@@ -23,6 +25,7 @@ export type LimitFunction = <T>(fn: () => Promise<T>) => Promise<T>;
  * of async operations to run simultaneously
  *
  * @param concurrency - Maximum number of concurrent operations
+ * @param logger - Optional logger instance for queue depth warnings
  * @returns A function that wraps async operations with the concurrency limit
  *
  * @example
@@ -31,7 +34,10 @@ export type LimitFunction = <T>(fn: () => Promise<T>) => Promise<T>;
  *   items.map(item => limit(() => processItem(item)))
  * );
  */
-export function createConcurrencyLimit(concurrency: number): LimitFunction {
+export function createConcurrencyLimit(
+  concurrency: number,
+  logger?: Logger,
+): LimitFunction {
   if (concurrency < 1) {
     throw new Error("Concurrency must be at least 1");
   }
@@ -75,12 +81,13 @@ export function createConcurrencyLimit(concurrency: number): LimitFunction {
       // Only warn once per limiter instance to avoid log spam
       if (queue.length > QUEUE_WARNING_THRESHOLD && !hasWarned) {
         hasWarned = true;
-        console.warn(
-          `[concurrencyLimit] Queue depth: ${queue.length} ` +
-            `(threshold: ${QUEUE_WARNING_THRESHOLD}). ` +
-            `Active: ${activeCount}/${concurrency}. ` +
-            `This may indicate a slow/stalled server.`,
-        );
+        logger?.warn("Queue depth exceeded threshold", {
+          queueDepth: queue.length,
+          threshold: QUEUE_WARNING_THRESHOLD,
+          activeCount,
+          concurrency,
+          message: "This may indicate a slow/stalled server",
+        });
       }
 
       next();

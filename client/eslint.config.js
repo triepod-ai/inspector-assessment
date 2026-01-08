@@ -36,6 +36,37 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "warn",
       // Downgrade ban-ts-comment to warning
       "@typescript-eslint/ban-ts-comment": "warn",
+      // Disallow console.* in production code - use structured Logger instead
+      "no-console": "error",
+    },
+  },
+  // Allow console in test files
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**/*.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  // Allow intentional console.error for JSONL event emission (stderr)
+  // Allow logger.ts to use console internally (it's the Logger implementation)
+  {
+    files: ["**/orchestratorHelpers.ts", "**/jsonl-events.ts", "**/logger.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  // Allow console in upstream UI components (browser debugging)
+  // These are from the upstream inspector project and use browser console
+  {
+    files: [
+      "src/App.tsx",
+      "src/components/**/*.tsx",
+      "src/lib/**/*.ts",
+      "src/utils/**/*.ts",
+      "src/services/assessmentService.ts",
+    ],
+    rules: {
+      "no-console": "off",
     },
   },
 );

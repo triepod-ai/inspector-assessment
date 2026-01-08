@@ -8,6 +8,7 @@
 
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { ClaudeCodeBridge } from "./lib/claudeCodeBridge";
+import type { Logger } from "./lib/logger";
 
 export interface TestScenario {
   name: string;
@@ -21,6 +22,8 @@ export interface TestScenario {
 export class TestDataGenerator {
   // Optional Claude Code bridge for intelligent test generation
   private static claudeBridge: ClaudeCodeBridge | null = null;
+  // Optional logger for diagnostic output
+  private static logger: Logger | null = null;
 
   /**
    * Set the Claude Code bridge for intelligent test generation
@@ -28,6 +31,14 @@ export class TestDataGenerator {
    */
   static setClaudeBridge(bridge: ClaudeCodeBridge | null): void {
     this.claudeBridge = bridge;
+  }
+
+  /**
+   * Set the logger for diagnostic output
+   * Call this once during initialization
+   */
+  static setLogger(logger: Logger | null): void {
+    this.logger = logger;
   }
 
   /**
@@ -170,9 +181,9 @@ export class TestDataGenerator {
           await this.claudeBridge.generateTestParameters(tool);
 
         if (claudeParams && claudeParams.length > 0) {
-          console.log(
-            `[TestDataGenerator] Using Claude-generated params for ${tool.name}`,
-          );
+          this.logger?.info("Using Claude-generated params", {
+            toolName: tool.name,
+          });
 
           // Convert Claude params to TestScenario format
           const claudeScenarios: TestScenario[] = claudeParams.map(
@@ -196,9 +207,12 @@ export class TestDataGenerator {
           return claudeScenarios;
         }
       } catch (error) {
-        console.warn(
-          `[TestDataGenerator] Claude generation failed for ${tool.name}, falling back to schema-based:`,
-          error,
+        this.logger?.warn(
+          "Claude generation failed, falling back to schema-based",
+          {
+            toolName: tool.name,
+            error: String(error),
+          },
         );
       }
     }
