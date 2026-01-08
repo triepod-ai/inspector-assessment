@@ -6,6 +6,7 @@
  */
 
 import * as fs from "fs";
+import type { Logger } from "../lib/logger";
 
 /**
  * Pattern configuration for tool behavior inference.
@@ -284,10 +285,12 @@ export function compilePatterns(
  * Partial configs are merged with defaults.
  *
  * @param configPath - Path to JSON configuration file
+ * @param logger - Optional logger for diagnostic output
  * @returns Merged configuration with defaults
  */
 export function loadPatternConfig(
   configPath?: string,
+  logger?: Logger,
 ): AnnotationPatternConfig {
   if (!configPath) {
     return DEFAULT_ANNOTATION_PATTERNS;
@@ -308,9 +311,9 @@ export function loadPatternConfig(
       ambiguous: userConfig.ambiguous ?? DEFAULT_ANNOTATION_PATTERNS.ambiguous,
     };
   } catch {
-    console.warn(
-      `Warning: Could not load pattern config from ${configPath}, using defaults`,
-    );
+    logger?.warn("Could not load pattern config, using defaults", {
+      configPath,
+    });
     return DEFAULT_ANNOTATION_PATTERNS;
   }
 }

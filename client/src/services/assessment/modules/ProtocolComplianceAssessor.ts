@@ -320,10 +320,9 @@ export class ProtocolComplianceAssessor extends BaseAssessor<ProtocolComplianceA
             hasErrors = true;
             const errorMsg = `${tool.name}: ${JSON.stringify(this.ajv.errors)}`;
             errors.push(errorMsg);
-            console.warn(
-              `Invalid schema for tool ${tool.name}:`,
-              this.ajv.errors,
-            );
+            this.logger.warn(`Invalid schema for tool ${tool.name}`, {
+              errors: this.ajv.errors,
+            });
           }
         }
       }
@@ -334,7 +333,9 @@ export class ProtocolComplianceAssessor extends BaseAssessor<ProtocolComplianceA
         details: hasErrors ? errors.join("; ") : undefined,
       };
     } catch (error) {
-      console.error("Schema compliance check failed:", error);
+      this.logger.error("Schema compliance check failed", {
+        error: String(error),
+      });
       return {
         passed: false,
         confidence: "low",

@@ -25,7 +25,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
     // Parallel tool testing with concurrency limit
     const concurrency = this.config.maxParallelTests ?? 5;
-    const limit = createConcurrencyLimit(concurrency);
+    const limit = createConcurrencyLimit(concurrency, this.logger);
 
     this.log(
       `Testing ${toolsToTest.length} tools for error handling with concurrency limit of ${concurrency}`,

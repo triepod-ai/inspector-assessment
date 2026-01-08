@@ -14,6 +14,7 @@
 import { execFileSync, execSync } from "child_process";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { AUPCategory } from "@/lib/assessmentTypes";
+import { Logger } from "./logger";
 
 /**
  * Response from Claude Code execution
@@ -138,15 +139,15 @@ export const FULL_CLAUDE_CODE_CONFIG: ClaudeCodeBridgeConfig = {
 export class ClaudeCodeBridge {
   private config: ClaudeCodeBridgeConfig;
   private isAvailable: boolean = false;
+  private logger?: Logger;
 
-  constructor(config: ClaudeCodeBridgeConfig) {
+  constructor(config: ClaudeCodeBridgeConfig, logger?: Logger) {
     this.config = config;
+    this.logger = logger;
     this.isAvailable = this.checkClaudeAvailability();
 
     if (!this.isAvailable) {
-      console.warn(
-        "[ClaudeCodeBridge] Claude CLI not available - features will be disabled",
-      );
+      this.logger?.warn("Claude CLI not available - features will be disabled");
     }
   }
 
@@ -262,7 +263,7 @@ export class ClaudeCodeBridge {
 
       return JSON.parse(jsonStr) as T;
     } catch {
-      console.warn("[ClaudeCodeBridge] Failed to parse JSON response");
+      this.logger?.warn("Failed to parse JSON response");
       return null;
     }
   }

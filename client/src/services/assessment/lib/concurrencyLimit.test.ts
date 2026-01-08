@@ -2,6 +2,17 @@ import {
   createConcurrencyLimit,
   QUEUE_WARNING_THRESHOLD,
 } from "./concurrencyLimit";
+import { Logger } from "./logger";
+
+// Mock logger for testing
+const createMockLogger = (): Logger & { warn: jest.Mock } => ({
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  child: jest.fn().mockReturnThis(),
+  isLevelEnabled: jest.fn().mockReturnValue(true),
+});
 
 describe("createConcurrencyLimit", () => {
   it("should limit concurrent operations to the specified concurrency", async () => {
@@ -81,8 +92,8 @@ describe("createConcurrencyLimit", () => {
   });
 
   it("should warn exactly once when queue exceeds threshold", async () => {
-    const consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-    const limit = createConcurrencyLimit(1);
+    const mockLogger = createMockLogger();
+    const limit = createConcurrencyLimit(1, mockLogger);
 
     // Enqueue more than QUEUE_WARNING_THRESHOLD tasks
     // Using concurrency=1 means all but one task will queue up
@@ -95,22 +106,21 @@ describe("createConcurrencyLimit", () => {
     await Promise.all(tasks);
 
     // Should have warned exactly ONCE (not 500 times) - deduplication check
-    expect(consoleSpy).toHaveBeenCalledTimes(1);
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Queue depth:"),
+    expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      "Queue depth exceeded threshold",
+      expect.objectContaining({
+        queueDepth: expect.any(Number),
+        threshold: QUEUE_WARNING_THRESHOLD,
+        activeCount: expect.any(Number),
+        concurrency: 1,
+      }),
     );
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining(`threshold: ${QUEUE_WARNING_THRESHOLD}`),
-    );
-    // Verify enhanced warning message includes active count
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Active:"));
-
-    consoleSpy.mockRestore();
   });
 
   it("should not warn when queue is below threshold", async () => {
-    const consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-    const limit = createConcurrencyLimit(1);
+    const mockLogger = createMockLogger();
+    const limit = createConcurrencyLimit(1, mockLogger);
 
     // Enqueue fewer tasks than threshold
     const taskCount = 100;
@@ -121,8 +131,6 @@ describe("createConcurrencyLimit", () => {
     await Promise.all(tasks);
 
     // Should NOT have warned
-    expect(consoleSpy).not.toHaveBeenCalled();
-
-    consoleSpy.mockRestore();
+    expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 });

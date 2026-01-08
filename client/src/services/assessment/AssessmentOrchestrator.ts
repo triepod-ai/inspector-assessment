@@ -267,6 +267,7 @@ export class AssessmentOrchestrator {
         if (this.config.patternConfigPath) {
           const patternConfig = loadPatternConfig(
             this.config.patternConfigPath,
+            this.logger,
           );
           const compiledPatterns = compilePatterns(patternConfig);
           this.toolAnnotationAssessor.setPatterns(compiledPatterns);
@@ -314,6 +315,9 @@ export class AssessmentOrchestrator {
     if (this.claudeBridge) {
       TestDataGenerator.setClaudeBridge(this.claudeBridge);
     }
+
+    // Set logger for TestDataGenerator diagnostic output
+    TestDataGenerator.setLogger(this.logger);
   }
 
   /**
@@ -334,7 +338,7 @@ export class AssessmentOrchestrator {
    */
   private initializeClaudeBridge(bridgeConfig: ClaudeCodeBridgeConfig): void {
     try {
-      this.claudeBridge = new ClaudeCodeBridge(bridgeConfig);
+      this.claudeBridge = new ClaudeCodeBridge(bridgeConfig, this.logger);
       this.claudeEnabled = true;
       this.logger.info("Claude Code Bridge initialized", {
         features: bridgeConfig.features,
