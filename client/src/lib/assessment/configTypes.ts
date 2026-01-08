@@ -17,6 +17,15 @@ export type { LoggingConfig, LogLevel };
 export { DEFAULT_LOGGING_CONFIG };
 
 /**
+ * HTTP transport configuration for connecting to mcp-auditor API
+ */
+export interface HttpTransportConfig {
+  baseUrl: string; // e.g., "http://localhost:8085"
+  apiKey?: string; // Optional API key for authentication
+  headers?: Record<string, string>; // Additional headers
+}
+
+/**
  * Claude Code Bridge Configuration
  * Enables integration with Claude Code CLI for intelligent analysis
  */
@@ -31,6 +40,8 @@ export interface ClaudeCodeConfig {
   timeout: number; // Per-call timeout in milliseconds
   workingDir?: string; // Optional working directory for Claude
   maxRetries?: number; // Max retries on failure (default 1)
+  transport?: "cli" | "http"; // Transport method (default: "cli")
+  httpConfig?: HttpTransportConfig; // Required when transport is "http"
 }
 
 export interface AssessmentConfiguration {

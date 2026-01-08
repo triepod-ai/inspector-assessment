@@ -269,3 +269,88 @@
 - All 8 package-structure tests pass
 
 ---
+## 2026-01-08: Claude Semantic Analysis CLI Integration - v1.25.10
+
+**Summary:** Implemented Step 9 of ClaudeCodeBridge integration plan - CLI now supports `--claude` flag for progressive enhancement of security detections.
+
+**Session Focus:** Enabling Claude semantic analysis in the CLI to complete the full integration of ClaudeCodeBridge with SecurityAssessor.
+
+**Changes Made:**
+- `scripts/run-security-assessment.ts` - Added `--claude` and `--mcp-auditor-url` CLI flags for cost-aware opt-in
+- `scripts/run-security-assessment.ts` - Added environment variable support (INSPECTOR_CLAUDE, INSPECTOR_MCP_AUDITOR_URL)
+- `scripts/run-security-assessment.ts` - Implemented ClaudeCodeBridge initialization with health check
+- `scripts/run-security-assessment.ts` - Wired ClaudeCodeBridge to SecurityAssessor in runModule()
+- `scripts/run-security-assessment.ts` - Fixed ESM entry point detection for tsx execution
+- `CLAUDE.md` - Added Claude Semantic Analysis section with usage examples (+26 lines)
+- `docs/CLI_ASSESSMENT_GUIDE.md` - Enhanced Mode 3 documentation and added Use Case 7 (+76 lines)
+
+**Key Decisions:**
+- Explicit `--claude` flag for cost-aware opt-in (not enabled by default)
+- Health check before enabling to gracefully degrade when mcp-auditor unavailable
+- Environment variables for CI/CD integration without CLI args
+- Progressive enhancement pattern: HIGH confidence bypasses Claude, MEDIUM/LOW get semantic analysis
+
+**Commits:**
+- `43ed49f` - fix(cli): support ESM entry point detection for tsx execution
+- `6b717b8` - docs: add Claude semantic analysis CLI documentation
+- `d59406d` - 1.25.10
+
+**Testing Results:**
+- vulnerable-mcp: 536 vulnerabilities detected, 2 tests refined with Claude semantic analysis
+- hardened-mcp: 0 vulnerabilities, PASS (no false positives maintained)
+- CLI health check: Graceful degradation confirmed when mcp-auditor unavailable
+
+**Next Steps:**
+- Monitor npm package usage and feedback on semantic analysis feature
+- Consider adding streaming support for HTTP transport
+- Step 9 complete - full ClaudeCodeBridge integration now available via CLI
+
+**Notes:**
+- Plan at `/home/bryan/.claude/plans/resilient-petting-hare.md` now fully implemented (Steps 1-9)
+- ClaudeCodeBridge integration enables semantic vulnerability analysis for policy violations and attack chains
+- Package published to npm as v1.25.10 at: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
+- Total integration effort: ~400 lines across 9 architectural steps spanning 3 sessions
+
+---
+
+## 2026-01-08: ESLint Error Resolution - Zero Errors Achieved
+
+**Summary:** Fixed all 33 ESLint errors in the inspector project, achieving zero errors with lint passing cleanly.
+
+**Session Focus:** ESLint error resolution and code quality cleanup
+
+**Changes Made:**
+- `client/src/services/assessment/__tests__/AssessmentOrchestrator.test.ts` - removed unused imports
+- `client/src/services/assessment/__tests__/BehaviorInference-Integration.test.ts` - removed unused type import
+- `client/src/services/assessment/__tests__/BehaviorInference.test.ts` - removed unused type import
+- `client/src/services/assessment/__tests__/TestDataGenerator.test.ts` - removed unused helper
+- `client/src/services/assessment/__tests__/ToolClassifier.test.ts` - prefixed unused vars, removed unused import
+- `client/src/services/assessment/__tests__/package-imports.test.ts` - prefixed unused var
+- `client/src/services/assessment/config/performanceConfig.test.ts` - removed unused import
+- `client/src/services/assessment/config/sanitizationPatterns.ts` - fixed regex escapes
+- `client/src/services/assessment/lib/claudeCodeBridge.e2e.test.ts` - prefixed unused vars
+- `client/src/services/assessment/lib/logger.test.ts` - removed unused imports
+- `client/src/services/assessment/modules/annotations/BehaviorInference.ts` - auto-fixed let to const
+
+**Key Decisions:**
+- Used underscore prefix (_varName) for intentionally unused variables per ESLint rules
+- Kept one expectedConfidence variable that was actually used in assertions
+- Fixed regex escape characters that were unnecessarily escaped
+
+**Commits:**
+- `833b9b7` - fix(lint): resolve all ESLint errors (33 -> 0)
+
+**Testing Results:**
+- Tests: 2918 passed, 4 skipped, 0 failed
+- Lint: 0 errors, 124 warnings
+
+**Next Steps:**
+- Continue development with clean lint status
+- Consider addressing the 124 no-explicit-any warnings in future cleanup
+
+**Notes:**
+- ESLint now passes cleanly with zero errors
+- 124 warnings remain (mostly no-explicit-any), but do not block development
+- Code quality baseline established for future development
+
+---
