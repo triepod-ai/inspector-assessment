@@ -5,6 +5,8 @@
  * Used by both the AssessmentOrchestrator (client) and CLI runners (scripts).
  */
 
+import packageJson from "../../package.json";
+
 /**
  * Normalize module name to snake_case key for consistent machine parsing.
  * Examples: "Functionality" -> "functionality", "Error Handling" -> "error_handling"
@@ -54,6 +56,6 @@ export function calculateModuleScore(result: unknown): number | null {
 
 /**
  * Current inspector-assessment version for event compatibility checking.
- * This should match the version in package.json.
+ * Dynamically imported from package.json to stay in sync.
  */
-export const INSPECTOR_VERSION = "1.21.3";
+export const INSPECTOR_VERSION = packageJson.version;
