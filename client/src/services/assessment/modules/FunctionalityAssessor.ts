@@ -275,6 +275,7 @@ export class FunctionalityAssessor extends BaseAssessor {
         responseMetadata,
       };
     } catch (error) {
+      this.logError(`Tool execution failed: ${tool.name}`, error);
       return {
         toolName: tool.name,
         tested: true,

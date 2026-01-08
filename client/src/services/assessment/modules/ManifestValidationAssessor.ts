@@ -516,7 +516,8 @@ export class ManifestValidationAssessor extends BaseAssessor {
       // Validate URL format first
       try {
         new URL(url);
-      } catch {
+      } catch (error) {
+        this.logError(`Invalid privacy policy URL format: ${url}`, error);
         results.push({
           url,
           accessible: false,
@@ -544,8 +545,12 @@ export class ManifestValidationAssessor extends BaseAssessor {
           statusCode: response.status,
           contentType: response.headers.get("content-type") || undefined,
         });
-      } catch {
+      } catch (headError) {
         // Try GET request as fallback (some servers reject HEAD)
+        this.logger.debug(`HEAD request failed for ${url}, trying GET`, {
+          error:
+            headError instanceof Error ? headError.message : String(headError),
+        });
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -565,6 +570,10 @@ export class ManifestValidationAssessor extends BaseAssessor {
             contentType: response.headers.get("content-type") || undefined,
           });
         } catch (fetchError) {
+          this.logError(
+            `Failed to fetch privacy policy URL: ${url}`,
+            fetchError,
+          );
           results.push({
             url,
             accessible: false,

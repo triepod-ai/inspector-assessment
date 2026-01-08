@@ -576,8 +576,14 @@ export class ResourceAssessor extends BaseAssessor {
               `Path traversal vulnerability: successfully accessed ${testUri}`,
             );
           }
-        } catch {
+        } catch (error) {
           // Expected - path traversal should be rejected
+          this.logger.debug(
+            `Path traversal correctly rejected for ${testUri}`,
+            {
+              error: error instanceof Error ? error.message : String(error),
+            },
+          );
           traversalResult.accessible = false;
         }
 
@@ -602,7 +608,10 @@ export class ResourceAssessor extends BaseAssessor {
       }
       // Allow relative paths
       return !uri.includes("..") || uri.startsWith("/");
-    } catch {
+    } catch (error) {
+      this.logger.debug(`URI validation failed for: ${uri}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }

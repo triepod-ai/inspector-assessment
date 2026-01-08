@@ -301,6 +301,7 @@ export class PromptAssessor extends BaseAssessor {
 
       return { success: true, unsafeContent, executionTime };
     } catch (error) {
+      this.logError(`Prompt execution failed: ${prompt.name}`, error);
       return {
         success: false,
         unsafeContent: false,
@@ -369,8 +370,14 @@ export class PromptAssessor extends BaseAssessor {
       }
 
       return { vulnerable: false };
-    } catch {
+    } catch (error) {
       // Error handling payload is good - not vulnerable
+      this.logger.debug(
+        `Injection payload rejected for ${prompt.name} (good)`,
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
       return { vulnerable: false };
     }
   }
@@ -435,8 +442,14 @@ export class PromptAssessor extends BaseAssessor {
         );
         // If we got here without error, validation failed
         return false;
-      } catch {
+      } catch (error) {
         // Expected - missing required arg should throw
+        this.logger.debug(
+          `Missing arg ${arg.name} correctly rejected for ${prompt.name}`,
+          {
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
         continue;
       }
     }
