@@ -9,18 +9,8 @@
  */
 
 import { AssessmentOrchestrator } from "../AssessmentOrchestrator";
-import {
-  AssessmentConfiguration,
-  DEFAULT_ASSESSMENT_CONFIG,
-} from "@/lib/assessmentTypes";
+import { DEFAULT_ASSESSMENT_CONFIG } from "@/lib/assessmentTypes";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-
-// Helper to create a minimal config
-const createConfig = (
-  overrides: Partial<AssessmentConfiguration> = {},
-): Partial<AssessmentConfiguration> => ({
-  ...overrides,
-});
 
 // Helper to create mock tools
 const createMockTools = (count: number): Tool[] =>

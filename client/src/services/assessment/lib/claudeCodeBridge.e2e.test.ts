@@ -42,7 +42,7 @@ import {
   createMockAssessmentContext,
   createMockAssessmentConfig,
 } from "@/test/utils/testUtils";
-import type { AssessmentContext } from "../AssessmentOrchestrator";
+import type { AssessmentContext as _AssessmentContext } from "../AssessmentOrchestrator";
 
 // Configuration
 const MCP_AUDITOR_BASE_URL = "http://localhost:8085";
@@ -654,7 +654,7 @@ Run it.
           return;
         }
 
-        const bridge = new ClaudeCodeBridge(
+        const _bridge = new ClaudeCodeBridge(
           createHttpConfig({
             features: {
               ...HTTP_CLAUDE_CODE_CONFIG.features,
@@ -866,7 +866,7 @@ Run it.
         return;
       }
 
-      const bridge = new ClaudeCodeBridge(createHttpConfig());
+      const _bridge = new ClaudeCodeBridge(createHttpConfig());
 
       // Direct API call with invalid data
       const response = await fetch(

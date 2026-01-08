@@ -45,7 +45,7 @@ export const SANITIZATION_LIBRARY_PATTERNS: SanitizationLibraryPattern[] = [
   // XSS Prevention Libraries
   {
     name: "DOMPurify",
-    patterns: [/\bDOMPurify\b/i, /\bdom[\-_]?purify\b/i],
+    patterns: [/\bDOMPurify\b/i, /\bdom[-_]?purify\b/i],
     category: "xss",
     confidenceBoost: 25,
     languageHint: ["javascript", "typescript"],
@@ -74,7 +74,7 @@ export const SANITIZATION_LIBRARY_PATTERNS: SanitizationLibraryPattern[] = [
   {
     name: "sanitize-html",
     patterns: [
-      /\bsanitize[\-_]?html\b/i,
+      /\bsanitize[-_]?html\b/i,
       /sanitizeHtml\s*\(/i,
       /require\s*\(\s*['"]sanitize-html['"]\s*\)/i,
     ],
@@ -85,7 +85,7 @@ export const SANITIZATION_LIBRARY_PATTERNS: SanitizationLibraryPattern[] = [
   {
     name: "escape-html",
     patterns: [
-      /\bescape[\-_]?html\b/i,
+      /\bescape[-_]?html\b/i,
       /escapeHtml\s*\(/i,
       /require\s*\(\s*['"]escape-html['"]\s*\)/i,
     ],

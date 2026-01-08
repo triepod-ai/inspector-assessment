@@ -7,7 +7,6 @@ import * as path from "path";
 import * as os from "os";
 
 import {
-  PerformanceConfig,
   DEFAULT_PERFORMANCE_CONFIG,
   PERFORMANCE_PRESETS,
   validatePerformanceConfig,

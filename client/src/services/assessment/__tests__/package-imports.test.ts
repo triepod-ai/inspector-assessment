@@ -61,7 +61,7 @@ describe("Package Import Patterns", () => {
     });
 
     it("should have types and default for each export", () => {
-      for (const [exportPath, config] of Object.entries(rootPkg.exports)) {
+      for (const [_exportPath, config] of Object.entries(rootPkg.exports)) {
         const exportConfig = config as { types?: string; default?: string };
         expect(exportConfig.types).toBeDefined();
         expect(exportConfig.default).toBeDefined();

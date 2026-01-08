@@ -14,11 +14,7 @@
  * - Batch classification
  */
 
-import {
-  ToolClassifier,
-  ToolCategory,
-  ToolClassification,
-} from "../ToolClassifier";
+import { ToolClassifier, ToolCategory } from "../ToolClassifier";
 
 describe("ToolClassifier", () => {
   let classifier: ToolClassifier;
@@ -97,7 +93,7 @@ describe("ToolClassifier", () => {
 
   describe("HIGH RISK: CODE_EXECUTOR", () => {
     const expectedCategory = ToolCategory.CODE_EXECUTOR;
-    const expectedConfidence = 95;
+    const _expectedConfidence = 95;
 
     it.each([
       ["execute_code", "execute.*code pattern"],
@@ -139,7 +135,7 @@ describe("ToolClassifier", () => {
 
   describe("HIGH RISK: DATA_ACCESS", () => {
     const expectedCategory = ToolCategory.DATA_ACCESS;
-    const expectedConfidence = 85;
+    const _expectedConfidence = 85;
 
     // Note: word boundary patterns (\b) don't match underscored names
     // e.g., /\bdata\b/ doesn't match "data_retriever" because _ is a word char
@@ -193,7 +189,7 @@ describe("ToolClassifier", () => {
 
   describe("HIGH RISK: TOOL_OVERRIDE", () => {
     const expectedCategory = ToolCategory.TOOL_OVERRIDE;
-    const expectedConfidence = 92;
+    const _expectedConfidence = 92;
 
     it.each([
       ["override_tool", "override pattern"],
@@ -225,7 +221,7 @@ describe("ToolClassifier", () => {
 
   describe("HIGH RISK: CONFIG_MODIFIER", () => {
     const expectedCategory = ToolCategory.CONFIG_MODIFIER;
-    const expectedConfidence = 88;
+    const _expectedConfidence = 88;
 
     it.each([
       ["config_editor", "config pattern"],
@@ -261,7 +257,7 @@ describe("ToolClassifier", () => {
 
   describe("HIGH RISK: URL_FETCHER", () => {
     const expectedCategory = ToolCategory.URL_FETCHER;
-    const expectedConfidence = 87;
+    const _expectedConfidence = 87;
 
     it.each([
       ["fetch_content", "fetch pattern"],
@@ -301,7 +297,7 @@ describe("ToolClassifier", () => {
 
   describe("MEDIUM RISK: UNICODE_PROCESSOR", () => {
     const expectedCategory = ToolCategory.UNICODE_PROCESSOR;
-    const expectedConfidence = 75;
+    const _expectedConfidence = 75;
 
     it.each([
       ["unicode_converter", "unicode pattern"],
@@ -324,7 +320,7 @@ describe("ToolClassifier", () => {
 
   describe("MEDIUM RISK: JSON_PARSER", () => {
     const expectedCategory = ToolCategory.JSON_PARSER;
-    const expectedConfidence = 78;
+    const _expectedConfidence = 78;
 
     it.each([
       ["parser_tool", "parser pattern"],
@@ -348,7 +344,7 @@ describe("ToolClassifier", () => {
 
   describe("MEDIUM RISK: PACKAGE_INSTALLER", () => {
     const expectedCategory = ToolCategory.PACKAGE_INSTALLER;
-    const expectedConfidence = 70;
+    const _expectedConfidence = 70;
 
     it.each([
       ["install_package", "install pattern"],
@@ -372,7 +368,7 @@ describe("ToolClassifier", () => {
 
   describe("MEDIUM RISK: RUG_PULL", () => {
     const expectedCategory = ToolCategory.RUG_PULL;
-    const expectedConfidence = 80;
+    const _expectedConfidence = 80;
 
     it.each([
       ["rug_pull_tool", "rug.*pull pattern"],
@@ -397,7 +393,7 @@ describe("ToolClassifier", () => {
 
   describe("SAFE: API_WRAPPER", () => {
     const expectedCategory = ToolCategory.API_WRAPPER;
-    const expectedConfidence = 95;
+    const _expectedConfidence = 95;
 
     it.each([
       ["firecrawl_scrape", "firecrawl pattern"],
@@ -431,7 +427,7 @@ describe("ToolClassifier", () => {
 
   describe("SAFE: SEARCH_RETRIEVAL", () => {
     const expectedCategory = ToolCategory.SEARCH_RETRIEVAL;
-    const expectedConfidence = 93;
+    const _expectedConfidence = 93;
 
     // Note: word boundary patterns require isolated words
     // Test via descriptions or space-separated names
@@ -478,7 +474,7 @@ describe("ToolClassifier", () => {
 
   describe("SAFE: CRUD_CREATION", () => {
     const expectedCategory = ToolCategory.CRUD_CREATION;
-    const expectedConfidence = 92;
+    const _expectedConfidence = 92;
 
     // Word boundary patterns - all CRUD patterns use \b
     // Test via descriptions for isolated words
@@ -535,7 +531,7 @@ describe("ToolClassifier", () => {
 
   describe("SAFE: READ_ONLY_INFO", () => {
     const expectedCategory = ToolCategory.READ_ONLY_INFO;
-    const expectedConfidence = 94;
+    const _expectedConfidence = 94;
 
     it.each([
       ["get_self_info", "get.*self pattern"],
@@ -563,7 +559,7 @@ describe("ToolClassifier", () => {
 
   describe("SAFE: SAFE_STORAGE", () => {
     const expectedCategory = ToolCategory.SAFE_STORAGE;
-    const expectedConfidence = 99;
+    const _expectedConfidence = 99;
 
     it.each([
       ["safe_storage_tool_mcp", "safe.*storage pattern"],
@@ -920,7 +916,7 @@ describe("ToolClassifier", () => {
     // The word boundary patterns (\b) properly prevent false positives
     it("get pattern should not match 'target' or 'budget'", () => {
       const target = classifier.classify("target_selector");
-      const budget = classifier.classify("budget_manager");
+      const _budget = classifier.classify("budget_manager");
       // Word boundary patterns don't match substrings
       expect(target.categories).not.toContain(ToolCategory.DATA_ACCESS);
     });

@@ -9,10 +9,7 @@
  * Part of Issue #57: Architecture detection and behavior inference modules
  */
 
-import {
-  inferBehaviorEnhanced,
-  type BehaviorInferenceResult,
-} from "../modules/annotations/BehaviorInference";
+import { inferBehaviorEnhanced } from "../modules/annotations/BehaviorInference";
 import type { JSONSchema } from "../modules/annotations/SchemaAnalyzer";
 
 describe("BehaviorInference - Signal Aggregation Integration", () => {

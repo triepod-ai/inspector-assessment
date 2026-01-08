@@ -378,9 +378,10 @@ function aggregateSignals(
   }
 
   // Count signals by behavior type
-  let readOnlySignals: Array<{ name: string; signal: InferenceSignal }> = [];
-  let destructiveSignals: Array<{ name: string; signal: InferenceSignal }> = [];
-  let writeSignals: Array<{ name: string; signal: InferenceSignal }> = [];
+  const readOnlySignals: Array<{ name: string; signal: InferenceSignal }> = [];
+  const destructiveSignals: Array<{ name: string; signal: InferenceSignal }> =
+    [];
+  const writeSignals: Array<{ name: string; signal: InferenceSignal }> = [];
 
   for (const [name, signal] of activeSignals) {
     if (signal.expectedDestructive) {

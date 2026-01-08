@@ -8,10 +8,7 @@
  * @group annotations
  */
 
-import {
-  inferBehavior,
-  type BehaviorInferenceResult,
-} from "../modules/annotations/BehaviorInference";
+import { inferBehavior } from "../modules/annotations/BehaviorInference";
 import type { ServerPersistenceContext } from "../config/annotationPatterns";
 
 describe("BehaviorInference", () => {

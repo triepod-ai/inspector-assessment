@@ -6,8 +6,6 @@ import {
   createLogger,
   createSilentLogger,
   DEFAULT_LOGGING_CONFIG,
-  Logger,
-  LogLevel,
 } from "./logger";
 
 describe("Logger", () => {

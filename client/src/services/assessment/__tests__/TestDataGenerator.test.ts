@@ -9,12 +9,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { TestDataGenerator, TestScenario } from "../TestDataGenerator";
 
-// Helper to access private methods
-const getPrivateMethod = <T>(instance: T, methodName: string) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (instance as any)[methodName].bind(instance);
-};
-
 // Helper to access private static methods
 const getPrivateStaticMethod = (methodName: string) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
