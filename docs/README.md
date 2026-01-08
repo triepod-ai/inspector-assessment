@@ -106,6 +106,19 @@ Real-time progress streaming for CLI/auditor integration.
 
 ## Maintenance & Operations
 
+### Deprecation Documentation (v1.25.2+)
+
+Start with [Deprecation Index](DEPRECATION_INDEX.md) for navigation, then choose:
+
+| Document                                                            | Purpose                                        |
+| ------------------------------------------------------------------- | ---------------------------------------------- |
+| [Deprecation Index](DEPRECATION_INDEX.md)                           | Navigation hub for all deprecation docs        |
+| [Deprecation Guide](DEPRECATION_GUIDE.md)                           | What's deprecated, why, and migration timeline |
+| [Deprecation API Reference](DEPRECATION_API_REFERENCE.md)           | Technical reference, warning formats, testing  |
+| [Deprecation Migration Examples](DEPRECATION_MIGRATION_EXAMPLES.md) | Copy-paste ready code examples                 |
+
+### General Maintenance
+
 | Document                                            | Purpose                                |
 | --------------------------------------------------- | -------------------------------------- |
 | [Upstream Sync Workflow](UPSTREAM_SYNC_WORKFLOW.md) | Sync procedure with upstream inspector |
@@ -170,6 +183,10 @@ docs/
 ├── PROGRESSIVE_COMPLEXITY_GUIDE.md         # Progressive testing
 ├── UI_COMPONENT_REFERENCE.md               # UI components (deprecated)
 ├── MANIFEST_REQUIREMENTS.md                # Manifest spec
+├── DEPRECATION_INDEX.md                    # Deprecation documentation navigation hub
+├── DEPRECATION_GUIDE.md                    # Deprecations & migration paths
+├── DEPRECATION_API_REFERENCE.md            # Deprecation system technical reference
+├── DEPRECATION_MIGRATION_EXAMPLES.md       # Migration code examples
 ├── UPSTREAM_SYNC_WORKFLOW.md               # Upstream sync
 ├── ARCHITECTURE_AND_VALUE.md               # Architecture overview
 └── REAL_TIME_PROGRESS_OUTPUT.md            # Legacy progress
@@ -177,4 +194,4 @@ docs/
 
 ---
 
-**Last Updated**: 2026-01-06
+**Last Updated**: 2026-01-08
