@@ -161,7 +161,11 @@ npm run assess -- --server my-server --config config.json
 # From npm binary
 mcp-assess-security --server my-server --config config.json
 
-# Output: Focuses on vulnerabilities and injection attacks
+# With Claude semantic analysis (reduces false positives)
+npm run assess -- --server my-server --config config.json --claude
+
+# With custom mcp-auditor URL
+npm run assess -- --server my-server --config config.json --claude --mcp-auditor-url http://custom:8085
 ```
 
 **Key Characteristics:**
@@ -171,6 +175,26 @@ mcp-assess-security --server my-server --config config.json
 - No functionality validation
 - Ideal for rapid security audits
 - Perfect for automated security gates
+- Optional Claude semantic analysis for reduced false positives
+
+**Claude Semantic Analysis Options:**
+
+Use `--claude` to enable Claude-based semantic analysis via mcp-auditor:
+
+```bash
+# Enable Claude (uses default mcp-auditor at http://localhost:8085)
+npm run assess -- --server my-server --config config.json --claude
+
+# Specify custom mcp-auditor URL
+npm run assess -- --server my-server --config config.json --claude --mcp-auditor-url http://auditor.example.com:8085
+
+# Via environment variables (useful for CI/CD)
+export INSPECTOR_CLAUDE=true
+export INSPECTOR_MCP_AUDITOR_URL=http://custom:8085
+npm run assess -- --server my-server --config config.json
+```
+
+**How Claude Reduces False Positives:** Pattern-based detection runs first for speed. Claude semantic analysis then validates medium/low confidence findings by examining tool behavior, reducing false positives while maintaining detection accuracy.
 
 ---
 
@@ -1014,6 +1038,56 @@ done
 echo "Assessment complete. Results in ./results/"
 ls -lh ./results/
 ```
+
+---
+
+### Use Case 7: Reduce False Positives with Claude Semantic Analysis
+
+**Goal**: Enhance security assessment with AI-driven semantic analysis to validate findings
+
+Requires: mcp-auditor running at http://localhost:8085 (or custom URL)
+
+```bash
+# Enable Claude for the security assessment
+npm run assess -- --server my-server --config config.json --claude
+
+# With custom mcp-auditor URL
+npm run assess -- --server my-server --config config.json --claude --mcp-auditor-url http://auditor.example.com:8085
+
+# In CI/CD environment
+export INSPECTOR_CLAUDE=true
+export INSPECTOR_MCP_AUDITOR_URL=http://auditor.example.com:8085
+npm run assess -- --server my-server --config config.json
+```
+
+**How It Works:**
+
+1. Pattern-based detection runs first (fast, reliable)
+2. Medium/low confidence findings are marked for semantic review
+3. Claude analyzes tool behavior and descriptions
+4. False positives are filtered; true positives confirmed
+5. Results include semantic analysis confidence scores
+
+**Benefits:**
+
+- Fewer false positives than pattern-based detection alone
+- Maintains high true positive rate
+- Semantic understanding of tool behavior
+- Suitable for gated security checks in CI/CD
+
+**Requirements:**
+
+- mcp-auditor service running (see mcp-auditor docs for setup)
+- Network connectivity to mcp-auditor endpoint
+- Additional ~30-60 seconds assessment time
+
+**Output Enhancements:**
+
+The assessment results include:
+
+- `semantic_confidence` score for each finding
+- `claude_analysis` details explaining the decision
+- `validation_method` showing if pattern-based or semantic
 
 ---
 
