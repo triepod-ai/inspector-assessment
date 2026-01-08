@@ -618,3 +618,408 @@ describe("SecurityResponseAnalyzer - analyzeComputedMathResult", () => {
     });
   });
 });
+
+/**
+ * Critical Gap Tests - Issue #58 Regression, Pagination, and Mixed Tools
+ *
+ * These tests cover scenarios identified as gaps in the original test coverage:
+ * 1. Exact Issue #58 scenario (kintone_get_app)
+ * 2. Pagination metadata patterns (common REST API response)
+ * 3. Mixed tool detection (safe + vulnerable on same server)
+ */
+describe("Critical Gap Tests - Issue #58 Regression & Edge Cases", () => {
+  let assessor: SecurityAssessor;
+  let mockContext: AssessmentContext;
+
+  beforeEach(() => {
+    const config = createMockAssessmentConfig({
+      testTimeout: 5000,
+      delayBetweenTests: 0,
+      enableDomainTesting: true,
+    });
+    assessor = new SecurityAssessor(config);
+    mockContext = createMockAssessmentContext();
+    jest.clearAllMocks();
+  });
+
+  describe("Issue #58 Regression - Exact kintone_get_app scenario", () => {
+    it("should NOT flag kintone_get_app returning {records: 4} for Calculator Injection", async () => {
+      // This is the EXACT scenario from Issue #58
+      // Tool: kintone_get_app (read-only API wrapper for Kintone)
+      // Payload: "2+2"
+      // Response: {"records": 4, "totalCount": 4} - "4" is record count, NOT computed
+      const tool: Tool = {
+        name: "kintone_get_app",
+        description:
+          "Retrieves information from a Kintone application via REST API",
+        inputSchema: {
+          type: "object",
+          properties: {
+            app_id: { type: "string", description: "Kintone app ID" },
+            query: { type: "string", description: "Filter query" },
+          },
+          required: ["app_id"],
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest.fn().mockImplementation(() => {
+        // Exact response pattern from Issue #58
+        return Promise.resolve({
+          isError: false,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                records: [
+                  { id: "1", name: "Project A" },
+                  { id: "2", name: "Project B" },
+                  { id: "3", name: "Project C" },
+                  { id: "4", name: "Project D" },
+                ],
+                totalCount: 4,
+              }),
+            },
+          ],
+        });
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      // Should NOT be flagged as Calculator Injection
+      const calculatorVulns = result.promptInjectionTests.filter(
+        (t) =>
+          t.toolName === "kintone_get_app" &&
+          t.testName === "Calculator Injection" &&
+          t.vulnerable,
+      );
+
+      expect(calculatorVulns.length).toBe(0);
+    });
+
+    it("should NOT flag kintone_get_records returning numeric totalCount", async () => {
+      const tool: Tool = {
+        name: "kintone_get_records",
+        description: "Get records from Kintone app",
+        inputSchema: {
+          type: "object",
+          properties: {
+            app: { type: "number" },
+            query: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest.fn().mockImplementation(() => {
+        return Promise.resolve({
+          isError: false,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                records: [],
+                totalCount: 25, // Matches 5*5 payload
+              }),
+            },
+          ],
+        });
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      const calculatorVulns = result.promptInjectionTests.filter(
+        (t) =>
+          t.toolName === "kintone_get_records" &&
+          t.testName === "Calculator Injection" &&
+          t.vulnerable,
+      );
+
+      expect(calculatorVulns.length).toBe(0);
+    });
+  });
+
+  describe("Pagination Metadata Patterns", () => {
+    it("should NOT flag REST API pagination response with page/per_page/total", async () => {
+      // Common REST API pagination pattern
+      const tool: Tool = {
+        name: "get_paginated_results",
+        description: "Fetch paginated results from REST API",
+        inputSchema: {
+          type: "object",
+          properties: {
+            endpoint: { type: "string" },
+            page: { type: "number" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest.fn().mockImplementation(() => {
+        return Promise.resolve({
+          isError: false,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                data: [{ id: 1 }, { id: 2 }],
+                page: 2, // Matches 1+1 payload
+                per_page: 25, // Matches 5*5 payload
+                total: 100, // Matches 10*10 payload
+                total_pages: 4, // Matches 2+2 payload
+              }),
+            },
+          ],
+        });
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      const calculatorVulns = result.promptInjectionTests.filter(
+        (t) =>
+          t.toolName === "get_paginated_results" &&
+          t.testName === "Calculator Injection" &&
+          t.vulnerable,
+      );
+
+      expect(calculatorVulns.length).toBe(0);
+    });
+
+    it("should NOT flag offset-based pagination response", async () => {
+      const tool: Tool = {
+        name: "list_api_resources",
+        description: "List resources with offset pagination",
+        inputSchema: {
+          type: "object",
+          properties: {
+            offset: { type: "number" },
+            limit: { type: "number" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest.fn().mockImplementation(() => {
+        return Promise.resolve({
+          isError: false,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                items: [],
+                offset: 0,
+                limit: 25,
+                total: 100,
+                has_more: true,
+              }),
+            },
+          ],
+        });
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      const calculatorVulns = result.promptInjectionTests.filter(
+        (t) =>
+          t.toolName === "list_api_resources" &&
+          t.testName === "Calculator Injection" &&
+          t.vulnerable,
+      );
+
+      expect(calculatorVulns.length).toBe(0);
+    });
+
+    it("should NOT flag cursor-based pagination with count field", async () => {
+      const tool: Tool = {
+        name: "fetch_cursor_results",
+        description: "Fetch results using cursor pagination",
+        inputSchema: {
+          type: "object",
+          properties: {
+            cursor: { type: "string" },
+            count: { type: "number" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest.fn().mockImplementation(() => {
+        return Promise.resolve({
+          isError: false,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                data: [],
+                next_cursor: "abc123",
+                count: 4, // Matches 2+2 payload
+                total_count: 100,
+              }),
+            },
+          ],
+        });
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      const calculatorVulns = result.promptInjectionTests.filter(
+        (t) =>
+          t.toolName === "fetch_cursor_results" &&
+          t.testName === "Calculator Injection" &&
+          t.vulnerable,
+      );
+
+      expect(calculatorVulns.length).toBe(0);
+    });
+  });
+
+  describe("Mixed Tool Detection - Safe API Wrappers + Vulnerable Calculators", () => {
+    it("should correctly distinguish safe API wrapper from vulnerable calculator on same server", async () => {
+      // Server has BOTH a safe API wrapper AND a vulnerable calculator
+      const safeApiTool: Tool = {
+        name: "get_customer_data",
+        description: "Retrieve customer information from CRM API",
+        inputSchema: {
+          type: "object",
+          properties: {
+            customer_id: { type: "string" },
+          },
+        },
+      };
+
+      const vulnerableCalculator: Tool = {
+        name: "calculate_expression",
+        description: "Evaluate mathematical expressions",
+        inputSchema: {
+          type: "object",
+          properties: {
+            expression: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [safeApiTool, vulnerableCalculator];
+
+      // Different responses for different tools
+      mockContext.callTool = jest.fn().mockImplementation((name) => {
+        if (name === "get_customer_data") {
+          // Safe: Returns JSON data where "4" is customer count
+          return Promise.resolve({
+            isError: false,
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  customers: 4,
+                  status: "active",
+                  lastSync: "2024-01-15",
+                }),
+              },
+            ],
+          });
+        } else {
+          // Vulnerable: Actually computes the expression
+          return Promise.resolve({
+            isError: false,
+            content: [
+              {
+                type: "text",
+                text: "The answer is 4",
+              },
+            ],
+          });
+        }
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      // Safe API wrapper should NOT be flagged
+      const safeApiVulns = result.promptInjectionTests.filter(
+        (t) =>
+          t.toolName === "get_customer_data" &&
+          t.testName === "Calculator Injection" &&
+          t.vulnerable,
+      );
+      expect(safeApiVulns.length).toBe(0);
+
+      // Vulnerable calculator SHOULD be flagged
+      const calculatorVulns = result.promptInjectionTests.filter(
+        (t) =>
+          t.toolName === "calculate_expression" &&
+          t.testName === "Calculator Injection" &&
+          t.vulnerable,
+      );
+      expect(calculatorVulns.length).toBeGreaterThan(0);
+    });
+
+    it("should flag vulnerable tool even when safe tools exist on same server", async () => {
+      // Multiple safe tools + one vulnerable
+      const tools: Tool[] = [
+        {
+          name: "list_users",
+          description: "List all users",
+          inputSchema: { type: "object", properties: {} },
+        },
+        {
+          name: "get_settings",
+          description: "Get application settings",
+          inputSchema: { type: "object", properties: {} },
+        },
+        {
+          name: "fetch_reports",
+          description: "Fetch reports from API",
+          inputSchema: { type: "object", properties: {} },
+        },
+        {
+          name: "eval_math",
+          description: "Evaluate math",
+          inputSchema: {
+            type: "object",
+            properties: { expr: { type: "string" } },
+          },
+        },
+      ];
+
+      mockContext.tools = tools;
+      mockContext.callTool = jest.fn().mockImplementation((name) => {
+        if (name === "eval_math") {
+          return Promise.resolve({
+            isError: false,
+            content: [{ type: "text", text: "Result: 4" }],
+          });
+        }
+        // All other tools return safe JSON data
+        return Promise.resolve({
+          isError: false,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ count: 4, items: [] }),
+            },
+          ],
+        });
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      // Only eval_math should be flagged
+      const vulnerableTools = result.promptInjectionTests.filter(
+        (t) => t.testName === "Calculator Injection" && t.vulnerable,
+      );
+
+      // All vulnerabilities should be from eval_math
+      for (const vuln of vulnerableTools) {
+        expect(vuln.toolName).toBe("eval_math");
+      }
+
+      // Safe tools should NOT be flagged
+      const safeFalsePositives = result.promptInjectionTests.filter(
+        (t) =>
+          t.testName === "Calculator Injection" &&
+          t.vulnerable &&
+          ["list_users", "get_settings", "fetch_reports"].includes(t.toolName),
+      );
+      expect(safeFalsePositives.length).toBe(0);
+    });
+  });
+});
