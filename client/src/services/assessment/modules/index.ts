@@ -80,6 +80,22 @@ export { PortabilityAssessor } from "./PortabilityAssessor";
 export { ExternalAPIScannerAssessor } from "./ExternalAPIScannerAssessor";
 
 // ============================================================================
+// Helper Modules (Extracted for maintainability)
+// ============================================================================
+
+/**
+ * Security testing helper modules - extracted from SecurityAssessor
+ * These are composition helpers, not standalone assessors
+ */
+export * from "./securityTests";
+
+/**
+ * Annotation helper modules - extracted from ToolAnnotationAssessor
+ * These are composition helpers, not standalone assessors
+ */
+export * from "./annotations";
+
+// ============================================================================
 // Deprecated Exports (backward compatibility - will be removed in v2.0.0)
 // ============================================================================
 
