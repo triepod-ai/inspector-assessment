@@ -120,9 +120,9 @@ describe("Architecture & Behavior Integration - Critical Bug Hunting", () => {
         .length; // 54 chars
       expect(distance).toBeGreaterThan(30);
 
-      // With default 30 char window, this should NOT be caught
-      // This is a potential bug - negation might be missed
-      expect(result.expectedDestructive).toBe(true); // Bug: negation not detected!
+      // With 60 char window (fixed from 30), this IS now caught
+      // Bug was fixed by increasing window size
+      expect(result.expectedDestructive).toBe(false); // Fixed: negation now detected!
     });
 
     it("CRITICAL: should handle negation after keyword (not before)", () => {

@@ -64,6 +64,8 @@ export const DESCRIPTION_BEHAVIOR_KEYWORDS = {
       "erases",
       "permanently",
       "irreversible",
+      "archives", // soft-delete euphemism
+      "terminated", // forceful process ending
     ],
     medium: [
       "truncates",
@@ -74,8 +76,9 @@ export const DESCRIPTION_BEHAVIOR_KEYWORDS = {
       "uninstalls",
       "dismounts",
       "detaches",
+      "marks", // when combined with deleted/archived
     ],
-    low: ["resets", "restores to default", "cleans"],
+    low: ["resets", "restores to default", "cleans", "cleanup"],
   },
   write: {
     high: [
@@ -97,6 +100,8 @@ export const DESCRIPTION_BEHAVIOR_KEYWORDS = {
       "patches",
       "appends",
       "extends",
+      "increments", // modify operation
+      "decrements", // modify operation
     ],
     low: [
       "saves",
@@ -132,7 +137,7 @@ const NEGATION_PATTERNS = [
 function isNegated(
   description: string,
   keywordIndex: number,
-  windowSize: number = 30,
+  windowSize: number = 60,
 ): boolean {
   const start = Math.max(0, keywordIndex - windowSize);
   const contextBefore = description.slice(start, keywordIndex);
@@ -247,18 +252,19 @@ export function analyzeDescription(description: string): InferenceSignal {
 
   // Read-only detection (only if not destructive)
   if (readOnlyScore > 0 && !expectedDestructive) {
-    // Check if write operations cancel out read-only
-    if (readOnlyScore > writeScore) {
+    // Write operations take precedence when present (even if equal score)
+    // Multi-operation tools like "fetch and update" should be classified as write
+    if (writeScore > 0 && writeScore >= readOnlyScore * 0.5) {
+      // Write signal is significant enough to override read-only
+      confidence = Math.min(100, writeScore);
+      evidence.push(
+        `Write keywords override read: ${activeWrite.map((m) => m.keyword).join(", ")}`,
+      );
+    } else if (readOnlyScore > writeScore) {
       expectedReadOnly = true;
       confidence = Math.min(100, readOnlyScore);
       evidence.push(
         `Read-only keywords: ${activeReadOnly.map((m) => m.keyword).join(", ")}`,
-      );
-    } else if (writeScore > 0) {
-      // Has both read and write signals - likely a write operation that returns data
-      confidence = Math.min(100, writeScore);
-      evidence.push(
-        `Write keywords override read: ${activeWrite.map((m) => m.keyword).join(", ")}`,
       );
     }
   }

@@ -191,11 +191,20 @@ export function inferBehavior(
     };
   }
 
-  if (
+  // Check for read-only indicators, but write operations take precedence
+  const hasReadIndicators =
     lowerDesc.includes("read") ||
     lowerDesc.includes("get") ||
-    lowerDesc.includes("fetch")
-  ) {
+    lowerDesc.includes("fetch");
+  const hasWriteIndicators =
+    lowerDesc.includes("update") ||
+    lowerDesc.includes("create") ||
+    lowerDesc.includes("increment") ||
+    lowerDesc.includes("modify") ||
+    lowerDesc.includes("set") ||
+    lowerDesc.includes("change");
+
+  if (hasReadIndicators && !hasWriteIndicators) {
     return {
       expectedReadOnly: true,
       expectedDestructive: false,
@@ -276,10 +285,23 @@ export function inferBehaviorEnhanced(
   // Aggregate signals to determine final result
   const aggregated = aggregateSignals(signals);
 
+  // Preserve persistence model info from base result if present
+  let finalReason = aggregated.reason;
+  if (
+    baseResult.reason.includes("deferred") ||
+    baseResult.reason.includes("immediate persistence")
+  ) {
+    // Append persistence context to aggregated reason
+    const persistenceInfo = baseResult.reason.includes("deferred")
+      ? " (deferred persistence model)"
+      : " (immediate persistence model)";
+    finalReason = aggregated.reason + persistenceInfo;
+  }
+
   return {
     expectedReadOnly: aggregated.expectedReadOnly,
     expectedDestructive: aggregated.expectedDestructive,
-    reason: aggregated.reason,
+    reason: finalReason,
     confidence: numberToConfidence(aggregated.confidence),
     isAmbiguous: aggregated.isAmbiguous,
     signals,
@@ -344,6 +366,17 @@ function aggregateSignals(
     };
   }
 
+  // If only one weak signal exists, treat as ambiguous
+  if (activeSignals.length === 1 && activeSignals[0][1].confidence < 50) {
+    return {
+      expectedReadOnly: false,
+      expectedDestructive: false,
+      reason: "Only weak signal detected - behavior is ambiguous",
+      confidence: activeSignals[0][1].confidence,
+      isAmbiguous: true,
+    };
+  }
+
   // Count signals by behavior type
   let readOnlySignals: Array<{ name: string; signal: InferenceSignal }> = [];
   let destructiveSignals: Array<{ name: string; signal: InferenceSignal }> = [];
@@ -375,7 +408,9 @@ function aggregateSignals(
     const avgConfidence =
       strongDestructive.reduce((sum, s) => sum + s.signal.confidence, 0) /
       strongDestructive.length;
-    confidence = Math.min(100, avgConfidence + strongDestructive.length * 5); // Boost for multiple signals
+    // Gentle boost for multiple signals (prevents saturation at 100)
+    const boostMultiplier = Math.max(0, strongDestructive.length - 1);
+    confidence = Math.min(100, avgConfidence + boostMultiplier * 3);
     reason = `Destructive behavior detected from: ${strongDestructive.map((s) => formatSignalName(s.name)).join(", ")}`;
 
     // Check for conflicts
@@ -385,20 +420,47 @@ function aggregateSignals(
       isAmbiguous = true;
     }
   }
-  // Priority 2: Read-only signals
+  // Priority 2: Read-only vs Write signals
+  // If there are strong write signals, they should take precedence
   else if (readOnlySignals.length > 0) {
-    expectedReadOnly = true;
-    const avgConfidence =
-      readOnlySignals.reduce((sum, s) => sum + s.signal.confidence, 0) /
-      readOnlySignals.length;
-    confidence = Math.min(100, avgConfidence + readOnlySignals.length * 5); // Boost for multiple signals
-    reason = `Read-only behavior detected from: ${readOnlySignals.map((s) => formatSignalName(s.name)).join(", ")}`;
+    const strongWriteSignals = writeSignals.filter(
+      (s) => s.signal.confidence >= 70,
+    );
 
-    // Check for conflicts with write signals
-    if (writeSignals.some((s) => s.signal.confidence >= 70)) {
-      confidence -= 15;
-      reason += ` (conflicts with write signals)`;
+    // Write signals of high confidence override read-only (multi-operation tools)
+    if (strongWriteSignals.length > 0) {
+      const writeAvg =
+        strongWriteSignals.reduce((sum, s) => sum + s.signal.confidence, 0) /
+        strongWriteSignals.length;
+      const readAvg =
+        readOnlySignals.reduce((sum, s) => sum + s.signal.confidence, 0) /
+        readOnlySignals.length;
+
+      // When both read-only and write signals present, it's always a conflict
+      // Mark as ambiguous and let the dominant signal determine behavior
       isAmbiguous = true;
+
+      if (writeAvg >= readAvg * 0.9) {
+        // Write is dominant - but still a conflict
+        expectedReadOnly = false;
+        confidence = Math.round(writeAvg - 10); // Reduce due to conflict
+        reason = `Write behavior detected from: ${strongWriteSignals.map((s) => formatSignalName(s.name)).join(", ")} (conflicts with read-only signals)`;
+      } else {
+        // Read-only is dominant - still a conflict
+        expectedReadOnly = true;
+        confidence = Math.round(readAvg - 15);
+        reason = `Read-only behavior detected from: ${readOnlySignals.map((s) => formatSignalName(s.name)).join(", ")} (conflicts with write signals)`;
+      }
+    } else {
+      // Pure read-only, no write conflicts
+      expectedReadOnly = true;
+      const avgConfidence =
+        readOnlySignals.reduce((sum, s) => sum + s.signal.confidence, 0) /
+        readOnlySignals.length;
+      // Gentle boost for multiple signals (prevents saturation at 100)
+      const boostMultiplier = Math.max(0, readOnlySignals.length - 1);
+      confidence = Math.min(100, avgConfidence + boostMultiplier * 3);
+      reason = `Read-only behavior detected from: ${readOnlySignals.map((s) => formatSignalName(s.name)).join(", ")}`;
     }
   }
   // Priority 3: Write signals (not destructive)

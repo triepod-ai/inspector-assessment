@@ -72,13 +72,47 @@ export const INPUT_WRITE_PATTERNS = {
 /**
  * Output schema patterns indicating read-only operations.
  */
+/**
+ * Recursively check if schema contains array type at any level.
+ * Used to detect list/collection return patterns.
+ */
+function hasArrayTypeRecursive(
+  schema: JSONSchema,
+  maxDepth: number = 3,
+): boolean {
+  if (maxDepth <= 0) return false;
+
+  // Direct array type
+  if (
+    schema.type === "array" ||
+    (Array.isArray(schema.type) && schema.type.includes("array"))
+  ) {
+    return true;
+  }
+
+  // Check nested properties
+  if (schema.properties) {
+    for (const prop of Object.values(schema.properties)) {
+      if (hasArrayTypeRecursive(prop, maxDepth - 1)) {
+        return true;
+      }
+    }
+  }
+
+  // Check array items
+  if (schema.items) {
+    if (hasArrayTypeRecursive(schema.items, maxDepth - 1)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export const OUTPUT_READONLY_PATTERNS = {
-  /** Array return type suggests list/search operation */
+  /** Array return type suggests list/search operation (checks nested schemas) */
   returnsArray: (schema: JSONSchema): boolean => {
-    return (
-      schema.type === "array" ||
-      (Array.isArray(schema.type) && schema.type.includes("array"))
-    );
+    return hasArrayTypeRecursive(schema);
   },
   /** Object with common read-only fields */
   hasReadOnlyFields: (schema: JSONSchema): boolean => {
@@ -110,7 +144,8 @@ export const OUTPUT_DESTRUCTIVE_PATTERNS = {
       props.includes("deletedcount") ||
       props.includes("deleted_count") ||
       props.includes("removed") ||
-      props.includes("removedcount")
+      props.includes("removedcount") ||
+      props.includes("removed_count")
     );
   },
   /** Returns void/empty suggests side-effect only */
