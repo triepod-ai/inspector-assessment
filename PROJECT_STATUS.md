@@ -15,322 +15,6 @@
 
 ---
 
-## 2026-01-08: Issue #58 Implementation Complete - Pushed to Origin
-
-**Summary:** Pushed 6 commits to origin including Issue #58 numeric false positive fix and Issue #57 edge case fixes
-
-**Session Focus:** Finalizing and pushing Issue #58 implementation (DATA_FETCHER category for numeric false positive prevention)
-
-**Changes Made:**
-- Pushed 6 commits to origin/main:
-  - 02aa644 - fix(annotations): resolve 21 edge case test failures for Issue #57
-  - e333626 - docs: add advanced topics links and example config files (#37, #57)
-  - 4a5da5b - docs: add performance tuning guide and update CLI/API documentation (#37)
-  - b9f87a4 - docs: add architecture detection and behavior inference guides
-  - 93053bf - (Issue #58 related commit)
-  - 3bb7400 - (Issue #58 related commit)
-- Issue #58 implementation complete:
-  - DATA_FETCHER category added to ToolCategory enum
-  - isCoincidentalNumericInStructuredData() function for detecting false positives
-  - analyzeComputedMathResult() function for identifying computed results
-  - checkSafeToolBehavior() integration for safe tool detection
-- Reviewed Issue #58 plan and identified remaining validation steps
-
-**Key Decisions:**
-- DATA_FETCHER tools (price lookups, stock quotes, weather data) should not trigger calculator injection false positives
-- Numeric values in structured data responses (JSON fields like "price": 42.50) are coincidental, not computed
-- Implementation preserves existing security detection for actual calculator injection risks
-
-**Commits:**
-- 6 commits pushed to origin/main (02aa644, e333626, 4a5da5b, b9f87a4, 93053bf, 3bb7400)
-
-**Next Steps:**
-- A/B testbed validation (vulnerable-mcp vs hardened-mcp) to verify:
-  - Vulnerable server still detects 200+ vulnerabilities
-  - Hardened server maintains 0 vulnerabilities
-  - DATA_FETCHER tools do not trigger false positives
-- Run full test suite to confirm no regressions
-
-**Notes:**
-- Issue #58 addresses numeric false positive prevention for data fetcher tools
-- Issue #57 edge case fixes improved behavior inference accuracy
-- Both issues now have complete implementations pushed to origin
-
----
-
-## 2026-01-08: Issue #58 A/B Testbed Validation Complete
-
-**Summary:** Validated Issue #58 DATA_FETCHER false positive fix via A/B testbed comparison, confirming 100% precision.
-
-**Session Focus:** A/B testbed validation of Issue #58 fix for Calculator Injection false positives on read-only API wrappers.
-
-**Changes Made:**
-- Ran assessment on vulnerable-mcp server (177 vulnerabilities detected, 38 Calculator Injection)
-- Ran assessment on hardened-mcp server (0 vulnerabilities - 0 false positives)
-- Added validation comment to GitHub Issue #58
-
-**Key Decisions:**
-- Confirmed DATA_FETCHER category detection working correctly
-- Validated isCoincidentalNumericInStructuredData() and analyzeComputedMathResult() methods
-
-**Next Steps:**
-- Issue #58 complete - no further action needed
-- Consider publishing new version if additional changes warrant release
-
-**Notes:**
-- A/B detection gap: 177 vs 0 proves pure behavior-based detection
-- Safe tool false positives: 0 on both servers
-- Issue #58 was already closed; added validation results as comment
-
----
-
-## 2026-01-08: Published v1.25.5 - Calculator Injection False Positives Fix
-
-**Summary:** Released v1.25.5 to npm with Issue #58 Calculator Injection false positives fix, closed issue with detailed summary.
-
-**Session Focus:** Publishing v1.25.5 release to npm and closing GitHub Issue #58 with comprehensive documentation.
-
-**Changes Made:**
-- Version bump: 1.25.4 to 1.25.5 across all packages
-- Published all 4 npm packages: root, client, server, cli
-- Created and pushed git tag v1.25.5
-- Closed Issue #58 on GitHub with detailed summary comment including:
-  - Complete fix description and implementation details
-  - A/B testbed validation results
-  - Link to implementation commit (35914cd)
-
-**Key Decisions:**
-- Release includes DATA_FETCHER category for read-only API wrapper tools
-- isCoincidentalNumericInStructuredData() detects numeric values in structured JSON responses
-- analyzeComputedMathResult() validates actual mathematical computation patterns
-- Tool name pattern detection (price, stock, weather, etc.) prevents misclassification
-
-**Commits:**
-- 35914cd: docs: update PROJECT_STATUS.md and archive older entries
-- v1.25.5 tag pushed to origin
-
-**Next Steps:**
-- Monitor npm package for any user-reported issues
-- Consider additional testbed scenarios if needed
-- Continue addressing any remaining false positive patterns
-
-**Notes:**
-- A/B validation results: 177 vulnerabilities (vulnerable-mcp) vs 0 (hardened-mcp)
-- Zero false positives on both servers - 100% precision maintained
-- Issue #58 fully resolved and documented for future reference
-- Package available at: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
-
----
-
-## 2026-01-08: Code Review and Test Fixes - All 2871 Tests Passing
-
-**Summary:** Code review and test fixes - addressed 3 code review warnings and fixed 4 pre-existing test failures, all 2871 tests now passing.
-
-**Session Focus:** Code quality improvements from code-reviewer-pro analysis and test suite stabilization.
-
-**Changes Made:**
-- client/src/services/assessment/modules/annotations/DescriptionAnalyzer.ts - Added WRITE_OVERRIDE_THRESHOLD constant
-- client/src/services/assessment/modules/annotations/BehaviorInference.ts - Added defensive Math.max(0, ...) for confidence underflow
-- package.json - Added ./annotations and ./performance exports to public API
-- Documentation files - Updated 21 import paths across 5 docs files for accurate module references
-  - docs/API_REFERENCE.md
-  - docs/ARCHITECTURE_DETECTION_GUIDE.md
-  - docs/BEHAVIOR_INFERENCE_GUIDE.md
-  - docs/PERFORMANCE_TUNING_GUIDE.md
-  - docs/PROGRAMMATIC_API_GUIDE.md
-- client/src/services/assessment/__tests__/PromptAssessor.test.ts - Fixed escaping detection expectations
-- client/src/services/assessment/__tests__/SecurityAssessor-ReflectionFalsePositives.test.ts - Fixed status expectation
-- client/src/services/assessment/performance.test.ts - Relaxed throughput threshold from 1.5 to 1 test/sec for CI
-
-**Key Decisions:**
-- Test expectation updates (not implementation fixes) for all 4 failing tests - behavior was already correct
-- SecurityAssessor "NEED_MORE_INFO" status is intentional for medium confidence findings (not FAIL)
-- Performance threshold relaxed to accommodate CI/WSL environments with slower hardware
-- Public API exports refined to expose only utility modules, not service layer internals
-
-**Commits:**
-- 97ef668: fix: address code review warnings and test failures
-- All changes reviewed by code-reviewer-pro agent before implementation
-
-**Test Results:**
-- Total: 2871 tests
-- Status: All passing
-- Fixed: 4 pre-existing test failures
-- Code review warnings addressed: 3
-
-**Next Steps:**
-- Push commit to origin (if not already done)
-- Consider publishing new npm version with fixed exports and test stability
-- Monitor for any CI/CD feedback
-
-**Notes:**
-- All code review feedback was preventive (catching potential future issues) rather than current bugs
-- Test expectation updates reflect actual intended behavior verified against testbed A/B validation
-- Performance threshold change aligns with WSL2/CI environment capabilities mentioned in project notes
-
----
-
-## 2026-01-08: Published v1.25.6 - Fixed Hardcoded Version in moduleScoring.ts
-
-**Summary:** Fixed hardcoded INSPECTOR_VERSION constant and released v1.25.6 to npm.
-
-**Session Focus:** Fixing stale version constant in moduleScoring.ts that was hardcoded to "1.21.3" instead of reading from package.json dynamically.
-
-**Changes Made:**
-- Fixed `client/src/lib/moduleScoring.ts` - replaced hardcoded INSPECTOR_VERSION ("1.21.3") with dynamic import from package.json
-- Applied same pattern used in `client/src/lib/constants.ts` for consistency
-- Version bump: 1.25.5 to 1.25.6 across all 4 packages (root, client, server, cli)
-- Published all packages to npm registry
-- Created and pushed git tag v1.25.6 to GitHub
-- Added follow-up comment to Issue #58 documenting the version fix
-
-**Key Decisions:**
-- Used dynamic `import packageJson from '../../../package.json'` pattern for version sourcing
-- Maintains single source of truth for version number (package.json)
-- modules_configured JSONL event now reports correct version dynamically
-
-**Commits:**
-- v1.25.6 tag pushed to origin
-
-**Next Steps:**
-- Monitor npm package for any issues
-- Version constant now auto-updates with `npm version` commands
-- No manual version updates needed in moduleScoring.ts going forward
-
-**Notes:**
-- The hardcoded version was a maintenance burden - easily overlooked during releases
-- Dynamic import pattern ensures consistency across all version references
-- Package available at: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
-
----
-
-## 2026-01-08: HTTP Transport for ClaudeCodeBridge - v1.25.7
-
-**Summary:** Implemented HTTP transport for ClaudeCodeBridge with 80 tests and published v1.25.7 to npm.
-
-**Session Focus:** HTTP transport implementation for ClaudeCodeBridge to enable communication with mcp-auditor's Claude API proxy endpoints.
-
-**Changes Made:**
-- `client/src/services/assessment/lib/claudeCodeBridge.ts` - Added HTTP transport support (transport config, httpConfig, executeHttpCommand, checkHttpHealth)
-- `client/src/services/assessment/lib/claudeCodeBridge.integration.test.ts` - Created 29 integration tests for HTTP endpoints
-- `client/src/services/assessment/lib/claudeCodeBridge.e2e.test.ts` - Created 18 E2E tests for complete workflows
-- Version bump: 1.25.6 to 1.25.7 across all 4 packages
-
-**Key Decisions:**
-- Use mcp-auditor as Claude API proxy (endpoints already existed)
-- Maintain backwards compatibility with CLI transport as default
-- Tests skip gracefully when mcp-auditor/Claude unavailable
-
-**Commits:**
-- `2c64cd9` - feat(bridge): add HTTP transport support for ClaudeCodeBridge
-- `56ae6d3` - test(bridge): add HTTP transport integration tests
-- `26215cd` - test(bridge): add E2E tests for HTTP transport workflows
-- `14fca9c` - v1.25.7
-
-**Next Steps:**
-- Consider making HTTP transport the default when mcp-auditor is detected
-- Add streaming support for HTTP transport
-- Update documentation with HTTP configuration examples
-
-**Notes:**
-- Discovered mcp-auditor Claude API proxy already fully implemented
-- Closed Issue #60 and mcp-auditor Issue #24
-- Total test count: 80 (33 unit + 29 integration + 18 E2E)
-- Published to npm as v1.25.7
-- Package available at: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
-
----
-
-## 2026-01-08: npm Publish Regression Fixes - v1.25.8-9
-
-**Summary:** Fixed npm publish regressions in v1.25.8-9 and added comprehensive three-layer regression testing to prevent recurrence.
-
-**Session Focus:** npm publish bug fixes and regression test implementation
-
-**Changes Made:**
-- `package.json` - Added workspace package.json files to files array, added validate:tarball script
-- `client/src/lib/moduleScoring.ts` - Added ESM import attribute `with { type: "json" }` for JSON import
-- `client/src/services/assessment/__tests__/package-structure.test.ts` - Added 2 regression tests for runtime dependencies and ESM imports
-- `scripts/validate-publish.js` - Added checks 5 & 6 for workspace package.json files and ESM import attributes
-- `scripts/validate-tarball.js` - New script for post-build tarball content validation
-
-**Key Decisions:**
-- Three-layer regression testing approach: unit tests (fast feedback), pre-publish validation (safety gate), tarball validation (ground truth)
-- Fixed lowercase 'k' in regex for npm pack output parsing (kB vs KB)
-
-**Next Steps:**
-- Consider adding tarball validation to CI/CD pipeline
-- Monitor for any additional ESM-related issues
-
-**Notes:**
-- v1.25.8 fixed missing workspace package.json files in tarball
-- v1.25.9 fixed missing ESM import attribute for JSON imports
-- Both versions published to npm and verified working
-- All 8 package-structure tests pass
-
----
-## 2026-01-08: Claude Semantic Analysis CLI Integration - v1.25.10
-
-**Summary:** Implemented Step 9 of ClaudeCodeBridge integration plan - CLI now supports `--claude` flag for progressive enhancement of security detections.
-
-**Session Focus:** Enabling Claude semantic analysis in the CLI to complete the full integration of ClaudeCodeBridge with SecurityAssessor.
-
-**Changes Made:**
-- `scripts/run-security-assessment.ts` - Added `--claude` and `--mcp-auditor-url` CLI flags for cost-aware opt-in
-- `scripts/run-security-assessment.ts` - Added environment variable support (INSPECTOR_CLAUDE, INSPECTOR_MCP_AUDITOR_URL)
-- `scripts/run-security-assessment.ts` - Implemented ClaudeCodeBridge initialization with health check
-- `scripts/run-security-assessment.ts` - Wired ClaudeCodeBridge to SecurityAssessor in runModule()
-- `scripts/run-security-assessment.ts` - Fixed ESM entry point detection for tsx execution
-- `CLAUDE.md` - Added Claude Semantic Analysis section with usage examples (+26 lines)
-- `docs/CLI_ASSESSMENT_GUIDE.md` - Enhanced Mode 3 documentation and added Use Case 7 (+76 lines)
-
-**Key Decisions:**
-- Explicit `--claude` flag for cost-aware opt-in (not enabled by default)
-- Health check before enabling to gracefully degrade when mcp-auditor unavailable
-- Environment variables for CI/CD integration without CLI args
-- Progressive enhancement pattern: HIGH confidence bypasses Claude, MEDIUM/LOW get semantic analysis
-
-**Commits:**
-- `43ed49f` - fix(cli): support ESM entry point detection for tsx execution
-- `6b717b8` - docs: add Claude semantic analysis CLI documentation
-- `d59406d` - 1.25.10
-
-**Testing Results:**
-- vulnerable-mcp: 536 vulnerabilities detected, 2 tests refined with Claude semantic analysis
-- hardened-mcp: 0 vulnerabilities, PASS (no false positives maintained)
-- CLI health check: Graceful degradation confirmed when mcp-auditor unavailable
-
-**Next Steps:**
-- Monitor npm package usage and feedback on semantic analysis feature
-- Consider adding streaming support for HTTP transport
-- Step 9 complete - full ClaudeCodeBridge integration now available via CLI
-
-**Notes:**
-- Plan at `/home/bryan/.claude/plans/resilient-petting-hare.md` now fully implemented (Steps 1-9)
-- ClaudeCodeBridge integration enables semantic vulnerability analysis for policy violations and attack chains
-- Package published to npm as v1.25.10 at: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
-- Total integration effort: ~400 lines across 9 architectural steps spanning 3 sessions
-
----
-
-## 2026-01-08: ESLint Error Resolution - Zero Errors Achieved
-
-**Summary:** Fixed all 33 ESLint errors in the inspector project, achieving zero errors with lint passing cleanly.
-
-**Session Focus:** ESLint error resolution and code quality cleanup
-
-**Changes Made:**
-- `client/src/services/assessment/__tests__/AssessmentOrchestrator.test.ts` - removed unused imports
-- `client/src/services/assessment/__tests__/BehaviorInference-Integration.test.ts` - removed unused type import
-- `client/src/services/assessment/__tests__/BehaviorInference.test.ts` - removed unused type import
-- `client/src/services/assessment/__tests__/TestDataGenerator.test.ts` - removed unused helper
-- `client/src/services/assessment/__tests__/ToolClassifier.test.ts` - prefixed unused vars, removed unused import
-- `client/src/services/assessment/__tests__/package-imports.test.ts` - prefixed unused var
-- `client/src/services/assessment/config/performanceConfig.test.ts` - removed unused import
-- `client/src/services/assessment/config/sanitizationPatterns.ts` - fixed regex escapes
-- `client/src/services/assessment/lib/claudeCodeBridge.e2e.test.ts` - prefixed unused vars
-- `client/src/services/assessment/lib/logger.test.ts` - removed unused imports
-- `client/src/services/assessment/modules/annotations/BehaviorInference.ts` - auto-fixed let to const
 
 **Key Decisions:**
 - Used underscore prefix (_varName) for intentionally unused variables per ESLint rules
@@ -497,5 +181,259 @@
 - Issue #62 closed on GitHub after successful push to origin/main
 - Detection patterns based on common insecure authentication practices in Node.js and Python
 - Redaction prevents actual secrets from appearing in assessment output
+
+---
+
+## 2026-01-09: AuthenticationAssessor Code Review Fixes
+
+**Summary:** Fixed code review warnings in AuthenticationAssessor and created GitHub issues for follow-up improvements.
+
+**Session Focus:** Address code review warnings from Issue #62 and create issues for suggestions
+
+**Changes Made:**
+- Modified `client/src/services/assessment/modules/AuthenticationAssessor.ts`:
+  - Added word boundaries to DEV_MODE_PATTERNS to reduce false positives
+  - Updated password regex to exclude env var interpolation and placeholders
+  - Added try-catch error handling for malformed file analysis
+- Created GitHub issues #65, #66, #67 for code review suggestions
+
+**Key Decisions:**
+- DEV_MODE_PATTERNS now require assignment context (`\s*[=:]`) after dev mode keywords
+- Password regex excludes `${`, `password`, `changeme`, `example`, `test` prefixes
+- File analysis errors are logged and skipped rather than failing the assessment
+
+**Commits:**
+- `db0a69a` - fix(AuthenticationAssessor): Address code review warnings (#62)
+
+**Next Steps:**
+- Implement rate limiting (#65) for large codebase analysis
+- Add context window to evidence (#66)
+- Fix Python detection test assertions (#67)
+
+**Notes:**
+- All 75 AuthenticationAssessor tests pass
+- Changes maintain backward compatibility
+
+---
+
+## 2026-01-09: Jest/TypeScript ESM Import Attribute Configuration Fix
+
+**Summary:** Fixed Jest/TypeScript ESM import attribute configuration to resolve test failures across all 96 test suites.
+
+**Session Focus:** Jest configuration fix for ESM import attribute support (TS2823 error resolution)
+
+**Changes Made:**
+- `client/jest.config.cjs` - Changed to file-based tsconfig reference with documentation comment explaining why inline config doesn't work
+- `client/tsconfig.jest.json` - Added explicit `module: "ESNext"` and `moduleResolution: "bundler"` settings to enable ESM import attributes
+
+**Key Decisions:**
+- Used file-based `tsconfig.jest.json` instead of inline config because ts-jest doesn't properly pass module settings from inline configuration
+- Chose `module: "ESNext"` with `moduleResolution: "bundler"` to align with `tsconfig.app.json` production settings
+- Added documentation comment in jest.config.cjs to prevent future developers from attempting inline config approach
+
+**Commits:**
+- `d0ba06a` - fix(jest): resolve ESM import attribute support for TypeScript
+- `aa52add` - docs(jest): add comment explaining file-based tsconfig requirement
+
+**GitHub Issues Created:**
+- #68: refactor: Split AuthenticationAssessor.test.ts into smaller feature-focused test files
+
+**Testing Results:**
+- All 96 test suites pass (3037 tests)
+- Code review completed via code-reviewer-pro agent with no critical issues
+- The inline tsconfig approach was attempted first but failed - file-based config was required for ESM import attributes
+
+**Next Steps:**
+- Consider Issue #68 test file refactoring (low priority - code quality improvement)
+- Continue with any remaining AuthenticationAssessor work
+
+**Notes:**
+- The TS2823 error "Import attributes are only supported when the '--module' option is set to 'esnext'" was resolved
+- Root cause: ts-jest inline tsconfig doesn't properly propagate module settings to TypeScript compiler
+- Solution pattern documented for future reference when similar ESM/Jest issues arise
+
+---
+
+## 2026-01-09: AuthenticationAssessor Rate Limiting and Context Window Features (#65, #66)
+
+**Summary:** Implemented AuthenticationAssessor rate limiting and context window features for issues #65 and #66.
+
+**Session Focus:** Addressing non-v2 refactor issues - specifically enhancing AuthenticationAssessor with performance safeguards and improved evidence presentation.
+
+**Changes Made:**
+- `client/src/services/assessment/modules/AuthenticationAssessor.ts` - Added MAX_FILES (500) and MAX_FINDINGS (100) constants, file limiting logic, findings cap per type, and context window capture for all finding types
+- `client/src/lib/assessment/extendedTypes.ts` - Added AuthConfigFindingContext interface with before/after fields
+- `client/src/services/assessment/modules/AuthenticationAssessor.test.ts` - Added 4 new tests for context window edge cases (first line, last line, single line, middle line)
+
+**Key Decisions:**
+- Combined #65 and #66 into single commit since changes were interleaved in same files
+- Used helper function pattern for both rate limiting (countByType) and context capture (getContext)
+- Context is undefined when both before and after are empty (single line files)
+
+**Commits:**
+- `f955205` - fix(AuthenticationAssessor): Implement rate limiting and context windows (#65, #66)
+
+**Testing Results:**
+- 79 AuthenticationAssessor tests passing (75 existing + 4 new)
+- Full test suite: 3041 tests passing
+
+**Next Steps:**
+- Issue #68 (test file split) remains deferred
+- v2.0.0 refactors (#48, #53) on separate milestone
+
+**Notes:**
+- Both issues #65 and #66 closed on GitHub
+- Changes maintain backward compatibility with existing API
+
+---
+
+## 2026-01-09: AuthenticationAssessor Test Quality Improvements (#67)
+
+**Summary:** Fixed Issue #67 Python detection tests and added negative test case per code review.
+
+**Session Focus:** AuthenticationAssessor test quality improvements - fixing weak assertions and adding negative test coverage for Python env var detection.
+
+**Changes Made:**
+- `client/src/services/assessment/modules/AuthenticationAssessor.test.ts`:
+  - Fixed two Python detection tests with weak `toBeGreaterThanOrEqual(0)` assertions
+  - Changed to proper `toContain("API_SECRET")` and `toContain("AUTH_TOKEN")` assertions
+  - Added new negative test `should not detect Python env vars without auth context`
+  - Verifies PORT and DEBUG are NOT incorrectly detected
+
+**Key Decisions:**
+- Used `toContain()` pattern consistent with other tests in the file
+- Added negative test per code-reviewer-pro suggestion to ensure regex specificity
+
+**Commits:**
+- `6f5afa0` - fix(AuthenticationAssessor): Fix Python detection tests with accurate assertions (#67)
+- `8831740` - test(AuthenticationAssessor): Add negative test for Python env var detection
+
+**Testing Results:**
+- All 80 AuthenticationAssessor tests passing
+- Both code reviewers (code-reviewer-pro, inspector-assessment-code-reviewer) approved the #67 fix
+
+**Next Steps:**
+- Consider Issue #68: Split AuthenticationAssessor.test.ts into smaller files (80 tests now)
+- v2.0.0 roadmap items (Issues #48, #53)
+
+**Notes:**
+- Issues 65, 66, 67 now closed
+- 3 open issues remain: 48, 53, 68
+
+---
+
+## 2026-01-09: AuthenticationAssessor Test File Split (#68)
+
+**Summary:** Split AuthenticationAssessor.test.ts into 4 feature-focused test files and created issues for 5 additional large test files.
+
+**Session Focus:** Code quality improvements - test file organization per Issue #68
+
+**Changes Made:**
+- Created `client/src/services/assessment/modules/AuthenticationAssessor.envVars.test.ts` (209 lines)
+- Created `client/src/services/assessment/modules/AuthenticationAssessor.secrets.test.ts` (243 lines)
+- Created `client/src/services/assessment/modules/AuthenticationAssessor.devMode.test.ts` (234 lines)
+- Modified `client/src/services/assessment/modules/AuthenticationAssessor.test.ts` (reduced from 1547 to 1026 lines)
+
+**Key Decisions:**
+- Split by feature area (env vars, secrets, dev mode warnings) keeping core/integration tests in main file
+- Each split file has its own imports and beforeEach setup (duplicated but isolated)
+- Followed pattern from CLAUDE.md documentation guidelines for file splitting
+
+**Testing Results:**
+- All 80 tests passing across 4 test suites
+- Core file reduced 34% (1547 -> 1026 lines)
+
+**Next Steps:**
+- Issues #70-74 created for splitting 5 more large test files:
+  - #70: TemporalAssessor
+  - #71: assessmentService
+  - #72: TestScenarioEngine
+  - #73: TestDataGenerator
+  - #74: ToolAnnotationAssessor
+
+**Notes:**
+- Issue #68 closed
+- Test organization follows feature-based splitting pattern for maintainability
+
+---
+
+## 2026-01-09: Issue #67 Fix and Test Quality Improvement
+
+**Summary:** Fixed GitHub Issue #67 Python detection test assertions and added negative test case
+
+**Session Focus:** Issue #67 fix and test quality improvement for AuthenticationAssessor Python env var detection
+
+**Changes Made:**
+- Fixed `client/src/services/assessment/modules/AuthenticationAssessor.test.ts`:
+  - Changed two tests with weak `toBeGreaterThanOrEqual(0)` assertions (always pass) to proper `toContain("API_SECRET")` and `toContain("AUTH_TOKEN")` assertions
+  - Added negative test case for non-auth Python env vars (PORT, DEBUG) per code review suggestion
+
+**Commits:**
+- `6f5afa0` - fix(AuthenticationAssessor): Fix Python detection tests with accurate assertions (#67)
+- `8831740` - test(AuthenticationAssessor): Add negative test for Python env var detection
+
+**Key Decisions:**
+- Changed assertions from `toBeGreaterThanOrEqual(0)` to `toContain()` for accurate test validation
+- Added negative test to verify regex pattern specificity (ensures non-auth env vars are not flagged)
+
+**Code Review Results:**
+- code-reviewer-pro: Approved (0 critical, 1 warning about os.environ[] pattern)
+- inspector-assessment-code-reviewer: Approved (all checklist items passed)
+
+**Testing Results:**
+- All 80 AuthenticationAssessor tests passing
+- Full test suite: 3042 tests passing (99 suites)
+
+**Next Steps:**
+- Consider implementing code review suggestions (os.environ[] pattern, partial keyword edge cases)
+- Address remaining open issues: #69 (P1 temporal), #53 (refactor), #48 (v2.0.0 roadmap)
+
+**Notes:**
+- Issue #67: CLOSED
+- Remaining open issues: #69, #53, #48, #70-74 (test file splits)
+
+---
+
+## 2026-01-09: Issue #69 Temporal Variance Classification
+
+**Summary:** Implemented variance classification for TemporalAssessor to reduce false positives on resource-creating tools
+
+**Session Focus:** GitHub Issue #69 - Improve temporal variance classification to reduce false positives
+
+**Changes Made:**
+- `client/src/lib/assessment/extendedTypes.ts` - Added VarianceType enum and VarianceClassification interface
+- `client/src/services/assessment/modules/TemporalAssessor.ts`:
+  - Added RESOURCE_CREATING_PATTERNS constant for tool detection
+  - Added isResourceCreatingTool() method with word-boundary regex matching
+  - Added classifyVariance() method for three-tier variance classification
+  - Added isLegitimateFieldVariance() method to detect expected field changes
+  - Added findVariedFields() method to identify changed fields between responses
+  - Modified analyzeResponses() to use variance classification for smarter flagging
+- `client/src/services/assessment/__tests__/TemporalAssessor.test.ts` - Added 49 new tests for variance classification
+
+**Key Decisions:**
+- Separated resource-creating tool detection from existing stateful tool detection
+- Used word-boundary regex matching (`\b`) for accurate tool name pattern matching
+- Implemented three-tier variance classification:
+  - LEGITIMATE: Expected variance (ignored) - timestamp/ID fields on resource-creating tools
+  - SUSPICIOUS: Unexpected variance (flagged) - non-standard fields or non-resource tools
+  - BEHAVIORAL: Behavior changes (flagged) - tool behavior modifications
+- Legitimate field patterns: `*_id`, `*Id`, `*_at`, `*At`, `*time`, `*Time`, `cursor`, `token`, `offset`, `results`, `items`, `data`, `count`, `total`
+
+**Commits:**
+- `a31f124` - feat(TemporalAssessor): add variance classification to reduce false positives (#69)
+
+**Testing Results:**
+- All 213 TemporalAssessor tests passing (49 new tests added)
+- All 3091 total tests passing
+
+**Next Steps:**
+- Validate against airwallex-mcp to confirm false positives resolved
+- Consider adding more legitimate field patterns if needed
+- Close Issue #69 after validation
+
+**Notes:**
+- Issue #69: Implementation complete, awaiting validation
+- Remaining open issues: #53, #48, #70-74 (test file splits)
 
 ---
