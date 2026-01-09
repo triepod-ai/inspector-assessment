@@ -130,6 +130,7 @@ const FAIL_OPEN_PATTERNS = [
 ];
 
 // Patterns that indicate dev mode weakening security
+// Warning 2 fix: Added word boundaries and assignment context to reduce false positives
 const DEV_MODE_PATTERNS = [
   // Development mode bypasses
   {
@@ -142,7 +143,8 @@ const DEV_MODE_PATTERNS = [
     severity: "MEDIUM" as AuthConfigSeverity,
   },
   {
-    pattern: /isDev|isDevelopment|devMode|debugMode/i,
+    // Require word boundary and assignment context to avoid matching unrelated identifiers
+    pattern: /\b(isDev|isDevelopment|devMode|debugMode)\s*[=:]/i,
     severity: "LOW" as AuthConfigSeverity,
   },
   // Debug authentication bypasses
@@ -188,7 +190,9 @@ const HARDCODED_SECRET_PATTERNS = [
     name: "SECRET_KEY",
   },
   {
-    pattern: /password\s*[:=]\s*['"][^'"]{8,}['"]/i,
+    // Warning 3 fix: Exclude env var interpolation and common placeholder values
+    pattern:
+      /password\s*[:=]\s*['"](?!\$\{|password|changeme|example|test)[a-zA-Z0-9!@#$%^&*]{8,}['"]/i,
     name: "HARDCODED_PASSWORD",
   },
   {
@@ -700,140 +704,148 @@ export class AuthenticationAssessor extends BaseAssessor {
     }
 
     for (const [filePath, content] of context.sourceCodeFiles) {
-      this.testCount++;
-      const lines = content.split("\n");
+      // Warning 4 fix: Add error handling for malformed files
+      try {
+        this.testCount++;
+        const lines = content.split("\n");
 
-      // 1. Detect env vars used for auth
-      for (const pattern of AUTH_ENV_VAR_PATTERNS) {
-        const matches = content.match(pattern);
-        if (matches) {
-          // Extract the env var name from capture group or full match
-          for (const match of matches) {
-            const envVarMatch = match.match(
-              /(?:process\.env\.|os\.environ\.get\(['"]|os\.getenv\(['"])([A-Z_]+)/i,
-            );
-            if (envVarMatch && !envVarsDetected.includes(envVarMatch[1])) {
-              envVarsDetected.push(envVarMatch[1]);
-            }
-          }
-        }
-      }
-
-      // 2. Detect fail-open patterns (auth with fallback values)
-      for (const { pattern, name } of FAIL_OPEN_PATTERNS) {
-        // Reset lastIndex for global patterns
-        pattern.lastIndex = 0;
-        let match;
-        while ((match = pattern.exec(content)) !== null) {
-          // Find line number
-          const beforeMatch = content.substring(0, match.index);
-          const lineNumber = beforeMatch.split("\n").length;
-          const lineContent = lines[lineNumber - 1]?.trim() || match[0];
-
-          findings.push({
-            type: "FAIL_OPEN_PATTERN",
-            severity: "MEDIUM",
-            message: `Authentication may be bypassed when environment variable is not set (${name} pattern)`,
-            evidence: lineContent,
-            file: filePath,
-            lineNumber,
-            recommendation: `Ensure authentication fails securely when credentials are missing. Do not use fallback values for auth secrets.`,
-          });
-        }
-      }
-
-      // 3. Detect dev mode patterns that weaken security
-      for (const { pattern, severity } of DEV_MODE_PATTERNS) {
-        if (pattern.test(content)) {
-          // Find first occurrence for line number
-          const matchResult = content.match(pattern);
-          if (matchResult) {
-            const matchIndex = content.indexOf(matchResult[0]);
-            const beforeMatch = content.substring(0, matchIndex);
-            const lineNumber = beforeMatch.split("\n").length;
-            const lineContent = lines[lineNumber - 1]?.trim() || matchResult[0];
-
-            findings.push({
-              type: "DEV_MODE_WARNING",
-              severity,
-              message: `Development mode pattern detected that may weaken authentication`,
-              evidence: lineContent,
-              file: filePath,
-              lineNumber,
-              recommendation:
-                severity === "HIGH"
-                  ? `Remove auth bypass logic. Authentication should never be disabled based on environment.`
-                  : `Ensure development mode does not weaken security controls in production.`,
-            });
-          }
-        }
-      }
-
-      // 4. Detect hardcoded secrets
-      for (const { pattern, name } of HARDCODED_SECRET_PATTERNS) {
-        if (pattern.test(content)) {
-          const matchResult = content.match(pattern);
-          if (matchResult) {
-            const matchIndex = content.indexOf(matchResult[0]);
-            const beforeMatch = content.substring(0, matchIndex);
-            const lineNumber = beforeMatch.split("\n").length;
-            // Redact the actual secret in evidence
-            const lineContent =
-              lines[lineNumber - 1]
-                ?.trim()
-                .replace(/['"][^'"]{8,}['"]/, '"[REDACTED]"') ||
-              "[secret value]";
-
-            findings.push({
-              type: "HARDCODED_SECRET",
-              severity: "HIGH",
-              message: `Hardcoded ${name} detected - should use environment variable`,
-              evidence: lineContent,
-              file: filePath,
-              lineNumber,
-              recommendation: `Move ${name} to environment variable. Never commit secrets to source control.`,
-            });
-          }
-        }
-      }
-
-      // 5. Detect env-dependent auth patterns (env var usage with auth context)
-      // Only flag if there's auth context around env var usage
-      for (const [index, line] of lines.entries()) {
-        // Check for env var with auth context in surrounding lines
-        const surroundingContext = lines
-          .slice(Math.max(0, index - 2), index + 3)
-          .join("\n");
+        // 1. Detect env vars used for auth
         for (const pattern of AUTH_ENV_VAR_PATTERNS) {
-          if (
-            pattern.test(line) &&
-            /\b(auth|secret|key|token|password|credential)\b/i.test(
-              surroundingContext,
-            )
-          ) {
-            const matchResult = line.match(pattern);
-            if (matchResult) {
-              // Check if we already have a finding for this line (avoid duplicates)
-              const existingFinding = findings.find(
-                (f) =>
-                  f.file === filePath &&
-                  f.lineNumber === index + 1 &&
-                  f.type === "ENV_DEPENDENT_AUTH",
+          const matches = content.match(pattern);
+          if (matches) {
+            // Extract the env var name from capture group or full match
+            for (const match of matches) {
+              const envVarMatch = match.match(
+                /(?:process\.env\.|os\.environ\.get\(['"]|os\.getenv\(['"])([A-Z_]+)/i,
               );
-              if (!existingFinding) {
-                findings.push({
-                  type: "ENV_DEPENDENT_AUTH",
-                  severity: "LOW",
-                  message: `Authentication depends on environment variable that may not be set`,
-                  evidence: line.trim(),
-                  file: filePath,
-                  lineNumber: index + 1,
-                  recommendation: `Document required environment variables and validate they are set at startup.`,
-                });
+              if (envVarMatch && !envVarsDetected.includes(envVarMatch[1])) {
+                envVarsDetected.push(envVarMatch[1]);
               }
             }
           }
         }
+
+        // 2. Detect fail-open patterns (auth with fallback values)
+        for (const { pattern, name } of FAIL_OPEN_PATTERNS) {
+          // Reset lastIndex for global patterns
+          pattern.lastIndex = 0;
+          let match;
+          while ((match = pattern.exec(content)) !== null) {
+            // Find line number
+            const beforeMatch = content.substring(0, match.index);
+            const lineNumber = beforeMatch.split("\n").length;
+            const lineContent = lines[lineNumber - 1]?.trim() || match[0];
+
+            findings.push({
+              type: "FAIL_OPEN_PATTERN",
+              severity: "MEDIUM",
+              message: `Authentication may be bypassed when environment variable is not set (${name} pattern)`,
+              evidence: lineContent,
+              file: filePath,
+              lineNumber,
+              recommendation: `Ensure authentication fails securely when credentials are missing. Do not use fallback values for auth secrets.`,
+            });
+          }
+        }
+
+        // 3. Detect dev mode patterns that weaken security
+        for (const { pattern, severity } of DEV_MODE_PATTERNS) {
+          if (pattern.test(content)) {
+            // Find first occurrence for line number
+            const matchResult = content.match(pattern);
+            if (matchResult) {
+              const matchIndex = content.indexOf(matchResult[0]);
+              const beforeMatch = content.substring(0, matchIndex);
+              const lineNumber = beforeMatch.split("\n").length;
+              const lineContent =
+                lines[lineNumber - 1]?.trim() || matchResult[0];
+
+              findings.push({
+                type: "DEV_MODE_WARNING",
+                severity,
+                message: `Development mode pattern detected that may weaken authentication`,
+                evidence: lineContent,
+                file: filePath,
+                lineNumber,
+                recommendation:
+                  severity === "HIGH"
+                    ? `Remove auth bypass logic. Authentication should never be disabled based on environment.`
+                    : `Ensure development mode does not weaken security controls in production.`,
+              });
+            }
+          }
+        }
+
+        // 4. Detect hardcoded secrets
+        for (const { pattern, name } of HARDCODED_SECRET_PATTERNS) {
+          if (pattern.test(content)) {
+            const matchResult = content.match(pattern);
+            if (matchResult) {
+              const matchIndex = content.indexOf(matchResult[0]);
+              const beforeMatch = content.substring(0, matchIndex);
+              const lineNumber = beforeMatch.split("\n").length;
+              // Redact the actual secret in evidence
+              const lineContent =
+                lines[lineNumber - 1]
+                  ?.trim()
+                  .replace(/['"][^'"]{8,}['"]/, '"[REDACTED]"') ||
+                "[secret value]";
+
+              findings.push({
+                type: "HARDCODED_SECRET",
+                severity: "HIGH",
+                message: `Hardcoded ${name} detected - should use environment variable`,
+                evidence: lineContent,
+                file: filePath,
+                lineNumber,
+                recommendation: `Move ${name} to environment variable. Never commit secrets to source control.`,
+              });
+            }
+          }
+        }
+
+        // 5. Detect env-dependent auth patterns (env var usage with auth context)
+        // Only flag if there's auth context around env var usage
+        for (const [index, line] of lines.entries()) {
+          // Check for env var with auth context in surrounding lines
+          const surroundingContext = lines
+            .slice(Math.max(0, index - 2), index + 3)
+            .join("\n");
+          for (const pattern of AUTH_ENV_VAR_PATTERNS) {
+            if (
+              pattern.test(line) &&
+              /\b(auth|secret|key|token|password|credential)\b/i.test(
+                surroundingContext,
+              )
+            ) {
+              const matchResult = line.match(pattern);
+              if (matchResult) {
+                // Check if we already have a finding for this line (avoid duplicates)
+                const existingFinding = findings.find(
+                  (f) =>
+                    f.file === filePath &&
+                    f.lineNumber === index + 1 &&
+                    f.type === "ENV_DEPENDENT_AUTH",
+                );
+                if (!existingFinding) {
+                  findings.push({
+                    type: "ENV_DEPENDENT_AUTH",
+                    severity: "LOW",
+                    message: `Authentication depends on environment variable that may not be set`,
+                    evidence: line.trim(),
+                    file: filePath,
+                    lineNumber: index + 1,
+                    recommendation: `Document required environment variables and validate they are set at startup.`,
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        // Warning 4 fix: Handle malformed files gracefully
+        this.log(`Error analyzing ${filePath}: ${error}`);
+        continue;
       }
     }
 
