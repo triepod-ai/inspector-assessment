@@ -414,7 +414,7 @@ A result is marked **ambiguous** (`isAmbiguous: true`) when:
 ## Import Paths
 
 ```typescript
-// From published package
+// From published package - Annotations module
 import {
   inferBehavior,
   inferBehaviorEnhanced,
@@ -426,6 +426,12 @@ import type {
   EnhancedBehaviorInferenceResult,
   InferenceSignal,
 } from "@bryan-thompson/inspector-assessment/annotations";
+
+// Security testing helpers (Issue #85)
+import type {
+  ChainExploitationAnalysis,
+  StateBasedAuthResult,
+} from "@bryan-thompson/inspector-assessment/security";
 ```
 
 ---
