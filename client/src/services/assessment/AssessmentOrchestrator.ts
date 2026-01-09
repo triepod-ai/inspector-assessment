@@ -443,6 +443,9 @@ export class AssessmentOrchestrator {
     if (this.portabilityAssessor) {
       this.portabilityAssessor.resetTestCount();
     }
+    if (this.authenticationAssessor) {
+      this.authenticationAssessor.resetTestCount();
+    }
     // Reset new capability assessors
     if (this.resourceAssessor) {
       this.resourceAssessor.resetTestCount();
@@ -1069,6 +1072,8 @@ export class AssessmentOrchestrator {
       this.prohibitedLibrariesAssessor?.getTestCount() || 0;
     const manifestCount = this.manifestValidationAssessor?.getTestCount() || 0;
     const portabilityCount = this.portabilityAssessor?.getTestCount() || 0;
+    const authenticationCount =
+      this.authenticationAssessor?.getTestCount() || 0;
     const externalAPICount =
       this.externalAPIScannerAssessor?.getTestCount() || 0;
     const temporalCount = this.temporalAssessor?.getTestCount() || 0;
@@ -1093,6 +1098,7 @@ export class AssessmentOrchestrator {
       prohibitedLibraries: librariesCount,
       manifestValidation: manifestCount,
       portability: portabilityCount,
+      authentication: authenticationCount,
       externalAPIScanner: externalAPICount,
       temporal: temporalCount,
       resources: resourcesCount,
@@ -1113,6 +1119,7 @@ export class AssessmentOrchestrator {
       librariesCount +
       manifestCount +
       portabilityCount +
+      authenticationCount +
       externalAPICount +
       temporalCount +
       resourcesCount +
