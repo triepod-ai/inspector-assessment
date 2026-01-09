@@ -82,6 +82,13 @@ Integration documentation for using the npm package programmatically.
 | [Performance Tuning Guide](PERFORMANCE_TUNING_GUIDE.md) | 7 tunable parameters, presets, configs |
 | [Example Configs](examples/)                            | Ready-to-use performance config files  |
 
+### Testing
+
+| Document                                                  | Purpose                                  |
+| --------------------------------------------------------- | ---------------------------------------- |
+| [Test Utilities Reference](TEST_UTILITIES_REFERENCE.md)   | Mock factory API for assessment testing  |
+| [Test Organization Pattern](TEST_ORGANIZATION_PATTERN.md) | Split test file conventions and patterns |
+
 ---
 
 ## JSONL Events API
@@ -202,6 +209,8 @@ docs/
 ├── TESTBED_SETUP_GUIDE.md                  # Testbed setup
 ├── DVMCP_USAGE_GUIDE.md                    # DVMCP guide
 ├── PROGRESSIVE_COMPLEXITY_GUIDE.md         # Progressive testing
+├── TEST_UTILITIES_REFERENCE.md             # Mock factory API
+├── TEST_ORGANIZATION_PATTERN.md            # Split test file patterns
 ├── UI_COMPONENT_REFERENCE.md               # UI components (deprecated)
 ├── MANIFEST_REQUIREMENTS.md                # Manifest spec
 ├── DEPRECATION_INDEX.md                    # Deprecation documentation navigation hub
@@ -215,4 +224,4 @@ docs/
 
 ---
 
-**Last Updated**: 2026-01-08
+**Last Updated**: 2026-01-09

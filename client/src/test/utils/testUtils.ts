@@ -342,3 +342,13 @@ export function createTemporalMockContext(
     callTool: callToolFn,
   } as unknown as AssessmentContext;
 }
+
+// ============================================
+// Convenience Aliases for Temporal Testing
+// ============================================
+// These aliases provide shorter names for use in test files.
+// Import these directly instead of creating local aliases.
+
+export { createTemporalTestConfig as createConfig };
+export { createTemporalTestTool as createTool };
+export { createTemporalMockContext as createMockContext };

@@ -22,15 +22,10 @@ import { TemporalAssessor } from "../modules/TemporalAssessor";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import {
   getPrivateMethod,
-  createTemporalTestConfig,
-  createTemporalTestTool,
-  createTemporalMockContext,
+  createConfig,
+  createTool,
+  createMockContext,
 } from "@/test/utils/testUtils";
-
-// Convenience aliases for cleaner test code
-const createConfig = createTemporalTestConfig;
-const createTool = createTemporalTestTool;
-const createMockContext = createTemporalMockContext;
 
 describe("TemporalAssessor", () => {
   describe("analyzeResponses", () => {

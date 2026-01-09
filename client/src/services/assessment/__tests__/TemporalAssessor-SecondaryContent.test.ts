@@ -8,15 +8,10 @@
 import { TemporalAssessor } from "../modules/TemporalAssessor";
 import {
   getPrivateMethod,
-  createTemporalTestConfig,
-  createTemporalTestTool,
-  createTemporalMockContext,
+  createConfig,
+  createTool,
+  createMockContext,
 } from "@/test/utils/testUtils";
-
-// Convenience aliases for cleaner test code
-const createConfig = createTemporalTestConfig;
-const createTool = createTemporalTestTool;
-const createMockContext = createTemporalMockContext;
 
 describe("TemporalAssessor - Secondary Content Detection for Stateful Tools", () => {
   let assessor: TemporalAssessor;

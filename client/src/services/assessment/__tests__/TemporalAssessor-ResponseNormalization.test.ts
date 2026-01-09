@@ -6,13 +6,7 @@
  */
 
 import { TemporalAssessor } from "../modules/TemporalAssessor";
-import {
-  getPrivateMethod,
-  createTemporalTestConfig,
-} from "@/test/utils/testUtils";
-
-// Convenience alias for cleaner test code
-const createConfig = createTemporalTestConfig;
+import { getPrivateMethod, createConfig } from "@/test/utils/testUtils";
 
 describe("TemporalAssessor - Response Normalization", () => {
   let assessor: TemporalAssessor;

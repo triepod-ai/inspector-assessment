@@ -9,15 +9,10 @@ import { TemporalAssessor } from "../modules/TemporalAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import {
   getPrivateMethod,
-  createTemporalTestConfig,
-  createTemporalTestTool,
-  createTemporalMockContext,
+  createConfig,
+  createTool,
+  createMockContext,
 } from "@/test/utils/testUtils";
-
-// Convenience aliases for cleaner test code
-const createConfig = createTemporalTestConfig;
-const createTool = createTemporalTestTool;
-const createMockContext = createTemporalMockContext;
 
 describe("TemporalAssessor - Definition Mutation Detection (Issue #7)", () => {
   describe("detectDefinitionMutation", () => {
