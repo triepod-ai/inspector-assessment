@@ -15,6 +15,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - compliance: ~5 min → ~8-10 minutes
   - full: ~10-15 min → ~8-12 minutes
 
+## [1.26.1] - 2026-01-08
+
+### Added
+
+- **outputSchema Coverage Tracking** (Issue #64): Detailed metrics for MCP structured output support
+  - New `OutputSchemaCoverage` interface with `totalTools`, `withOutputSchema`, `withoutOutputSchema`, `coveragePercent`
+  - `toolsWithoutSchema` list for actionable recommendations
+  - Status: `PASS` (100% coverage) or `INFO` (<100% with recommendation)
+  - Per-tool `toolResults` array with individual schema details
+  - Added to both `MCPSpecComplianceAssessor` and `ProtocolComplianceAssessor`
+
+- **New Type Definitions** in `resultTypes.ts`:
+  - `OutputSchemaCoverage` - Coverage metrics structure
+  - `ToolOutputSchemaResult` - Per-tool schema info
+  - `StructuredOutputCheckResult` - Extended protocol check result
+
+### Fixed
+
+- **ESM Import Attributes**: Added `with { type: "json" }` to JSON imports in `constants.ts` and `moduleScoring.ts` for Node.js ESM compatibility
+
+### Removed
+
+- **Unused Methods**: Removed deprecated `checkStructuredOutputSupport()` from both assessor modules (replaced by `analyzeOutputSchemaCoverage()`)
+
+### Notes
+
+- TypeScript SDK servers (e.g., `@modelcontextprotocol/server-github`) typically show 0% coverage as they don't auto-generate outputSchema
+- Python FastMCP servers show 100% coverage due to automatic outputSchema generation
+- 12 new tests added for coverage tracking (6 per assessor module)
+
 ## [1.25.0] - 2026-01-07
 
 ### Added
