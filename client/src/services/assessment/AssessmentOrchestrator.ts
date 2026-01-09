@@ -34,6 +34,7 @@ import { ManifestValidationAssessor } from "./modules/ManifestValidationAssessor
 import { PortabilityAssessor } from "./modules/PortabilityAssessor";
 import { ExternalAPIScannerAssessor } from "./modules/ExternalAPIScannerAssessor";
 import { TemporalAssessor } from "./modules/TemporalAssessor";
+import { AuthenticationAssessor } from "./modules/AuthenticationAssessor";
 
 // New capability assessors
 import { ResourceAssessor } from "./modules/ResourceAssessor";
@@ -193,6 +194,7 @@ export class AssessmentOrchestrator {
   private portabilityAssessor?: PortabilityAssessor;
   private externalAPIScannerAssessor?: ExternalAPIScannerAssessor;
   private temporalAssessor?: TemporalAssessor;
+  private authenticationAssessor?: AuthenticationAssessor;
 
   // New capability assessors
   private resourceAssessor?: ResourceAssessor;
@@ -310,6 +312,9 @@ export class AssessmentOrchestrator {
       }
       if (this.config.assessmentCategories?.temporal) {
         this.temporalAssessor = new TemporalAssessor(this.config);
+      }
+      if (this.config.assessmentCategories?.authentication) {
+        this.authenticationAssessor = new AuthenticationAssessor(this.config);
       }
 
       // Initialize new capability assessors
@@ -665,6 +670,25 @@ export class AssessmentOrchestrator {
           }),
         );
       }
+      if (this.authenticationAssessor) {
+        const sourceFileCount = context.sourceCodeFiles?.size || 0;
+        emitModuleStartedEvent(
+          "Authentication",
+          sourceFileCount,
+          sourceFileCount,
+        );
+        assessmentPromises.push(
+          this.authenticationAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "Authentication",
+              r.status,
+              r,
+              this.authenticationAssessor!.getTestCount(),
+            );
+            return (assessmentResults.authentication = r);
+          }),
+        );
+      }
       // NOTE: Temporal runs in PHASE 0 above, not in parallel with other modules
 
       // New capability assessors
@@ -880,6 +904,22 @@ export class AssessmentOrchestrator {
           assessmentResults.externalAPIScanner.status,
           assessmentResults.externalAPIScanner,
           this.externalAPIScannerAssessor.getTestCount(),
+        );
+      }
+      if (this.authenticationAssessor) {
+        const sourceFileCount = context.sourceCodeFiles?.size || 0;
+        emitModuleStartedEvent(
+          "Authentication",
+          sourceFileCount,
+          sourceFileCount,
+        );
+        assessmentResults.authentication =
+          await this.authenticationAssessor.assess(context);
+        emitModuleProgress(
+          "Authentication",
+          assessmentResults.authentication.status,
+          assessmentResults.authentication,
+          this.authenticationAssessor.getTestCount(),
         );
       }
 
