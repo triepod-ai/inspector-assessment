@@ -193,6 +193,187 @@ const secret = process.env.SECRET_TOKEN ?? 'default-secret';
       });
     });
 
+    describe("Fail-Open Logic Detection (Issue #77)", () => {
+      it("should detect bypass status in JSON response", async () => {
+        // Arrange
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/response.ts": `const response = {"auth_status": "bypass", "data": "secret"};`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        expect(result.authConfigAnalysis?.failOpenLogicCount).toBeGreaterThan(
+          0,
+        );
+        expect(result.authConfigAnalysis?.findings).toContainEqual(
+          expect.objectContaining({
+            type: "FAIL_OPEN_LOGIC",
+            severity: "HIGH",
+          }),
+        );
+      });
+
+      it("should detect access granted despite error pattern", async () => {
+        // Arrange
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/auth.ts": `// Access was granted despite authentication failure`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        expect(result.authConfigAnalysis?.failOpenLogicCount).toBeGreaterThan(
+          0,
+        );
+      });
+
+      it("should detect fail-open keyword in code/comments", async () => {
+        // Arrange
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/auth.ts": `// Using fail-open pattern for backwards compatibility`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        expect(result.authConfigAnalysis?.failOpenLogicCount).toBeGreaterThan(
+          0,
+        );
+      });
+
+      it("should detect Python except block granting access", async () => {
+        // Arrange
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/auth.py": `
+try:
+    verify_token(token)
+except Exception:
+    return True
+`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        expect(result.authConfigAnalysis?.failOpenLogicCount).toBeGreaterThan(
+          0,
+        );
+      });
+
+      it("should detect error condition granting access (Python)", async () => {
+        // Arrange - Pattern matches Python-style: if error: ... return {grant/success}
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/auth.py": `
+if auth_error:
+    return {"executed": True, "granted": True}
+`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        expect(result.authConfigAnalysis?.failOpenLogicCount).toBeGreaterThan(
+          0,
+        );
+      });
+
+      it("should detect CVE reference for auth bypass", async () => {
+        // Arrange
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/vuln.ts": `// CVE-2025-52882 auth bypass vulnerability demonstration`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        expect(result.authConfigAnalysis?.failOpenLogicCount).toBeGreaterThan(
+          0,
+        );
+      });
+
+      it("should detect vulnerable flag set to true", async () => {
+        // Arrange
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/config.json": `{"vulnerable": true, "mode": "test"}`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        expect(result.authConfigAnalysis?.failOpenLogicCount).toBeGreaterThan(
+          0,
+        );
+        expect(result.authConfigAnalysis?.findings).toContainEqual(
+          expect.objectContaining({
+            type: "FAIL_OPEN_LOGIC",
+            severity: "MEDIUM", // Only pattern with MEDIUM severity
+          }),
+        );
+      });
+
+      it("should detect authentication bypassed evidence", async () => {
+        // Arrange
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/log.ts": `logger.warn("Authentication was bypassed for user");`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        expect(result.authConfigAnalysis?.failOpenLogicCount).toBeGreaterThan(
+          0,
+        );
+      });
+
+      it("should include file and line info for FAIL_OPEN_LOGIC findings", async () => {
+        // Arrange
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/bypass.ts": `const status = {"auth_status": "bypass"};`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        const finding = result.authConfigAnalysis?.findings.find(
+          (f) => f.type === "FAIL_OPEN_LOGIC",
+        );
+        expect(finding?.file).toContain("bypass.ts");
+        expect(finding?.lineNumber).toBeGreaterThan(0);
+        expect(finding?.recommendation).toContain("fail-closed");
+      });
+
+      it("should not false positive on safe denial patterns", async () => {
+        // Arrange - this code correctly denies access on error
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/safe.ts": `
+// Proper fail-closed authentication
+if (authError) { return { access: false, denied: true }; }
+`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert - should not detect fail-open logic in denial code
+        // Note: may still trigger other patterns like DEV_MODE_WARNING
+        const failOpenLogicFindings =
+          result.authConfigAnalysis?.findings.filter(
+            (f) => f.type === "FAIL_OPEN_LOGIC",
+          ) || [];
+        expect(failOpenLogicFindings.length).toBe(0);
+      });
+    });
+
     describe("Status and Recommendations", () => {
       it("should return NEED_MORE_INFO when HIGH severity findings exist", async () => {
         // Arrange
@@ -649,6 +830,7 @@ const authSecret = process.env.AUTH_SECRET; // ENV_DEPENDENT_AUTH
         expect(
           analysis.envDependentAuthCount +
             analysis.failOpenPatternCount +
+            analysis.failOpenLogicCount +
             analysis.devModeWarningCount +
             analysis.hardcodedSecretCount,
         ).toBe(analysis.totalFindings);
