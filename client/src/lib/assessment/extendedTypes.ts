@@ -213,6 +213,8 @@ export type ProhibitedLibraryCategory =
   | "payments"
   | "banking";
 
+export type DependencyUsageStatus = "ACTIVE" | "UNUSED" | "UNKNOWN";
+
 export interface ProhibitedLibraryMatch {
   name: string;
   category: ProhibitedLibraryCategory;
@@ -226,6 +228,12 @@ export interface ProhibitedLibraryMatch {
   severity: "BLOCKING" | "HIGH" | "MEDIUM";
   reason: string;
   policyReference: string;
+  /** Whether the dependency is actually imported in source code (Issue #63) */
+  usageStatus?: DependencyUsageStatus;
+  /** Number of import statements found for this dependency */
+  importCount?: number;
+  /** Files where the dependency is imported */
+  importFiles?: string[];
 }
 
 export interface ProhibitedLibrariesAssessment {

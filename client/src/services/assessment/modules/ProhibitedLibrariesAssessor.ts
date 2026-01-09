@@ -21,7 +21,9 @@ import {
   checkPackageJsonDependencies,
   checkRequirementsTxt,
   checkSourceImports,
+  checkDependencyUsage,
 } from "@/lib/prohibitedLibraries";
+import type { DependencyUsageStatus } from "@/lib/assessmentTypes";
 
 export class ProhibitedLibrariesAssessor extends BaseAssessor {
   /**
@@ -48,6 +50,24 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
       const depMatches = checkPackageJsonDependencies(packageJson);
 
       for (const match of depMatches) {
+        // Issue #63: Check if dependency is actually used in source code
+        let usageStatus: DependencyUsageStatus = "UNKNOWN";
+        let importCount = 0;
+        let importFiles: string[] = [];
+
+        if (
+          context.sourceCodeFiles &&
+          context.config.enableSourceCodeAnalysis
+        ) {
+          const usage = checkDependencyUsage(
+            match.library.name,
+            context.sourceCodeFiles,
+          );
+          usageStatus = usage.status;
+          importCount = usage.importCount;
+          importFiles = usage.files;
+        }
+
         matches.push({
           name: match.library.name,
           category: match.library.category,
@@ -55,6 +75,9 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
           severity: match.library.severity,
           reason: match.library.reason,
           policyReference: match.library.policyReference,
+          usageStatus,
+          importCount,
+          importFiles,
         });
 
         if (
@@ -224,23 +247,38 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
 
   /**
    * Calculate overall status from matches
+   *
+   * Issue #63: Status now considers dependency usage:
+   * - ACTIVE dependencies are actively imported (high risk)
+   * - UNUSED dependencies are listed but not imported (lower risk, recommend removal)
+   * - UNKNOWN usage falls back to previous behavior
    */
   private calculateStatusFromMatches(
     matches: ProhibitedLibraryMatch[],
   ): AssessmentStatus {
-    // Any BLOCKING library = FAIL
-    const blockingMatches = matches.filter((m) => m.severity === "BLOCKING");
-    if (blockingMatches.length > 0) {
+    // Separate matches by usage status
+    const activeMatches = matches.filter((m) => m.usageStatus !== "UNUSED");
+    const unusedMatches = matches.filter((m) => m.usageStatus === "UNUSED");
+
+    // Only ACTIVE BLOCKING libraries = FAIL (actually imported and dangerous)
+    const blockingActive = activeMatches.filter(
+      (m) => m.severity === "BLOCKING",
+    );
+    if (blockingActive.length > 0) {
       return "FAIL";
     }
 
-    // HIGH severity = NEED_MORE_INFO (requires justification)
-    const highMatches = matches.filter((m) => m.severity === "HIGH");
-    if (highMatches.length > 0) {
+    // UNUSED BLOCKING = NEED_MORE_INFO (recommend removal, but not actively dangerous)
+    if (unusedMatches.some((m) => m.severity === "BLOCKING")) {
       return "NEED_MORE_INFO";
     }
 
-    // MEDIUM severity = PASS with notes
+    // ACTIVE HIGH severity = NEED_MORE_INFO (requires justification)
+    if (activeMatches.some((m) => m.severity === "HIGH")) {
+      return "NEED_MORE_INFO";
+    }
+
+    // Any remaining matches = NEED_MORE_INFO (review recommended)
     if (matches.length > 0) {
       return "NEED_MORE_INFO";
     }
@@ -305,44 +343,68 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
 
   /**
    * Generate recommendations
+   *
+   * Issue #63: Recommendations now distinguish between ACTIVE and UNUSED dependencies
    */
   private generateRecommendations(matches: ProhibitedLibraryMatch[]): string[] {
     const recommendations: string[] = [];
 
-    // Group by severity
-    const blocking = matches.filter((m) => m.severity === "BLOCKING");
-    const high = matches.filter((m) => m.severity === "HIGH");
-    const medium = matches.filter((m) => m.severity === "MEDIUM");
+    // Issue #63: Separate active vs unused dependencies
+    const activeMatches = matches.filter((m) => m.usageStatus !== "UNUSED");
+    const unusedMatches = matches.filter((m) => m.usageStatus === "UNUSED");
 
-    if (blocking.length > 0) {
+    // Group active matches by severity
+    const blockingActive = activeMatches.filter(
+      (m) => m.severity === "BLOCKING",
+    );
+    const highActive = activeMatches.filter((m) => m.severity === "HIGH");
+    const mediumActive = activeMatches.filter((m) => m.severity === "MEDIUM");
+
+    if (blockingActive.length > 0) {
       recommendations.push(
-        "BLOCKING - The following libraries must be removed for MCP Directory approval:",
+        "BLOCKING (ACTIVE) - The following libraries are imported and must be removed:",
       );
-      for (const match of blocking) {
+      for (const match of blockingActive) {
+        const files =
+          match.importFiles && match.importFiles.length > 0
+            ? ` (imported in: ${match.importFiles.slice(0, 2).join(", ")})`
+            : "";
+        recommendations.push(
+          `- ${match.name} (${match.policyReference}): ${match.reason}${files}`,
+        );
+      }
+    }
+
+    if (highActive.length > 0) {
+      recommendations.push(
+        "HIGH (ACTIVE) - The following libraries are imported and require strong justification:",
+      );
+      for (const match of highActive) {
         recommendations.push(
           `- ${match.name} (${match.policyReference}): ${match.reason}`,
         );
       }
     }
 
-    if (high.length > 0) {
+    if (mediumActive.length > 0) {
       recommendations.push(
-        "HIGH - The following libraries require strong justification:",
+        "MEDIUM (ACTIVE) - Review the following imported libraries:",
       );
-      for (const match of high) {
+      for (const match of mediumActive.slice(0, 3)) {
         recommendations.push(
           `- ${match.name} (${match.policyReference}): ${match.reason}`,
         );
       }
     }
 
-    if (medium.length > 0) {
+    // Issue #63: Add recommendations for unused dependencies
+    if (unusedMatches.length > 0) {
       recommendations.push(
-        "MEDIUM - Review the following libraries for necessity:",
+        "UNUSED - The following libraries are listed but not imported (consider removing):",
       );
-      for (const match of medium.slice(0, 3)) {
+      for (const match of unusedMatches) {
         recommendations.push(
-          `- ${match.name} (${match.policyReference}): ${match.reason}`,
+          `- npm uninstall ${match.name} (${match.policyReference}): Listed in package.json but not imported`,
         );
       }
     }

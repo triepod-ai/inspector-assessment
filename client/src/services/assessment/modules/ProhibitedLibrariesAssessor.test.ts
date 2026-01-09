@@ -348,4 +348,177 @@ img = cv2.imread('image.jpg')
       expect(stripeMatch?.severity).toBe("BLOCKING");
     });
   });
+
+  // Issue #63: Dependency Usage Analysis Tests
+  describe("Dependency Usage Analysis (Issue #63)", () => {
+    it("should mark package.json dependency as UNUSED when not imported", async () => {
+      // Arrange - stripe in package.json but not imported in source
+      mockContext.packageJson = createMockPackageJsonWithProhibited(["stripe"]);
+      mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+        "src/index.ts": `
+console.log('Hello World');
+export const main = () => {};
+`,
+      });
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      const stripeMatch = result.matches.find((m) => m.name === "stripe");
+      expect(stripeMatch?.usageStatus).toBe("UNUSED");
+      expect(stripeMatch?.importCount).toBe(0);
+      expect(stripeMatch?.importFiles).toEqual([]);
+    });
+
+    it("should mark package.json dependency as ACTIVE when imported (ES6)", async () => {
+      // Arrange - stripe in package.json AND imported in source
+      mockContext.packageJson = createMockPackageJsonWithProhibited(["stripe"]);
+      mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+        "src/payment.ts": `
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_KEY);
+export default stripe;
+`,
+      });
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      const stripeMatch = result.matches.find((m) => m.name === "stripe");
+      expect(stripeMatch?.usageStatus).toBe("ACTIVE");
+      expect(stripeMatch?.importCount).toBeGreaterThanOrEqual(1);
+      expect(stripeMatch?.importFiles).toContain("src/payment.ts");
+    });
+
+    it("should mark package.json dependency as ACTIVE when imported (CommonJS)", async () => {
+      // Arrange - stripe imported via require()
+      mockContext.packageJson = createMockPackageJsonWithProhibited(["stripe"]);
+      mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+        "src/payment.js": `
+const Stripe = require('stripe');
+
+const stripe = new Stripe(process.env.STRIPE_KEY);
+module.exports = stripe;
+`,
+      });
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      const stripeMatch = result.matches.find((m) => m.name === "stripe");
+      expect(stripeMatch?.usageStatus).toBe("ACTIVE");
+      expect(stripeMatch?.importCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it("should return NEED_MORE_INFO instead of FAIL for UNUSED BLOCKING libraries", async () => {
+      // Arrange - stripe in package.json but not used
+      mockContext.packageJson = createMockPackageJsonWithProhibited(["stripe"]);
+      mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+        "src/index.ts": `console.log('no stripe here');`,
+      });
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - UNUSED BLOCKING should be NEED_MORE_INFO, not FAIL
+      expect(result.status).toBe("NEED_MORE_INFO");
+      expect(result.matches[0].usageStatus).toBe("UNUSED");
+    });
+
+    it("should return FAIL for ACTIVE BLOCKING libraries", async () => {
+      // Arrange - stripe in package.json AND imported
+      mockContext.packageJson = createMockPackageJsonWithProhibited(["stripe"]);
+      mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+        "src/payment.ts": `import Stripe from 'stripe';`,
+      });
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - ACTIVE BLOCKING should be FAIL
+      expect(result.status).toBe("FAIL");
+      expect(result.matches[0].usageStatus).toBe("ACTIVE");
+    });
+
+    it("should recommend npm uninstall for UNUSED dependencies", async () => {
+      // Arrange - openai in package.json but not imported (simulated)
+      mockContext.packageJson = {
+        name: "test",
+        version: "1.0.0",
+        dependencies: {
+          ethers: "^5.0.0", // HIGH severity, not BLOCKING
+        },
+      };
+      mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+        "src/index.ts": `console.log('no ethers here');`,
+      });
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.recommendations).toContainEqual(
+        expect.stringContaining("npm uninstall ethers"),
+      );
+      expect(result.recommendations).toContainEqual(
+        expect.stringContaining("not imported"),
+      );
+    });
+
+    it("should return UNKNOWN usage status when source code analysis is disabled", async () => {
+      // Arrange - disable source code analysis
+      const configWithoutSource = createMockAssessmentConfig({
+        enableExtendedAssessment: true,
+        enableSourceCodeAnalysis: false, // Disabled
+        assessmentCategories: {
+          functionality: true,
+          security: true,
+          documentation: true,
+          errorHandling: true,
+          usability: true,
+          prohibitedLibraries: true,
+        },
+      });
+      const assessorWithoutSource = new ProhibitedLibrariesAssessor(
+        configWithoutSource,
+      );
+      const contextWithoutSource = createMockAssessmentContext({
+        config: configWithoutSource,
+      });
+      contextWithoutSource.packageJson = createMockPackageJsonWithProhibited([
+        "stripe",
+      ]);
+
+      // Act
+      const result = await assessorWithoutSource.assess(contextWithoutSource);
+
+      // Assert - should be UNKNOWN since we can't check source
+      expect(result.matches[0].usageStatus).toBe("UNKNOWN");
+      // UNKNOWN is treated as potentially active, so FAIL
+      expect(result.status).toBe("FAIL");
+    });
+
+    it("should track multiple import files for the same dependency", async () => {
+      // Arrange - stripe imported in multiple files
+      mockContext.packageJson = createMockPackageJsonWithProhibited(["stripe"]);
+      mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+        "src/payment.ts": `import Stripe from 'stripe';`,
+        "src/checkout.ts": `import { Stripe } from 'stripe';`,
+        "src/refund.ts": `const stripe = require('stripe');`,
+      });
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      const stripeMatch = result.matches.find((m) => m.name === "stripe");
+      expect(stripeMatch?.usageStatus).toBe("ACTIVE");
+      expect(stripeMatch?.importCount).toBeGreaterThanOrEqual(3);
+      expect(stripeMatch?.importFiles?.length).toBeGreaterThanOrEqual(3);
+    });
+  });
 });

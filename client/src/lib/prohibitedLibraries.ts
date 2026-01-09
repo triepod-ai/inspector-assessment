@@ -429,6 +429,102 @@ export function checkRequirementsTxt(content: string): Array<{
 }
 
 /**
+ * Check if a dependency is actually imported in source code (Issue #63)
+ *
+ * Used to distinguish between dependencies that are:
+ * - ACTIVE: Listed AND imported (actual usage)
+ * - UNUSED: Listed but NOT imported (can be removed)
+ * - UNKNOWN: Unable to determine (source code not available)
+ */
+export function checkDependencyUsage(
+  dependencyName: string,
+  sourceCodeFiles: Map<string, string>,
+): {
+  status: "ACTIVE" | "UNUSED" | "UNKNOWN";
+  importCount: number;
+  files: string[];
+} {
+  if (!sourceCodeFiles || sourceCodeFiles.size === 0) {
+    return { status: "UNKNOWN", importCount: 0, files: [] };
+  }
+
+  // Escape special regex characters in dependency name
+  const escapedName = dependencyName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  // Build regex patterns for the specific dependency
+  const importPatterns = [
+    // ES6: import X from 'dep' or import { X } from 'dep'
+    new RegExp(`import\\s+.*from\\s+['"\`]${escapedName}['"\`]`, "g"),
+    // ES6: import 'dep' (side effect import)
+    new RegExp(`import\\s+['"\`]${escapedName}['"\`]`, "g"),
+    // CommonJS: require('dep')
+    new RegExp(`require\\s*\\(\\s*['"\`]${escapedName}['"\`]\\s*\\)`, "g"),
+    // Python: from dep import X
+    new RegExp(`from\\s+${escapedName}\\s+import`, "g"),
+    // Python: import dep
+    new RegExp(`^import\\s+${escapedName}\\b`, "gm"),
+    // Handle scoped packages: import X from '@scope/dep' or '@scope/dep/subpath'
+    new RegExp(`import\\s+.*from\\s+['"\`]${escapedName}/`, "g"),
+    new RegExp(`require\\s*\\(\\s*['"\`]${escapedName}/`, "g"),
+  ];
+
+  const matchingFiles: string[] = [];
+  let totalMatches = 0;
+
+  for (const [filePath, content] of sourceCodeFiles) {
+    // Skip non-source files
+    if (!isSourceFileForUsageCheck(filePath)) continue;
+
+    for (const pattern of importPatterns) {
+      // Reset lastIndex for global regex
+      pattern.lastIndex = 0;
+      const matches = content.match(pattern);
+      if (matches) {
+        totalMatches += matches.length;
+        if (!matchingFiles.includes(filePath)) {
+          matchingFiles.push(filePath);
+        }
+      }
+    }
+  }
+
+  return {
+    status: totalMatches > 0 ? "ACTIVE" : "UNUSED",
+    importCount: totalMatches,
+    files: matchingFiles,
+  };
+}
+
+/**
+ * Check if file is a source file for usage analysis
+ */
+function isSourceFileForUsageCheck(filePath: string): boolean {
+  const sourceExtensions = [
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".py",
+    ".rs",
+    ".go",
+  ];
+
+  // Skip test files and node_modules
+  if (
+    filePath.includes("node_modules") ||
+    filePath.includes(".test.") ||
+    filePath.includes(".spec.") ||
+    filePath.includes("__tests__")
+  ) {
+    return false;
+  }
+
+  return sourceExtensions.some((ext) => filePath.endsWith(ext));
+}
+
+/**
  * Get libraries by severity level
  */
 export function getLibrariesBySeverity(
