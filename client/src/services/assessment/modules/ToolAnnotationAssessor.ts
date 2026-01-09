@@ -98,7 +98,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
    */
   setPatterns(patterns: CompiledPatterns): void {
     this.compiledPatterns = patterns;
-    this.log("Custom annotation patterns configured");
+    this.logger.info("Custom annotation patterns configured");
   }
 
   /**
@@ -106,7 +106,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
    */
   setClaudeBridge(bridge: ClaudeCodeBridge): void {
     this.claudeBridge = bridge;
-    this.log("Claude Code Bridge enabled for behavior inference");
+    this.logger.info("Claude Code Bridge enabled for behavior inference");
   }
 
   /**
@@ -125,7 +125,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
   async assess(
     context: AssessmentContext,
   ): Promise<ToolAnnotationAssessment | EnhancedToolAnnotationAssessment> {
-    this.log("Starting tool annotation assessment");
+    this.logger.info("Starting tool annotation assessment");
     this.testCount = 0;
 
     const toolResults: EnhancedToolAnnotationResult[] = [];
@@ -152,7 +152,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     // Detect server persistence model from tool names
     const toolNames = context.tools.map((t) => t.name);
     this.persistenceContext = detectPersistenceModel(toolNames);
-    this.log(
+    this.logger.info(
       `Persistence model detected: ${this.persistenceContext.model} (confidence: ${this.persistenceContext.confidence})`,
     );
 
@@ -174,7 +174,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
           : undefined,
     };
     const architectureAnalysis = detectArchitecture(architectureContext);
-    this.log(
+    this.logger.info(
       `Architecture detected: ${architectureAnalysis.serverType} server, databases: ${architectureAnalysis.databaseBackends.join(", ") || "none"}, network: ${architectureAnalysis.requiresNetworkAccess}`,
     );
 
@@ -189,7 +189,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
 
     const useClaudeInference = this.isClaudeEnabled();
     if (useClaudeInference) {
-      this.log(
+      this.logger.info(
         "Claude Code integration enabled - using semantic behavior inference",
       );
     }
@@ -309,7 +309,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       // Emit poisoned description event
       if (latestResult.descriptionPoisoning?.detected) {
         poisonedDescriptionsCount++;
-        this.log(
+        this.logger.info(
           `POISONED DESCRIPTION DETECTED: ${tool.name} contains suspicious patterns`,
         );
         if (context.onProgress) {
@@ -344,7 +344,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       context.tools.length,
     );
 
-    this.log(
+    this.logger.info(
       `Assessment complete: ${annotatedCount}/${context.tools.length} tools annotated, ${misalignedAnnotationsCount} misaligned, ${alignmentBreakdown.reviewRecommended} need review, ${poisonedDescriptionsCount} poisoned`,
     );
 
@@ -679,7 +679,7 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         },
       };
     } catch (error) {
-      this.logError(`Claude inference failed for ${tool.name}`, error);
+      this.logger.error(`Claude inference failed for ${tool.name}`, { error });
 
       return {
         ...baseResult,

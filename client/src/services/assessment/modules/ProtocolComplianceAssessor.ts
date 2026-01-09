@@ -184,7 +184,7 @@ export class ProtocolComplianceAssessor extends BaseAssessor<ProtocolComplianceA
     this.testCount = totalChecks;
 
     // Log score/check consistency for debugging
-    this.log(
+    this.logger.info(
       `Protocol Compliance: ${passedCount}/${totalChecks} checks passed (${complianceScore.toFixed(1)}%)`,
     );
 
@@ -243,18 +243,22 @@ export class ProtocolComplianceAssessor extends BaseAssessor<ProtocolComplianceA
       | undefined;
     const protocolVersion = metadata?.protocolVersion as string | undefined;
     if (protocolVersion) {
-      this.log(`Using protocol version from metadata: ${protocolVersion}`);
+      this.logger.info(
+        `Using protocol version from metadata: ${protocolVersion}`,
+      );
       return protocolVersion;
     }
 
     if (context.serverInfo?.version) {
-      this.log(
+      this.logger.info(
         `Using server version as protocol version: ${context.serverInfo.version}`,
       );
       return context.serverInfo.version;
     }
 
-    this.log("No protocol version information available, using default");
+    this.logger.info(
+      "No protocol version information available, using default",
+    );
     return "2025-06-18";
   }
 
@@ -294,14 +298,14 @@ export class ProtocolComplianceAssessor extends BaseAssessor<ProtocolComplianceA
 
     if (serverInfo.name !== undefined && serverInfo.name !== null) {
       if (typeof serverInfo.name !== "string") {
-        this.log("Server info name is not a string");
+        this.logger.info("Server info name is not a string");
         return false;
       }
     }
 
     if (serverInfo.metadata !== undefined && serverInfo.metadata !== null) {
       if (typeof serverInfo.metadata !== "object") {
-        this.log("Server info metadata is not an object");
+        this.logger.info("Server info metadata is not an object");
         return false;
       }
     }
@@ -422,7 +426,7 @@ export class ProtocolComplianceAssessor extends BaseAssessor<ProtocolComplianceA
     const coveragePercent =
       totalTools > 0 ? Math.round((withOutputSchema / totalTools) * 100) : 0;
 
-    this.log(
+    this.logger.info(
       `Structured output support: ${withOutputSchema}/${totalTools} tools (${coveragePercent}%)`,
     );
 

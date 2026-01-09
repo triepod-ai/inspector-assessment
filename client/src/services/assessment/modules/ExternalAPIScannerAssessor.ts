@@ -87,7 +87,7 @@ export class ExternalAPIScannerAssessor extends BaseAssessor {
   async assess(
     context: AssessmentContext,
   ): Promise<ExternalAPIScannerAssessment> {
-    this.log("Starting external API scanner assessment");
+    this.logger.info("Starting external API scanner assessment");
     this.resetTestCount();
 
     const detectedAPIs: DetectedAPI[] = [];
@@ -95,7 +95,9 @@ export class ExternalAPIScannerAssessor extends BaseAssessor {
 
     // Check if source code analysis is enabled
     if (!context.sourceCodeFiles || !context.config.enableSourceCodeAnalysis) {
-      this.log("Source code analysis not enabled, skipping external API scan");
+      this.logger.info(
+        "Source code analysis not enabled, skipping external API scan",
+      );
       return this.createNoSourceResult();
     }
 
@@ -132,7 +134,7 @@ export class ExternalAPIScannerAssessor extends BaseAssessor {
       affiliationWarning,
     );
 
-    this.log(
+    this.logger.info(
       `External API scan complete: ${detectedAPIs.length} APIs found in ${scannedFiles} files`,
     );
 

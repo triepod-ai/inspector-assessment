@@ -32,7 +32,7 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
   async assess(
     context: AssessmentContext,
   ): Promise<ProhibitedLibrariesAssessment> {
-    this.log("Starting prohibited libraries assessment");
+    this.logger.info("Starting prohibited libraries assessment");
     this.testCount = 0;
 
     const matches: ProhibitedLibraryMatch[] = [];
@@ -42,7 +42,7 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
 
     // Check package.json dependencies
     if (context.packageJson) {
-      this.log("Scanning package.json dependencies...");
+      this.logger.info("Scanning package.json dependencies...");
       this.testCount++;
       scannedFiles.push("package.json");
 
@@ -95,7 +95,7 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
 
     // Check source code files if available
     if (context.sourceCodeFiles && context.config.enableSourceCodeAnalysis) {
-      this.log("Scanning source code files...");
+      this.logger.info("Scanning source code files...");
 
       for (const [filePath, content] of context.sourceCodeFiles) {
         // Check Python requirements files
@@ -177,7 +177,7 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
     );
     const recommendations = this.generateRecommendations(uniqueMatches);
 
-    this.log(
+    this.logger.info(
       `Assessment complete: ${uniqueMatches.length} prohibited libraries found`,
     );
 

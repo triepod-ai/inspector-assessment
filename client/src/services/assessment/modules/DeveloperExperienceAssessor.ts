@@ -51,7 +51,7 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
   async assess(
     context: AssessmentContext,
   ): Promise<DeveloperExperienceAssessment> {
-    this.log("Starting developer experience assessment");
+    this.logger.info("Starting developer experience assessment");
 
     const readmeContent = context.readmeContent || "";
 

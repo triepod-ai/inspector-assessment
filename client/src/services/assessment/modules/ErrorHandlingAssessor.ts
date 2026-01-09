@@ -15,7 +15,7 @@ import { createConcurrencyLimit } from "../lib/concurrencyLimit";
 
 export class ErrorHandlingAssessor extends BaseAssessor {
   async assess(context: AssessmentContext): Promise<ErrorHandlingAssessment> {
-    this.log("Starting error handling assessment");
+    this.logger.info("Starting error handling assessment");
 
     const testDetails: ErrorTestDetail[] = [];
     let passedTests = 0;
@@ -27,7 +27,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     const concurrency = this.config.maxParallelTests ?? 5;
     const limit = createConcurrencyLimit(concurrency, this.logger);
 
-    this.log(
+    this.logger.info(
       `Testing ${toolsToTest.length} tools for error handling with concurrency limit of ${concurrency}`,
     );
 
@@ -85,7 +85,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     if (this.config.selectedToolsForTesting !== undefined) {
       // Warn if deprecated maxToolsToTestForErrors is also set
       if (this.config.maxToolsToTestForErrors !== undefined) {
-        this.log(
+        this.logger.info(
           `Warning: Both selectedToolsForTesting and maxToolsToTestForErrors are set. ` +
             `Using selectedToolsForTesting (maxToolsToTestForErrors is deprecated).`,
         );
@@ -97,19 +97,21 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
       // Empty array means user explicitly selected 0 tools
       if (this.config.selectedToolsForTesting.length === 0) {
-        this.log(`User selected 0 tools for error handling - skipping tests`);
+        this.logger.info(
+          `User selected 0 tools for error handling - skipping tests`,
+        );
         return [];
       }
 
       // If no tools matched the names (config out of sync), log warning but respect selection
       if (selectedTools.length === 0) {
-        this.log(
+        this.logger.info(
           `Warning: No tools matched selection (${this.config.selectedToolsForTesting.join(", ")})`,
         );
         return [];
       }
 
-      this.log(
+      this.logger.info(
         `Testing ${selectedTools.length} selected tools out of ${tools.length} for error handling`,
       );
       return selectedTools;
@@ -120,13 +122,13 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
     // If -1, test all tools
     if (configLimit === -1) {
-      this.log(`Testing all ${tools.length} tools for error handling`);
+      this.logger.info(`Testing all ${tools.length} tools for error handling`);
       return tools;
     }
 
     // Otherwise use the configured limit (default to 5 if not set)
     const maxTools = Math.min(configLimit ?? 5, tools.length);
-    this.log(
+    this.logger.info(
       `Testing ${maxTools} out of ${tools.length} tools for error handling`,
     );
     return tools.slice(0, maxTools);

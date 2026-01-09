@@ -239,7 +239,7 @@ export class ResourceAssessor extends BaseAssessor {
     const resources = context.resources || [];
     const templates = context.resourceTemplates || [];
 
-    this.log(
+    this.logger.info(
       `Testing ${resources.length} resources and ${templates.length} resource templates`,
     );
 

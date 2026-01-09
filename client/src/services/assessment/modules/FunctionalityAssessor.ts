@@ -36,7 +36,7 @@ export class FunctionalityAssessor extends BaseAssessor {
 
       // Empty array means user explicitly selected 0 tools
       if (this.config.selectedToolsForTesting.length === 0) {
-        this.log(
+        this.logger.info(
           `User selected 0 tools for functionality testing - skipping tests`,
         );
         return [];
@@ -44,25 +44,25 @@ export class FunctionalityAssessor extends BaseAssessor {
 
       // If no tools matched the names (config out of sync), log warning but respect selection
       if (selectedTools.length === 0) {
-        this.log(
+        this.logger.info(
           `Warning: No tools matched selection (${this.config.selectedToolsForTesting.join(", ")})`,
         );
         return [];
       }
 
-      this.log(
+      this.logger.info(
         `Testing ${selectedTools.length} selected tools out of ${tools.length} for functionality`,
       );
       return selectedTools;
     }
 
     // Default: test all tools
-    this.log(`Testing all ${tools.length} tools for functionality`);
+    this.logger.info(`Testing all ${tools.length} tools for functionality`);
     return tools;
   }
 
   async assess(context: AssessmentContext): Promise<FunctionalityAssessment> {
-    this.log(
+    this.logger.info(
       `Starting functionality assessment${this.config.reviewerMode ? " (reviewer mode - quick verification)" : ""}`,
     );
 
@@ -102,7 +102,7 @@ export class FunctionalityAssessor extends BaseAssessor {
       lastBatchTime = Date.now();
     };
 
-    this.log(
+    this.logger.info(
       `Testing ${toolsToTest.length} tools with concurrency limit of ${concurrency}`,
     );
 
@@ -152,7 +152,7 @@ export class FunctionalityAssessor extends BaseAssessor {
         brokenTools.push(result.toolName);
 
         if (this.config.skipBrokenTools) {
-          this.log(
+          this.logger.info(
             `Skipping further tests for broken tool: ${result.toolName}`,
           );
         }
@@ -209,7 +209,7 @@ export class FunctionalityAssessor extends BaseAssessor {
         ? cleanParams(testParams, schema)
         : testParams;
 
-      this.log(
+      this.logger.info(
         `Testing tool: ${tool.name} with params: ${JSON.stringify(cleanedParams)}`,
       );
 
@@ -277,7 +277,7 @@ export class FunctionalityAssessor extends BaseAssessor {
         responseMetadata,
       };
     } catch (error) {
-      this.logError(`Tool execution failed: ${tool.name}`, error);
+      this.logger.error(`Tool execution failed: ${tool.name}`, { error });
       return {
         toolName: tool.name,
         tested: true,

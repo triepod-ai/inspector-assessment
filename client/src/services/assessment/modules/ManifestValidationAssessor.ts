@@ -32,7 +32,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
   async assess(
     context: AssessmentContext,
   ): Promise<ManifestValidationAssessment> {
-    this.log("Starting manifest validation assessment");
+    this.logger.info("Starting manifest validation assessment");
     this.testCount = 0;
 
     // Check if manifest is available
@@ -123,7 +123,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
       Array.isArray(manifest.privacy_policies) &&
       manifest.privacy_policies.length > 0
     ) {
-      this.log(
+      this.logger.info(
         `Validating ${manifest.privacy_policies.length} privacy policy URL(s)`,
       );
       const policyResults = await this.validatePrivacyPolicyUrls(
@@ -170,7 +170,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
       privacyPolicies,
     );
 
-    this.log(
+    this.logger.info(
       `Assessment complete: ${validationResults.filter((r) => r.valid).length}/${validationResults.length} checks passed`,
     );
 
@@ -517,7 +517,9 @@ export class ManifestValidationAssessor extends BaseAssessor {
       try {
         new URL(url);
       } catch (error) {
-        this.logError(`Invalid privacy policy URL format: ${url}`, error);
+        this.logger.error(`Invalid privacy policy URL format: ${url}`, {
+          error,
+        });
         results.push({
           url,
           accessible: false,
@@ -570,10 +572,9 @@ export class ManifestValidationAssessor extends BaseAssessor {
             contentType: response.headers.get("content-type") || undefined,
           });
         } catch (fetchError) {
-          this.logError(
-            `Failed to fetch privacy policy URL: ${url}`,
-            fetchError,
-          );
+          this.logger.error(`Failed to fetch privacy policy URL: ${url}`, {
+            error: fetchError,
+          });
           results.push({
             url,
             accessible: false,

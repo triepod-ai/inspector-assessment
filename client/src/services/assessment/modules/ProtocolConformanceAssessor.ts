@@ -357,7 +357,7 @@ export class ProtocolConformanceAssessor extends BaseAssessor<ProtocolConformanc
             : undefined,
       };
     } catch (error) {
-      this.logError("Content type validation failed", error);
+      this.logger.error("Content type validation failed", { error });
       return {
         passed: false,
         confidence: "medium",

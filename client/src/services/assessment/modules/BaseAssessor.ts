@@ -23,12 +23,6 @@ export abstract class BaseAssessor<T = unknown> {
   protected logger: Logger;
   protected testCount: number = 0;
 
-  // Track deprecation warnings to emit only once per instance
-  private deprecationWarningsEmitted = {
-    log: false,
-    logError: false,
-  };
-
   constructor(config: AssessmentConfiguration) {
     this.config = config;
     // Create logger from config, using class name as prefix
@@ -58,39 +52,6 @@ export abstract class BaseAssessor<T = unknown> {
     if (passRate >= threshold) return "PASS";
     if (passRate >= threshold * 0.5) return "NEED_MORE_INFO";
     return "FAIL";
-  }
-
-  /**
-   * Log assessment progress
-   * @deprecated Use this.logger.info() directly for structured logging with context. Will be removed in v2.0.0.
-   */
-  protected log(message: string): void {
-    if (!this.deprecationWarningsEmitted.log) {
-      this.logger.warn(
-        "BaseAssessor.log() is deprecated. Use this.logger.info() instead. " +
-          "This method will be removed in v2.0.0.",
-      );
-      this.deprecationWarningsEmitted.log = true;
-    }
-    this.logger.info(message);
-  }
-
-  /**
-   * Log error with optional context
-   * @deprecated Use this.logger.error() directly for structured logging with context. Will be removed in v2.0.0.
-   *
-   * @param message - Description of what operation failed
-   * @param error - The error that occurred (optional)
-   */
-  protected logError(message: string, error?: unknown): void {
-    if (!this.deprecationWarningsEmitted.logError) {
-      this.logger.warn(
-        "BaseAssessor.logError() is deprecated. Use this.logger.error() instead. " +
-          "This method will be removed in v2.0.0.",
-      );
-      this.deprecationWarningsEmitted.logError = true;
-    }
-    this.logger.error(message, error ? { error: String(error) } : undefined);
   }
 
   /**
@@ -198,7 +159,7 @@ export abstract class BaseAssessor<T = unknown> {
     try {
       return JSON.parse(text);
     } catch (error) {
-      this.logError(`Failed to parse JSON: ${text}`, error);
+      this.logger.error(`Failed to parse JSON: ${text}`, { error });
       return null;
     }
   }

@@ -155,11 +155,11 @@ export class TemporalAssessor extends BaseAssessor {
     // Check if definition tracking is available
     const canTrackDefinitions = typeof context.listTools === "function";
     if (canTrackDefinitions) {
-      this.log(
+      this.logger.info(
         `Starting temporal assessment with ${this.invocationsPerTool} invocations per tool (definition tracking enabled)`,
       );
     } else {
-      this.log(
+      this.logger.info(
         `Starting temporal assessment with ${this.invocationsPerTool} invocations per tool (definition tracking unavailable)`,
       );
     }
@@ -178,14 +178,14 @@ export class TemporalAssessor extends BaseAssessor {
 
       if (result.vulnerable) {
         rugPullsDetected++;
-        this.log(
+        this.logger.info(
           `RUG PULL DETECTED: ${tool.name} changed behavior at invocation ${result.firstDeviationAt}`,
         );
       }
 
       if (result.definitionMutated) {
         definitionMutationsDetected++;
-        this.log(
+        this.logger.info(
           `DEFINITION MUTATION DETECTED: ${tool.name} changed description at invocation ${result.definitionMutationAt}`,
         );
       }
@@ -233,7 +233,7 @@ export class TemporalAssessor extends BaseAssessor {
     // Check if definition tracking is available
     const canTrackDefinitions = typeof context.listTools === "function";
 
-    this.log(
+    this.logger.info(
       `Testing ${tool.name} with ${invocations} invocations${isDestructive ? " (reduced - destructive)" : ""}`,
     );
 
@@ -259,7 +259,7 @@ export class TemporalAssessor extends BaseAssessor {
           }
         } catch {
           // Definition tracking failed - continue with response tracking
-          this.log(
+          this.logger.info(
             `Warning: Failed to fetch tool definition for ${tool.name} at invocation ${i}`,
           );
         }
@@ -408,9 +408,11 @@ export class TemporalAssessor extends BaseAssessor {
     const isResourceCreating = this.isResourceCreatingTool(tool);
 
     if (isStateful) {
-      this.log(`${tool.name} classified as stateful - using schema comparison`);
+      this.logger.info(
+        `${tool.name} classified as stateful - using schema comparison`,
+      );
     } else if (isResourceCreating) {
-      this.log(
+      this.logger.info(
         `${tool.name} classified as resource-creating - using variance classification`,
       );
     }
@@ -436,7 +438,7 @@ export class TemporalAssessor extends BaseAssessor {
           );
           if (contentChange.detected) {
             isDifferent = true;
-            this.log(
+            this.logger.info(
               `${tool.name}: Content semantic change detected at invocation ${i + 1} - ${contentChange.reason}`,
             );
           }
@@ -463,7 +465,7 @@ export class TemporalAssessor extends BaseAssessor {
         // LEGITIMATE variance is expected for resource-creating tools
         if (classification.type !== "LEGITIMATE") {
           deviations.push(i + 1);
-          this.log(
+          this.logger.info(
             `${tool.name}: ${classification.type} variance at invocation ${i + 1} - ${classification.reasons.join(", ")}`,
           );
         }

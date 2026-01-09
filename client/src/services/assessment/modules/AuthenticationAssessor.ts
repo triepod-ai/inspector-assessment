@@ -285,7 +285,7 @@ export class AuthenticationAssessor extends BaseAssessor {
    * Run authentication assessment
    */
   async assess(context: AssessmentContext): Promise<AuthenticationAssessment> {
-    this.log("Starting authentication assessment");
+    this.logger.info("Starting authentication assessment");
     this.testCount = 0;
 
     const oauthIndicators: string[] = [];
@@ -407,7 +407,7 @@ export class AuthenticationAssessor extends BaseAssessor {
         `Review ${f.type}: ${f.message} (${f.file || "unknown file"})`,
     );
 
-    this.log(
+    this.logger.info(
       `Assessment complete: auth=${authMethod}, localDeps=${hasLocalDependencies}, tlsEnforced=${transportSecurity.tlsEnforced}, authConfigFindings=${authConfigAnalysis.totalFindings}`,
     );
 
@@ -786,7 +786,7 @@ export class AuthenticationAssessor extends BaseAssessor {
     // Issue #65: Apply file limit to prevent performance issues on large codebases
     let sourceFiles = Array.from(context.sourceCodeFiles);
     if (sourceFiles.length > MAX_FILES) {
-      this.log(
+      this.logger.info(
         `Rate limiting: Analyzing ${MAX_FILES} of ${sourceFiles.length} files`,
       );
       sourceFiles = sourceFiles.slice(0, MAX_FILES);
@@ -1002,7 +1002,7 @@ export class AuthenticationAssessor extends BaseAssessor {
         }
       } catch (error) {
         // Warning 4 fix: Handle malformed files gracefully
-        this.log(`Error analyzing ${filePath}: ${error}`);
+        this.logger.info(`Error analyzing ${filePath}: ${error}`);
         continue;
       }
     }

@@ -86,7 +86,7 @@ export class PromptAssessor extends BaseAssessor {
       return this.createNoPromptsResponse();
     }
 
-    this.log(`Testing ${context.prompts.length} prompts`);
+    this.logger.info(`Testing ${context.prompts.length} prompts`);
 
     // Test each prompt
     for (const prompt of context.prompts) {
@@ -302,7 +302,7 @@ export class PromptAssessor extends BaseAssessor {
 
       return { success: true, unsafeContent, executionTime };
     } catch (error) {
-      this.logError(`Prompt execution failed: ${prompt.name}`, error);
+      this.logger.error(`Prompt execution failed: ${prompt.name}`, { error });
       return {
         success: false,
         unsafeContent: false,

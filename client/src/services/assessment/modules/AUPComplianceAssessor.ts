@@ -75,7 +75,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
   async assess(
     context: AssessmentContext,
   ): Promise<AUPComplianceAssessment | EnhancedAUPComplianceAssessment> {
-    this.log("Starting AUP compliance assessment");
+    this.logger.info("Starting AUP compliance assessment");
     this.testCount = 0;
 
     const violations: AUPViolation[] = [];
@@ -94,7 +94,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
     }
 
     // Scan tool names
-    this.log("Scanning tool names...");
+    this.logger.info("Scanning tool names...");
     scannedLocations.toolNames = true;
     for (const tool of context.tools) {
       this.testCount++;
@@ -111,7 +111,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
     }
 
     // Scan tool descriptions
-    this.log("Scanning tool descriptions...");
+    this.logger.info("Scanning tool descriptions...");
     scannedLocations.toolDescriptions = true;
     for (const tool of context.tools) {
       if (tool.description) {
@@ -133,7 +133,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
 
     // Scan README content
     if (context.readmeContent) {
-      this.log("Scanning README content...");
+      this.logger.info("Scanning README content...");
       scannedLocations.readme = true;
       this.testCount++;
       const readmeViolations = this.scanReadme(context.readmeContent);
@@ -149,7 +149,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
 
     // Scan source code if available
     if (context.sourceCodeFiles && context.config.enableSourceCodeAnalysis) {
-      this.log("Scanning source code files...");
+      this.logger.info("Scanning source code files...");
       scannedLocations.sourceCode = true;
 
       for (const [filePath, content] of context.sourceCodeFiles) {
@@ -164,7 +164,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
 
     // If Claude semantic analysis is enabled, verify violations to reduce false positives
     if (this.isSemanticAnalysisEnabled() && violations.length > 0) {
-      this.log(
+      this.logger.info(
         `Running semantic analysis on ${violations.length} potential violations...`,
       );
       return await this.runSemanticAnalysis(
@@ -187,7 +187,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
       highRiskDomains,
     );
 
-    this.log(
+    this.logger.info(
       `Assessment complete: ${violations.length} violations found, ${highRiskDomains.length} high-risk domains`,
     );
 
@@ -275,7 +275,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
         // Low confidence - likely false positive
         else {
           falsePositivesFiltered++;
-          this.log(
+          this.logger.info(
             `Filtered likely false positive: "${violation.matchedText}" - ${analysis.reasoning}`,
           );
         }
@@ -308,7 +308,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
       highRiskDomains,
     );
 
-    this.log(
+    this.logger.info(
       `Semantic analysis complete: ${confirmedViolations.length} confirmed, ${flaggedForReview.length} flagged, ${falsePositivesFiltered} filtered`,
     );
 

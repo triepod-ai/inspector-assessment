@@ -86,7 +86,7 @@ export class CrossCapabilitySecurityAssessor extends BaseAssessor {
     const resources = context.resources || [];
     const prompts = context.prompts || [];
 
-    this.log(
+    this.logger.info(
       `Testing cross-capability security: ${tools.length} tools, ${resources.length} resources, ${prompts.length} prompts`,
     );
 

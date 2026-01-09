@@ -31,7 +31,7 @@ export class DocumentationAssessor extends BaseAssessor {
   }
 
   async assess(context: AssessmentContext): Promise<DocumentationAssessment> {
-    this.log("Starting documentation assessment");
+    this.logger.info("Starting documentation assessment");
 
     const readmeContent = context.readmeContent || "";
     const validVerbosityLevels = ["minimal", "standard", "verbose"] as const;
@@ -47,7 +47,7 @@ export class DocumentationAssessor extends BaseAssessor {
       ) {
         verbosity = configVerbosity as "minimal" | "standard" | "verbose";
       } else {
-        this.log(
+        this.logger.info(
           `Warning: Invalid documentationVerbosity "${configVerbosity}". ` +
             `Valid options: ${validVerbosityLevels.join(", ")}. Using "verbose".`,
         );

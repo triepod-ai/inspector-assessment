@@ -57,7 +57,7 @@ export class SecurityAssessor extends BaseAssessor {
   setClaudeBridge(bridge: ClaudeCodeBridge | null): void {
     this.claudeBridge = bridge;
     if (bridge) {
-      this.log(
+      this.logger.info(
         `ClaudeCodeBridge enabled for security semantic analysis (transport: ${bridge.getTransport()})`,
       );
     }
@@ -95,7 +95,7 @@ export class SecurityAssessor extends BaseAssessor {
     try {
       return await this.claudeBridge.analyzeSecurityResponse(context);
     } catch (error) {
-      this.logError("Claude semantic analysis failed", error);
+      this.logger.error("Claude semantic analysis failed", { error });
       return null;
     }
   }
@@ -118,9 +118,9 @@ export class SecurityAssessor extends BaseAssessor {
 
     // Create logger adapter
     const testLogger: TestLogger = {
-      log: (message: string) => this.log(message),
+      log: (message: string) => this.logger.info(message),
       logError: (message: string, error: unknown) =>
-        this.logError(message, error),
+        this.logger.error(message, { error }),
     };
 
     // Initialize payload tester with config, logger, and timeout function
@@ -153,10 +153,10 @@ export class SecurityAssessor extends BaseAssessor {
 
     // Log connection error warning
     if (connectionErrors.length > 0) {
-      this.log(
+      this.logger.info(
         `⚠️ WARNING: ${connectionErrors.length} test${connectionErrors.length !== 1 ? "s" : ""} failed due to connection/server errors`,
       );
-      this.log(
+      this.logger.info(
         `Connection errors: ${connectionErrors.map((e) => `${e.toolName}:${e.testName} (${e.errorType})`).join(", ")}`,
       );
     }
@@ -174,7 +174,7 @@ export class SecurityAssessor extends BaseAssessor {
       );
 
       if (testsToRefine.length > 0) {
-        this.log(
+        this.logger.info(
           `🧠 Running Claude semantic analysis on ${testsToRefine.length} medium/low confidence detection(s)...`,
         );
 
@@ -203,14 +203,14 @@ export class SecurityAssessor extends BaseAssessor {
               // False positive - mark as not vulnerable
               test.vulnerable = false;
               falsePositivesRemoved++;
-              this.log(
+              this.logger.info(
                 `  ✅ ${test.toolName}:${test.testName} - marked safe (${refinement.reasoning.substring(0, 100)}...)`,
               );
             } else {
               // Confirmed or upgraded - update confidence
               test.confidence = refinement.refinedConfidence;
               if (refinement.refinedConfidence === "high") {
-                this.log(
+                this.logger.info(
                   `  ⚠️ ${test.toolName}:${test.testName} - confirmed vulnerable (${refinement.reasoning.substring(0, 100)}...)`,
                 );
               }
@@ -218,7 +218,7 @@ export class SecurityAssessor extends BaseAssessor {
           }
         }
 
-        this.log(
+        this.logger.info(
           `🧠 Semantic analysis complete: ${refinedCount} refined, ${falsePositivesRemoved} false positives removed`,
         );
       }
@@ -328,26 +328,28 @@ export class SecurityAssessor extends BaseAssessor {
 
       // Empty array means user explicitly selected 0 tools
       if (this.config.selectedToolsForTesting.length === 0) {
-        this.log(`User selected 0 tools for security testing - skipping tests`);
+        this.logger.info(
+          `User selected 0 tools for security testing - skipping tests`,
+        );
         return [];
       }
 
       // If no tools matched the names (config out of sync), log warning but respect selection
       if (selectedTools.length === 0) {
-        this.log(
+        this.logger.info(
           `Warning: No tools matched selection (${this.config.selectedToolsForTesting.join(", ")})`,
         );
         return [];
       }
 
-      this.log(
+      this.logger.info(
         `Testing ${selectedTools.length} selected tools out of ${tools.length} for security`,
       );
       return selectedTools;
     }
 
     // Default: test all tools
-    this.log(`Testing all ${tools.length} tools for security`);
+    this.logger.info(`Testing all ${tools.length} tools for security`);
     return tools;
   }
 
@@ -404,11 +406,11 @@ export class SecurityAssessor extends BaseAssessor {
     const pairs = this.crossToolStateTester.identifyCrossToolPairs(tools);
 
     if (pairs.length === 0) {
-      this.log(`No cross-tool pairs identified for sequence testing`);
+      this.logger.info(`No cross-tool pairs identified for sequence testing`);
       return new Map();
     }
 
-    this.log(
+    this.logger.info(
       `Running cross-tool sequence tests on ${pairs.length} tool pair(s)...`,
     );
 
@@ -421,11 +423,11 @@ export class SecurityAssessor extends BaseAssessor {
     // Log results
     const summary = this.crossToolStateTester.summarizeResults(results);
     if (summary.vulnerable > 0) {
-      this.log(
+      this.logger.info(
         `⚠️ Cross-tool privilege escalation detected in ${summary.vulnerable} pair(s): ${summary.vulnerablePairs.join(", ")}`,
       );
     } else {
-      this.log(
+      this.logger.info(
         `✅ No cross-tool privilege escalation detected (${summary.safe} safe, ${summary.errors} errors)`,
       );
     }

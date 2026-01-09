@@ -124,7 +124,7 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
     const complianceScore = (passedCount / totalChecks) * 100;
 
     // Log score/check consistency for debugging
-    this.log(
+    this.logger.info(
       `MCP Compliance: ${passedCount}/${totalChecks} checks passed (${complianceScore.toFixed(1)}%)`,
     );
 
@@ -181,20 +181,24 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
       | undefined;
     const protocolVersion = metadata?.protocolVersion as string | undefined;
     if (protocolVersion) {
-      this.log(`Using protocol version from metadata: ${protocolVersion}`);
+      this.logger.info(
+        `Using protocol version from metadata: ${protocolVersion}`,
+      );
       return protocolVersion;
     }
 
     // Fall back to server version
     if (context.serverInfo?.version) {
-      this.log(
+      this.logger.info(
         `Using server version as protocol version: ${context.serverInfo.version}`,
       );
       return context.serverInfo.version;
     }
 
     // Default if no version information available
-    this.log("No protocol version information available, using default");
+    this.logger.info(
+      "No protocol version information available, using default",
+    );
     return "2025-06-18"; // Current MCP spec version as fallback
   }
 
@@ -243,7 +247,7 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
     // Check if name is properly set (should be a string, not null/undefined)
     if (serverInfo.name !== undefined && serverInfo.name !== null) {
       if (typeof serverInfo.name !== "string") {
-        this.log("Server info name is not a string");
+        this.logger.info("Server info name is not a string");
         return false;
       }
     }
@@ -251,7 +255,7 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
     // Check if metadata is properly formatted (should be an object if present)
     if (serverInfo.metadata !== undefined && serverInfo.metadata !== null) {
       if (typeof serverInfo.metadata !== "object") {
-        this.log("Server info metadata is not an object");
+        this.logger.info("Server info metadata is not an object");
         return false;
       }
     }
@@ -383,7 +387,7 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
       totalTools > 0 ? Math.round((withOutputSchema / totalTools) * 100) : 0;
 
     // Log for debugging
-    this.log(
+    this.logger.info(
       `Structured output support: ${withOutputSchema}/${totalTools} tools (${coveragePercent}%)`,
     );
 
@@ -447,12 +451,14 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
 
       // Check listChanged notification support
       if (capabilities.resources.listChanged) {
-        this.log("Server declares resources.listChanged notification support");
+        this.logger.info(
+          "Server declares resources.listChanged notification support",
+        );
       }
 
       // Check subscribe support
       if (capabilities.resources.subscribe) {
-        this.log("Server declares resource subscription support");
+        this.logger.info("Server declares resource subscription support");
       }
       this.testCount++;
     }
@@ -470,14 +476,16 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
 
       // Check listChanged notification support
       if (capabilities.prompts.listChanged) {
-        this.log("Server declares prompts.listChanged notification support");
+        this.logger.info(
+          "Server declares prompts.listChanged notification support",
+        );
       }
       this.testCount++;
     }
 
     // Check logging capability
     if (capabilities.logging) {
-      this.log("Server declares logging capability");
+      this.logger.info("Server declares logging capability");
       this.testCount++;
     }
 
@@ -557,7 +565,7 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
     ) {
       // For HTTP transport on 2025-06-18+, headers are required
       // We assume compliance if using the new protocol version
-      this.log(
+      this.logger.info(
         `HTTP transport detected with protocol ${protocolVersion} - header compliance assumed`,
       );
     }

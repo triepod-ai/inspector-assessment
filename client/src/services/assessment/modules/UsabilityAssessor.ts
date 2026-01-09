@@ -37,7 +37,7 @@ export class UsabilityAssessor extends BaseAssessor {
   }
 
   async assess(context: AssessmentContext): Promise<UsabilityAssessment> {
-    this.log("Starting usability assessment");
+    this.logger.info("Starting usability assessment");
 
     const metrics = this.analyzeUsability(context.tools);
     const status = this.determineUsabilityStatus(metrics);

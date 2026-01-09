@@ -149,7 +149,7 @@ export class PortabilityAssessor extends BaseAssessor {
    * Run portability assessment
    */
   async assess(context: AssessmentContext): Promise<PortabilityAssessment> {
-    this.log("Starting portability assessment");
+    this.logger.info("Starting portability assessment");
     this.testCount = 0;
 
     const issues: PortabilityIssue[] = [];
@@ -195,7 +195,7 @@ export class PortabilityAssessor extends BaseAssessor {
 
     // Check source code files if available
     if (context.sourceCodeFiles && context.config.enableSourceCodeAnalysis) {
-      this.log("Scanning source code files for portability issues...");
+      this.logger.info("Scanning source code files for portability issues...");
 
       for (const [filePath, content] of context.sourceCodeFiles) {
         // Skip irrelevant files
@@ -245,7 +245,9 @@ export class PortabilityAssessor extends BaseAssessor {
       usesBundleRoot,
     );
 
-    this.log(`Assessment complete: ${issues.length} portability issues found`);
+    this.logger.info(
+      `Assessment complete: ${issues.length} portability issues found`,
+    );
 
     // NEW: Analyze shell commands and platform coverage (Issue #9)
     const shellCommands = this.analyzeShellCommands(context);
