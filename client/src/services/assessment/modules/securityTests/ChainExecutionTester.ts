@@ -25,13 +25,11 @@ import {
   ChainVulnerabilityCategory,
 } from "./SecurityResponseAnalyzer";
 
-/**
- * Function type for calling MCP tools
- */
-export type CallToolFunction = (
-  name: string,
-  params: Record<string, unknown>,
-) => Promise<CompatibilityCallToolResult>;
+// Import shared CallToolFunction type from CrossToolStateTester (single source of truth)
+import { CallToolFunction } from "./CrossToolStateTester";
+
+// Re-export for consumers who import from this module
+export type { CallToolFunction } from "./CrossToolStateTester";
 
 /**
  * Reason for chain exploitation test result

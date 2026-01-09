@@ -32,6 +32,9 @@ import { ConfidenceScorer, ConfidenceResult } from "./ConfidenceScorer";
 import {
   CHAIN_EXPLOIT_VULNERABLE_PATTERNS,
   CHAIN_EXPLOIT_SAFE_PATTERNS,
+  CHAIN_VULNERABLE_THRESHOLD,
+  CHAIN_SAFE_THRESHOLD,
+  detectVulnerabilityCategories,
 } from "./SecurityPatternLibrary";
 
 // Re-export types for backward compatibility
@@ -431,41 +434,32 @@ export class SecurityResponseAnalyzer {
       }
     }
 
-    // Determine chain execution type
+    // Determine chain execution type using documented thresholds
     let chainType: ChainExecutionType = "UNKNOWN";
-    if (vulnerableScore > 1.5 && vulnerableScore > safeScore) {
+    if (
+      vulnerableScore > CHAIN_VULNERABLE_THRESHOLD &&
+      vulnerableScore > safeScore
+    ) {
       chainType = "VULNERABLE_EXECUTION";
-    } else if (safeScore > 1.0 && safeScore > vulnerableScore) {
+    } else if (
+      safeScore > CHAIN_SAFE_THRESHOLD &&
+      safeScore > vulnerableScore
+    ) {
       chainType = "SAFE_VALIDATION";
     } else if (vulnerableScore > 0 || safeScore > 0) {
       chainType = "PARTIAL";
     }
 
-    // Detect specific vulnerability categories
-    const vulnerabilityCategories: ChainVulnerabilityCategory[] = [];
-
-    if (/output_injection|\{\{output\}\}.*substitut/i.test(responseText)) {
-      vulnerabilityCategories.push("OUTPUT_INJECTION");
-    }
-    if (/recursive_chain|chain_executor.*within/i.test(responseText)) {
-      vulnerabilityCategories.push("RECURSIVE_CHAIN");
-    }
-    if (/arbitrary.*tool|unknown.*tool.*executed/i.test(responseText)) {
-      vulnerabilityCategories.push("ARBITRARY_TOOL_INVOCATION");
-    }
-    if (/shadowed.*tool|shadowed_definition/i.test(responseText)) {
-      vulnerabilityCategories.push("TOOL_SHADOWING");
-    }
-    if (/steps_executed.*[1-9][0-9]|no.*depth.*limit/i.test(responseText)) {
-      vulnerabilityCategories.push("MISSING_DEPTH_LIMIT");
-    }
-    if (/state.*poison|config.*modified.*chain/i.test(responseText)) {
-      vulnerabilityCategories.push("STATE_POISONING");
-    }
+    // Detect specific vulnerability categories using centralized pattern library
+    const detectedCategories = detectVulnerabilityCategories(responseText);
+    const vulnerabilityCategories =
+      detectedCategories as ChainVulnerabilityCategory[];
 
     return {
-      vulnerable: vulnerableScore > 1.5 && vulnerableScore > safeScore,
-      safe: safeScore > 1.0 && safeScore > vulnerableScore,
+      vulnerable:
+        vulnerableScore > CHAIN_VULNERABLE_THRESHOLD &&
+        vulnerableScore > safeScore,
+      safe: safeScore > CHAIN_SAFE_THRESHOLD && safeScore > vulnerableScore,
       chainType,
       vulnerabilityCategories,
       evidence: {

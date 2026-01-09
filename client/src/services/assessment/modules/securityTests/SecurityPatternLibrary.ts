@@ -573,6 +573,102 @@ export const CHAIN_EXPLOIT_VULNERABLE_PATTERNS: ChainResponsePattern[] = [
  *
  * Used by: analyzeChainExploitation()
  */
+// =============================================================================
+// CHAIN VULNERABILITY THRESHOLDS (Issue #93)
+// =============================================================================
+
+/**
+ * Threshold for confirming vulnerable chain execution behavior.
+ * Value of 1.5 requires ~2 weighted pattern matches to confirm vulnerability.
+ *
+ * Derived from A/B testing against vulnerable-mcp/hardened-mcp testbed:
+ * - vulnerable-mcp: typical scores 2.0-4.0 for vulnerable chains
+ * - hardened-mcp: typical scores 0.0-0.8 for safe chains
+ *
+ * Setting at 1.5 provides margin against false positives while
+ * maintaining detection of genuine vulnerabilities.
+ */
+export const CHAIN_VULNERABLE_THRESHOLD = 1.5;
+
+/**
+ * Threshold for confirming safe/hardened chain behavior.
+ * Value of 1.0 requires 1+ weighted safe pattern matches.
+ *
+ * Derived from A/B testing:
+ * - hardened-mcp: typical scores 1.5-3.0 for safe chains
+ * - vulnerable-mcp: typical scores 0.0-0.5 for safe patterns
+ */
+export const CHAIN_SAFE_THRESHOLD = 1.0;
+
+// =============================================================================
+// CHAIN VULNERABILITY CATEGORY PATTERNS (Issue #93)
+// =============================================================================
+
+/**
+ * Maps vulnerability categories to detection patterns.
+ * Used by analyzeChainExploitation() for category classification.
+ *
+ * Extracted from inline patterns to maintain single source of truth.
+ */
+export const CHAIN_CATEGORY_PATTERNS: Record<
+  string,
+  { pattern: RegExp; category: string }[]
+> = {
+  OUTPUT_INJECTION: [
+    { pattern: /output_injection/i, category: "OUTPUT_INJECTION" },
+    { pattern: /\{\{output\}\}.*substitut/i, category: "OUTPUT_INJECTION" },
+  ],
+  RECURSIVE_CHAIN: [
+    { pattern: /recursive_chain/i, category: "RECURSIVE_CHAIN" },
+    { pattern: /chain_executor.*within/i, category: "RECURSIVE_CHAIN" },
+  ],
+  ARBITRARY_TOOL_INVOCATION: [
+    { pattern: /arbitrary.*tool/i, category: "ARBITRARY_TOOL_INVOCATION" },
+    {
+      pattern: /unknown.*tool.*executed/i,
+      category: "ARBITRARY_TOOL_INVOCATION",
+    },
+  ],
+  TOOL_SHADOWING: [
+    { pattern: /shadowed.*tool/i, category: "TOOL_SHADOWING" },
+    { pattern: /shadowed_definition/i, category: "TOOL_SHADOWING" },
+  ],
+  MISSING_DEPTH_LIMIT: [
+    {
+      pattern: /steps_executed.*[1-9][0-9]/i,
+      category: "MISSING_DEPTH_LIMIT",
+    },
+    { pattern: /no.*depth.*limit/i, category: "MISSING_DEPTH_LIMIT" },
+  ],
+  STATE_POISONING: [
+    { pattern: /state.*poison/i, category: "STATE_POISONING" },
+    { pattern: /config.*modified.*chain/i, category: "STATE_POISONING" },
+  ],
+};
+
+/**
+ * Detect vulnerability categories from response text.
+ * Returns array of detected category names.
+ */
+export function detectVulnerabilityCategories(responseText: string): string[] {
+  const categories: string[] = [];
+
+  for (const [categoryName, patterns] of Object.entries(
+    CHAIN_CATEGORY_PATTERNS,
+  )) {
+    for (const { pattern } of patterns) {
+      if (pattern.test(responseText)) {
+        if (!categories.includes(categoryName)) {
+          categories.push(categoryName);
+        }
+        break; // Found match for this category, move to next
+      }
+    }
+  }
+
+  return categories;
+}
+
 export const CHAIN_EXPLOIT_SAFE_PATTERNS: ChainResponsePattern[] = [
   // Validation-only behavior
   {
