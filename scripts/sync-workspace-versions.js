@@ -2,7 +2,7 @@
 /**
  * Sync Workspace Versions
  *
- * Automatically syncs all workspace package versions and root dependencies
+ * Automatically syncs all workspace package versions and shared dependencies
  * when npm version is called. This prevents CI failures from version mismatches.
  *
  * Usage:
@@ -22,10 +22,15 @@ const rootPkgPath = path.join(rootDir, "package.json");
 const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, "utf8"));
 const version = rootPkg.version;
 
+// Shared dependencies that should be synced from root to all workspaces
+// Add dependencies here that must stay consistent across the monorepo
+const SHARED_DEPENDENCIES = ["@modelcontextprotocol/sdk"];
+
+const workspaces = ["client", "server", "cli"];
+
 console.log(`Syncing all workspace versions to ${version}...`);
 
 // Update workspace package.json files
-const workspaces = ["client", "server", "cli"];
 for (const ws of workspaces) {
   const pkgPath = path.join(rootDir, ws, "package.json");
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
@@ -34,8 +39,34 @@ for (const ws of workspaces) {
   console.log(`  ✓ ${ws}/package.json → ${version}`);
 }
 
-// Note: Workspace packages are bundled directly via relative imports,
-// not listed as npm dependencies. The root package.json only contains
-// actual external dependencies like @modelcontextprotocol/sdk.
+// Sync shared dependencies from root to workspaces
+console.log("\nSyncing shared dependencies...");
+let depsSynced = 0;
 
-console.log("✓ All versions synced");
+for (const dep of SHARED_DEPENDENCIES) {
+  const rootVersion = rootPkg.dependencies?.[dep];
+  if (!rootVersion) {
+    console.log(`  ⚠ ${dep} not found in root dependencies, skipping`);
+    continue;
+  }
+
+  for (const ws of workspaces) {
+    const pkgPath = path.join(rootDir, ws, "package.json");
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+
+    if (pkg.dependencies?.[dep]) {
+      if (pkg.dependencies[dep] !== rootVersion) {
+        pkg.dependencies[dep] = rootVersion;
+        fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+        console.log(`  ✓ ${ws}: ${dep} → ${rootVersion}`);
+        depsSynced++;
+      }
+    }
+  }
+}
+
+if (depsSynced === 0) {
+  console.log("  (all shared dependencies already in sync)");
+}
+
+console.log("\n✓ All versions and dependencies synced");
