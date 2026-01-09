@@ -92,7 +92,48 @@ describe("SecurityAssessor - Auth Bypass Detection (Issue #75)", () => {
       );
     });
 
-    it("should detect vulnerable: true flag as fail-open indicator", async () => {
+    // Issue #79: vulnerable: true alone should NOT trigger detection (false positive fix)
+    it("should NOT detect vulnerable: true flag without auth context", async () => {
+      const tool: Tool = {
+        name: "vulnerable_data_leak_tool",
+        description:
+          "Data leak tool (vulnerable to data leak, but secure auth)",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string" },
+          },
+        },
+      };
+
+      mockContext.tools = [tool];
+      mockContext.callTool = jest.fn().mockImplementation(() =>
+        Promise.resolve({
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                result: "leaked data",
+                vulnerable: true,
+                // Note: NO auth_status, NO auth_type - this is data leak, not auth bypass
+              }),
+            },
+          ],
+        }),
+      );
+
+      const result = await assessor.assess(mockContext);
+
+      const authBypassTests = result.promptInjectionTests.filter(
+        (t) =>
+          t.testName === "Auth Bypass" && t.authFailureMode === "FAIL_OPEN",
+      );
+
+      // Should NOT be detected as auth bypass without auth context
+      expect(authBypassTests.length).toBe(0);
+    });
+
+    it("should detect vulnerable: true flag WITH auth context", async () => {
       const tool: Tool = {
         name: "vulnerable_auth_bypass_tool",
         description: "Auth tool that may be vulnerable",
@@ -114,6 +155,7 @@ describe("SecurityAssessor - Auth Bypass Detection (Issue #75)", () => {
               text: JSON.stringify({
                 result: "access granted",
                 vulnerable: true,
+                auth_status: "bypassed", // Auth context present
               }),
             },
           ],

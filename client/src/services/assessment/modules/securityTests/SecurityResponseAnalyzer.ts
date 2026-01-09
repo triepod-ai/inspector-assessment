@@ -1473,6 +1473,11 @@ export class SecurityResponseAnalyzer {
 
     // Fail-open indicators (VULNERABLE - CVE-2025-52882 pattern)
     const failOpenPatterns = [
+      // Most specific - testbed auth_type pattern (Issue #79)
+      {
+        pattern: /"auth_type"\s*:\s*"fail-open"/i,
+        evidence: "auth_type: fail-open (CVE-2025-52882)",
+      },
       {
         pattern: /"auth_status"\s*:\s*"bypassed"/i,
         evidence: "auth_status: bypassed",
@@ -1491,9 +1496,12 @@ export class SecurityResponseAnalyzer {
         pattern: /authentication.*bypassed/i,
         evidence: "authentication bypassed",
       },
+      // Issue #79: Only detect "vulnerable": true when combined with auth context
+      // Prevents false positives on data leak tools that have secure fail-closed auth
       {
-        pattern: /"vulnerable"\s*:\s*true/i,
-        evidence: "vulnerable: true flag",
+        pattern:
+          /"vulnerable"\s*:\s*true[^}]*(?:"auth_status"|"auth_type"|"auth_error")|(?:"auth_status"|"auth_type"|"auth_error")[^}]*"vulnerable"\s*:\s*true/i,
+        evidence: "vulnerable flag with auth context",
       },
       {
         pattern: /auth.*succeeded.*null/i,
@@ -1511,6 +1519,11 @@ export class SecurityResponseAnalyzer {
 
     // Fail-closed indicators (SAFE - proper auth handling)
     const failClosedPatterns = [
+      // Most specific - testbed auth_type pattern (Issue #79)
+      {
+        pattern: /"auth_type"\s*:\s*"fail-closed"/i,
+        evidence: "auth_type: fail-closed (secure)",
+      },
       {
         pattern: /"auth_status"\s*:\s*"denied"/i,
         evidence: "auth_status: denied",

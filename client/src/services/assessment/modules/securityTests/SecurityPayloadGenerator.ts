@@ -105,6 +105,29 @@ export class SecurityPayloadGenerator {
       }
     }
 
+    // Special handling for auth_failure payloads (Issue #79)
+    // These target simulate_failure parameters to test fail-open behavior
+    if (!payloadInjected && payload.payloadType === "auth_failure") {
+      const authFailureParams = [
+        "simulate_failure",
+        "failure_mode",
+        "failure_type",
+      ];
+      for (const [key, prop] of Object.entries(schema.properties)) {
+        const propSchema = prop as { type?: string };
+        if (propSchema.type === "string") {
+          for (const failParam of authFailureParams) {
+            if (key.toLowerCase().includes(failParam.toLowerCase())) {
+              params[key] = payload.payload;
+              payloadInjected = true;
+              break;
+            }
+          }
+          if (payloadInjected) break;
+        }
+      }
+    }
+
     // Fall back to generic payload - inject into first string parameter
     if (!payloadInjected) {
       for (const [key, prop] of Object.entries(schema.properties)) {

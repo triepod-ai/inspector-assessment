@@ -1439,6 +1439,35 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
           "access_token",
         ],
       },
+      // Auth failure simulation payloads (Issue #79)
+      // These target tools with simulate_failure parameter to test fail-open behavior
+      {
+        payload: "timeout",
+        evidence:
+          /"auth_type"\s*:\s*"fail-open"|"auth_status"\s*:\s*"bypassed"/i,
+        riskLevel: "HIGH",
+        description: "Simulate auth service timeout - should deny access",
+        payloadType: "auth_failure",
+        parameterTypes: ["simulate_failure", "failure_mode", "failure_type"],
+      },
+      {
+        payload: "exception",
+        evidence:
+          /"auth_type"\s*:\s*"fail-open"|"auth_status"\s*:\s*"bypassed"/i,
+        riskLevel: "HIGH",
+        description: "Simulate auth service exception - should deny access",
+        payloadType: "auth_failure",
+        parameterTypes: ["simulate_failure", "failure_mode", "failure_type"],
+      },
+      {
+        payload: "network_error",
+        evidence:
+          /"auth_type"\s*:\s*"fail-open"|"auth_status"\s*:\s*"bypassed"/i,
+        riskLevel: "HIGH",
+        description: "Simulate network error - should deny access",
+        payloadType: "auth_failure",
+        parameterTypes: ["simulate_failure", "failure_mode", "failure_type"],
+      },
     ],
   },
 ];
