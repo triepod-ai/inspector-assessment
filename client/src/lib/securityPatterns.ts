@@ -1,6 +1,6 @@
 /**
  * Backend API Security Patterns
- * Tests MCP server API security with 25 focused patterns
+ * Tests MCP server API security with 26 focused patterns
  *
  * Architecture: Attack-Type with Specific Payloads
  * - Critical Injection (6 patterns): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
@@ -13,6 +13,7 @@
  * - Permission Scope (1 pattern): Privilege escalation and scope bypass
  * - Auth Bypass (1 pattern): Fail-open authentication vulnerabilities (Issue #75)
  * - Cross-Tool State Bypass (1 pattern): Cross-tool privilege escalation via shared state (Issue #92)
+ * - Chained Exploitation (1 pattern): Multi-tool chain execution attacks (Issue #93)
  *
  * Scope: Backend API Security ONLY
  * - Tests structured data inputs to API endpoints
@@ -48,7 +49,7 @@ export interface AttackPattern {
  * BACKEND API SECURITY PATTERNS
  * ========================================
  *
- * 25 focused patterns for MCP server API security
+ * 26 focused patterns for MCP server API security
  */
 export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // ==========================================
@@ -1537,6 +1538,108 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
         description: "Privilege elevation via shared state",
         payloadType: "state_modifier",
         parameterTypes: ["setting", "config", "option", "command"],
+      },
+    ],
+  },
+
+  // ==========================================
+  // CHAINED EXPLOITATION TESTS (Issue #93, Challenge #6)
+  // ==========================================
+
+  // 26. CHAINED EXPLOITATION
+  {
+    attackName: "Chained Exploitation",
+    description:
+      "Tests for multi-tool chain execution allowing arbitrary tool invocation, output injection, and recursive attacks",
+    payloads: [
+      // Single-step chain execution without allowlist
+      {
+        payload:
+          '[{"tool": "vulnerable_calculator", "args": {"query": "2+2"}}]',
+        evidence:
+          /(chain_results|steps_executed|vulnerabilities_triggered|chain.*executed)/i,
+        riskLevel: "HIGH",
+        description:
+          "Single-step chain execution without tool allowlist validation",
+        payloadType: "chain_execution",
+        parameterTypes: ["chain", "steps", "sequence", "pipeline"],
+      },
+      // Output injection via {{output}} template
+      {
+        payload:
+          '[{"tool": "calc", "args": {"q": "2+2"}}, {"tool": "exec", "args": {"cmd": "{{output}}"}}]',
+        evidence:
+          /(output_injection|{{output}}.*substituted|\{\{output\}\}.*replaced|output.*injection.*step)/i,
+        riskLevel: "HIGH",
+        description: "Output injection - raw output flows between chain steps",
+        payloadType: "chain_output_injection",
+        parameterTypes: ["chain", "steps", "sequence"],
+      },
+      // Recursive chain (DoS via self-reference)
+      {
+        payload:
+          '[{"tool": "vulnerable_chain_executor", "args": {"chain": "[]"}}]',
+        evidence:
+          /(recursive_chain|chain_executor.*within.*chain|circular.*chain|self.*referential)/i,
+        riskLevel: "HIGH",
+        description:
+          "Recursive chain execution - DoS via self-referential chains",
+        payloadType: "chain_recursion",
+        parameterTypes: ["chain", "steps", "sequence"],
+      },
+      // Arbitrary tool name acceptance
+      {
+        payload: '[{"tool": "MALICIOUS_TOOL_12345", "args": {}}]',
+        evidence:
+          /(arbitrary.*tool|unknown.*tool.*executed|attempted.*execute.*unknown|accepted.*arbitrary)/i,
+        riskLevel: "HIGH",
+        description: "Chain accepts arbitrary tool names without allowlist",
+        payloadType: "chain_arbitrary_tool",
+        parameterTypes: ["chain", "steps", "sequence"],
+      },
+      // State poisoning via multi-step chain
+      {
+        payload:
+          '[{"tool": "config_modifier", "args": {"setting": "admin=true"}}, {"tool": "admin_action", "args": {"action": "read secrets"}}]',
+        evidence:
+          /(state.*poison|admin_mode.*true.*chain|privilege.*escalation.*chain|config.*modified.*chain)/i,
+        riskLevel: "HIGH",
+        description:
+          "State poisoning - earlier step modifies state affecting later steps",
+        payloadType: "chain_state_poisoning",
+        parameterTypes: ["chain", "steps", "sequence"],
+      },
+      // Depth limit bypass
+      {
+        payload:
+          '[{"tool":"a"},{"tool":"b"},{"tool":"c"},{"tool":"d"},{"tool":"e"},{"tool":"f"},{"tool":"g"},{"tool":"h"},{"tool":"i"},{"tool":"j"},{"tool":"k"},{"tool":"l"}]',
+        evidence:
+          /(steps_executed.*1[0-9]|executed.*beyond.*limit|depth.*limit.*bypassed|no.*depth.*limit)/i,
+        riskLevel: "MEDIUM",
+        description: "Missing or bypassable chain depth limits",
+        payloadType: "chain_depth_bypass",
+        parameterTypes: ["chain", "steps", "sequence"],
+      },
+      // Tool shadowing via chain
+      {
+        payload: '[{"tool": "shadowed_tool_name", "args": {}}]',
+        evidence:
+          /(shadowed.*tool|tool.*poison|shadowed_definition|executed.*shadowed)/i,
+        riskLevel: "HIGH",
+        description: "Chain executes shadowed/poisoned tool definitions",
+        payloadType: "chain_shadowing",
+        parameterTypes: ["chain", "steps", "sequence"],
+      },
+      // Large chain input (unbounded input)
+      {
+        payload:
+          '[{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}},{"tool":"t","args":{}}]',
+        evidence:
+          /(steps_executed.*[1-2][0-9]|no.*size.*limit|unbounded.*input|executed.*all.*steps)/i,
+        riskLevel: "MEDIUM",
+        description: "No input size validation on chain definitions",
+        payloadType: "chain_unbounded",
+        parameterTypes: ["chain", "steps", "sequence"],
       },
     ],
   },

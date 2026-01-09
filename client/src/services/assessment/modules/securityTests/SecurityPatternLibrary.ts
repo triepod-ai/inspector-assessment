@@ -449,6 +449,204 @@ export const STATE_AUTH_SAFE_PATTERNS = [
 ] as const;
 
 // =============================================================================
+// CHAIN EXPLOITATION PATTERNS (Issue #93, Challenge #6)
+// =============================================================================
+
+/**
+ * Response pattern structure for chain exploitation analysis
+ */
+export interface ChainResponsePattern {
+  pattern: RegExp;
+  weight: number;
+  category: string;
+  description: string;
+}
+
+/**
+ * Patterns indicating vulnerable chain execution behavior
+ * - Arbitrary tool invocation without allowlist
+ * - Output injection via template substitution
+ * - Recursive/circular chain execution
+ * - Missing depth limits
+ * - State poisoning between steps
+ *
+ * Used by: analyzeChainExploitation()
+ */
+export const CHAIN_EXPLOIT_VULNERABLE_PATTERNS: ChainResponsePattern[] = [
+  // Chain execution evidence
+  {
+    pattern: /chain_results/i,
+    weight: 0.9,
+    category: "chain_execution",
+    description: "Chain execution returning step results",
+  },
+  {
+    pattern: /steps_executed/i,
+    weight: 0.8,
+    category: "chain_execution",
+    description: "Steps executed counter in response",
+  },
+  {
+    pattern: /vulnerabilities_triggered/i,
+    weight: 1.0,
+    category: "chain_execution",
+    description: "Explicit vulnerabilities triggered indicator",
+  },
+  // Output injection evidence
+  {
+    pattern: /output_injection/i,
+    weight: 1.0,
+    category: "output_injection",
+    description: "Output injection between chain steps",
+  },
+  {
+    pattern: /\{\{output\}\}.*substitut/i,
+    weight: 0.9,
+    category: "output_injection",
+    description: "Template output substitution performed",
+  },
+  {
+    pattern: /last_output.*passed/i,
+    weight: 0.8,
+    category: "output_injection",
+    description: "Raw output passed to next step",
+  },
+  // Recursive chain evidence
+  {
+    pattern: /recursive_chain/i,
+    weight: 1.0,
+    category: "recursive_chain",
+    description: "Self-referential chain execution",
+  },
+  {
+    pattern: /chain_executor.*within.*chain/i,
+    weight: 0.9,
+    category: "recursive_chain",
+    description: "Chain executor called recursively",
+  },
+  {
+    pattern: /circular.*chain/i,
+    weight: 0.9,
+    category: "recursive_chain",
+    description: "Circular chain reference detected",
+  },
+  // Arbitrary tool acceptance
+  {
+    pattern: /arbitrary.*tool.*step/i,
+    weight: 0.9,
+    category: "arbitrary_tool",
+    description: "Arbitrary tool name accepted in chain",
+  },
+  {
+    pattern: /unknown.*tool.*executed/i,
+    weight: 0.8,
+    category: "arbitrary_tool",
+    description: "Unknown tool executed without validation",
+  },
+  {
+    pattern: /attempted.*execute.*unknown/i,
+    weight: 0.8,
+    category: "arbitrary_tool",
+    description: "Attempted execution of unknown tool",
+  },
+  // Shadowed tool execution
+  {
+    pattern: /shadowed.*tool/i,
+    weight: 1.0,
+    category: "tool_shadowing",
+    description: "Shadowed/poisoned tool executed",
+  },
+  {
+    pattern: /shadowed_definition/i,
+    weight: 0.9,
+    category: "tool_shadowing",
+    description: "Shadowed definition used instead of original",
+  },
+];
+
+/**
+ * Patterns indicating safe/hardened chain handling
+ * - Tool allowlist validation
+ * - No execution (validation only)
+ * - Depth limits enforced
+ * - Output injection blocked
+ *
+ * Used by: analyzeChainExploitation()
+ */
+export const CHAIN_EXPLOIT_SAFE_PATTERNS: ChainResponsePattern[] = [
+  // Validation-only behavior
+  {
+    pattern: /stored.*for.*review/i,
+    weight: 0.8,
+    category: "safe_storage",
+    description: "Chain stored for review, not executed",
+  },
+  {
+    pattern: /validation.*only/i,
+    weight: 0.9,
+    category: "safe_validation",
+    description: "Chain validated but not executed",
+  },
+  {
+    pattern: /chain.*validated/i,
+    weight: 0.7,
+    category: "safe_validation",
+    description: "Chain validation response",
+  },
+  {
+    pattern: /pending.*review/i,
+    weight: 0.8,
+    category: "safe_storage",
+    description: "Request pending admin review",
+  },
+  // Allowlist enforcement
+  {
+    pattern: /tool.*not.*in.*allowlist/i,
+    weight: 0.9,
+    category: "allowlist",
+    description: "Tool rejected - not in allowlist",
+  },
+  {
+    pattern: /only.*safe.*tools.*permitted/i,
+    weight: 0.9,
+    category: "allowlist",
+    description: "Allowlist enforcement message",
+  },
+  {
+    pattern: /blocked.*tool.*chain/i,
+    weight: 0.8,
+    category: "allowlist",
+    description: "Tool blocked from chain execution",
+  },
+  // Depth limit enforcement
+  {
+    pattern: /depth.*limit.*enforced/i,
+    weight: 0.8,
+    category: "depth_limit",
+    description: "Depth limit properly enforced",
+  },
+  {
+    pattern: /max.*depth.*exceeded/i,
+    weight: 0.7,
+    category: "depth_limit",
+    description: "Chain rejected for exceeding depth",
+  },
+  // No execution indicators
+  {
+    pattern: /chain_executed.*false/i,
+    weight: 0.9,
+    category: "no_execution",
+    description: "Chain execution disabled",
+  },
+  {
+    pattern: /execution.*disabled/i,
+    weight: 0.8,
+    category: "no_execution",
+    description: "Execution capability disabled",
+  },
+];
+
+// =============================================================================
 // SEARCH/RETRIEVAL PATTERNS
 // =============================================================================
 

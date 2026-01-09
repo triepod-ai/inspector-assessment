@@ -9,6 +9,9 @@ export {
   type AnalysisResult,
   type ErrorClassification,
   type StateBasedAuthResult,
+  type ChainExploitationAnalysis,
+  type ChainExecutionType,
+  type ChainVulnerabilityCategory,
 } from "./SecurityResponseAnalyzer";
 
 export {
@@ -27,3 +30,11 @@ export {
   type CallToolFunction,
   type CrossToolTestConfig,
 } from "./CrossToolStateTester";
+
+export {
+  ChainExecutionTester,
+  type ChainExecutionTestResult,
+  type ChainExploitationSummary,
+  type ChainExecutionTesterConfig,
+  type ChainTestReason,
+} from "./ChainExecutionTester";

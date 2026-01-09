@@ -28,6 +28,12 @@ import { MathAnalyzer, MathResultAnalysis } from "./MathAnalyzer";
 import { SafeResponseDetector } from "./SafeResponseDetector";
 import { ConfidenceScorer, ConfidenceResult } from "./ConfidenceScorer";
 
+// Import pattern library for chain exploitation analysis
+import {
+  CHAIN_EXPLOIT_VULNERABLE_PATTERNS,
+  CHAIN_EXPLOIT_SAFE_PATTERNS,
+} from "./SecurityPatternLibrary";
+
 // Re-export types for backward compatibility
 export type { ConfidenceResult } from "./ConfidenceScorer";
 export type { MathResultAnalysis } from "./MathAnalyzer";
@@ -59,6 +65,43 @@ export interface StateBasedAuthResult {
   safe: boolean;
   stateDependency: "SHARED_STATE" | "INDEPENDENT" | "UNKNOWN";
   evidence: string;
+}
+
+/**
+ * Chain execution type classification (Issue #93, Challenge #6)
+ */
+export type ChainExecutionType =
+  | "VULNERABLE_EXECUTION" // Chain actually executes tools with vulnerabilities
+  | "SAFE_VALIDATION" // Chain validated but not executed (hardened)
+  | "PARTIAL" // Mixed signals in response
+  | "UNKNOWN"; // Cannot determine chain behavior
+
+/**
+ * Chain vulnerability categories (Issue #93, Challenge #6)
+ */
+export type ChainVulnerabilityCategory =
+  | "OUTPUT_INJECTION" // {{output}} template injection between steps
+  | "RECURSIVE_CHAIN" // Self-referential chain execution (DoS)
+  | "ARBITRARY_TOOL_INVOCATION" // No tool allowlist validation
+  | "TOOL_SHADOWING" // Executes shadowed/poisoned tool definitions
+  | "MISSING_DEPTH_LIMIT" // No/bypassable chain depth limits
+  | "STATE_POISONING"; // Steps modify shared state affecting later steps
+
+/**
+ * Result of chain exploitation analysis (Issue #93, Challenge #6)
+ * Detects multi-tool chained exploitation attacks
+ */
+export interface ChainExploitationAnalysis {
+  vulnerable: boolean;
+  safe: boolean;
+  chainType: ChainExecutionType;
+  vulnerabilityCategories: ChainVulnerabilityCategory[];
+  evidence: {
+    vulnerablePatterns: string[];
+    safePatterns: string[];
+    vulnerableScore: number;
+    safeScore: number;
+  };
 }
 
 /**
@@ -346,6 +389,91 @@ export class SecurityResponseAnalyzer {
       safe: false,
       stateDependency: "UNKNOWN",
       evidence: "",
+    };
+  }
+
+  /**
+   * Analyze response for chain exploitation vulnerabilities (Issue #93, Challenge #6)
+   * Detects multi-tool chained exploitation attacks including:
+   * - Arbitrary tool invocation without allowlist
+   * - Output injection via {{output}} template substitution
+   * - Recursive/circular chain execution (DoS potential)
+   * - State poisoning between chain steps
+   * - Tool shadowing in chains
+   * - Missing depth/size limits
+   *
+   * @param response The tool response to analyze
+   * @returns Analysis result with vulnerability status and evidence
+   */
+  analyzeChainExploitation(
+    response: CompatibilityCallToolResult,
+  ): ChainExploitationAnalysis {
+    const responseText = this.extractResponseContent(response);
+
+    let vulnerableScore = 0;
+    let safeScore = 0;
+    const matchedVulnPatterns: string[] = [];
+    const matchedSafePatterns: string[] = [];
+
+    // Check vulnerable patterns
+    for (const patternDef of CHAIN_EXPLOIT_VULNERABLE_PATTERNS) {
+      if (patternDef.pattern.test(responseText)) {
+        vulnerableScore += patternDef.weight;
+        matchedVulnPatterns.push(patternDef.description);
+      }
+    }
+
+    // Check safe patterns
+    for (const patternDef of CHAIN_EXPLOIT_SAFE_PATTERNS) {
+      if (patternDef.pattern.test(responseText)) {
+        safeScore += patternDef.weight;
+        matchedSafePatterns.push(patternDef.description);
+      }
+    }
+
+    // Determine chain execution type
+    let chainType: ChainExecutionType = "UNKNOWN";
+    if (vulnerableScore > 1.5 && vulnerableScore > safeScore) {
+      chainType = "VULNERABLE_EXECUTION";
+    } else if (safeScore > 1.0 && safeScore > vulnerableScore) {
+      chainType = "SAFE_VALIDATION";
+    } else if (vulnerableScore > 0 || safeScore > 0) {
+      chainType = "PARTIAL";
+    }
+
+    // Detect specific vulnerability categories
+    const vulnerabilityCategories: ChainVulnerabilityCategory[] = [];
+
+    if (/output_injection|\{\{output\}\}.*substitut/i.test(responseText)) {
+      vulnerabilityCategories.push("OUTPUT_INJECTION");
+    }
+    if (/recursive_chain|chain_executor.*within/i.test(responseText)) {
+      vulnerabilityCategories.push("RECURSIVE_CHAIN");
+    }
+    if (/arbitrary.*tool|unknown.*tool.*executed/i.test(responseText)) {
+      vulnerabilityCategories.push("ARBITRARY_TOOL_INVOCATION");
+    }
+    if (/shadowed.*tool|shadowed_definition/i.test(responseText)) {
+      vulnerabilityCategories.push("TOOL_SHADOWING");
+    }
+    if (/steps_executed.*[1-9][0-9]|no.*depth.*limit/i.test(responseText)) {
+      vulnerabilityCategories.push("MISSING_DEPTH_LIMIT");
+    }
+    if (/state.*poison|config.*modified.*chain/i.test(responseText)) {
+      vulnerabilityCategories.push("STATE_POISONING");
+    }
+
+    return {
+      vulnerable: vulnerableScore > 1.5 && vulnerableScore > safeScore,
+      safe: safeScore > 1.0 && safeScore > vulnerableScore,
+      chainType,
+      vulnerabilityCategories,
+      evidence: {
+        vulnerablePatterns: matchedVulnPatterns,
+        safePatterns: matchedSafePatterns,
+        vulnerableScore,
+        safeScore,
+      },
     };
   }
 

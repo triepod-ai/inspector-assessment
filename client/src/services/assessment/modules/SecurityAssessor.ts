@@ -1,11 +1,11 @@
 /**
  * Security Assessor Module
- * Tests for backend API security vulnerabilities using 25 focused patterns
+ * Tests for backend API security vulnerabilities using 26 focused patterns
  *
  * BASIC MODE (5 patterns - enableDomainTesting=false):
  *   Command Injection, Calculator Injection, SQL Injection, Path Traversal, Unicode Bypass
  *
- * ADVANCED MODE (all 25 patterns - enableDomainTesting=true):
+ * ADVANCED MODE (all 26 patterns - enableDomainTesting=true):
  *   - Critical Injection (6): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
  *   - Input Validation (3): Type Safety, Boundary Testing, Required Fields
  *   - Protocol Compliance (2): MCP Error Format, Timeout Handling
@@ -16,9 +16,11 @@
  *   - Deserialization (1): Insecure Deserialization
  *   - Auth Bypass (1): Fail-open authentication vulnerabilities (CVE-2025-52882)
  *   - Cross-Tool State Bypass (1): Privilege escalation via shared state (Issue #92)
+ *   - Chained Exploitation (1): Multi-tool chain execution attacks (Issue #93)
  *
  * SEQUENCE TESTING (enableSequenceTesting - default true):
  *   Tests for cross-tool privilege escalation by calling tool sequences
+ *   Tests for multi-tool chain exploitation attacks
  */
 
 import {
@@ -34,8 +36,10 @@ import {
   SecurityPayloadTester,
   SecurityPayloadGenerator,
   CrossToolStateTester,
+  ChainExecutionTester,
   type PayloadTestConfig,
   type TestLogger,
+  type ChainExecutionTestResult,
 } from "./securityTests";
 import { ToolClassifier, ToolCategory } from "../ToolClassifier";
 import {
@@ -48,6 +52,7 @@ export class SecurityAssessor extends BaseAssessor {
   private payloadTester: SecurityPayloadTester;
   private payloadGenerator: SecurityPayloadGenerator;
   private crossToolStateTester: CrossToolStateTester;
+  private chainTester: ChainExecutionTester;
   private claudeBridge: ClaudeCodeBridge | null = null;
 
   /**
@@ -133,6 +138,11 @@ export class SecurityAssessor extends BaseAssessor {
     // Initialize cross-tool state tester (Issue #92)
     this.crossToolStateTester = new CrossToolStateTester({
       timeout: config.securityTestTimeout,
+    });
+
+    // Initialize chain execution tester (Issue #93)
+    this.chainTester = new ChainExecutionTester({
+      verbose: false,
     });
   }
 
@@ -271,6 +281,26 @@ export class SecurityAssessor extends BaseAssessor {
         if (result.vulnerable) {
           highRiskCount++;
           const vulnerability = `Cross-tool privilege escalation: ${pairKey}`;
+          if (!vulnerabilities.includes(vulnerability)) {
+            vulnerabilities.push(vulnerability);
+          }
+        }
+      }
+    }
+
+    // Chain exploitation testing (Issue #93, Challenge #6)
+    // Tests for multi-tool chain exploitation attacks
+    if (this.config.enableSequenceTesting !== false) {
+      const chainResults = await this.runChainExploitationTests(
+        toolsToTest,
+        context.callTool,
+        context.onProgress,
+      );
+
+      for (const [testKey, result] of chainResults) {
+        if (result.vulnerable) {
+          highRiskCount++;
+          const vulnerability = `Chain exploitation: ${testKey} (${result.reason})`;
           if (!vulnerabilities.includes(vulnerability)) {
             vulnerabilities.push(vulnerability);
           }
@@ -433,6 +463,79 @@ export class SecurityAssessor extends BaseAssessor {
     }
 
     return results;
+  }
+
+  /**
+   * Run chain exploitation tests (Issue #93, Challenge #6)
+   * Tests for multi-tool chain exploitation attacks including:
+   * - Arbitrary tool invocation without allowlist
+   * - Output injection via {{output}} template
+   * - Recursive chain execution (DoS potential)
+   * - State poisoning between chain steps
+   */
+  private async runChainExploitationTests(
+    tools: Tool[],
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<
+      import("@modelcontextprotocol/sdk/types.js").CompatibilityCallToolResult
+    >,
+    _onProgress?: import("@/lib/assessment/progressTypes").ProgressCallback,
+  ): Promise<Map<string, ChainExecutionTestResult>> {
+    const chainTools = this.chainTester.identifyChainExecutorTools(tools);
+    const allResults = new Map<string, ChainExecutionTestResult>();
+
+    if (chainTools.length === 0) {
+      this.logger.info(`No chain executor tools identified for chain testing`);
+      return allResults;
+    }
+
+    this.logger.info(
+      `Running chain exploitation tests on ${chainTools.length} tool(s)...`,
+    );
+
+    for (const tool of chainTools) {
+      const toolResults = await this.chainTester.runChainExploitationTests(
+        callTool,
+        tool,
+      );
+
+      // Aggregate results with tool name prefix
+      for (const [testName, result] of toolResults) {
+        allResults.set(`${tool.name}:${testName}`, result);
+      }
+
+      // Log individual tool results
+      const summary = this.chainTester.summarizeResults(toolResults);
+      if (summary.vulnerable > 0) {
+        this.logger.info(
+          `⚠️ Chain exploitation detected in ${tool.name}: ${summary.vulnerableTests.join(", ")}`,
+        );
+      }
+    }
+
+    // Log overall summary
+    let totalVulnerable = 0;
+    let totalSafe = 0;
+    let totalErrors = 0;
+    for (const result of allResults.values()) {
+      if (result.reason === "test_error") totalErrors++;
+      else if (result.vulnerable) totalVulnerable++;
+      else totalSafe++;
+    }
+
+    if (totalVulnerable > 0) {
+      this.logger.info(
+        `⚠️ Chain exploitation total: ${totalVulnerable} vulnerable, ${totalSafe} safe, ${totalErrors} errors`,
+      );
+    } else {
+      this.logger.info(
+        `✅ No chain exploitation detected (${totalSafe} safe, ${totalErrors} errors)`,
+      );
+    }
+
+    return allResults;
   }
 
   /**
