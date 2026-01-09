@@ -1,6 +1,6 @@
 /**
  * Backend API Security Patterns
- * Tests MCP server API security with 23 focused patterns
+ * Tests MCP server API security with 24 focused patterns
  *
  * Architecture: Attack-Type with Specific Payloads
  * - Critical Injection (6 patterns): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
@@ -11,6 +11,7 @@
  * - Deserialization (1 pattern): Insecure Deserialization
  * - Token Theft (1 pattern): Authentication token leakage
  * - Permission Scope (1 pattern): Privilege escalation and scope bypass
+ * - Auth Bypass (1 pattern): Fail-open authentication vulnerabilities (Issue #75)
  *
  * Scope: Backend API Security ONLY
  * - Tests structured data inputs to API endpoints
@@ -1349,6 +1350,94 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
         description: "Node.js env dump",
         payloadType: "injection",
         parameterTypes: ["code", "script", "javascript", "js"],
+      },
+    ],
+  },
+
+  // ==========================================
+  // AUTH BYPASS TESTS (Issue #75)
+  // ==========================================
+
+  // 24. AUTH BYPASS
+  {
+    attackName: "Auth Bypass",
+    description:
+      "Tests for fail-open authentication vulnerabilities (CVE-2025-52882)",
+    payloads: [
+      // Empty/missing token tests
+      {
+        payload: "",
+        evidence:
+          /auth.*bypassed|fail[\s-]?open|"auth_status"\s*:\s*"bypassed"/i,
+        riskLevel: "HIGH",
+        description: "Empty token - should be denied",
+        payloadType: "auth",
+        parameterTypes: [
+          "token",
+          "auth_token",
+          "authorization",
+          "api_key",
+          "access_token",
+        ],
+      },
+      {
+        payload: "null",
+        evidence:
+          /auth.*bypassed|access.*granted.*despite|"vulnerable"\s*:\s*true/i,
+        riskLevel: "HIGH",
+        description: "Null token string - should be denied",
+        payloadType: "auth",
+        parameterTypes: [
+          "token",
+          "auth_token",
+          "authorization",
+          "api_key",
+          "access_token",
+        ],
+      },
+      {
+        payload: "invalid-token-format",
+        evidence:
+          /auth.*bypassed|authentication.*skipped|granted.*without.*valid/i,
+        riskLevel: "HIGH",
+        description: "Invalid token format - should be denied",
+        payloadType: "auth",
+        parameterTypes: [
+          "token",
+          "auth_token",
+          "authorization",
+          "api_key",
+          "access_token",
+        ],
+      },
+      {
+        payload: "Bearer ",
+        evidence:
+          /auth.*bypassed|fail[\s-]?open|"auth_status"\s*:\s*"bypassed"/i,
+        riskLevel: "HIGH",
+        description: "Empty bearer token - should be denied",
+        payloadType: "auth",
+        parameterTypes: [
+          "token",
+          "auth_token",
+          "authorization",
+          "api_key",
+          "access_token",
+        ],
+      },
+      {
+        payload: "expired-token-12345",
+        evidence: /auth.*bypassed|access.*granted|"vulnerable"\s*:\s*true/i,
+        riskLevel: "MEDIUM",
+        description: "Expired token format hint - should be denied",
+        payloadType: "auth",
+        parameterTypes: [
+          "token",
+          "auth_token",
+          "authorization",
+          "api_key",
+          "access_token",
+        ],
       },
     ],
   },

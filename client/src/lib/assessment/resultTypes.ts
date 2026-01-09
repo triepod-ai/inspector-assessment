@@ -149,6 +149,10 @@ export interface SecurityTestResult {
     reasoning: string;
     source: "claude-refined";
   };
+  // Issue #75: Auth bypass detection fields for fail-open vulnerability detection
+  authBypassDetected?: boolean; // Whether fail-open auth bypass was detected
+  authFailureMode?: "FAIL_OPEN" | "FAIL_CLOSED" | "UNKNOWN"; // Classification of auth behavior
+  authBypassEvidence?: string; // Evidence text that triggered detection
 }
 
 // ============================================================================
@@ -437,6 +441,13 @@ export interface SecurityAssessment {
   overallRiskLevel: SecurityRiskLevel;
   status: AssessmentStatus;
   explanation: string;
+  // Issue #75: Auth bypass summary for fail-open vulnerability detection
+  authBypassSummary?: {
+    toolsWithAuthBypass: string[];
+    failOpenCount: number;
+    failClosedCount: number;
+    unknownCount: number;
+  };
 }
 
 export interface DocumentationAssessment {

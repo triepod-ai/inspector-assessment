@@ -42,6 +42,16 @@ export interface MathResultAnalysis {
 }
 
 /**
+ * Result of auth bypass response analysis (Issue #75)
+ * Detects fail-open authentication vulnerabilities (CVE-2025-52882)
+ */
+export interface AuthBypassResult {
+  detected: boolean;
+  failureMode: "FAIL_OPEN" | "FAIL_CLOSED" | "UNKNOWN";
+  evidence?: string;
+}
+
+/**
  * Error classification types
  */
 export type ErrorClassification = "connection" | "server" | "protocol";
@@ -1447,6 +1457,104 @@ export class SecurityResponseAnalyzer {
     ];
 
     return searchResultPatterns.some((pattern) => pattern.test(responseText));
+  }
+
+  /**
+   * Analyze response for auth bypass patterns (Issue #75)
+   * Detects fail-open authentication vulnerabilities (CVE-2025-52882)
+   *
+   * @param response The tool response to analyze
+   * @returns AuthBypassResult with detection status and failure mode classification
+   */
+  analyzeAuthBypassResponse(
+    response: CompatibilityCallToolResult,
+  ): AuthBypassResult {
+    const responseText = this.extractResponseContent(response);
+
+    // Fail-open indicators (VULNERABLE - CVE-2025-52882 pattern)
+    const failOpenPatterns = [
+      {
+        pattern: /"auth_status"\s*:\s*"bypassed"/i,
+        evidence: "auth_status: bypassed",
+      },
+      {
+        pattern: /access.*granted.*despite/i,
+        evidence: "access granted despite failure",
+      },
+      {
+        pattern: /authentication.*skipped/i,
+        evidence: "authentication skipped",
+      },
+      { pattern: /fail[\s-]?open/i, evidence: "fail-open pattern detected" },
+      { pattern: /bypassed.*auth/i, evidence: "auth bypassed" },
+      {
+        pattern: /authentication.*bypassed/i,
+        evidence: "authentication bypassed",
+      },
+      {
+        pattern: /"vulnerable"\s*:\s*true/i,
+        evidence: "vulnerable: true flag",
+      },
+      {
+        pattern: /auth.*succeeded.*null/i,
+        evidence: "auth succeeded with null token",
+      },
+      {
+        pattern: /granted.*without.*valid/i,
+        evidence: "granted without valid token",
+      },
+      {
+        pattern: /"action_performed"/i,
+        evidence: "action performed indicator",
+      },
+    ];
+
+    // Fail-closed indicators (SAFE - proper auth handling)
+    const failClosedPatterns = [
+      {
+        pattern: /"auth_status"\s*:\s*"denied"/i,
+        evidence: "auth_status: denied",
+      },
+      { pattern: /access.*denied/i, evidence: "access denied" },
+      { pattern: /authentication.*failed/i, evidence: "authentication failed" },
+      {
+        pattern: /fail[\s-]?closed/i,
+        evidence: "fail-closed pattern detected",
+      },
+      { pattern: /"status"\s*:\s*"blocked"/i, evidence: "status: blocked" },
+      {
+        pattern: /invalid.*token/i,
+        evidence: "invalid token rejection",
+      },
+      {
+        pattern: /token.*required/i,
+        evidence: "token required",
+      },
+      {
+        pattern: /unauthorized/i,
+        evidence: "unauthorized response",
+      },
+      {
+        pattern: /"denial_reason"/i,
+        evidence: "denial reason provided",
+      },
+    ];
+
+    // Check for fail-open (vulnerable) patterns first
+    for (const { pattern, evidence } of failOpenPatterns) {
+      if (pattern.test(responseText)) {
+        return { detected: true, failureMode: "FAIL_OPEN", evidence };
+      }
+    }
+
+    // Check for fail-closed (safe) patterns
+    for (const { pattern, evidence } of failClosedPatterns) {
+      if (pattern.test(responseText)) {
+        return { detected: false, failureMode: "FAIL_CLOSED", evidence };
+      }
+    }
+
+    return { detected: false, failureMode: "UNKNOWN" };
   }
 
   /**

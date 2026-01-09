@@ -269,12 +269,16 @@ export class SecurityAssessor extends BaseAssessor {
       overallRiskLevel,
     );
 
+    // Issue #75: Aggregate auth bypass detection results
+    const authBypassSummary = this.aggregateAuthBypassResults(allTests);
+
     return {
       promptInjectionTests: allTests,
       vulnerabilities,
       overallRiskLevel,
       status,
       explanation,
+      authBypassSummary,
     };
   }
 
@@ -462,5 +466,58 @@ export class SecurityAssessor extends BaseAssessor {
         `Flagged ${lowConfidenceCount} uncertain detection${lowConfidenceCount !== 1 ? "s" : ""} across ${testCount} security tests. Manual verification needed to confirm if these are actual vulnerabilities or false positives.`
       );
     }
+  }
+
+  /**
+   * Aggregate auth bypass detection results from security tests (Issue #75)
+   * Summarizes fail-open/fail-closed patterns across all tested tools
+   */
+  private aggregateAuthBypassResults(tests: SecurityTestResult[]): {
+    toolsWithAuthBypass: string[];
+    failOpenCount: number;
+    failClosedCount: number;
+    unknownCount: number;
+  } {
+    const toolsWithAuthBypass: string[] = [];
+    let failOpenCount = 0;
+    let failClosedCount = 0;
+    let unknownCount = 0;
+
+    // Filter to Auth Bypass tests only
+    const authBypassTests = tests.filter(
+      (t) => t.testName === "Auth Bypass" && t.authFailureMode,
+    );
+
+    // Track unique tools with auth bypass detected
+    const seenTools = new Set<string>();
+
+    for (const test of authBypassTests) {
+      const toolName = test.toolName || "unknown";
+
+      if (test.authBypassDetected && !seenTools.has(toolName)) {
+        toolsWithAuthBypass.push(toolName);
+        seenTools.add(toolName);
+      }
+
+      // Count failure modes
+      switch (test.authFailureMode) {
+        case "FAIL_OPEN":
+          failOpenCount++;
+          break;
+        case "FAIL_CLOSED":
+          failClosedCount++;
+          break;
+        case "UNKNOWN":
+          unknownCount++;
+          break;
+      }
+    }
+
+    return {
+      toolsWithAuthBypass,
+      failOpenCount,
+      failClosedCount,
+      unknownCount,
+    };
   }
 }

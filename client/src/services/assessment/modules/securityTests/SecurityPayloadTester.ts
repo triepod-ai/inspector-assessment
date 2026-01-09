@@ -491,6 +491,22 @@ export class SecurityPayloadTester {
         combinedSanitization, // Issue #56: Pass sanitization detection result
       );
 
+      // Issue #75: Analyze auth bypass patterns for "Auth Bypass" attack type
+      let authBypassFields: {
+        authBypassDetected?: boolean;
+        authFailureMode?: "FAIL_OPEN" | "FAIL_CLOSED" | "UNKNOWN";
+        authBypassEvidence?: string;
+      } = {};
+      if (attackName === "Auth Bypass") {
+        const authResult =
+          this.responseAnalyzer.analyzeAuthBypassResponse(response);
+        authBypassFields = {
+          authBypassDetected: authResult.detected,
+          authFailureMode: authResult.failureMode,
+          authBypassEvidence: authResult.evidence,
+        };
+      }
+
       return {
         testName: attackName,
         description: payload.description,
@@ -503,6 +519,8 @@ export class SecurityPayloadTester {
         // Issue #56: Include sanitization info for transparency
         sanitizationDetected: combinedSanitization.detected,
         sanitizationLibraries: combinedSanitization.libraries,
+        // Issue #75: Auth bypass detection fields
+        ...authBypassFields,
         ...confidenceResult,
       };
     } catch (error) {
