@@ -48,7 +48,55 @@ export class SecurityPayloadGenerator {
     const targetParamTypes = payload.parameterTypes || [];
     let payloadInjected = false;
 
-    // Check for language-specific code execution parameters first
+    // PRIORITY 1: Handle auth payloads first (Issue #81)
+    // These MUST go to token/auth parameters, not language-detected params
+    if (!payloadInjected && payload.payloadType === "auth") {
+      const authParams = [
+        "token",
+        "auth_token",
+        "authorization",
+        "api_key",
+        "access_token",
+      ];
+      for (const [key, prop] of Object.entries(schema.properties)) {
+        const propSchema = prop as { type?: string };
+        if (propSchema.type === "string") {
+          for (const authParam of authParams) {
+            if (key.toLowerCase().includes(authParam.toLowerCase())) {
+              params[key] = payload.payload;
+              payloadInjected = true;
+              break;
+            }
+          }
+          if (payloadInjected) break;
+        }
+      }
+    }
+
+    // PRIORITY 2: Handle auth_failure payloads (Issue #79)
+    // These MUST go to simulate_failure parameters
+    if (!payloadInjected && payload.payloadType === "auth_failure") {
+      const authFailureParams = [
+        "simulate_failure",
+        "failure_mode",
+        "failure_type",
+      ];
+      for (const [key, prop] of Object.entries(schema.properties)) {
+        const propSchema = prop as { type?: string };
+        if (propSchema.type === "string") {
+          for (const failParam of authFailureParams) {
+            if (key.toLowerCase().includes(failParam.toLowerCase())) {
+              params[key] = payload.payload;
+              payloadInjected = true;
+              break;
+            }
+          }
+          if (payloadInjected) break;
+        }
+      }
+    }
+
+    // PRIORITY 3: Check for language-specific code execution parameters
     for (const [key, prop] of Object.entries(schema.properties)) {
       const propSchema = prop as { type?: string };
       if (propSchema.type !== "string") continue;
@@ -101,29 +149,6 @@ export class SecurityPayloadGenerator {
           params[key] = payload.payload;
           payloadInjected = true;
           break;
-        }
-      }
-    }
-
-    // Special handling for auth_failure payloads (Issue #79)
-    // These target simulate_failure parameters to test fail-open behavior
-    if (!payloadInjected && payload.payloadType === "auth_failure") {
-      const authFailureParams = [
-        "simulate_failure",
-        "failure_mode",
-        "failure_type",
-      ];
-      for (const [key, prop] of Object.entries(schema.properties)) {
-        const propSchema = prop as { type?: string };
-        if (propSchema.type === "string") {
-          for (const failParam of authFailureParams) {
-            if (key.toLowerCase().includes(failParam.toLowerCase())) {
-              params[key] = payload.payload;
-              payloadInjected = true;
-              break;
-            }
-          }
-          if (payloadInjected) break;
         }
       }
     }
