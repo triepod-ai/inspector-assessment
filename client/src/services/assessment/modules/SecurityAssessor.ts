@@ -42,6 +42,7 @@ import {
   type ChainExecutionTestResult,
 } from "./securityTests";
 import { ToolClassifier, ToolCategory } from "../ToolClassifier";
+import { VulnerabilityFoundProgress } from "@/lib/assessment/progressTypes";
 import {
   ClaudeCodeBridge,
   SecurityAnalysisContext,
@@ -481,7 +482,7 @@ export class SecurityAssessor extends BaseAssessor {
     ) => Promise<
       import("@modelcontextprotocol/sdk/types.js").CompatibilityCallToolResult
     >,
-    _onProgress?: import("@/lib/assessment/progressTypes").ProgressCallback,
+    onProgress?: import("@/lib/assessment/progressTypes").ProgressCallback,
   ): Promise<Map<string, ChainExecutionTestResult>> {
     const chainTools = this.chainTester.identifyChainExecutorTools(tools);
     const allResults = new Map<string, ChainExecutionTestResult>();
@@ -501,9 +502,27 @@ export class SecurityAssessor extends BaseAssessor {
         tool,
       );
 
-      // Aggregate results with tool name prefix
+      // Aggregate results with tool name prefix and emit progress events
       for (const [testName, result] of toolResults) {
         allResults.set(`${tool.name}:${testName}`, result);
+
+        // Emit vulnerability_found progress event for vulnerable results
+        if (result.vulnerable && onProgress) {
+          const evidenceText = result.evidence
+            ? `Chain payload: ${result.evidence.chainPayload}`
+            : `Chain exploitation detected: ${result.reason}`;
+          const vulnEvent: VulnerabilityFoundProgress = {
+            type: "vulnerability_found",
+            tool: tool.name,
+            pattern: `chain_exploitation:${testName}`,
+            confidence: "high",
+            evidence: evidenceText,
+            riskLevel: "HIGH",
+            requiresReview: true,
+            payload: result.evidence?.chainPayload,
+          };
+          onProgress(vulnEvent);
+        }
       }
 
       // Log individual tool results

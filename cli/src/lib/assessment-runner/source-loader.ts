@@ -11,6 +11,9 @@ import * as path from "path";
 
 import type { SourceFiles } from "./types.js";
 
+/** Maximum file size (in characters) to include in source code analysis */
+const MAX_SOURCE_FILE_SIZE = 100_000;
+
 /**
  * Load optional files from source code path
  *
@@ -126,7 +129,7 @@ export function loadSourceFiles(sourcePath: string): SourceFiles {
       } else if (sourceExtensions.some((ext) => entry.name.endsWith(ext))) {
         try {
           const content = fs.readFileSync(fullPath, "utf-8");
-          if (content.length < 100000) {
+          if (content.length < MAX_SOURCE_FILE_SIZE) {
             (result.sourceCodeFiles as Map<string, string>).set(
               relativePath,
               content,

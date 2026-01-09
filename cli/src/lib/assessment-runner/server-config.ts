@@ -32,7 +32,14 @@ export function loadServerConfig(
   for (const tryPath of possiblePaths) {
     if (!fs.existsSync(tryPath)) continue;
 
-    const config = JSON.parse(fs.readFileSync(tryPath, "utf-8"));
+    let config;
+    try {
+      config = JSON.parse(fs.readFileSync(tryPath, "utf-8"));
+    } catch (e) {
+      throw new Error(
+        `Invalid JSON in config file: ${tryPath}\n${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
 
     if (config.mcpServers && config.mcpServers[serverName]) {
       const serverConfig = config.mcpServers[serverName];
