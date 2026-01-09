@@ -129,6 +129,74 @@ const FAIL_OPEN_PATTERNS = [
   },
 ];
 
+// ============================================================================
+// Issue #77: Fail-Open Logic Patterns
+// Detects logic flaws where errors/exceptions lead to access being granted
+// These are distinct from env var fallbacks - they're code logic issues
+// ============================================================================
+
+const FAIL_OPEN_LOGIC_PATTERNS = [
+  // Pattern 1: Response contains "bypassed" auth status
+  {
+    pattern: /["']auth_status["']\s*:\s*["']bypass/gi,
+    name: "BYPASS_STATUS_RESPONSE",
+    severity: "HIGH" as AuthConfigSeverity,
+    message: "Response indicates authentication was bypassed",
+  },
+  // Pattern 2: Access granted despite error/failure
+  {
+    pattern: /access.*granted.*despite|despite.*(?:error|fail).*grant/gi,
+    name: "ACCESS_DESPITE_ERROR",
+    severity: "HIGH" as AuthConfigSeverity,
+    message: "Access granted despite authentication error",
+  },
+  // Pattern 3: Fail-open comments/keywords (intentional or documentation)
+  {
+    pattern: /fail[\s_-]?open/gi,
+    name: "FAIL_OPEN_KEYWORD",
+    severity: "HIGH" as AuthConfigSeverity,
+    message: "Fail-open pattern explicitly mentioned in code",
+  },
+  // Pattern 4: Python except block that returns success/grants access
+  {
+    pattern:
+      /except\s*(?:[A-Za-z]*Error|Exception)?[^:]*:[\s\S]{0,50}(?:return\s*(?:True|{[^}]*success|{[^}]*grant)|authenticated\s*=\s*True)/gi,
+    name: "EXCEPT_GRANTS_ACCESS",
+    severity: "HIGH" as AuthConfigSeverity,
+    message: "Exception handler grants access instead of denying",
+  },
+  // Pattern 5: If error then grant pattern
+  {
+    pattern:
+      /if\s+(?:auth_)?error[^:]*:[\s\S]{0,100}(?:return\s*{[^}]*executed|grant|allow|success)/gi,
+    name: "ERROR_GRANTS_ACCESS",
+    severity: "HIGH" as AuthConfigSeverity,
+    message: "Error condition leads to access being granted",
+  },
+  // Pattern 6: CVE reference for auth bypass
+  {
+    pattern:
+      /CVE[-_]?\d{4}[-_]?\d+.*(?:auth|bypass)|(?:auth|bypass).*CVE[-_]?\d{4}[-_]?\d+/gi,
+    name: "CVE_AUTH_BYPASS",
+    severity: "HIGH" as AuthConfigSeverity,
+    message: "CVE reference related to authentication bypass",
+  },
+  // Pattern 7: Vulnerable flag with auth context
+  {
+    pattern: /["']vulnerable["']\s*:\s*(?:true|True)/gi,
+    name: "VULNERABLE_FLAG",
+    severity: "MEDIUM" as AuthConfigSeverity,
+    message: "Code contains vulnerable flag set to true",
+  },
+  // Pattern 8: Authentication bypassed evidence in responses
+  {
+    pattern: /authentication.*bypassed|bypassed.*authentication/gi,
+    name: "AUTH_BYPASSED_EVIDENCE",
+    severity: "HIGH" as AuthConfigSeverity,
+    message: "Evidence of authentication being bypassed",
+  },
+];
+
 // Patterns that indicate dev mode weakening security
 // Warning 2 fix: Added word boundaries and assignment context to reduce false positives
 const DEV_MODE_PATTERNS = [
@@ -706,6 +774,7 @@ export class AuthenticationAssessor extends BaseAssessor {
         totalFindings: 0,
         envDependentAuthCount: 0,
         failOpenPatternCount: 0,
+        failOpenLogicCount: 0,
         devModeWarningCount: 0,
         hardcodedSecretCount: 0,
         findings: [],
@@ -785,6 +854,41 @@ export class AuthenticationAssessor extends BaseAssessor {
               file: filePath,
               lineNumber,
               recommendation: `Ensure authentication fails securely when credentials are missing. Do not use fallback values for auth secrets.`,
+              context: getContext(lineNumber - 1), // Issue #66: Add context
+            });
+          }
+        }
+
+        // 2b. Issue #77: Detect fail-open logic patterns (error handling that grants access)
+        for (const {
+          pattern,
+          name,
+          severity,
+          message,
+        } of FAIL_OPEN_LOGIC_PATTERNS) {
+          // Issue #65: Skip if we've hit the cap for this type
+          if (countByType("FAIL_OPEN_LOGIC") >= MAX_FINDINGS) break;
+
+          // Reset lastIndex for global patterns
+          pattern.lastIndex = 0;
+          let match;
+          while ((match = pattern.exec(content)) !== null) {
+            // Issue #65: Check cap before adding
+            if (countByType("FAIL_OPEN_LOGIC") >= MAX_FINDINGS) break;
+
+            // Find line number
+            const beforeMatch = content.substring(0, match.index);
+            const lineNumber = beforeMatch.split("\n").length;
+            const lineContent = lines[lineNumber - 1]?.trim() || match[0];
+
+            findings.push({
+              type: "FAIL_OPEN_LOGIC",
+              severity,
+              message: `${message} (${name} pattern)`,
+              evidence: lineContent,
+              file: filePath,
+              lineNumber,
+              recommendation: `Fix fail-open logic: authentication errors must deny access, not grant it. Implement fail-closed pattern.`,
               context: getContext(lineNumber - 1), // Issue #66: Add context
             });
           }
@@ -913,6 +1017,9 @@ export class AuthenticationAssessor extends BaseAssessor {
     const failOpenPatternCount = uniqueFindings.filter(
       (f) => f.type === "FAIL_OPEN_PATTERN",
     ).length;
+    const failOpenLogicCount = uniqueFindings.filter(
+      (f) => f.type === "FAIL_OPEN_LOGIC",
+    ).length;
     const devModeWarningCount = uniqueFindings.filter(
       (f) => f.type === "DEV_MODE_WARNING",
     ).length;
@@ -926,6 +1033,7 @@ export class AuthenticationAssessor extends BaseAssessor {
       totalFindings: uniqueFindings.length,
       envDependentAuthCount,
       failOpenPatternCount,
+      failOpenLogicCount,
       devModeWarningCount,
       hardcodedSecretCount,
       findings: uniqueFindings,

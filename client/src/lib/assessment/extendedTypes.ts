@@ -405,7 +405,8 @@ export interface TransportSecurityAnalysis {
 /** Type of authentication configuration finding */
 export type AuthConfigFindingType =
   | "ENV_DEPENDENT_AUTH" // Auth depends on env var that may be missing
-  | "FAIL_OPEN_PATTERN" // Auth bypassed when config missing
+  | "FAIL_OPEN_PATTERN" // Auth bypassed when config missing (env var fallback)
+  | "FAIL_OPEN_LOGIC" // Auth bypassed due to logic flaw (error handling grants access)
   | "DEV_MODE_WARNING" // Dev mode weakens security
   | "HARDCODED_SECRET"; // Secret hardcoded instead of env var
 
@@ -440,6 +441,7 @@ export interface AuthConfigAnalysis {
   /** Findings by type */
   envDependentAuthCount: number;
   failOpenPatternCount: number;
+  failOpenLogicCount: number;
   devModeWarningCount: number;
   hardcodedSecretCount: number;
   /** Detailed findings */
