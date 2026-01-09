@@ -8,6 +8,8 @@ module.exports = {
     "^.+\\.tsx?$": [
       "ts-jest",
       {
+        // File-based tsconfig required for ESM import attributes (`with { type: "json" }`)
+        // Inline tsconfig doesn't properly pass module settings to ts-jest
         tsconfig: "tsconfig.jest.json",
       },
     ],
