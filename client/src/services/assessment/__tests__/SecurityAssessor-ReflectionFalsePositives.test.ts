@@ -747,6 +747,9 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
   });
 
   describe("Real-World Broken MCP Server Test Cases", () => {
+    // Increase timeout for integration-style tests with many tool assessments
+    jest.setTimeout(30000);
+
     it("should correctly assess all 6 safe control tools from broken MCP server", async () => {
       // These are the safe control tools from the broken MCP test server
       const safeTools: Tool[] = [

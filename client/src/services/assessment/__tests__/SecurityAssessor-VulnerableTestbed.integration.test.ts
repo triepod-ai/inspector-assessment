@@ -38,6 +38,9 @@ const describeIntegration =
   process.env.SKIP_INTEGRATION_TESTS === "true" ? describe.skip : describe;
 
 describeIntegration("SecurityAssessor - Vulnerable Testbed Integration", () => {
+  // Increase timeout for integration tests with HTTP calls and many assessments
+  jest.setTimeout(30000);
+
   let assessor: SecurityAssessor;
   let mockContext: AssessmentContext;
   let testbedAvailable = { vulnerable: false, hardened: false };

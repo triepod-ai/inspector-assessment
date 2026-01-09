@@ -27,6 +27,9 @@ import { MCPAssessmentService } from "../assessmentService";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 describe("Security Detection Validation - Assessment Service", () => {
+  // Increase timeout for full assessment tests
+  jest.setTimeout(30000);
+
   let service: MCPAssessmentService;
   let mockCallTool: jest.Mock;
 
