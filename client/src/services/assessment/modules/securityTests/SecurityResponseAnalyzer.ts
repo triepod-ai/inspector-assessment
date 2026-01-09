@@ -1,9 +1,16 @@
 /**
- * Security Response Analyzer
+ * Security Response Analyzer (Facade)
  * Analyzes tool responses for evidence-based vulnerability detection
  *
- * Extracted from SecurityAssessor.ts for maintainability.
- * Handles response analysis, reflection detection, and confidence calculation.
+ * REFACTORED in Issue #53 (v2.0.0): Converted to facade pattern
+ * Delegates to focused classes for maintainability (CC 218 → ~50)
+ *
+ * Extracted classes:
+ * - ErrorClassifier: Error classification and connection error detection
+ * - ExecutionArtifactDetector: Execution evidence detection
+ * - MathAnalyzer: Math computation detection (Calculator Injection)
+ * - SafeResponseDetector: Safe response pattern detection
+ * - ConfidenceScorer: Confidence level calculation
  */
 
 import {
@@ -14,15 +21,16 @@ import { SecurityPayload } from "@/lib/securityPatterns";
 import { ToolClassifier, ToolCategory } from "../../ToolClassifier";
 import type { SanitizationDetectionResult } from "./SanitizationDetector";
 
-/**
- * Result of confidence calculation
- */
-export interface ConfidenceResult {
-  confidence: "high" | "medium" | "low";
-  requiresManualReview: boolean;
-  manualReviewReason?: string;
-  reviewGuidance?: string;
-}
+// Import extracted classes
+import { ErrorClassifier } from "./ErrorClassifier";
+import { ExecutionArtifactDetector } from "./ExecutionArtifactDetector";
+import { MathAnalyzer, MathResultAnalysis } from "./MathAnalyzer";
+import { SafeResponseDetector } from "./SafeResponseDetector";
+import { ConfidenceScorer, ConfidenceResult } from "./ConfidenceScorer";
+
+// Re-export types for backward compatibility
+export type { ConfidenceResult } from "./ConfidenceScorer";
+export type { MathResultAnalysis } from "./MathAnalyzer";
 
 /**
  * Result of response analysis
@@ -30,15 +38,6 @@ export interface ConfidenceResult {
 export interface AnalysisResult {
   isVulnerable: boolean;
   evidence?: string;
-}
-
-/**
- * Result of computed math analysis with confidence level (Issue #58)
- */
-export interface MathResultAnalysis {
-  isComputed: boolean;
-  confidence: "high" | "medium" | "low";
-  reason?: string;
 }
 
 /**
@@ -59,8 +58,30 @@ export type ErrorClassification = "connection" | "server" | "protocol";
 /**
  * Analyzes tool responses for security vulnerabilities
  * Distinguishes between safe reflection and actual execution
+ *
+ * This class serves as a facade, delegating to focused analyzers
+ * while maintaining the same public API for backward compatibility.
  */
 export class SecurityResponseAnalyzer {
+  // Delegate classes
+  private errorClassifier: ErrorClassifier;
+  private executionDetector: ExecutionArtifactDetector;
+  private mathAnalyzer: MathAnalyzer;
+  private safeDetector: SafeResponseDetector;
+  private confidenceScorer: ConfidenceScorer;
+
+  constructor() {
+    this.errorClassifier = new ErrorClassifier();
+    this.executionDetector = new ExecutionArtifactDetector();
+    this.mathAnalyzer = new MathAnalyzer();
+    this.safeDetector = new SafeResponseDetector();
+    this.confidenceScorer = new ConfidenceScorer();
+  }
+
+  // ============================================================================
+  // PUBLIC API - These 8 methods maintain backward compatibility
+  // ============================================================================
+
   /**
    * Analyze response with evidence-based detection
    * CRITICAL: Distinguish between safe reflection and actual execution
@@ -74,7 +95,7 @@ export class SecurityResponseAnalyzer {
     tool: Tool,
   ): AnalysisResult {
     const responseText = this.extractResponseContent(response).toLowerCase();
-    const errorInfo = this.extractErrorInfo(response);
+    const errorInfo = this.errorClassifier.extractErrorInfo(response);
 
     // Check 1: Safe error responses (MCP validation, HTTP errors)
     const errorResult = this.checkSafeErrorResponses(responseText, errorInfo);
@@ -94,6 +115,281 @@ export class SecurityResponseAnalyzer {
   }
 
   /**
+   * Calculate confidence level and manual review requirements
+   */
+  calculateConfidence(
+    tool: Tool,
+    isVulnerable: boolean,
+    evidence: string,
+    responseText: string,
+    payload: SecurityPayload,
+    sanitizationResult?: SanitizationDetectionResult,
+  ): ConfidenceResult {
+    return this.confidenceScorer.calculateConfidence(
+      tool,
+      isVulnerable,
+      evidence,
+      responseText,
+      payload,
+      sanitizationResult,
+    );
+  }
+
+  /**
+   * Analyze response for auth bypass patterns (Issue #75)
+   * Detects fail-open authentication vulnerabilities (CVE-2025-52882)
+   */
+  analyzeAuthBypassResponse(
+    response: CompatibilityCallToolResult,
+  ): AuthBypassResult {
+    const responseText = this.extractResponseContent(response);
+
+    // Fail-open indicators (VULNERABLE - CVE-2025-52882 pattern)
+    const failOpenPatterns = [
+      {
+        pattern: /"auth_type"\s*:\s*"fail-open"/i,
+        evidence: "auth_type: fail-open (CVE-2025-52882)",
+      },
+      {
+        pattern: /"auth_status"\s*:\s*"bypassed"/i,
+        evidence: "auth_status: bypassed",
+      },
+      {
+        pattern: /access.*granted.*despite/i,
+        evidence: "access granted despite failure",
+      },
+      {
+        pattern: /authentication.*skipped/i,
+        evidence: "authentication skipped",
+      },
+      { pattern: /fail[\s-]?open/i, evidence: "fail-open pattern detected" },
+      { pattern: /bypassed.*auth/i, evidence: "auth bypassed" },
+      {
+        pattern: /authentication.*bypassed/i,
+        evidence: "authentication bypassed",
+      },
+      {
+        pattern:
+          /"vulnerable"\s*:\s*true[^}]*(?:"auth_status"|"auth_type"|"auth_error")|(?:"auth_status"|"auth_type"|"auth_error")[^}]*"vulnerable"\s*:\s*true/i,
+        evidence: "vulnerable flag with auth context",
+      },
+      {
+        pattern: /auth.*succeeded.*null/i,
+        evidence: "auth succeeded with null token",
+      },
+      {
+        pattern: /granted.*without.*valid/i,
+        evidence: "granted without valid token",
+      },
+      {
+        pattern: /"action_performed"/i,
+        evidence: "action performed indicator",
+      },
+    ];
+
+    // Fail-closed indicators (SAFE - proper auth handling)
+    const failClosedPatterns = [
+      {
+        pattern: /"auth_type"\s*:\s*"fail-closed"/i,
+        evidence: "auth_type: fail-closed (secure)",
+      },
+      {
+        pattern: /"auth_status"\s*:\s*"denied"/i,
+        evidence: "auth_status: denied",
+      },
+      { pattern: /access.*denied/i, evidence: "access denied" },
+      { pattern: /authentication.*failed/i, evidence: "authentication failed" },
+      {
+        pattern: /fail[\s-]?closed/i,
+        evidence: "fail-closed pattern detected",
+      },
+      { pattern: /"status"\s*:\s*"blocked"/i, evidence: "status: blocked" },
+      { pattern: /invalid.*token/i, evidence: "invalid token rejection" },
+      { pattern: /token.*required/i, evidence: "token required" },
+      { pattern: /unauthorized/i, evidence: "unauthorized response" },
+      { pattern: /"denial_reason"/i, evidence: "denial reason provided" },
+    ];
+
+    // Check for fail-open (vulnerable) patterns first
+    for (const { pattern, evidence } of failOpenPatterns) {
+      if (pattern.test(responseText)) {
+        return { detected: true, failureMode: "FAIL_OPEN", evidence };
+      }
+    }
+
+    // Check for fail-closed (safe) patterns
+    for (const { pattern, evidence } of failClosedPatterns) {
+      if (pattern.test(responseText)) {
+        return { detected: false, failureMode: "FAIL_CLOSED", evidence };
+      }
+    }
+
+    return { detected: false, failureMode: "UNKNOWN" };
+  }
+
+  /**
+   * Check if response indicates connection/server failure
+   */
+  isConnectionError(response: CompatibilityCallToolResult): boolean {
+    return this.errorClassifier.isConnectionError(response);
+  }
+
+  /**
+   * Check if caught exception indicates connection/server failure
+   */
+  isConnectionErrorFromException(error: unknown): boolean {
+    return this.errorClassifier.isConnectionErrorFromException(error);
+  }
+
+  /**
+   * Classify error type for reporting
+   */
+  classifyError(response: CompatibilityCallToolResult): ErrorClassification {
+    return this.errorClassifier.classifyError(response);
+  }
+
+  /**
+   * Classify error type from caught exception
+   */
+  classifyErrorFromException(error: unknown): ErrorClassification {
+    return this.errorClassifier.classifyErrorFromException(error);
+  }
+
+  /**
+   * Extract response content from MCP response
+   */
+  extractResponseContent(response: CompatibilityCallToolResult): string {
+    return this.safeDetector.extractResponseContent(response);
+  }
+
+  // ============================================================================
+  // DELEGATED PUBLIC METHODS - Exposed for external use
+  // ============================================================================
+
+  /**
+   * Check if response is an MCP validation error (safe rejection)
+   */
+  isMCPValidationError(
+    errorInfo: { code?: string | number; message?: string },
+    responseText: string,
+  ): boolean {
+    return this.safeDetector.isMCPValidationError(errorInfo, responseText);
+  }
+
+  /**
+   * Check if response is an HTTP error (Issue #26)
+   */
+  isHttpErrorResponse(responseText: string): boolean {
+    return this.safeDetector.isHttpErrorResponse(responseText);
+  }
+
+  /**
+   * Check if evidence pattern is ambiguous
+   */
+  isValidationPattern(evidencePattern: RegExp): boolean {
+    return this.confidenceScorer.isValidationPattern(evidencePattern);
+  }
+
+  /**
+   * Check if response contains evidence of actual execution
+   */
+  hasExecutionEvidence(responseText: string): boolean {
+    return this.executionDetector.hasExecutionEvidence(responseText);
+  }
+
+  /**
+   * Check if a math expression payload was computed (execution evidence)
+   * @deprecated Use analyzeComputedMathResult instead
+   */
+  isComputedMathResult(payload: string, responseText: string): boolean {
+    return this.mathAnalyzer.isComputedMathResult(payload, responseText);
+  }
+
+  /**
+   * Check if numeric value appears in structured data context
+   */
+  isCoincidentalNumericInStructuredData(
+    result: number,
+    responseText: string,
+  ): boolean {
+    return this.mathAnalyzer.isCoincidentalNumericInStructuredData(
+      result,
+      responseText,
+    );
+  }
+
+  /**
+   * Enhanced computed math result analysis with tool context (Issue #58)
+   */
+  analyzeComputedMathResult(
+    payload: string,
+    responseText: string,
+    tool?: Tool,
+  ): MathResultAnalysis {
+    return this.mathAnalyzer.analyzeComputedMathResult(
+      payload,
+      responseText,
+      tool,
+    );
+  }
+
+  /**
+   * Check if response is just reflection (safe)
+   */
+  isReflectionResponse(responseText: string): boolean {
+    return this.safeDetector.isReflectionResponse(responseText);
+  }
+
+  /**
+   * Detect execution artifacts in response
+   */
+  detectExecutionArtifacts(responseText: string): boolean {
+    return this.executionDetector.detectExecutionArtifacts(responseText);
+  }
+
+  /**
+   * Check if response contains echoed injection payload patterns
+   */
+  containsEchoedInjectionPayload(responseText: string): boolean {
+    return this.executionDetector.containsEchoedInjectionPayload(responseText);
+  }
+
+  /**
+   * Check if tool explicitly rejected input with validation error (SAFE)
+   */
+  isValidationRejection(response: CompatibilityCallToolResult): boolean {
+    return this.safeDetector.isValidationRejection(response);
+  }
+
+  /**
+   * Check if tool is a structured data tool
+   */
+  isStructuredDataTool(toolName: string, toolDescription: string): boolean {
+    return this.confidenceScorer.isStructuredDataTool(
+      toolName,
+      toolDescription,
+    );
+  }
+
+  /**
+   * Check if response is returning search results
+   */
+  isSearchResultResponse(responseText: string): boolean {
+    return this.safeDetector.isSearchResultResponse(responseText);
+  }
+
+  /**
+   * Check if response is from a creation/modification operation
+   */
+  isCreationResponse(responseText: string): boolean {
+    return this.safeDetector.isCreationResponse(responseText);
+  }
+
+  // ============================================================================
+  // PRIVATE HELPER METHODS - Internal logic kept in facade
+  // ============================================================================
+
+  /**
    * Check for safe error responses that indicate proper input rejection
    * Handles: MCP validation errors (-32602), HTTP 4xx/5xx errors
    */
@@ -101,9 +397,8 @@ export class SecurityResponseAnalyzer {
     responseText: string,
     errorInfo: { code?: string | number; message?: string },
   ): AnalysisResult | null {
-    // ✅ STEP 1: Check for MCP validation errors (HIGHEST PRIORITY)
-    // Tools that reject invalid input before processing are SECURE
-    if (this.isMCPValidationError(errorInfo, responseText)) {
+    // MCP validation errors (HIGHEST PRIORITY)
+    if (this.safeDetector.isMCPValidationError(errorInfo, responseText)) {
       const errorCode = errorInfo.code ? ` (${errorInfo.code})` : "";
       return {
         isVulnerable: false,
@@ -111,9 +406,8 @@ export class SecurityResponseAnalyzer {
       };
     }
 
-    // ✅ STEP 1.1: Check for HTTP error responses (Issue #26)
-    // HTTP 4xx/5xx errors indicate tool rejection, not vulnerability
-    if (this.isHttpErrorResponse(responseText)) {
+    // HTTP error responses (Issue #26)
+    if (this.safeDetector.isHttpErrorResponse(responseText)) {
       return {
         isVulnerable: false,
         evidence:
@@ -121,7 +415,7 @@ export class SecurityResponseAnalyzer {
       };
     }
 
-    return null; // Continue to next check
+    return null;
   }
 
   /**
@@ -134,13 +428,13 @@ export class SecurityResponseAnalyzer {
     tool: Tool,
     responseText: string,
   ): AnalysisResult | null {
-    // ✅ STEP 1.5: Classify tool and check for safe categories (prevents false positives)
+    // Classify tool and check for safe categories
     const classifier = new ToolClassifier();
     const classification = classifier.classify(tool.name, tool.description);
 
-    // Check if tool is in a safe category and response matches expected format
+    // Check if tool is in a safe category
     if (classification.categories.includes(ToolCategory.SEARCH_RETRIEVAL)) {
-      if (this.isSearchResultResponse(responseText)) {
+      if (this.safeDetector.isSearchResultResponse(responseText)) {
         return {
           isVulnerable: false,
           evidence: "Search tool returned query results (not code execution)",
@@ -149,7 +443,7 @@ export class SecurityResponseAnalyzer {
     }
 
     if (classification.categories.includes(ToolCategory.CRUD_CREATION)) {
-      if (this.isCreationResponse(responseText)) {
+      if (this.safeDetector.isCreationResponse(responseText)) {
         return {
           isVulnerable: false,
           evidence: "CRUD tool created/modified resource (not code execution)",
@@ -173,25 +467,22 @@ export class SecurityResponseAnalyzer {
       };
     }
 
-    // ✅ STEP 2: Check if response is just reflecting/echoing input (SAFE)
-    const isJustReflection = this.isReflectionResponse(responseText);
-    if (isJustReflection) {
+    // Check if response is just reflecting/echoing input (SAFE)
+    if (this.safeDetector.isReflectionResponse(responseText)) {
       return {
         isVulnerable: false,
         evidence: "Tool safely reflected input without execution",
       };
     }
 
-    // ✅ STEP 1.7: Check for computed math results (Issue #14 fix, enhanced in Issue #58)
-    // Use enhanced analysis with tool context and confidence levels
-    const mathAnalysis = this.analyzeComputedMathResult(
+    // Check for computed math results (Issue #14 fix, enhanced in Issue #58)
+    const mathAnalysis = this.mathAnalyzer.analyzeComputedMathResult(
       payload.payload,
       responseText,
       tool,
     );
 
     // Only flag as vulnerable if HIGH confidence (Issue #58 fix)
-    // Low/medium confidence excluded to prevent false positives on API wrapper tools
     if (mathAnalysis.isComputed && mathAnalysis.confidence === "high") {
       return {
         isVulnerable: true,
@@ -199,15 +490,15 @@ export class SecurityResponseAnalyzer {
       };
     }
 
-    // ✅ STEP 2: Check if tool explicitly rejected the input (SAFE)
-    if (this.isValidationRejection(response)) {
+    // Check if tool explicitly rejected the input (SAFE)
+    if (this.safeDetector.isValidationRejection(response)) {
       return {
         isVulnerable: false,
         evidence: "Tool correctly rejected invalid input with validation error",
       };
     }
 
-    return null; // Continue to next check
+    return null;
   }
 
   /**
@@ -221,7 +512,7 @@ export class SecurityResponseAnalyzer {
   ): AnalysisResult {
     const payloadText = payload.payload.toLowerCase();
 
-    // ✅ STEP 3: Check for expected evidence of execution
+    // Check for expected evidence of execution
     if (payload.evidence && payload.evidence.test(responseText)) {
       const evidenceMatchesInput = payload.evidence.test(payloadText);
       if (evidenceMatchesInput && responseText.includes(payloadText)) {
@@ -232,8 +523,9 @@ export class SecurityResponseAnalyzer {
       }
 
       // For validation-type patterns, require execution evidence
-      if (this.isValidationPattern(payload.evidence)) {
-        const hasExecutionEvidence = this.hasExecutionEvidence(responseText);
+      if (this.confidenceScorer.isValidationPattern(payload.evidence)) {
+        const hasExecutionEvidence =
+          this.executionDetector.hasExecutionEvidence(responseText);
         if (!hasExecutionEvidence) {
           return {
             isVulnerable: false,
@@ -249,1389 +541,31 @@ export class SecurityResponseAnalyzer {
       };
     }
 
-    // ✅ STEP 4: Fall back to existing detection logic
+    // Fall back to injection response analysis
     return this.analyzeInjectionResponse(response, payload.payload);
-  }
-
-  /**
-   * Check if tool explicitly rejected input with validation error (SAFE)
-   */
-  isValidationRejection(response: CompatibilityCallToolResult): boolean {
-    const responseText = this.extractResponseContent(response);
-
-    try {
-      const parsed = JSON.parse(responseText);
-
-      if (
-        parsed.valid === false ||
-        parsed.error === true ||
-        parsed.error === "true" ||
-        (parsed.error && parsed.error !== false) ||
-        parsed.status === "rejected" ||
-        parsed.status === "invalid" ||
-        parsed.status === "failed"
-      ) {
-        return true;
-      }
-
-      if (
-        parsed.errors &&
-        Array.isArray(parsed.errors) &&
-        parsed.errors.length > 0
-      ) {
-        return true;
-      }
-
-      if (parsed.error && typeof parsed.error === "string") {
-        return true;
-      }
-
-      if (typeof parsed.result === "string") {
-        const resultRejectionPatterns = [
-          /validation (failed|error)/i,
-          /rejected/i,
-          /not.*approved/i,
-          /not.*in.*list/i,
-          /invalid.*input/i,
-          /error:.*invalid/i,
-        ];
-        if (resultRejectionPatterns.some((p) => p.test(parsed.result))) {
-          return true;
-        }
-      }
-    } catch {
-      // Not JSON, check text patterns
-    }
-
-    const rejectionPatterns = [
-      /validation failed/i,
-      /rejected/i,
-      /not.*approved/i,
-      /not.*in.*list/i,
-      /invalid.*input/i,
-      /error:.*invalid/i,
-    ];
-
-    return rejectionPatterns.some((pattern) => pattern.test(responseText));
-  }
-
-  /**
-   * Check if response is an MCP validation error (safe rejection)
-   */
-  isMCPValidationError(
-    errorInfo: { code?: string | number; message?: string },
-    responseText: string,
-  ): boolean {
-    if (errorInfo.code === -32602 || errorInfo.code === "-32602") {
-      return true;
-    }
-
-    const validationPatterns = [
-      /parameter validation failed/i,
-      /schema validation (error|failed)/i,
-      /invalid (url|email|format|parameter|input|data)/i,
-      /must be a valid/i,
-      /must have a valid/i,
-      /failed to validate/i,
-      /validation error/i,
-      /does not match (pattern|schema)/i,
-      /not a valid (url|email|number|string)/i,
-      /expected.*but (got|received)/i,
-      /type mismatch/i,
-      /\brequired\b.*\bmissing\b/i,
-      /cannot.*be.*empty/i,
-      /must.*not.*be.*empty/i,
-      /empty.*not.*allowed/i,
-      /\brequired\b/i,
-      /missing.*required/i,
-      /field.*required/i,
-    ];
-
-    return validationPatterns.some((pattern) => pattern.test(responseText));
-  }
-
-  /**
-   * Check if response is an HTTP error (Issue #26)
-   */
-  isHttpErrorResponse(responseText: string): boolean {
-    const httpErrorPattern =
-      /\b(4\d{2}|5\d{2})\b.*?(not found|error|bad request|unauthorized|forbidden|internal server|unavailable|timeout|service)/i;
-    const simpleHttpPattern = /^(4\d{2}|5\d{2})[\s:]/;
-    const notFoundPattern = /not found/i;
-    const isShortNotFound =
-      notFoundPattern.test(responseText) && responseText.length < 100;
-    const jsonStatusPattern = /"status":\s*(4\d{2}|5\d{2})/;
-
-    return (
-      httpErrorPattern.test(responseText) ||
-      simpleHttpPattern.test(responseText) ||
-      isShortNotFound ||
-      jsonStatusPattern.test(responseText)
-    );
-  }
-
-  /**
-   * Check if evidence pattern is ambiguous
-   */
-  isValidationPattern(evidencePattern: RegExp): boolean {
-    const patternStr = evidencePattern.toString().toLowerCase();
-
-    const ambiguousPatterns = [
-      "type.*error",
-      "invalid.*type",
-      "error",
-      "invalid",
-      "failed",
-      "negative.*not.*allowed",
-      "must.*be.*positive",
-      "invalid.*value",
-      "overflow",
-      "out.*of.*range",
-    ];
-
-    return ambiguousPatterns.some((ambiguous) =>
-      patternStr.includes(ambiguous),
-    );
-  }
-
-  /**
-   * Check if response contains evidence of actual execution
-   */
-  hasExecutionEvidence(responseText: string): boolean {
-    const executionIndicators = [
-      /\bexecuted\b/i,
-      /\bprocessed\b/i,
-      /\bran\b.*command/i,
-      /\bcompleted\b/i,
-      /\bcomputed\b/i,
-      /\bcalculated\b/i,
-      /NullPointerException/i,
-      /SegmentationFault/i,
-      /StackOverflow/i,
-      /OutOfMemory/i,
-      /syntax error in executed/i,
-      /error while executing/i,
-      /failed during execution/i,
-      /error in query execution/i,
-      /runtime error/i,
-      /deleted \d+ (rows|files|records)/i,
-      /(file|resource) (opened|accessed|modified|deleted)/i,
-      /query returned \d+ results/i,
-      /modified \d+ records/i,
-      /\d+ rows affected/i,
-      /command output:/i,
-      /execution result:/i,
-    ];
-
-    return executionIndicators.some((pattern) => pattern.test(responseText));
-  }
-
-  /**
-   * Check if a math expression payload was computed (execution evidence)
-   */
-  isComputedMathResult(payload: string, responseText: string): boolean {
-    // Skip HTTP error responses
-    const httpErrorPattern =
-      /\b(4\d{2}|5\d{2})\b.*?(not found|error|bad request|unauthorized|forbidden|internal server|unavailable|timeout)/i;
-    const simpleHttpPattern = /^(4\d{2}|5\d{2})[\s:]/;
-    const notFoundPattern = /not found/i;
-
-    if (
-      httpErrorPattern.test(responseText) ||
-      simpleHttpPattern.test(responseText) ||
-      (notFoundPattern.test(responseText) && responseText.length < 100)
-    ) {
-      return false;
-    }
-
-    const simpleMathPattern =
-      /^\s*(\d+)\s*([+\-*/])\s*(\d+)(?:\s*([+\-*/])\s*(\d+))?\s*$/;
-    const match = payload.match(simpleMathPattern);
-
-    if (!match) {
-      return false;
-    }
-
-    try {
-      const num1 = parseInt(match[1], 10);
-      const op1 = match[2];
-      const num2 = parseInt(match[3], 10);
-      const op2 = match[4];
-      const num3 = match[5] ? parseInt(match[5], 10) : undefined;
-
-      let result: number;
-
-      switch (op1) {
-        case "+":
-          result = num1 + num2;
-          break;
-        case "-":
-          result = num1 - num2;
-          break;
-        case "*":
-          result = num1 * num2;
-          break;
-        case "/":
-          result = Math.floor(num1 / num2);
-          break;
-        default:
-          return false;
-      }
-
-      if (op2 && num3 !== undefined) {
-        switch (op2) {
-          case "+":
-            result = result + num3;
-            break;
-          case "-":
-            result = result - num3;
-            break;
-          case "*":
-            result = result * num3;
-            break;
-          case "/":
-            result = Math.floor(result / num3);
-            break;
-          default:
-            return false;
-        }
-      }
-
-      const resultStr = result.toString();
-      const hasComputedResult = responseText.includes(resultStr);
-      const normalizedPayload = payload.replace(/\s+/g, "");
-      const hasOriginalExpression =
-        responseText.includes(payload) ||
-        responseText.includes(normalizedPayload);
-
-      return hasComputedResult && !hasOriginalExpression;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Check if numeric value appears in structured data context (not as computation result)
-   * Distinguishes {"records": 4} from computed "4" (Issue #58)
-   *
-   * @param result The computed numeric result to check for
-   * @param responseText The response text to analyze
-   * @returns true if the number appears to be coincidental data, not a computed result
-   */
-  isCoincidentalNumericInStructuredData(
-    result: number,
-    responseText: string,
-  ): boolean {
-    // Common data field names that often contain numeric values
-    const dataFieldPatterns = [
-      "count",
-      "total",
-      "records",
-      "page",
-      "limit",
-      "offset",
-      "id",
-      "status",
-      "code",
-      "version",
-      "index",
-      "size",
-      "employees",
-      "items",
-      "results",
-      "entries",
-      "length",
-      "pages",
-      "rows",
-      "columns",
-      "width",
-      "height",
-      "timestamp",
-      "duration",
-      "amount",
-      "price",
-      "quantity",
-    ];
-
-    // Try to parse as JSON
-    try {
-      const parsed = JSON.parse(responseText);
-
-      const checkObject = (obj: unknown, depth = 0): boolean => {
-        if (depth > 5) return false; // Prevent deep recursion
-        if (typeof obj !== "object" || obj === null) return false;
-
-        for (const [key, value] of Object.entries(obj)) {
-          // Check if numeric value matches result and key is a data field
-          if (value === result) {
-            const keyLower = key.toLowerCase();
-            if (
-              dataFieldPatterns.some((pattern) => keyLower.includes(pattern))
-            ) {
-              return true;
-            }
-          }
-          // Recurse into nested objects
-          if (typeof value === "object" && value !== null) {
-            if (checkObject(value, depth + 1)) return true;
-          }
-          // Check arrays
-          if (Array.isArray(value)) {
-            for (const item of value) {
-              if (typeof item === "object" && checkObject(item, depth + 1)) {
-                return true;
-              }
-            }
-          }
-        }
-        return false;
-      };
-
-      return checkObject(parsed);
-    } catch {
-      // Not JSON - check for structured text patterns
-      // e.g., "Records: 4" or "Page 1 of 4" or "Total: 4 items"
-      const structuredPatterns = [
-        new RegExp(
-          `(records|count|total|page|items|results|employees|entries|rows)[:\\s]+${result}\\b`,
-          "i",
-        ),
-        new RegExp(
-          `\\b${result}\\s+(records|items|results|entries|employees|rows)\\b`,
-          "i",
-        ),
-        new RegExp(`page\\s+\\d+\\s+of\\s+${result}\\b`, "i"),
-        new RegExp(`total[:\\s]+${result}\\b`, "i"),
-        new RegExp(`found\\s+${result}\\s+(results|items|entries)`, "i"),
-      ];
-
-      return structuredPatterns.some((pattern) => pattern.test(responseText));
-    }
-  }
-
-  /**
-   * Enhanced computed math result analysis with tool context (Issue #58)
-   *
-   * Returns a confidence level indicating how likely this is a real Calculator Injection:
-   * - high: Strong evidence of computation (should flag as vulnerable)
-   * - medium: Ambiguous (excluded from vulnerability count per user decision)
-   * - low: Likely coincidental data (excluded from vulnerability count)
-   */
-  analyzeComputedMathResult(
-    payload: string,
-    responseText: string,
-    tool?: Tool,
-  ): MathResultAnalysis {
-    // Skip HTTP error responses
-    const httpErrorPattern =
-      /\b(4\d{2}|5\d{2})\b.*?(not found|error|bad request|unauthorized|forbidden|internal server|unavailable|timeout)/i;
-    const simpleHttpPattern = /^(4\d{2}|5\d{2})[\s:]/;
-    const notFoundPattern = /not found/i;
-
-    if (
-      httpErrorPattern.test(responseText) ||
-      simpleHttpPattern.test(responseText) ||
-      (notFoundPattern.test(responseText) && responseText.length < 100)
-    ) {
-      return {
-        isComputed: false,
-        confidence: "high",
-        reason: "HTTP error response",
-      };
-    }
-
-    const simpleMathPattern =
-      /^\s*(\d+)\s*([+\-*/])\s*(\d+)(?:\s*([+\-*/])\s*(\d+))?\s*$/;
-    const match = payload.match(simpleMathPattern);
-
-    if (!match) {
-      return {
-        isComputed: false,
-        confidence: "high",
-        reason: "Not a math expression",
-      };
-    }
-
-    try {
-      const num1 = parseInt(match[1], 10);
-      const op1 = match[2];
-      const num2 = parseInt(match[3], 10);
-      const op2 = match[4];
-      const num3 = match[5] ? parseInt(match[5], 10) : undefined;
-
-      let result: number;
-
-      switch (op1) {
-        case "+":
-          result = num1 + num2;
-          break;
-        case "-":
-          result = num1 - num2;
-          break;
-        case "*":
-          result = num1 * num2;
-          break;
-        case "/":
-          result = Math.floor(num1 / num2);
-          break;
-        default:
-          return {
-            isComputed: false,
-            confidence: "high",
-            reason: "Invalid operator",
-          };
-      }
-
-      if (op2 && num3 !== undefined) {
-        switch (op2) {
-          case "+":
-            result = result + num3;
-            break;
-          case "-":
-            result = result - num3;
-            break;
-          case "*":
-            result = result * num3;
-            break;
-          case "/":
-            result = Math.floor(result / num3);
-            break;
-          default:
-            return {
-              isComputed: false,
-              confidence: "high",
-              reason: "Invalid second operator",
-            };
-        }
-      }
-
-      const resultStr = result.toString();
-      const hasComputedResult = responseText.includes(resultStr);
-      const normalizedPayload = payload.replace(/\s+/g, "");
-      const hasOriginalExpression =
-        responseText.includes(payload) ||
-        responseText.includes(normalizedPayload);
-
-      // Basic detection: result present without original expression
-      const basicDetection = hasComputedResult && !hasOriginalExpression;
-
-      if (!basicDetection) {
-        return {
-          isComputed: false,
-          confidence: "high",
-          reason: "No computed result found",
-        };
-      }
-
-      // Layer 1: Check if numeric appears in structured data context (Issue #58)
-      if (this.isCoincidentalNumericInStructuredData(result, responseText)) {
-        return {
-          isComputed: false,
-          confidence: "low",
-          reason:
-            "Numeric value appears in structured data field (e.g., count, records)",
-        };
-      }
-
-      // Layer 2: Tool classification heuristics (Issue #58)
-      if (tool) {
-        const classifier = new ToolClassifier();
-        const classification = classifier.classify(tool.name, tool.description);
-
-        // Check for read-only/data fetcher categories
-        if (
-          classification.categories.includes(ToolCategory.DATA_FETCHER) ||
-          classification.categories.includes(ToolCategory.API_WRAPPER) ||
-          classification.categories.includes(ToolCategory.SEARCH_RETRIEVAL)
-        ) {
-          return {
-            isComputed: false,
-            confidence: "low",
-            reason: `Tool classified as ${classification.categories[0]} - unlikely to compute math`,
-          };
-        }
-
-        // Check for "get_", "list_", "fetch_" patterns in tool name
-        const readOnlyNamePatterns =
-          /^(get|list|fetch|read|retrieve|show|view)_/i;
-        if (readOnlyNamePatterns.test(tool.name)) {
-          return {
-            isComputed: false,
-            confidence: "low",
-            reason: "Tool name indicates read-only operation",
-          };
-        }
-      }
-
-      // Layer 3: Check for computational language in response
-      const computationalIndicators = [
-        /\bthe\s+answer\s+is\b/i,
-        /\bresult\s*[=:]\s*\d/i,
-        /\bcalculated\s+to\b/i,
-        /\bcomputed\s+as\b/i,
-        /\bevaluates?\s+to\b/i,
-        /\bequals?\s+\d/i,
-        /\bsum\s+is\b/i,
-        /\bproduct\s+is\b/i,
-      ];
-
-      const hasComputationalContext = computationalIndicators.some((p) =>
-        p.test(responseText),
-      );
-
-      if (hasComputationalContext) {
-        return {
-          isComputed: true,
-          confidence: "high",
-          reason: "Response contains computational language",
-        };
-      }
-
-      // Layer 4: Longer responses without computational language are likely data
-      if (responseText.length > 50) {
-        return {
-          isComputed: false,
-          confidence: "medium",
-          reason:
-            "Response lacks computational language, likely coincidental data",
-        };
-      }
-
-      // Short response with just the number - this is suspicious
-      if (responseText.trim() === resultStr) {
-        return {
-          isComputed: true,
-          confidence: "high",
-          reason: "Response is exactly the computed result",
-        };
-      }
-
-      // Default: medium confidence (excluded per user decision)
-      return {
-        isComputed: false,
-        confidence: "medium",
-        reason: "Ambiguous - numeric match without computational context",
-      };
-    } catch {
-      return { isComputed: false, confidence: "high", reason: "Parse error" };
-    }
-  }
-
-  /**
-   * Check if response indicates connection/server failure
-   */
-  isConnectionError(response: CompatibilityCallToolResult): boolean {
-    const text = this.extractResponseContent(response).toLowerCase();
-
-    const unambiguousPatterns = [
-      /MCP error -32001/i,
-      /MCP error -32603/i,
-      /MCP error -32000/i,
-      /MCP error -32700/i,
-      /socket hang up/i,
-      /ECONNREFUSED/i,
-      /ETIMEDOUT/i,
-      /ERR_CONNECTION/i,
-      /fetch failed/i,
-      /connection reset/i,
-      /error POSTing to endpoint/i,
-      /error GETting.*endpoint/i,
-      /service unavailable/i,
-      /gateway timeout/i,
-      /unknown tool:/i,
-      /no such tool/i,
-    ];
-
-    if (unambiguousPatterns.some((pattern) => pattern.test(text))) {
-      return true;
-    }
-
-    const mcpPrefix = /^mcp error -\d+:/i.test(text);
-    if (mcpPrefix) {
-      const contextualPatterns = [
-        /bad request/i,
-        /unauthorized/i,
-        /forbidden/i,
-        /no valid session/i,
-        /session.*expired/i,
-        /internal server error/i,
-        /HTTP [45]\d\d/i,
-      ];
-
-      return contextualPatterns.some((pattern) => pattern.test(text));
-    }
-
-    return false;
-  }
-
-  /**
-   * Check if caught exception indicates connection/server failure
-   */
-  isConnectionErrorFromException(error: unknown): boolean {
-    if (error instanceof Error) {
-      const message = error.message.toLowerCase();
-
-      const unambiguousPatterns = [
-        /MCP error -32001/i,
-        /MCP error -32603/i,
-        /MCP error -32000/i,
-        /MCP error -32700/i,
-        /socket hang up/i,
-        /ECONNREFUSED/i,
-        /ETIMEDOUT/i,
-        /network error/i,
-        /ERR_CONNECTION/i,
-        /fetch failed/i,
-        /connection reset/i,
-        /error POSTing to endpoint/i,
-        /error GETting/i,
-        /service unavailable/i,
-        /gateway timeout/i,
-        /unknown tool:/i,
-        /no such tool/i,
-      ];
-
-      if (unambiguousPatterns.some((pattern) => pattern.test(message))) {
-        return true;
-      }
-
-      const mcpPrefix = /^mcp error -\d+:/i.test(message);
-      if (mcpPrefix) {
-        const contextualPatterns = [
-          /bad request/i,
-          /unauthorized/i,
-          /forbidden/i,
-          /no valid session/i,
-          /session.*expired/i,
-          /internal server error/i,
-          /HTTP [45]\d\d/i,
-        ];
-
-        return contextualPatterns.some((pattern) => pattern.test(message));
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Classify error type for reporting
-   */
-  classifyError(response: CompatibilityCallToolResult): ErrorClassification {
-    const text = this.extractResponseContent(response).toLowerCase();
-
-    if (
-      /socket|ECONNREFUSED|ETIMEDOUT|network|fetch failed|connection reset/i.test(
-        text,
-      )
-    ) {
-      return "connection";
-    }
-
-    if (
-      /-32603|-32000|-32700|internal server error|service unavailable|gateway timeout|HTTP 5\d\d|error POSTing.*endpoint|error GETting.*endpoint|bad request|HTTP 400|unauthorized|forbidden|no valid session|session.*expired/i.test(
-        text,
-      )
-    ) {
-      return "server";
-    }
-
-    if (/-32001/i.test(text)) {
-      return "protocol";
-    }
-
-    return "protocol";
-  }
-
-  /**
-   * Classify error type from caught exception
-   */
-  classifyErrorFromException(error: unknown): ErrorClassification {
-    if (error instanceof Error) {
-      const message = error.message.toLowerCase();
-
-      if (
-        /socket|ECONNREFUSED|ETIMEDOUT|network|fetch failed|connection reset/i.test(
-          message,
-        )
-      ) {
-        return "connection";
-      }
-
-      if (
-        /-32603|-32000|-32700|internal server error|service unavailable|gateway timeout|HTTP 5\d\d|error POSTing|error GETting|bad request|HTTP 400|unauthorized|forbidden|no valid session|session.*expired/i.test(
-          message,
-        )
-      ) {
-        return "server";
-      }
-
-      if (/-32001/i.test(message)) {
-        return "protocol";
-      }
-    }
-    return "protocol";
-  }
-
-  /**
-   * Check if response is just reflection (safe)
-   * Two-layer defense: Match reflection patterns, verify NO execution evidence
-   */
-  isReflectionResponse(responseText: string): boolean {
-    const statusPatterns = [
-      /\d+\s+total\s+(in\s+)?(memory|storage|items|results)/i,
-      /\d+\s+(results|items|records),?\s+\d+\s+total/i,
-      /action\s+executed\s+successfully:/i,
-      /command\s+executed\s+successfully:/i,
-      /"result":\s*"action\s+executed\s+successfully"/i,
-      /result.*action\s+executed\s+successfully/i,
-      /successfully\s+(executed|completed|processed):/i,
-      /successfully\s+(executed|completed|processed)"/i,
-      /action\s+received:/i,
-      /input\s+received:/i,
-      /request\s+received:/i,
-      /"safe"\s*:\s*true[^}]{0,500}("message"|"result"|"status"|"response")/i,
-      /("message"|"result"|"status"|"response")[^}]{0,500}"safe"\s*:\s*true/i,
-      /"vulnerable"\s*:\s*false[^}]{0,500}("safe"|"stored"|"reflected"|"status")/i,
-      /("safe"|"stored"|"reflected"|"status")[^}]{0,500}"vulnerable"\s*:\s*false/i,
-      /"status"\s*:\s*"acknowledged"[^}]{0,500}("message"|"result"|"safe")/i,
-      /("message"|"result"|"safe")[^}]{0,500}"status"\s*:\s*"acknowledged"/i,
-    ];
-
-    const reflectionPatterns = [
-      ...statusPatterns,
-      /stored.*query/i,
-      /saved.*input/i,
-      /received.*parameter/i,
-      /processing.*request/i,
-      /storing.*data/i,
-      /added.*to.*collection/i,
-      /echo:/i,
-      /echoing/i,
-      /repeating/i,
-      /displaying/i,
-      /showing.*input/i,
-      /message.*echoed/i,
-      /safely.*as.*data/i,
-      /query.*stored/i,
-      /input.*saved/i,
-      /parameter.*received/i,
-      /command.*stored/i,
-      /stored.*command/i,
-      /data.*stored/i,
-      /stored.*data/i,
-      /action.*stored/i,
-      /stored.*action/i,
-      /text.*stored/i,
-      /stored.*text/i,
-      /setting.*stored/i,
-      /stored.*setting/i,
-      /instruction.*stored/i,
-      /stored.*instruction/i,
-      /url.*stored/i,
-      /stored.*url/i,
-      /package.*stored/i,
-      /stored.*package/i,
-      /stored.*safely/i,
-      /safely.*stored/i,
-      /without\s+execut/i,
-      /not\s+executed/i,
-      /never\s+executed/i,
-      /stored.*as.*data/i,
-      /treated.*as.*data/i,
-      /stored\s+in\s+(collection|database)/i,
-      /stored.*successfully/i,
-      /saved.*to/i,
-      /recorded\s+in/i,
-      /added\s+to/i,
-      /logged successfully:/i,
-      /queued for processing:/i,
-      /saved (for|successfully)/i,
-      /stored for (admin review|configuration|processing)/i,
-      /processed successfully/i,
-      /validated successfully/i,
-      /parsed successfully/i,
-      /(validation|processing) (passed|completed)/i,
-      /error:.*not (found|in approved list|recognized)/i,
-      /error getting info for ['"].*['"]/i,
-      /invalid .* format.*stored as text/i,
-      /error:.*too (long|short|large)/i,
-      /payload.?rejected/i,
-      /input.?exceeds.?limit/i,
-      /resource.?limit.?enforced/i,
-      /size.?limit/i,
-      /maximum.?length/i,
-      /rate.?limit/i,
-      /request.?throttled/i,
-      /input.?too.?large/i,
-      /exceeds.?maximum.?size/i,
-      /depth.?limit.?exceeded/i,
-      /nesting.?limit/i,
-      /complexity.?limit/i,
-      /serialization.?not.?supported/i,
-      /pickle.?disabled/i,
-      /deserialization.?blocked/i,
-      /unsafe.?format.?rejected/i,
-      /binary.?data.?not.?accepted/i,
-      /data.?stored.?safely/i,
-      /without.?deserialization/i,
-      /no.?pickle/i,
-      /stored.?without.?deserializ/i,
-      /\[ref-[a-f0-9]+\]/i,
-      /stored.*\[ref-/i,
-      /\[sanitized\]/i,
-      /\[redacted\]/i,
-      /\[filtered\]/i,
-      /\[blocked\]/i,
-      /expression.*stored:/i,
-      /input.*sanitized/i,
-      /content.*replaced/i,
-    ];
-
-    const hasReflection = reflectionPatterns.some((pattern) =>
-      pattern.test(responseText),
-    );
-
-    if (hasReflection) {
-      try {
-        const parsed = JSON.parse(responseText);
-        const resultText = String(parsed.result || "");
-        const outputFields = [
-          parsed.stdout,
-          parsed.stderr,
-          parsed.output,
-          parsed.contents,
-          parsed.execution_log,
-          parsed.command_output,
-        ]
-          .filter(Boolean)
-          .join(" ");
-
-        const resultIsStatusOnly = statusPatterns.some((pattern) =>
-          pattern.test(resultText),
-        );
-
-        const hasExecutionInOutput = resultIsStatusOnly
-          ? this.detectExecutionArtifacts(outputFields)
-          : this.detectExecutionArtifacts(resultText) ||
-            this.detectExecutionArtifacts(outputFields);
-
-        if (hasExecutionInOutput) {
-          return false;
-        }
-        return true;
-      } catch {
-        const hasExecution = this.detectExecutionArtifacts(responseText);
-
-        if (hasExecution) {
-          return false;
-        }
-        return true;
-      }
-    }
-
-    try {
-      const parsed = JSON.parse(responseText);
-
-      if (parsed.action === "test" || parsed.action === "placeholder") {
-        const resultText = String(parsed.result || "");
-        if (!this.detectExecutionArtifacts(resultText)) {
-          return true;
-        }
-      }
-
-      if (parsed.status && /(completed|success|ok|done)/.test(parsed.status)) {
-        if (!this.detectExecutionArtifacts(responseText)) {
-          return true;
-        }
-      }
-    } catch {
-      // Not JSON
-    }
-
-    return false;
-  }
-
-  /**
-   * Detect execution artifacts in response
-   */
-  detectExecutionArtifacts(responseText: string): boolean {
-    const containsEchoedPayload =
-      this.containsEchoedInjectionPayload(responseText);
-
-    const executionIndicators = [
-      /[a-z]+:x:\d+:\d+:/i,
-      /uid=\d+\([^)]+\)\s+gid=\d+/i,
-      /[d-][rwx-]{9}\s+\d+\s+[a-z]+/i,
-      /total\s+\d+\s*$/m,
-      /command_executed:\s*[^"\s]/i,
-      /stdout:\s*["']?[^"'\s]/i,
-      /(execution|output)_log:/i,
-      /\/bin\/(bash|sh|zsh|dash)/i,
-      /\b(root|administrator)\s*$/im,
-      /\/root\//i,
-      /PID:\s*\d{3,}/i,
-    ];
-
-    const contextSensitiveIndicators = [
-      /\/etc\/passwd/i,
-      /\/etc\/shadow/i,
-      /file:\/\/\//i,
-    ];
-
-    if (executionIndicators.some((pattern) => pattern.test(responseText))) {
-      return true;
-    }
-
-    if (!containsEchoedPayload) {
-      if (
-        contextSensitiveIndicators.some((pattern) => pattern.test(responseText))
-      ) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * Check if response contains echoed injection payload patterns
-   */
-  containsEchoedInjectionPayload(responseText: string): boolean {
-    const echoedPayloadPatterns = [
-      /<!DOCTYPE\s+\w+\s+\[/i,
-      /<!ENTITY\s+\w+\s+SYSTEM/i,
-      /<!ENTITY\s+%\s*\w+/i,
-      /stored.*http:\/\//i,
-      /saved.*http:\/\//i,
-      /stored.*union\s+select/i,
-      /stored.*drop\s+table/i,
-      /stored\s+query:\s*[<'"]/i,
-      /saved\s+data:\s*[<'"]/i,
-    ];
-
-    return echoedPayloadPatterns.some((pattern) => pattern.test(responseText));
   }
 
   /**
    * Analyze injection response (fallback logic)
    */
-  analyzeInjectionResponse(
+  private analyzeInjectionResponse(
     response: CompatibilityCallToolResult,
     _payload: string,
   ): AnalysisResult {
-    const responseText = this.extractResponseContent(response);
-
-    const executionPatterns = [
-      /executed/i,
-      /command.*ran/i,
-      /result.*is/i,
-      /output.*:/i,
-      /returned.*value/i,
-    ];
-
-    const hasExecution = executionPatterns.some((pattern) =>
-      pattern.test(responseText),
+    const analysis = this.executionDetector.analyzeInjectionResponse(
+      this.extractResponseContent(response),
+      (text: string) => this.safeDetector.isReflectionResponse(text),
     );
 
-    if (hasExecution && !this.isReflectionResponse(responseText)) {
+    if (analysis.isVulnerable) {
       return {
         isVulnerable: true,
-        evidence: "Tool executed instruction: found execution keywords",
+        evidence:
+          analysis.evidence ||
+          "Tool executed instruction: found execution keywords",
       };
     }
 
     return { isVulnerable: false };
-  }
-
-  /**
-   * Calculate confidence level and manual review requirements
-   *
-   * @param tool - The tool being tested
-   * @param isVulnerable - Whether the tool was flagged as vulnerable
-   * @param evidence - Evidence string from vulnerability detection
-   * @param responseText - The response text from the tool
-   * @param payload - The security payload used for testing
-   * @param sanitizationResult - Optional sanitization detection result (Issue #56)
-   * @returns Confidence result with manual review requirements
-   */
-  calculateConfidence(
-    tool: Tool,
-    isVulnerable: boolean,
-    evidence: string,
-    responseText: string,
-    payload: SecurityPayload,
-    sanitizationResult?: SanitizationDetectionResult,
-  ): ConfidenceResult {
-    // Issue #56: If sanitization is detected, reduce confidence for vulnerabilities
-    // This helps reduce false positives on well-protected servers
-    if (isVulnerable && sanitizationResult?.detected) {
-      const adjustment = sanitizationResult.totalConfidenceAdjustment;
-
-      // Strong sanitization evidence (adjustment >= 30) - downgrade to low confidence
-      // This indicates the tool has specific security libraries in place
-      if (adjustment >= 30) {
-        const libraries = sanitizationResult.libraries.join(", ") || "general";
-        return {
-          confidence: "low",
-          requiresManualReview: true,
-          manualReviewReason:
-            `Sanitization detected (${libraries}). ` +
-            `Pattern match may be false positive due to security measures in place.`,
-          reviewGuidance:
-            `Tool uses sanitization libraries. Verify if the detected vulnerability ` +
-            `actually bypasses the sanitization layer. Check: 1) Does the payload execute ` +
-            `after sanitization? 2) Is the sanitization comprehensive for this attack type? ` +
-            `3) Evidence: ${sanitizationResult.evidence.join("; ")}`,
-        };
-      }
-
-      // Moderate sanitization evidence (adjustment >= 15) - downgrade high to medium
-      if (adjustment >= 15) {
-        const patterns =
-          sanitizationResult.libraries.length > 0
-            ? sanitizationResult.libraries.join(", ")
-            : sanitizationResult.genericPatterns.join(", ");
-        return {
-          confidence: "medium",
-          requiresManualReview: true,
-          manualReviewReason: `Sanitization patterns detected (${patterns}). Verify actual vulnerability.`,
-          reviewGuidance:
-            `Tool mentions sanitization in description or shows sanitization in response. ` +
-            `Verify if the detected pattern represents actual code execution or if it's ` +
-            `safely handled. Evidence: ${sanitizationResult.evidence.join("; ")}`,
-        };
-      }
-    }
-
-    const toolDescription = (tool.description || "").toLowerCase();
-    const toolName = tool.name.toLowerCase();
-    const responseLower = responseText.toLowerCase();
-    const payloadLower = payload.payload.toLowerCase();
-
-    // HIGH CONFIDENCE: Clear cases
-    if (
-      !isVulnerable &&
-      (evidence.includes("safely reflected") ||
-        evidence.includes("API wrapper") ||
-        evidence.includes("safe: true"))
-    ) {
-      return {
-        confidence: "high",
-        requiresManualReview: false,
-      };
-    }
-
-    if (
-      isVulnerable &&
-      evidence.includes("executed") &&
-      !this.isStructuredDataTool(toolName, toolDescription)
-    ) {
-      return {
-        confidence: "high",
-        requiresManualReview: false,
-      };
-    }
-
-    // LOW CONFIDENCE: Ambiguous pattern matches in structured data
-    if (isVulnerable) {
-      const isDataTool = this.isStructuredDataTool(toolName, toolDescription);
-
-      const hasStructuredData =
-        /title:|name:|description:|trust score:|id:|snippets:/i.test(
-          responseText,
-        ) ||
-        /^\s*-\s+/m.test(responseText) ||
-        /"[^"]+"\s*:\s*"[^"]+"/g.test(responseText);
-
-      const patternInInput = payload.evidence?.test(payloadLower);
-      const echosInput = responseLower.includes(payloadLower);
-
-      if (isDataTool && (hasStructuredData || echosInput) && patternInInput) {
-        return {
-          confidence: "low",
-          requiresManualReview: true,
-          manualReviewReason:
-            "Pattern matched in structured data response. Tool may be legitimately " +
-            "returning data containing search terms rather than executing malicious code.",
-          reviewGuidance:
-            "Verify: 1) Does the tool actually execute/compute the input? " +
-            "2) Or does it just return pre-existing data that happens to contain the pattern? " +
-            `3) Check if '${payload.evidence}' appears in legitimate tool output vs. execution results.`,
-        };
-      }
-
-      if (
-        payload.evidence &&
-        /\b\d\b/.test(payload.evidence.toString()) &&
-        /\b(score|count|trust|rating|id|version)\b/i.test(responseText)
-      ) {
-        return {
-          confidence: "low",
-          requiresManualReview: true,
-          manualReviewReason:
-            "Numeric pattern found in response with numeric metadata (scores, counts, etc.). " +
-            "May be coincidental data rather than arithmetic execution.",
-          reviewGuidance:
-            "Verify: 1) Did the tool actually compute an arithmetic result? " +
-            "2) Or does the number appear in metadata like trust scores, version numbers, or counts? " +
-            "3) Compare pattern location in response with tool's expected output format.",
-        };
-      }
-
-      if (
-        /admin|role|privilege|elevated/i.test(payload.payload) &&
-        /\b(library|search|documentation|api|wrapper)\b/i.test(toolDescription)
-      ) {
-        return {
-          confidence: "low",
-          requiresManualReview: true,
-          manualReviewReason:
-            "Admin-related keywords found in search/retrieval tool results. " +
-            "Tool may be returning data about admin-related libraries/APIs rather than elevating privileges.",
-          reviewGuidance:
-            "Verify: 1) Did the tool actually change behavior or assume admin role? " +
-            "2) Or did it return search results for admin-related content? " +
-            "3) Test if tool behavior actually changed after this request.",
-        };
-      }
-    }
-
-    // MEDIUM CONFIDENCE: Execution evidence but some ambiguity
-    if (isVulnerable && evidence.includes("executed")) {
-      return {
-        confidence: "medium",
-        requiresManualReview: true,
-        manualReviewReason:
-          "Execution indicators found but context suggests possible ambiguity.",
-        reviewGuidance:
-          "Verify: 1) Review the full response to confirm actual code execution. " +
-          "2) Check if tool's intended function involves execution. " +
-          "3) Test with variations to confirm consistency.",
-      };
-    }
-
-    // Default: HIGH confidence for clear safe cases
-    return {
-      confidence: "high",
-      requiresManualReview: false,
-    };
-  }
-
-  /**
-   * Check if tool is a structured data tool
-   */
-  isStructuredDataTool(toolName: string, toolDescription: string): boolean {
-    const dataToolPatterns = [
-      /search/i,
-      /find/i,
-      /lookup/i,
-      /query/i,
-      /retrieve/i,
-      /fetch/i,
-      /get/i,
-      /list/i,
-      /resolve/i,
-      /discover/i,
-      /browse/i,
-    ];
-
-    const combined = `${toolName} ${toolDescription}`;
-    return dataToolPatterns.some((pattern) => pattern.test(combined));
-  }
-
-  /**
-   * Check if response is returning search results
-   */
-  isSearchResultResponse(responseText: string): boolean {
-    const searchResultPatterns = [
-      /"results"\s*:\s*\[/i,
-      /"type"\s*:\s*"search"/i,
-      /"object"\s*:\s*"list"/i,
-      /\bhighlight\b/i,
-      /search\s+results/i,
-      /found\s+\d+\s+(results?|pages?|items?)/i,
-      /query\s+(returned|matched)/i,
-      /\d+\s+(results?|matches?|hits?)\s+for/i,
-      /"has_more"\s*:/i,
-      /next_cursor/i,
-    ];
-
-    return searchResultPatterns.some((pattern) => pattern.test(responseText));
-  }
-
-  /**
-   * Analyze response for auth bypass patterns (Issue #75)
-   * Detects fail-open authentication vulnerabilities (CVE-2025-52882)
-   *
-   * @param response The tool response to analyze
-   * @returns AuthBypassResult with detection status and failure mode classification
-   */
-  analyzeAuthBypassResponse(
-    response: CompatibilityCallToolResult,
-  ): AuthBypassResult {
-    const responseText = this.extractResponseContent(response);
-
-    // Fail-open indicators (VULNERABLE - CVE-2025-52882 pattern)
-    const failOpenPatterns = [
-      // Most specific - testbed auth_type pattern (Issue #79)
-      {
-        pattern: /"auth_type"\s*:\s*"fail-open"/i,
-        evidence: "auth_type: fail-open (CVE-2025-52882)",
-      },
-      {
-        pattern: /"auth_status"\s*:\s*"bypassed"/i,
-        evidence: "auth_status: bypassed",
-      },
-      {
-        pattern: /access.*granted.*despite/i,
-        evidence: "access granted despite failure",
-      },
-      {
-        pattern: /authentication.*skipped/i,
-        evidence: "authentication skipped",
-      },
-      { pattern: /fail[\s-]?open/i, evidence: "fail-open pattern detected" },
-      { pattern: /bypassed.*auth/i, evidence: "auth bypassed" },
-      {
-        pattern: /authentication.*bypassed/i,
-        evidence: "authentication bypassed",
-      },
-      // Issue #79: Only detect "vulnerable": true when combined with auth context
-      // Prevents false positives on data leak tools that have secure fail-closed auth
-      {
-        pattern:
-          /"vulnerable"\s*:\s*true[^}]*(?:"auth_status"|"auth_type"|"auth_error")|(?:"auth_status"|"auth_type"|"auth_error")[^}]*"vulnerable"\s*:\s*true/i,
-        evidence: "vulnerable flag with auth context",
-      },
-      {
-        pattern: /auth.*succeeded.*null/i,
-        evidence: "auth succeeded with null token",
-      },
-      {
-        pattern: /granted.*without.*valid/i,
-        evidence: "granted without valid token",
-      },
-      {
-        pattern: /"action_performed"/i,
-        evidence: "action performed indicator",
-      },
-    ];
-
-    // Fail-closed indicators (SAFE - proper auth handling)
-    const failClosedPatterns = [
-      // Most specific - testbed auth_type pattern (Issue #79)
-      {
-        pattern: /"auth_type"\s*:\s*"fail-closed"/i,
-        evidence: "auth_type: fail-closed (secure)",
-      },
-      {
-        pattern: /"auth_status"\s*:\s*"denied"/i,
-        evidence: "auth_status: denied",
-      },
-      { pattern: /access.*denied/i, evidence: "access denied" },
-      { pattern: /authentication.*failed/i, evidence: "authentication failed" },
-      {
-        pattern: /fail[\s-]?closed/i,
-        evidence: "fail-closed pattern detected",
-      },
-      { pattern: /"status"\s*:\s*"blocked"/i, evidence: "status: blocked" },
-      {
-        pattern: /invalid.*token/i,
-        evidence: "invalid token rejection",
-      },
-      {
-        pattern: /token.*required/i,
-        evidence: "token required",
-      },
-      {
-        pattern: /unauthorized/i,
-        evidence: "unauthorized response",
-      },
-      {
-        pattern: /"denial_reason"/i,
-        evidence: "denial reason provided",
-      },
-    ];
-
-    // Check for fail-open (vulnerable) patterns first
-    for (const { pattern, evidence } of failOpenPatterns) {
-      if (pattern.test(responseText)) {
-        return { detected: true, failureMode: "FAIL_OPEN", evidence };
-      }
-    }
-
-    // Check for fail-closed (safe) patterns
-    for (const { pattern, evidence } of failClosedPatterns) {
-      if (pattern.test(responseText)) {
-        return { detected: false, failureMode: "FAIL_CLOSED", evidence };
-      }
-    }
-
-    return { detected: false, failureMode: "UNKNOWN" };
-  }
-
-  /**
-   * Check if response is from a creation/modification operation
-   */
-  isCreationResponse(responseText: string): boolean {
-    const creationPatterns = [
-      /successfully\s+created/i,
-      /database\s+created/i,
-      /page\s+created/i,
-      /resource\s+created/i,
-      /\bcreate\s+table\b/i,
-      /\binsert\s+into\b/i,
-      /"id"\s*:\s*"[a-f0-9-]{36}"/i,
-      /"object"\s*:\s*"(page|database)"/i,
-      /collection:\/\//i,
-      /successfully\s+(added|inserted|updated|modified)/i,
-      /resource\s+id:\s*[a-f0-9-]/i,
-      /"created_time"/i,
-      /"last_edited_time"/i,
-    ];
-
-    return creationPatterns.some((pattern) => pattern.test(responseText));
-  }
-
-  /**
-   * Extract response content
-   */
-  extractResponseContent(response: CompatibilityCallToolResult): string {
-    if (response.content && Array.isArray(response.content)) {
-      return response.content
-        .map((c: { type: string; text?: string }) =>
-          c.type === "text" ? c.text : "",
-        )
-        .join(" ");
-    }
-    return String(response.content || "");
-  }
-
-  /**
-   * Extract error info from response
-   */
-  private extractErrorInfo(response: CompatibilityCallToolResult): {
-    code?: string | number;
-    message?: string;
-  } {
-    const content = this.extractResponseContent(response);
-
-    try {
-      const parsed = JSON.parse(content);
-      if (parsed.error) {
-        return {
-          code: parsed.error.code || parsed.code,
-          message: parsed.error.message || parsed.message,
-        };
-      }
-      return { code: parsed.code, message: parsed.message };
-    } catch {
-      // Check for MCP error format in text
-      const mcpMatch = content.match(/MCP error (-?\d+):\s*(.*)/i);
-      if (mcpMatch) {
-        return { code: parseInt(mcpMatch[1]), message: mcpMatch[2] };
-      }
-      return {};
-    }
   }
 }
