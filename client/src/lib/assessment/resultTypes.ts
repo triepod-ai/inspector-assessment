@@ -494,6 +494,62 @@ export interface ProtocolCheckResult {
   rawResponse?: unknown;
 }
 
+// ============================================================================
+// Output Schema Coverage Types (Issue #64)
+// ============================================================================
+
+/**
+ * Coverage metrics for outputSchema presence across tools.
+ * Tracks how many tools define outputSchema for client-side response validation.
+ */
+export interface OutputSchemaCoverage {
+  /** Total number of tools analyzed */
+  totalTools: number;
+  /** Number of tools with outputSchema defined */
+  withOutputSchema: number;
+  /** Number of tools without outputSchema */
+  withoutOutputSchema: number;
+  /** Coverage percentage (0-100) */
+  coveragePercent: number;
+  /** List of tool names that are missing outputSchema */
+  toolsWithoutSchema: string[];
+  /** Status: PASS if 100% coverage, INFO otherwise */
+  status: "PASS" | "INFO";
+  /** Recommendation for improving coverage (present when < 100%) */
+  recommendation?: string;
+}
+
+/**
+ * Per-tool outputSchema analysis result.
+ * Provides detailed information about each tool's outputSchema status.
+ */
+export interface ToolOutputSchemaResult {
+  /** Tool name */
+  toolName: string;
+  /** Whether the tool has outputSchema defined */
+  hasOutputSchema: boolean;
+  /** The actual outputSchema if present */
+  outputSchema?: Record<string, unknown>;
+  /** Validation result if outputSchema was validated against response */
+  validationResult?: {
+    /** Whether the response matched the outputSchema */
+    isValid: boolean;
+    /** Validation error message if invalid */
+    error?: string;
+  };
+}
+
+/**
+ * Extended protocol check result that includes outputSchema coverage.
+ * Used specifically for structuredOutputSupport checks.
+ */
+export interface StructuredOutputCheckResult extends ProtocolCheckResult {
+  /** Detailed coverage metrics for outputSchema */
+  coverage?: OutputSchemaCoverage;
+  /** Per-tool outputSchema analysis results */
+  toolResults?: ToolOutputSchemaResult[];
+}
+
 /**
  * Protocol checks that are actually tested via MCP calls
  * HIGH CONFIDENCE - these are verified through actual protocol interaction
@@ -503,7 +559,8 @@ export interface ProtocolChecks {
   serverInfoValidity: ProtocolCheckResult;
   schemaCompliance: ProtocolCheckResult; // May have false positives from Zod/TypeBox
   errorResponseCompliance: ProtocolCheckResult;
-  structuredOutputSupport: ProtocolCheckResult;
+  /** Structured output support check with detailed coverage metrics (Issue #64) */
+  structuredOutputSupport: StructuredOutputCheckResult;
   capabilitiesCompliance?: ProtocolCheckResult; // Validates declared capabilities match actual behavior
 }
 

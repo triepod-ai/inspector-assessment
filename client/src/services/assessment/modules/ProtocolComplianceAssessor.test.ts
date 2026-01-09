@@ -427,4 +427,182 @@ describe("ProtocolComplianceAssessor", () => {
       expect(["PASS", "NEED_MORE_INFO"]).toContain(result.status);
     });
   });
+
+  // ==========================================================================
+  // Section 4: Output Schema Coverage Tests (Issue #64)
+  // ==========================================================================
+
+  describe("outputSchema coverage tracking (Issue #64)", () => {
+    it("should report 0% coverage when no tools have outputSchema", async () => {
+      mockContext.serverInfo = { name: "test-server", version: "1.0.0" };
+      mockContext.tools = [
+        createTool("tool_a"),
+        createTool("tool_b"),
+        createTool("tool_c"),
+      ];
+      mockContext.callTool = jest.fn().mockResolvedValue({
+        content: [{ type: "text", text: "Success" }],
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      const coverage = result.protocolChecks.structuredOutputSupport.coverage;
+      expect(coverage).toBeDefined();
+      expect(coverage?.totalTools).toBe(3);
+      expect(coverage?.withOutputSchema).toBe(0);
+      expect(coverage?.withoutOutputSchema).toBe(3);
+      expect(coverage?.coveragePercent).toBe(0);
+      expect(coverage?.toolsWithoutSchema).toEqual([
+        "tool_a",
+        "tool_b",
+        "tool_c",
+      ]);
+      expect(coverage?.status).toBe("INFO");
+      expect(coverage?.recommendation).toBeDefined();
+    });
+
+    it("should report 100% coverage when all tools have outputSchema", async () => {
+      mockContext.serverInfo = { name: "test-server", version: "1.0.0" };
+      mockContext.tools = [
+        {
+          name: "tool_a",
+          description: "Tool A",
+          inputSchema: { type: "object" },
+          outputSchema: {
+            type: "object",
+            properties: { result: { type: "string" } },
+          },
+        },
+        {
+          name: "tool_b",
+          description: "Tool B",
+          inputSchema: { type: "object" },
+          outputSchema: {
+            type: "object",
+            properties: { data: { type: "number" } },
+          },
+        },
+      ];
+      mockContext.callTool = jest.fn().mockResolvedValue({
+        content: [{ type: "text", text: "Success" }],
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      const coverage = result.protocolChecks.structuredOutputSupport.coverage;
+      expect(coverage).toBeDefined();
+      expect(coverage?.totalTools).toBe(2);
+      expect(coverage?.withOutputSchema).toBe(2);
+      expect(coverage?.withoutOutputSchema).toBe(0);
+      expect(coverage?.coveragePercent).toBe(100);
+      expect(coverage?.toolsWithoutSchema).toEqual([]);
+      expect(coverage?.status).toBe("PASS");
+      expect(coverage?.recommendation).toBeUndefined();
+    });
+
+    it("should report partial coverage with mixed tools", async () => {
+      mockContext.serverInfo = { name: "test-server", version: "1.0.0" };
+      mockContext.tools = [
+        {
+          name: "tool_with_schema",
+          description: "With",
+          inputSchema: { type: "object" },
+          outputSchema: { type: "object" },
+        },
+        createTool("tool_without_schema_1"),
+        createTool("tool_without_schema_2"),
+      ];
+      mockContext.callTool = jest.fn().mockResolvedValue({
+        content: [{ type: "text", text: "Success" }],
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      const coverage = result.protocolChecks.structuredOutputSupport.coverage;
+      expect(coverage).toBeDefined();
+      expect(coverage?.totalTools).toBe(3);
+      expect(coverage?.withOutputSchema).toBe(1);
+      expect(coverage?.withoutOutputSchema).toBe(2);
+      expect(coverage?.coveragePercent).toBe(33); // 1/3 = 33%
+      expect(coverage?.toolsWithoutSchema).toEqual([
+        "tool_without_schema_1",
+        "tool_without_schema_2",
+      ]);
+      expect(coverage?.status).toBe("INFO");
+    });
+
+    it("should include per-tool results", async () => {
+      mockContext.serverInfo = { name: "test-server", version: "1.0.0" };
+      mockContext.tools = [
+        {
+          name: "tool_a",
+          description: "A",
+          inputSchema: { type: "object" },
+          outputSchema: {
+            type: "object",
+            properties: { foo: { type: "string" } },
+          },
+        },
+        createTool("tool_b"),
+      ];
+      mockContext.callTool = jest.fn().mockResolvedValue({
+        content: [{ type: "text", text: "Success" }],
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      const toolResults =
+        result.protocolChecks.structuredOutputSupport.toolResults;
+      expect(toolResults).toBeDefined();
+      expect(toolResults?.length).toBe(2);
+
+      // Check tool_a (has outputSchema)
+      const toolAResult = toolResults?.find((t) => t.toolName === "tool_a");
+      expect(toolAResult?.hasOutputSchema).toBe(true);
+      expect(toolAResult?.outputSchema).toEqual({
+        type: "object",
+        properties: { foo: { type: "string" } },
+      });
+
+      // Check tool_b (no outputSchema)
+      const toolBResult = toolResults?.find((t) => t.toolName === "tool_b");
+      expect(toolBResult?.hasOutputSchema).toBe(false);
+      expect(toolBResult?.outputSchema).toBeUndefined();
+    });
+
+    it("should set passed=true when at least one tool has outputSchema", async () => {
+      mockContext.serverInfo = { name: "test-server", version: "1.0.0" };
+      mockContext.tools = [
+        {
+          name: "tool_with",
+          description: "With schema",
+          inputSchema: { type: "object" },
+          outputSchema: {
+            type: "object",
+            properties: { value: { type: "string" } },
+          },
+        },
+        createTool("tool_without"),
+      ];
+      mockContext.callTool = jest.fn().mockResolvedValue({
+        content: [{ type: "text", text: "Success" }],
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.protocolChecks.structuredOutputSupport.passed).toBe(true);
+    });
+
+    it("should set passed=false when no tools have outputSchema", async () => {
+      mockContext.serverInfo = { name: "test-server", version: "1.0.0" };
+      mockContext.tools = [createTool("tool_1"), createTool("tool_2")];
+      mockContext.callTool = jest.fn().mockResolvedValue({
+        content: [{ type: "text", text: "Success" }],
+      });
+
+      const result = await assessor.assess(mockContext);
+
+      expect(result.protocolChecks.structuredOutputSupport.passed).toBe(false);
+    });
+  });
 });

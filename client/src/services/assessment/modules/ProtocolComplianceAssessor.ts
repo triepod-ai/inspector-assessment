@@ -26,6 +26,8 @@ import {
   AssessmentConfiguration,
   ProtocolChecks,
   MetadataHints,
+  OutputSchemaCoverage,
+  ToolOutputSchemaResult,
 } from "@/lib/assessmentTypes";
 import type { ProtocolCheck } from "@/lib/assessment/extendedTypes";
 import {
@@ -134,16 +136,22 @@ export class ProtocolComplianceAssessor extends BaseAssessor<ProtocolComplianceA
         evidence: "Tested error handling with invalid parameters",
         rawResponse: errorCheck.rawResponse,
       },
-      structuredOutputSupport: {
-        passed: this.checkStructuredOutputSupport(tools),
-        confidence: "high",
-        evidence: `${tools.filter((t) => t.outputSchema).length}/${tools.length} tools have outputSchema`,
-        rawResponse: tools.map((t) => ({
-          name: t.name,
-          hasOutputSchema: !!t.outputSchema,
-          outputSchema: t.outputSchema,
-        })),
-      },
+      structuredOutputSupport: (() => {
+        const { coverage, toolResults } =
+          this.analyzeOutputSchemaCoverage(tools);
+        return {
+          passed: coverage.withOutputSchema > 0,
+          confidence: "high" as const,
+          evidence: `${coverage.withOutputSchema}/${coverage.totalTools} tools have outputSchema (${coverage.coveragePercent}%)`,
+          coverage, // Issue #64: Detailed coverage metrics
+          toolResults, // Issue #64: Per-tool analysis
+          rawResponse: tools.map((t) => ({
+            name: t.name,
+            hasOutputSchema: !!t.outputSchema,
+            outputSchema: t.outputSchema,
+          })),
+        };
+      })(),
       capabilitiesCompliance: {
         passed: capabilitiesCheck.passed,
         confidence: capabilitiesCheck.confidence as "high" | "medium" | "low",
@@ -381,18 +389,66 @@ export class ProtocolComplianceAssessor extends BaseAssessor<ProtocolComplianceA
   }
 
   /**
+   * Analyze outputSchema coverage across all tools (Issue #64)
+   * Returns detailed coverage metrics instead of just a boolean
+   */
+  private analyzeOutputSchemaCoverage(tools: Tool[]): {
+    coverage: OutputSchemaCoverage;
+    toolResults: ToolOutputSchemaResult[];
+  } {
+    const toolResults: ToolOutputSchemaResult[] = [];
+    const toolsWithoutSchema: string[] = [];
+    let withOutputSchema = 0;
+    let withoutOutputSchema = 0;
+
+    for (const tool of tools) {
+      const hasOutputSchema = !!tool.outputSchema;
+
+      if (hasOutputSchema) {
+        withOutputSchema++;
+      } else {
+        withoutOutputSchema++;
+        toolsWithoutSchema.push(tool.name);
+      }
+
+      toolResults.push({
+        toolName: tool.name,
+        hasOutputSchema,
+        outputSchema: tool.outputSchema as Record<string, unknown> | undefined,
+      });
+    }
+
+    const totalTools = tools.length;
+    const coveragePercent =
+      totalTools > 0 ? Math.round((withOutputSchema / totalTools) * 100) : 0;
+
+    this.log(
+      `Structured output support: ${withOutputSchema}/${totalTools} tools (${coveragePercent}%)`,
+    );
+
+    const coverage: OutputSchemaCoverage = {
+      totalTools,
+      withOutputSchema,
+      withoutOutputSchema,
+      coveragePercent,
+      toolsWithoutSchema,
+      status: coveragePercent === 100 ? "PASS" : "INFO",
+      recommendation:
+        coveragePercent < 100
+          ? "Add outputSchema to tools for client-side response validation"
+          : undefined,
+    };
+
+    return { coverage, toolResults };
+  }
+
+  /**
    * Check structured output support (2025-06-18 feature)
+   * @deprecated Use analyzeOutputSchemaCoverage for detailed metrics
    */
   private checkStructuredOutputSupport(tools: Tool[]): boolean {
-    const toolsWithOutputSchema = tools.filter(
-      (tool) => tool.outputSchema,
-    ).length;
-    const percentage =
-      tools.length > 0 ? (toolsWithOutputSchema / tools.length) * 100 : 0;
-    this.log(
-      `Structured output support: ${toolsWithOutputSchema}/${tools.length} tools (${percentage.toFixed(1)}%)`,
-    );
-    return toolsWithOutputSchema > 0;
+    const { coverage } = this.analyzeOutputSchemaCoverage(tools);
+    return coverage.withOutputSchema > 0;
   }
 
   /**
