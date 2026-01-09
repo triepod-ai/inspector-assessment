@@ -8,7 +8,6 @@
 
 import { CompatibilityCallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
-  HTTP_ERROR_PATTERNS,
   VALIDATION_ERROR_PATTERNS,
   STATUS_PATTERNS,
   REFLECTION_PATTERNS,

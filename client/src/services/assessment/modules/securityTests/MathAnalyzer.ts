@@ -9,7 +9,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { ToolClassifier, ToolCategory } from "../../ToolClassifier";
 import {
-  HTTP_ERROR_PATTERNS,
   SIMPLE_MATH_PATTERN,
   COMPUTATIONAL_INDICATORS,
   STRUCTURED_DATA_FIELD_NAMES,
