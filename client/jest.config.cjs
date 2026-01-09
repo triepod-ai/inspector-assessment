@@ -8,14 +8,7 @@ module.exports = {
     "^.+\\.tsx?$": [
       "ts-jest",
       {
-        tsconfig: {
-          module: "NodeNext",
-          moduleResolution: "NodeNext",
-          jsx: "react-jsx",
-          esModuleInterop: true,
-          allowSyntheticDefaultImports: true,
-          resolveJsonModule: true,
-        },
+        tsconfig: "tsconfig.jest.json",
       },
     ],
   },
