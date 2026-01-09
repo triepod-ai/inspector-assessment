@@ -397,6 +397,49 @@ export interface TransportSecurityAnalysis {
   recommendations: string[];
 }
 
+// ============================================================================
+// Authentication Configuration Types (Issue #62)
+// Detects env-dependent auth, fail-open patterns, and dev mode warnings
+// ============================================================================
+
+/** Type of authentication configuration finding */
+export type AuthConfigFindingType =
+  | "ENV_DEPENDENT_AUTH" // Auth depends on env var that may be missing
+  | "FAIL_OPEN_PATTERN" // Auth bypassed when config missing
+  | "DEV_MODE_WARNING" // Dev mode weakens security
+  | "HARDCODED_SECRET"; // Secret hardcoded instead of env var
+
+/** Severity of auth configuration finding */
+export type AuthConfigSeverity = "HIGH" | "MEDIUM" | "LOW";
+
+/** Single auth configuration finding */
+export interface AuthConfigFinding {
+  type: AuthConfigFindingType;
+  severity: AuthConfigSeverity;
+  message: string;
+  evidence: string;
+  file?: string;
+  lineNumber?: number;
+  recommendation?: string;
+}
+
+/** Auth configuration analysis results */
+export interface AuthConfigAnalysis {
+  /** Total findings detected */
+  totalFindings: number;
+  /** Findings by type */
+  envDependentAuthCount: number;
+  failOpenPatternCount: number;
+  devModeWarningCount: number;
+  hardcodedSecretCount: number;
+  /** Detailed findings */
+  findings: AuthConfigFinding[];
+  /** Has any HIGH severity findings */
+  hasHighSeverity: boolean;
+  /** Environment variables detected for auth */
+  envVarsDetected: string[];
+}
+
 export interface AuthenticationAssessment {
   authMethod: AuthMethod;
   hasLocalDependencies: boolean;
@@ -409,6 +452,8 @@ export interface AuthenticationAssessment {
     apiKeyIndicators: string[];
   };
   transportSecurity?: TransportSecurityAnalysis;
+  /** Issue #62: Auth configuration analysis for env-dependent auth and fail-open patterns */
+  authConfigAnalysis?: AuthConfigAnalysis;
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
