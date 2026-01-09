@@ -354,3 +354,105 @@
 - Code quality baseline established for future development
 
 ---
+
+## 2026-01-08: Claude HTTP Transport CLI Feature - Code Review and Merge
+
+**Summary:** Code reviewed and merged feat/claude-http-transport feature branch with type safety and validation fixes.
+
+**Session Focus:** Code review and fixes for Claude HTTP transport CLI feature
+
+**Changes Made:**
+- `client/src/lib/assessment/configTypes.ts` - Added HttpTransportConfig interface and transport/httpConfig fields to ClaudeCodeConfig
+- `cli/src/assess-full.ts` - Added URL validation for --mcp-auditor-url, unified INSPECTOR_CLAUDE env var behavior, added Environment Variables help section
+
+**Key Decisions:**
+- Extended ClaudeCodeConfig type rather than creating separate type to maintain single source of truth
+- Made INSPECTOR_CLAUDE=true enable both Claude and HTTP transport (matching run-security-assessment.ts behavior)
+- Added URL validation using URL constructor for early error detection
+
+**Commits:**
+- `bd82de4` - fix(types): add HTTP transport fields to ClaudeCodeConfig interface
+- `039b136` - fix(cli): add URL validation for --mcp-auditor-url flag
+- `0e7e5dc` - fix(cli): unify INSPECTOR_CLAUDE env var behavior with run-security-assessment
+
+**Next Steps:**
+- Consider adding health check before assessment (nice-to-have suggestion from review)
+- Consider HTTPS warning for non-localhost URLs (nice-to-have)
+- Push changes to origin
+
+**Notes:**
+- Used code-reviewer-pro agent for comprehensive review - identified 1 critical, 3 warnings, 4 suggestions
+- All critical and warning issues resolved before merge
+- Feature branch merged to main via fast-forward
+
+---
+
+## 2026-01-08: Issue #64 - outputSchema Coverage Tracking Implementation
+
+**Summary:** Implemented Issue #64 adding outputSchema coverage tracking to both MCPSpecComplianceAssessor and ProtocolComplianceAssessor modules.
+
+**Session Focus:** Issue #64 - outputSchema coverage tracking implementation
+
+**Changes Made:**
+- `client/src/lib/assessment/resultTypes.ts` - Added OutputSchemaCoverage, ToolOutputSchemaResult, StructuredOutputCheckResult interfaces
+- `client/src/services/assessment/modules/MCPSpecComplianceAssessor.ts` - Added analyzeOutputSchemaCoverage() method
+- `client/src/services/assessment/modules/ProtocolComplianceAssessor.ts` - Added analyzeOutputSchemaCoverage() method
+- `client/src/services/assessment/modules/MCPSpecComplianceAssessor.test.ts` - Added 6 coverage tracking tests
+- `client/src/services/assessment/modules/ProtocolComplianceAssessor.test.ts` - Added 6 coverage tracking tests
+
+**Key Decisions:**
+- Updated BOTH assessors per user request (even though MCPSpecComplianceAssessor is deprecated)
+- Used IIFE pattern in assess() method for clean coverage data integration
+- Set status to "PASS" for 100% coverage, "INFO" for <100%
+
+**Commits:**
+- `2a5749e` - feat(assessment): add outputSchema coverage tracking (Issue #64)
+
+**Testing Results:**
+- All 46 assessor tests passing
+- 12 new tests added (6 per assessor)
+
+**Next Steps:**
+- Issues #62 and #63 remain open (skipped this session)
+- Consider publishing new npm package version with coverage tracking
+
+**Notes:**
+- TypeScript fix required: MCP SDK outputSchema must have type: "object"
+- Coverage tracking reports percentage of tools with outputSchema defined
+- Both assessors now include outputSchemaCoverage in their assessment results
+
+---
+
+## 2026-01-08: CLI Test Coverage Expansion - Flag Parsing and HTTP Transport Integration
+
+**Summary:** Added 107 new tests for CLI flag parsing and HTTP transport integration with SSE response handling.
+
+**Session Focus:** Test coverage expansion for CLI argument parsing and HTTP transport functionality.
+
+**Changes Made:**
+- Created `cli/src/__tests__/flag-parsing.test.ts` (765 lines, 74 tests) - Unit tests for key-value parsing, header parsing, URL validation (SSRF protection), command validation (injection prevention), env var validation, module/profile/format validation, mutual exclusivity
+- Created `cli/src/__tests__/http-transport-integration.test.ts` (571 lines, 21 tests) - Integration tests for HTTP transport creation, server connections, MCP protocol communication, SSE response parsing
+- Created `cli/src/__tests__/testbed-integration.test.ts` (454 lines, 12 tests) - A/B comparison tests for vulnerable-mcp vs hardened-mcp testbed servers
+
+**Key Decisions:**
+- Added SSE (Server-Sent Events) response parsing to handle MCP streamable HTTP format
+- Made all integration tests skip gracefully when external servers are unavailable
+- Tests validate security features: SSRF protection, command injection prevention, sensitive env var blocking
+
+**Commits:**
+- `0d101ca` - test(cli): add comprehensive flag parsing and HTTP transport integration tests
+
+**Testing Results:**
+- Tests: 2941 passed, 1 failed (pre-existing ESM import issue), 4 skipped
+- New test coverage: 1,790 lines across 3 test files
+
+**Next Steps:**
+- Fix pre-existing ESM import attribute issue in moduleScoring.js
+- Consider adding more edge case tests for transport error scenarios
+
+**Notes:**
+- Integration tests designed to skip gracefully when testbed servers unavailable
+- SSE response parsing enables proper handling of MCP streamable HTTP protocol
+- Security validation tests ensure CLI rejects malicious inputs (SSRF, command injection)
+
+---
