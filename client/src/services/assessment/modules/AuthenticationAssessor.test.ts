@@ -92,9 +92,9 @@ secret = os.environ.get('API_SECRET')
         const result = await assessor.assess(mockContext);
 
         // Assert
-        expect(
-          result.authConfigAnalysis?.envVarsDetected.length,
-        ).toBeGreaterThanOrEqual(0);
+        expect(result.authConfigAnalysis?.envVarsDetected).toContain(
+          "API_SECRET",
+        );
       });
 
       it("should detect process.env.PASSWORD usage", async () => {
@@ -164,9 +164,9 @@ auth_token = os.getenv('AUTH_TOKEN')
         const result = await assessor.assess(mockContext);
 
         // Assert
-        expect(
-          result.authConfigAnalysis?.envVarsDetected.length,
-        ).toBeGreaterThanOrEqual(0);
+        expect(result.authConfigAnalysis?.envVarsDetected).toContain(
+          "AUTH_TOKEN",
+        );
       });
 
       it("should not flag env vars without auth context", async () => {
