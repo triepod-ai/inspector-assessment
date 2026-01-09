@@ -51,6 +51,17 @@ export interface AuthBypassResult {
 }
 
 /**
+ * Result of cross-tool state-based auth bypass analysis (Issue #92, Challenge #7)
+ * Detects privilege escalation via shared mutable state between tools
+ */
+export interface StateBasedAuthResult {
+  vulnerable: boolean;
+  safe: boolean;
+  stateDependency: "SHARED_STATE" | "INDEPENDENT" | "UNKNOWN";
+  evidence: string;
+}
+
+/**
  * Error classification types
  */
 export type ErrorClassification = "connection" | "server" | "protocol";
@@ -225,6 +236,117 @@ export class SecurityResponseAnalyzer {
     }
 
     return { detected: false, failureMode: "UNKNOWN" };
+  }
+
+  /**
+   * Analyze response for cross-tool state-based authorization bypass (Issue #92)
+   * Detects Challenge #7: Privilege escalation via shared mutable state
+   *
+   * Vulnerable pattern: Tool checks shared state (e.g., config_state["admin_mode"])
+   * that can be modified by another tool (e.g., config_modifier)
+   *
+   * Safe pattern: Tool uses independent per-request authorization,
+   * indicated by shared_state_checked: false or independent_auth_required: true
+   */
+  analyzeStateBasedAuthBypass(
+    response: CompatibilityCallToolResult,
+  ): StateBasedAuthResult {
+    const responseText = this.extractResponseContent(response);
+
+    // Vulnerable patterns - shared state authorization (Challenge #7)
+    const vulnerablePatterns = [
+      {
+        pattern: /"admin_mode"\s*:\s*true/i,
+        evidence: "admin_mode enabled in response",
+      },
+      {
+        pattern: /hint.*use\s+config_modifier/i,
+        evidence: "Tool hints at cross-tool state dependency",
+      },
+      {
+        pattern: /admin_mode.*set\s+by.*another\s+tool/i,
+        evidence: "Explicit cross-tool state dependency",
+      },
+      {
+        pattern: /"evidence".*cross-tool.*privilege/i,
+        evidence: "Cross-tool privilege escalation detected",
+      },
+      {
+        pattern: /elevated\s+privileges?\s+granted/i,
+        evidence: "Elevated privileges granted",
+      },
+      {
+        pattern: /admin\s+mode\s+activated/i,
+        evidence: "Admin mode activated (state modifier)",
+      },
+      {
+        pattern: /"hint".*config_modifier.*admin_mode/i,
+        evidence: "Response hints at config_modifier for admin_mode",
+      },
+      {
+        pattern: /Use\s+config_modifier.*enable.*admin_mode/i,
+        evidence: "Tool depends on config_modifier for authorization",
+      },
+    ];
+
+    // Safe patterns - independent authorization (secure)
+    const safePatterns = [
+      {
+        pattern: /"shared_state_checked"\s*:\s*false/i,
+        evidence: "Tool explicitly states it doesn't use shared state",
+      },
+      {
+        pattern: /"independent_auth_required"\s*:\s*true/i,
+        evidence: "Tool requires independent per-request auth",
+      },
+      {
+        pattern: /requires\s+independent\s+authorization/i,
+        evidence: "Independent authorization required",
+      },
+      {
+        pattern: /(?:not|does\s+not|doesn't)\s+(?:use\s+)?shared\s+state/i,
+        evidence: "Tool confirms it does not use shared state",
+      },
+      {
+        pattern: /stored.*for.*admin.*review/i,
+        evidence: "Request stored for admin review (no auto-execution)",
+      },
+      {
+        pattern: /per-request\s+auth/i,
+        evidence: "Per-request authentication enforced",
+      },
+    ];
+
+    // Check vulnerable patterns first (SHARED_STATE)
+    for (const { pattern, evidence } of vulnerablePatterns) {
+      if (pattern.test(responseText)) {
+        return {
+          vulnerable: true,
+          safe: false,
+          stateDependency: "SHARED_STATE",
+          evidence: `Cross-tool state dependency detected: ${evidence}`,
+        };
+      }
+    }
+
+    // Check safe patterns (INDEPENDENT)
+    for (const { pattern, evidence } of safePatterns) {
+      if (pattern.test(responseText)) {
+        return {
+          vulnerable: false,
+          safe: true,
+          stateDependency: "INDEPENDENT",
+          evidence: `Independent authorization confirmed: ${evidence}`,
+        };
+      }
+    }
+
+    return {
+      vulnerable: false,
+      safe: false,
+      stateDependency: "UNKNOWN",
+      evidence: "",
+    };
   }
 
   /**

@@ -8,6 +8,7 @@ export {
   type ConfidenceResult,
   type AnalysisResult,
   type ErrorClassification,
+  type StateBasedAuthResult,
 } from "./SecurityResponseAnalyzer";
 
 export {
@@ -18,3 +19,11 @@ export {
 } from "./SecurityPayloadTester";
 
 export { SecurityPayloadGenerator } from "./SecurityPayloadGenerator";
+
+export {
+  CrossToolStateTester,
+  type CrossToolTestResult,
+  type ToolPair,
+  type CallToolFunction,
+  type CrossToolTestConfig,
+} from "./CrossToolStateTester";

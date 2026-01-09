@@ -68,6 +68,8 @@ export interface AssessmentConfiguration {
   securityPatternsToTest?: number; // Number of security patterns to test (default all 8, reviewer mode uses 3)
   // Security testing mode: Basic (3 patterns) or Advanced (8 patterns)
   enableDomainTesting?: boolean; // Enable advanced security testing with all 8 backend patterns (default true)
+  /** Enable cross-tool sequence testing for privilege escalation (Issue #92, default true) */
+  enableSequenceTesting?: boolean;
   mcpProtocolVersion?: string;
   // Enable source code analysis (requires sourceCodePath in context)
   enableSourceCodeAnalysis?: boolean;

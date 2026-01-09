@@ -373,6 +373,82 @@ export const AUTH_FAIL_CLOSED_PATTERNS = [
 ] as const;
 
 // =============================================================================
+// CROSS-TOOL STATE-BASED AUTH PATTERNS (Issue #92, Challenge #7)
+// =============================================================================
+
+/**
+ * Patterns indicating vulnerable shared state authorization
+ * Detects cross-tool privilege escalation via shared mutable state
+ * Used by: analyzeStateBasedAuthBypass()
+ */
+export const STATE_AUTH_VULNERABLE_PATTERNS = [
+  {
+    pattern: /"admin_mode"\s*:\s*true/i,
+    evidence: "admin_mode enabled in response",
+  },
+  {
+    pattern: /hint.*use\s+config_modifier/i,
+    evidence: "Tool hints at cross-tool state dependency",
+  },
+  {
+    pattern: /admin_mode.*set\s+by.*another\s+tool/i,
+    evidence: "Explicit cross-tool state dependency",
+  },
+  {
+    pattern: /"evidence".*cross-tool.*privilege/i,
+    evidence: "Cross-tool privilege escalation detected",
+  },
+  {
+    pattern: /elevated\s+privileges?\s+granted/i,
+    evidence: "Elevated privileges granted",
+  },
+  {
+    pattern: /admin\s+mode\s+activated/i,
+    evidence: "Admin mode activated (state modifier)",
+  },
+  {
+    pattern: /"hint".*config_modifier.*admin_mode/i,
+    evidence: "Response hints at config_modifier for admin_mode",
+  },
+  {
+    pattern: /Use\s+config_modifier.*enable.*admin_mode/i,
+    evidence: "Tool depends on config_modifier for authorization",
+  },
+] as const;
+
+/**
+ * Patterns indicating safe independent authorization
+ * Detects tools that use per-request authentication (secure)
+ * Used by: analyzeStateBasedAuthBypass()
+ */
+export const STATE_AUTH_SAFE_PATTERNS = [
+  {
+    pattern: /"shared_state_checked"\s*:\s*false/i,
+    evidence: "Tool explicitly states it doesn't use shared state",
+  },
+  {
+    pattern: /"independent_auth_required"\s*:\s*true/i,
+    evidence: "Tool requires independent per-request auth",
+  },
+  {
+    pattern: /requires\s+independent\s+authorization/i,
+    evidence: "Independent authorization required",
+  },
+  {
+    pattern: /(?:not|does\s+not|doesn't)\s+(?:use\s+)?shared\s+state/i,
+    evidence: "Tool confirms it does not use shared state",
+  },
+  {
+    pattern: /stored.*for.*admin.*review/i,
+    evidence: "Request stored for admin review (no auto-execution)",
+  },
+  {
+    pattern: /per-request\s+auth/i,
+    evidence: "Per-request authentication enforced",
+  },
+] as const;
+
+// =============================================================================
 // SEARCH/RETRIEVAL PATTERNS
 // =============================================================================
 

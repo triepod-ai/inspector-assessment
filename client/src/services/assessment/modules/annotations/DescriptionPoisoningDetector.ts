@@ -273,6 +273,44 @@ export const DESCRIPTION_POISONING_PATTERNS: PoisoningPattern[] = [
     severity: "HIGH",
     category: "hidden_trigger",
   },
+
+  // Cross-tool state dependency patterns (Issue #92, Challenge #7)
+  {
+    name: "shared_state_reference",
+    pattern: /\b(config_state|shared_state|global_state|runtime_config)\b/gi,
+    severity: "HIGH",
+    category: "state_dependency",
+  },
+  {
+    name: "cross_tool_dependency",
+    pattern: /set\s+by\s+(another|other|different)\s+tool/gi,
+    severity: "HIGH",
+    category: "state_dependency",
+  },
+  {
+    name: "admin_mode_check",
+    pattern: /\bchecks?\s+(admin[_-]?mode|privileged[_-]?mode)/gi,
+    severity: "HIGH",
+    category: "state_dependency",
+  },
+  {
+    name: "requires_prior_call",
+    pattern: /requires?\s+.*\s+(first|before|prior)/gi,
+    severity: "MEDIUM",
+    category: "state_dependency",
+  },
+  {
+    name: "depends_on_tool",
+    pattern: /depends?\s+on\s+(tool|function|calling)/gi,
+    severity: "MEDIUM",
+    category: "state_dependency",
+  },
+  {
+    name: "enable_admin_hint",
+    pattern: /enable\s+admin[_-]?mode|activate\s+admin/gi,
+    severity: "HIGH",
+    category: "state_dependency",
+  },
 ];
 
 /**

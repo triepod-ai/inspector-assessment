@@ -1,11 +1,11 @@
 /**
  * Security Assessor Module
- * Tests for backend API security vulnerabilities using 23 focused patterns
+ * Tests for backend API security vulnerabilities using 25 focused patterns
  *
  * BASIC MODE (5 patterns - enableDomainTesting=false):
  *   Command Injection, Calculator Injection, SQL Injection, Path Traversal, Unicode Bypass
  *
- * ADVANCED MODE (all 23 patterns - enableDomainTesting=true):
+ * ADVANCED MODE (all 25 patterns - enableDomainTesting=true):
  *   - Critical Injection (6): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
  *   - Input Validation (3): Type Safety, Boundary Testing, Required Fields
  *   - Protocol Compliance (2): MCP Error Format, Timeout Handling
@@ -14,6 +14,11 @@
  *   - Encoding Bypass (1): Unicode Bypass
  *   - Resource Exhaustion (1): DoS/Resource Exhaustion
  *   - Deserialization (1): Insecure Deserialization
+ *   - Auth Bypass (1): Fail-open authentication vulnerabilities (CVE-2025-52882)
+ *   - Cross-Tool State Bypass (1): Privilege escalation via shared state (Issue #92)
+ *
+ * SEQUENCE TESTING (enableSequenceTesting - default true):
+ *   Tests for cross-tool privilege escalation by calling tool sequences
  */
 
 import {
@@ -28,6 +33,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import {
   SecurityPayloadTester,
   SecurityPayloadGenerator,
+  CrossToolStateTester,
   type PayloadTestConfig,
   type TestLogger,
 } from "./securityTests";
@@ -41,6 +47,7 @@ import {
 export class SecurityAssessor extends BaseAssessor {
   private payloadTester: SecurityPayloadTester;
   private payloadGenerator: SecurityPayloadGenerator;
+  private crossToolStateTester: CrossToolStateTester;
   private claudeBridge: ClaudeCodeBridge | null = null;
 
   /**
@@ -122,6 +129,11 @@ export class SecurityAssessor extends BaseAssessor {
       testLogger,
       this.executeWithTimeout.bind(this),
     );
+
+    // Initialize cross-tool state tester (Issue #92)
+    this.crossToolStateTester = new CrossToolStateTester({
+      timeout: config.securityTestTimeout,
+    });
   }
 
   async assess(context: AssessmentContext): Promise<SecurityAssessment> {
@@ -246,6 +258,26 @@ export class SecurityAssessor extends BaseAssessor {
       await this.performAdditionalSecurityChecks(toolsToTest);
     vulnerabilities.push(...additionalVulnerabilities);
 
+    // Cross-tool sequence testing (Issue #92, Challenge #7)
+    // Tests for privilege escalation via shared mutable state
+    if (this.config.enableSequenceTesting !== false) {
+      const crossToolResults = await this.runCrossToolSequenceTests(
+        toolsToTest,
+        context.callTool,
+        context.onProgress,
+      );
+
+      for (const [pairKey, result] of crossToolResults) {
+        if (result.vulnerable) {
+          highRiskCount++;
+          const vulnerability = `Cross-tool privilege escalation: ${pairKey}`;
+          if (!vulnerabilities.includes(vulnerability)) {
+            vulnerabilities.push(vulnerability);
+          }
+        }
+      }
+    }
+
     // Determine overall risk level
     const overallRiskLevel = this.determineOverallRiskLevel(
       highRiskCount,
@@ -353,6 +385,52 @@ export class SecurityAssessor extends BaseAssessor {
     }
 
     return vulnerabilities;
+  }
+
+  /**
+   * Run cross-tool sequence tests for privilege escalation (Issue #92, Challenge #7)
+   * Tests tool pairs: modifier enables admin mode, then admin action succeeds
+   */
+  private async runCrossToolSequenceTests(
+    tools: Tool[],
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<
+      import("@modelcontextprotocol/sdk/types.js").CompatibilityCallToolResult
+    >,
+    onProgress?: import("@/lib/assessment/progressTypes").ProgressCallback,
+  ): Promise<Map<string, import("./securityTests").CrossToolTestResult>> {
+    const pairs = this.crossToolStateTester.identifyCrossToolPairs(tools);
+
+    if (pairs.length === 0) {
+      this.log(`No cross-tool pairs identified for sequence testing`);
+      return new Map();
+    }
+
+    this.log(
+      `Running cross-tool sequence tests on ${pairs.length} tool pair(s)...`,
+    );
+
+    const results = await this.crossToolStateTester.runAllSequenceTests(
+      tools,
+      callTool,
+      onProgress,
+    );
+
+    // Log results
+    const summary = this.crossToolStateTester.summarizeResults(results);
+    if (summary.vulnerable > 0) {
+      this.log(
+        `⚠️ Cross-tool privilege escalation detected in ${summary.vulnerable} pair(s): ${summary.vulnerablePairs.join(", ")}`,
+      );
+    } else {
+      this.log(
+        `✅ No cross-tool privilege escalation detected (${summary.safe} safe, ${summary.errors} errors)`,
+      );
+    }
+
+    return results;
   }
 
   /**

@@ -1,6 +1,6 @@
 /**
  * Backend API Security Patterns
- * Tests MCP server API security with 24 focused patterns
+ * Tests MCP server API security with 25 focused patterns
  *
  * Architecture: Attack-Type with Specific Payloads
  * - Critical Injection (6 patterns): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
@@ -12,6 +12,7 @@
  * - Token Theft (1 pattern): Authentication token leakage
  * - Permission Scope (1 pattern): Privilege escalation and scope bypass
  * - Auth Bypass (1 pattern): Fail-open authentication vulnerabilities (Issue #75)
+ * - Cross-Tool State Bypass (1 pattern): Cross-tool privilege escalation via shared state (Issue #92)
  *
  * Scope: Backend API Security ONLY
  * - Tests structured data inputs to API endpoints
@@ -47,7 +48,7 @@ export interface AttackPattern {
  * BACKEND API SECURITY PATTERNS
  * ========================================
  *
- * 23 focused patterns for MCP server API security
+ * 25 focused patterns for MCP server API security
  */
 export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // ==========================================
@@ -1467,6 +1468,75 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
         description: "Simulate network error - should deny access",
         payloadType: "auth_failure",
         parameterTypes: ["simulate_failure", "failure_mode", "failure_type"],
+      },
+    ],
+  },
+
+  // ==========================================
+  // CROSS-TOOL STATE BYPASS TESTS (Issue #92, Challenge #7)
+  // ==========================================
+
+  // 25. CROSS-TOOL STATE BYPASS
+  {
+    attackName: "Cross-Tool State Bypass",
+    description:
+      "Tests for privilege escalation via shared mutable state between tools (Challenge #7)",
+    payloads: [
+      // Admin action payloads - tests tools that check shared state
+      {
+        payload: "read secrets",
+        evidence:
+          /(admin_mode.*true.*cross-tool|enabled\s+by.*another\s+tool|"evidence".*privilege.*escalation)/i,
+        riskLevel: "HIGH",
+        description: "Admin action checking shared state for authorization",
+        payloadType: "state_bypass",
+        parameterTypes: ["action", "command", "request", "operation"],
+      },
+      {
+        payload: "delete user admin",
+        evidence:
+          /(admin_mode.*true.*privilege|destructive.*enabled.*cross-tool|"evidence".*state.*dependency)/i,
+        riskLevel: "HIGH",
+        description: "Destructive action via cross-tool state dependency",
+        payloadType: "state_bypass",
+        parameterTypes: ["action", "command", "request"],
+      },
+      {
+        payload: "modify config security=disabled",
+        evidence:
+          /(admin_mode.*enabled.*config|config\s+modification.*admin|privilege.*escalation.*config)/i,
+        riskLevel: "HIGH",
+        description: "Config modification via cross-tool privilege escalation",
+        payloadType: "state_bypass",
+        parameterTypes: ["action", "setting", "config"],
+      },
+      // State modifier payloads - tests tools that modify shared state
+      {
+        payload: "admin_mode=true",
+        evidence:
+          /(admin\s+mode\s+activated|elevated\s+privileges?\s+granted|admin_mode.*enabled)/i,
+        riskLevel: "HIGH",
+        description:
+          "Tool modifies shared state affecting other tools' authorization",
+        payloadType: "state_modifier",
+        parameterTypes: ["setting", "config", "option"],
+      },
+      {
+        payload: "set admin_mode=true",
+        evidence:
+          /(admin\s+mode\s+activated|elevated\s+privileges?\s+granted|configuration.*updated.*admin)/i,
+        riskLevel: "HIGH",
+        description: "Explicit shared state modification request",
+        payloadType: "state_modifier",
+        parameterTypes: ["setting", "config", "option", "input"],
+      },
+      {
+        payload: "enable elevated privileges",
+        evidence: /(elevated.*granted|privilege.*enabled|admin.*activated)/i,
+        riskLevel: "HIGH",
+        description: "Privilege elevation via shared state",
+        payloadType: "state_modifier",
+        parameterTypes: ["setting", "config", "option", "command"],
       },
     ],
   },
