@@ -201,6 +201,17 @@ const HARDCODED_SECRET_PATTERNS = [
   },
 ];
 
+// ============================================================================
+// Issue #65: Rate Limiting Constants
+// Prevents performance issues when analyzing large codebases
+// ============================================================================
+
+/** Maximum number of source files to analyze (prevents performance degradation) */
+const MAX_FILES = 500;
+
+/** Maximum number of findings per type (prevents overwhelming output) */
+const MAX_FINDINGS = 100;
+
 export class AuthenticationAssessor extends BaseAssessor {
   /**
    * Run authentication assessment
@@ -703,7 +714,16 @@ export class AuthenticationAssessor extends BaseAssessor {
       };
     }
 
-    for (const [filePath, content] of context.sourceCodeFiles) {
+    // Issue #65: Apply file limit to prevent performance issues on large codebases
+    let sourceFiles = Array.from(context.sourceCodeFiles);
+    if (sourceFiles.length > MAX_FILES) {
+      this.log(
+        `Rate limiting: Analyzing ${MAX_FILES} of ${sourceFiles.length} files`,
+      );
+      sourceFiles = sourceFiles.slice(0, MAX_FILES);
+    }
+
+    for (const [filePath, content] of sourceFiles) {
       // Warning 4 fix: Add error handling for malformed files
       try {
         this.testCount++;
@@ -725,12 +745,33 @@ export class AuthenticationAssessor extends BaseAssessor {
           }
         }
 
+        // Helper to check if we've hit the findings cap for a type (Issue #65)
+        const countByType = (type: AuthConfigFindingType) =>
+          findings.filter((f) => f.type === type).length;
+
+        // Helper to get context lines (Issue #66)
+        const getContext = (lineIndex: number) => {
+          const before =
+            lineIndex > 0 ? lines[lineIndex - 1]?.trim() : undefined;
+          const after =
+            lineIndex < lines.length - 1
+              ? lines[lineIndex + 1]?.trim()
+              : undefined;
+          return before || after ? { before, after } : undefined;
+        };
+
         // 2. Detect fail-open patterns (auth with fallback values)
         for (const { pattern, name } of FAIL_OPEN_PATTERNS) {
+          // Issue #65: Skip if we've hit the cap for this type
+          if (countByType("FAIL_OPEN_PATTERN") >= MAX_FINDINGS) break;
+
           // Reset lastIndex for global patterns
           pattern.lastIndex = 0;
           let match;
           while ((match = pattern.exec(content)) !== null) {
+            // Issue #65: Check cap before adding
+            if (countByType("FAIL_OPEN_PATTERN") >= MAX_FINDINGS) break;
+
             // Find line number
             const beforeMatch = content.substring(0, match.index);
             const lineNumber = beforeMatch.split("\n").length;
@@ -744,12 +785,16 @@ export class AuthenticationAssessor extends BaseAssessor {
               file: filePath,
               lineNumber,
               recommendation: `Ensure authentication fails securely when credentials are missing. Do not use fallback values for auth secrets.`,
+              context: getContext(lineNumber - 1), // Issue #66: Add context
             });
           }
         }
 
         // 3. Detect dev mode patterns that weaken security
         for (const { pattern, severity } of DEV_MODE_PATTERNS) {
+          // Issue #65: Skip if we've hit the cap for this type
+          if (countByType("DEV_MODE_WARNING") >= MAX_FINDINGS) break;
+
           if (pattern.test(content)) {
             // Find first occurrence for line number
             const matchResult = content.match(pattern);
@@ -771,6 +816,7 @@ export class AuthenticationAssessor extends BaseAssessor {
                   severity === "HIGH"
                     ? `Remove auth bypass logic. Authentication should never be disabled based on environment.`
                     : `Ensure development mode does not weaken security controls in production.`,
+                context: getContext(lineNumber - 1), // Issue #66: Add context
               });
             }
           }
@@ -778,6 +824,9 @@ export class AuthenticationAssessor extends BaseAssessor {
 
         // 4. Detect hardcoded secrets
         for (const { pattern, name } of HARDCODED_SECRET_PATTERNS) {
+          // Issue #65: Skip if we've hit the cap for this type
+          if (countByType("HARDCODED_SECRET") >= MAX_FINDINGS) break;
+
           if (pattern.test(content)) {
             const matchResult = content.match(pattern);
             if (matchResult) {
@@ -799,6 +848,7 @@ export class AuthenticationAssessor extends BaseAssessor {
                 file: filePath,
                 lineNumber,
                 recommendation: `Move ${name} to environment variable. Never commit secrets to source control.`,
+                context: getContext(lineNumber - 1), // Issue #66: Add context
               });
             }
           }
@@ -807,6 +857,9 @@ export class AuthenticationAssessor extends BaseAssessor {
         // 5. Detect env-dependent auth patterns (env var usage with auth context)
         // Only flag if there's auth context around env var usage
         for (const [index, line] of lines.entries()) {
+          // Issue #65: Skip if we've hit the cap for this type
+          if (countByType("ENV_DEPENDENT_AUTH") >= MAX_FINDINGS) break;
+
           // Check for env var with auth context in surrounding lines
           const surroundingContext = lines
             .slice(Math.max(0, index - 2), index + 3)
@@ -836,6 +889,7 @@ export class AuthenticationAssessor extends BaseAssessor {
                     file: filePath,
                     lineNumber: index + 1,
                     recommendation: `Document required environment variables and validate they are set at startup.`,
+                    context: getContext(index), // Issue #66: Add context
                   });
                 }
               }

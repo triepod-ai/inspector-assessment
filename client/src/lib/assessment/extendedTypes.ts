@@ -412,6 +412,14 @@ export type AuthConfigFindingType =
 /** Severity of auth configuration finding */
 export type AuthConfigSeverity = "HIGH" | "MEDIUM" | "LOW";
 
+/** Context lines surrounding a finding (Issue #66) */
+export interface AuthConfigFindingContext {
+  /** Line before the finding (undefined if finding is on first line) */
+  before?: string;
+  /** Line after the finding (undefined if finding is on last line) */
+  after?: string;
+}
+
 /** Single auth configuration finding */
 export interface AuthConfigFinding {
   type: AuthConfigFindingType;
@@ -421,6 +429,8 @@ export interface AuthConfigFinding {
   file?: string;
   lineNumber?: number;
   recommendation?: string;
+  /** Issue #66: Surrounding context lines for better understanding */
+  context?: AuthConfigFindingContext;
 }
 
 /** Auth configuration analysis results */

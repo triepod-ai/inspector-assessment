@@ -1542,5 +1542,93 @@ const secret3 = process.env.API_KEY;
         );
       });
     });
+
+    // Issue #66: Context Window Tests
+    describe("Context Window (Issue #66)", () => {
+      it("should include context lines in findings", async () => {
+        // Arrange
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/auth.ts": `// Authentication module
+const authSecret = process.env.AUTH_SECRET || 'fallback';
+// This is a comment after`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        const failOpenFinding = result.authConfigAnalysis?.findings.find(
+          (f) => f.type === "FAIL_OPEN_PATTERN",
+        );
+        expect(failOpenFinding).toBeDefined();
+        expect(failOpenFinding?.context).toBeDefined();
+        expect(failOpenFinding?.context?.before).toBe(
+          "// Authentication module",
+        );
+        expect(failOpenFinding?.context?.after).toBe(
+          "// This is a comment after",
+        );
+      });
+
+      it("should handle first line (no before context)", async () => {
+        // Arrange - finding on first line
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/auth.ts": `const authSecret = process.env.AUTH_SECRET || 'fallback';
+// This is the second line`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        const failOpenFinding = result.authConfigAnalysis?.findings.find(
+          (f) => f.type === "FAIL_OPEN_PATTERN",
+        );
+        expect(failOpenFinding).toBeDefined();
+        expect(failOpenFinding?.context).toBeDefined();
+        expect(failOpenFinding?.context?.before).toBeUndefined();
+        expect(failOpenFinding?.context?.after).toBe(
+          "// This is the second line",
+        );
+      });
+
+      it("should handle last line (no after context)", async () => {
+        // Arrange - finding on last line
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/auth.ts": `// First line comment
+const authSecret = process.env.AUTH_SECRET || 'fallback';`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        const failOpenFinding = result.authConfigAnalysis?.findings.find(
+          (f) => f.type === "FAIL_OPEN_PATTERN",
+        );
+        expect(failOpenFinding).toBeDefined();
+        expect(failOpenFinding?.context).toBeDefined();
+        expect(failOpenFinding?.context?.before).toBe("// First line comment");
+        expect(failOpenFinding?.context?.after).toBeUndefined();
+      });
+
+      it("should handle single line file (no context)", async () => {
+        // Arrange - single line file
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/auth.ts": `const authSecret = process.env.AUTH_SECRET || 'fallback';`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        const failOpenFinding = result.authConfigAnalysis?.findings.find(
+          (f) => f.type === "FAIL_OPEN_PATTERN",
+        );
+        expect(failOpenFinding).toBeDefined();
+        // Context should be undefined when both before and after are empty
+        expect(failOpenFinding?.context).toBeUndefined();
+      });
+    });
   });
 });
