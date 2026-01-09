@@ -53,6 +53,14 @@
     "./performance": {
       "types": "./client/lib/services/assessment/config/performanceConfig.d.ts",
       "default": "./client/lib/services/assessment/config/performanceConfig.js"
+    },
+    "./modules": {
+      "types": "./client/lib/services/assessment/modules/index.d.ts",
+      "default": "./client/lib/services/assessment/modules/index.js"
+    },
+    "./security": {
+      "types": "./client/lib/services/assessment/modules/securityTests/index.d.ts",
+      "default": "./client/lib/services/assessment/modules/securityTests/index.js"
     }
   },
   "bin": {

@@ -126,3 +126,31 @@ export { MCPSpecComplianceAssessor } from "./MCPSpecComplianceAssessor";
  * This export will be removed in v2.0.0.
  */
 export { ProtocolConformanceAssessor } from "./ProtocolConformanceAssessor";
+
+// ============================================================================
+// Type Re-exports (convenience for consumers)
+// ============================================================================
+
+export type {
+  // Core result types
+  MCPDirectoryAssessment,
+  SecurityAssessment,
+  FunctionalityAssessment,
+  ErrorHandlingAssessment,
+  DocumentationAssessment,
+  UsabilityAssessment,
+  MCPSpecComplianceAssessment,
+  // Assessment status
+  AssessmentStatus,
+} from "@/lib/assessment";
+
+export type {
+  // Configuration
+  AssessmentConfiguration,
+} from "@/lib/assessment/configTypes";
+
+export type {
+  // Progress callbacks
+  ProgressCallback,
+  ProgressEvent,
+} from "@/lib/assessment/progressTypes";
