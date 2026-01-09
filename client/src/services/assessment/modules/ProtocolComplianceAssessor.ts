@@ -441,16 +441,6 @@ export class ProtocolComplianceAssessor extends BaseAssessor<ProtocolComplianceA
 
     return { coverage, toolResults };
   }
-
-  /**
-   * Check structured output support (2025-06-18 feature)
-   * @deprecated Use analyzeOutputSchemaCoverage for detailed metrics
-   */
-  private checkStructuredOutputSupport(tools: Tool[]): boolean {
-    const { coverage } = this.analyzeOutputSchemaCoverage(tools);
-    return coverage.withOutputSchema > 0;
-  }
-
   /**
    * Check capabilities compliance
    */

@@ -1,5 +1,5 @@
 import { InspectorConfig } from "./configurationTypes";
-import packageJson from "../../package.json";
+import packageJson from "../../package.json" with { type: "json" };
 
 // Client identity for MCP connections
 export const CLIENT_IDENTITY = (() => {

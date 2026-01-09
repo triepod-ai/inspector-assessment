@@ -402,17 +402,6 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
 
     return { coverage, toolResults };
   }
-
-  /**
-   * Check if tools have structured output support (2025-06-18 feature)
-   * @deprecated Use analyzeOutputSchemaCoverage for detailed metrics
-   */
-  private checkStructuredOutputSupport(tools: Tool[]): boolean {
-    const { coverage } = this.analyzeOutputSchemaCoverage(tools);
-    // Consider it supported if at least some tools use it
-    return coverage.withOutputSchema > 0;
-  }
-
   /**
    * Check if declared server capabilities match actual behavior
    * Tests that capabilities advertised via serverCapabilities are actually implemented
