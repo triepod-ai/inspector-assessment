@@ -169,6 +169,28 @@ auth_token = os.getenv('AUTH_TOKEN')
         );
       });
 
+      it("should not detect Python env vars without auth context", async () => {
+        // Arrange
+        mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+          "src/config.py": `
+import os
+port = os.environ.get('PORT')
+debug = os.getenv('DEBUG')
+`,
+        });
+
+        // Act
+        const result = await assessor.assess(mockContext);
+
+        // Assert
+        expect(result.authConfigAnalysis?.envVarsDetected).not.toContain(
+          "PORT",
+        );
+        expect(result.authConfigAnalysis?.envVarsDetected).not.toContain(
+          "DEBUG",
+        );
+      });
+
       it("should not flag env vars without auth context", async () => {
         // Arrange
         mockContext.sourceCodeFiles = createMockSourceCodeFiles({
