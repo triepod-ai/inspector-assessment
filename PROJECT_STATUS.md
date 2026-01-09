@@ -20,297 +20,203 @@
 
 ---
 
-## 2026-01-09: AuthenticationAssessor Test File Split (#68)
-
-**Summary:** Split AuthenticationAssessor.test.ts into 4 feature-focused test files and created issues for 5 additional large test files.
-
-**Session Focus:** Code quality improvements - test file organization per Issue #68
-
-**Changes Made:**
-- Created `client/src/services/assessment/modules/AuthenticationAssessor.envVars.test.ts` (209 lines)
-- Created `client/src/services/assessment/modules/AuthenticationAssessor.secrets.test.ts` (243 lines)
-- Created `client/src/services/assessment/modules/AuthenticationAssessor.devMode.test.ts` (234 lines)
-- Modified `client/src/services/assessment/modules/AuthenticationAssessor.test.ts` (reduced from 1547 to 1026 lines)
-
-**Key Decisions:**
-- Split by feature area (env vars, secrets, dev mode warnings) keeping core/integration tests in main file
-- Each split file has its own imports and beforeEach setup (duplicated but isolated)
-- Followed pattern from CLAUDE.md documentation guidelines for file splitting
-
-**Testing Results:**
-- All 80 tests passing across 4 test suites
-- Core file reduced 34% (1547 -> 1026 lines)
 
 **Next Steps:**
-- Issues #70-74 created for splitting 5 more large test files:
-  - #70: TemporalAssessor
-  - #71: assessmentService
-  - #72: TestScenarioEngine
-  - #73: TestDataGenerator
-  - #74: ToolAnnotationAssessor
+- mcp-auditor Stage B prompt (Issue #25) can now leverage auth bypass data
+- Consider adding more auth-related evidence patterns based on real-world servers
 
 **Notes:**
-- Issue #68 closed
-- Test organization follows feature-based splitting pattern for maintainability
+- Issue #75: CLOSED
+- CVE-2025-52882 style detection now available
+- Remaining open issues: #53, #48, #70, #25
 
 ---
 
-## 2026-01-09: Issue #67 Fix and Test Quality Improvement
+## 2026-01-09: SDK Version Sync Automation (Issue #29)
 
-**Summary:** Fixed GitHub Issue #67 Python detection test assertions and added negative test case
+**Summary:** Resolved issue 29 SDK version sync, added automation to prevent future drift, published v1.26.3
 
-**Session Focus:** Issue #67 fix and test quality improvement for AuthenticationAssessor Python env var detection
+**Session Focus:** GitHub issue #29 review and resolution, dependency version sync automation, npm release v1.26.3
 
 **Changes Made:**
-- Fixed `client/src/services/assessment/modules/AuthenticationAssessor.test.ts`:
-  - Changed two tests with weak `toBeGreaterThanOrEqual(0)` assertions (always pass) to proper `toContain("API_SECRET")` and `toContain("AUTH_TOKEN")` assertions
-  - Added negative test case for non-auth Python env vars (PORT, DEBUG) per code review suggestion
+- `client/package.json` - Updated @modelcontextprotocol/sdk to ^1.25.2
+- `cli/package.json` - Updated @modelcontextprotocol/sdk to ^1.25.2
+- `server/package.json` - Updated @modelcontextprotocol/sdk to ^1.25.2
+- `scripts/sync-workspace-versions.js` - Enhanced to auto-sync shared dependencies via SHARED_DEPENDENCIES array
+- `scripts/__tests__/sync-workspace-versions.test.ts` - New test file with 11 comprehensive tests
+- `scripts/__tests__/sync-workspace-versions-test-strategy.md` - Test strategy documentation
+- `PROJECT_STATUS.md` - Archived older entries
+- `PROJECT_STATUS_ARCHIVE.md` - Received archived entries
+
+**Key Decisions:**
+- Added SHARED_DEPENDENCIES array to sync script for configurable dependency tracking
+- Used test-automator agent to generate comprehensive test suite
+- Chose patch version bump (1.26.2 -> 1.26.3) for maintenance release
 
 **Commits:**
-- `6f5afa0` - fix(AuthenticationAssessor): Fix Python detection tests with accurate assertions (#67)
-- `8831740` - test(AuthenticationAssessor): Add negative test for Python env var detection
-
-**Key Decisions:**
-- Changed assertions from `toBeGreaterThanOrEqual(0)` to `toContain()` for accurate test validation
-- Added negative test to verify regex pattern specificity (ensures non-auth env vars are not flagged)
-
-**Code Review Results:**
-- code-reviewer-pro: Approved (0 critical, 1 warning about os.environ[] pattern)
-- inspector-assessment-code-reviewer: Approved (all checklist items passed)
+- `471b668` - fix(deps): sync @modelcontextprotocol/sdk to ^1.25.2 across workspaces
+- `46dc05d` - feat(scripts): auto-sync shared dependencies across workspaces
+- `10bf092` - test(scripts): add tests for sync-workspace-versions script
+- `aab1647` - docs: archive older timeline entries from PROJECT_STATUS.md
+- `abfa4fb` - v1.26.3
 
 **Testing Results:**
-- All 80 AuthenticationAssessor tests passing
-- Full test suite: 3042 tests passing (99 suites)
+- 11 new tests for sync-workspace-versions script all passing
+- Total test suite remains healthy
 
 **Next Steps:**
-- Consider implementing code review suggestions (os.environ[] pattern, partial keyword edge cases)
-- Address remaining open issues: #69 (P1 temporal), #53 (refactor), #48 (v2.0.0 roadmap)
+- Review remaining open issues (#70, #74, #75, #76)
+- Consider addressing auth bypass test patterns (#75, #76)
 
 **Notes:**
-- Issue #67: CLOSED
-- Remaining open issues: #69, #53, #48, #70-74 (test file splits)
+- Issue #29: CLOSED
+- npm package v1.26.3 published
+- Future SDK version drift automatically prevented by sync script
+- Remaining open issues: #53, #48, #70, #25, #74, #75, #76
 
 ---
 
-## 2026-01-09: Issue #69 Temporal Variance Classification
+## 2026-01-09: FAIL_OPEN_LOGIC Test Coverage and Bug Fixes (Issue #77)
 
-**Summary:** Implemented variance classification for TemporalAssessor to reduce false positives on resource-creating tools
+**Summary:** Implemented code review fixes and comprehensive test coverage for AuthenticationAssessor FAIL_OPEN_LOGIC patterns.
 
-**Session Focus:** GitHub Issue #69 - Improve temporal variance classification to reduce false positives
+**Session Focus:** Addressed code review findings from code-reviewer-pro agent and added test coverage for Issue #77 FAIL_OPEN_LOGIC patterns.
 
 **Changes Made:**
-- `client/src/lib/assessment/extendedTypes.ts` - Added VarianceType enum and VarianceClassification interface
-- `client/src/services/assessment/modules/TemporalAssessor.ts`:
-  - Added RESOURCE_CREATING_PATTERNS constant for tool detection
-  - Added isResourceCreatingTool() method with word-boundary regex matching
-  - Added classifyVariance() method for three-tier variance classification
-  - Added isLegitimateFieldVariance() method to detect expected field changes
-  - Added findVariedFields() method to identify changed fields between responses
-  - Modified analyzeResponses() to use variance classification for smarter flagging
-- `client/src/services/assessment/__tests__/TemporalAssessor.test.ts` - Added 49 new tests for variance classification
+- `client/src/services/assessment/AssessmentOrchestrator.ts` - Added authenticationAssessor to resetAllTestCounts() and collectTotalTestCount() methods (critical bug fixes)
+- `client/src/services/assessment/modules/AuthenticationAssessor.test.ts` - Added 10 new tests for FAIL_OPEN_LOGIC patterns, fixed existing count test
 
 **Key Decisions:**
-- Separated resource-creating tool detection from existing stateful tool detection
-- Used word-boundary regex matching (`\b`) for accurate tool name pattern matching
-- Implemented three-tier variance classification:
-  - LEGITIMATE: Expected variance (ignored) - timestamp/ID fields on resource-creating tools
-  - SUSPICIOUS: Unexpected variance (flagged) - non-standard fields or non-resource tools
-  - BEHAVIORAL: Behavior changes (flagged) - tool behavior modifications
-- Legitimate field patterns: `*_id`, `*Id`, `*_at`, `*At`, `*time`, `*Time`, `cursor`, `token`, `offset`, `results`, `items`, `data`, `count`, `total`
+- Fixed Python-style pattern test to use correct syntax (ERROR_GRANTS_ACCESS pattern requires colon after error condition)
+- Updated existing "should count findings by type correctly" test to include failOpenLogicCount in sum
 
 **Commits:**
-- `a31f124` - feat(TemporalAssessor): add variance classification to reduce false positives (#69)
+- `749a1c2` - fix: add AuthenticationAssessor to test count methods
+- `3996c7c` - test: add FAIL_OPEN_LOGIC pattern tests (Issue #77)
 
 **Testing Results:**
-- All 213 TemporalAssessor tests passing (49 new tests added)
-- All 3091 total tests passing
+- All 58 AuthenticationAssessor tests passing
+- 10 new tests cover all 8 FAIL_OPEN_LOGIC patterns plus 2 edge cases
 
 **Next Steps:**
-- Validate against airwallex-mcp to confirm false positives resolved
-- Consider adding more legitimate field patterns if needed
-- Close Issue #69 after validation
+- Issue #76 (Add runtime auth bypass tests to SecurityAssessor) remains open
+- Consider expanding regex lookahead from 50 to 100 chars for EXCEPT_GRANTS_ACCESS pattern (code review suggestion)
 
 **Notes:**
-- Issue #69: Implementation complete, awaiting validation
-- Remaining open issues: #53, #48, #70-74 (test file splits)
+- Code review identified 2 critical bugs (missing orchestrator integrations) - both fixed
+- Remaining open issues: #53, #48, #70, #25, #76
 
 ---
 
-## 2026-01-09: Issue #73 TestDataGenerator Test File Split
+## 2026-01-09: Auth Bypass Detection Implementation (Issue #75)
 
-**Summary:** Split TestDataGenerator.test.ts into 6 feature-focused test files for Issue #73
+**Summary:** Implemented auth bypass detection for fail-open authentication vulnerabilities (Issue #75), validated with A/B testbed comparison, and published v1.26.4 to npm.
 
-**Session Focus:** Test file refactoring following the pattern established in Issue #68 (AuthenticationAssessor split)
+**Session Focus:** Issue #75 - Auth Bypass Detection Implementation
 
 **Changes Made:**
-- Created: `client/src/services/assessment/__tests__/TestDataGenerator.stringFields.test.ts` (498 lines) - String field generation tests
-- Created: `client/src/services/assessment/__tests__/TestDataGenerator.numberFields.test.ts` (172 lines) - Number field generation tests
-- Created: `client/src/services/assessment/__tests__/TestDataGenerator.typeHandlers.test.ts` (396 lines) - Type handler tests
-- Created: `client/src/services/assessment/__tests__/TestDataGenerator.scenarios.test.ts` (314 lines) - Scenario generation tests
-- Created: `client/src/services/assessment/__tests__/TestDataGenerator.dataPool.test.ts` (66 lines) - Data pool tests
-- Modified: `client/src/services/assessment/__tests__/TestDataGenerator.test.ts` (reduced to 445 lines) - Core functionality tests
+- `client/src/lib/securityPatterns.ts` - Added "Auth Bypass" as 24th attack pattern with 5 token-based payloads targeting auth parameters
+- `client/src/services/assessment/modules/securityTests/SecurityResponseAnalyzer.ts` - Added AuthBypassResult interface and analyzeAuthBypassResponse() method with fail-open/fail-closed pattern detection
+- `client/src/lib/assessment/resultTypes.ts` - Extended SecurityTestResult interface with authBypassDetected, authFailureMode, authBypassEvidence fields; added authBypassSummary to SecurityAssessment
+- `client/src/services/assessment/modules/securityTests/SecurityPayloadTester.ts` - Integrated auth bypass analysis for "Auth Bypass" attack type
+- `client/src/services/assessment/modules/SecurityAssessor.ts` - Added aggregateAuthBypassResults() method for summary statistics
+- `client/src/services/assessment/__tests__/SecurityAssessor-AuthBypass.test.ts` - Created new test file with 10 unit tests
 
 **Key Decisions:**
-- Followed pattern from Issue #68 (AuthenticationAssessor split) for consistency
-- Each file is self-contained with its own helper functions
-- Header comments in each file reference related test files for discoverability
-- Organized by logical feature areas rather than arbitrary line counts
+- Universal token-based tests only (no failure simulation tests) - simpler, more portable across servers
+- Pattern targets parameters: token, auth_token, authorization, api_key, access_token
+- Added /authentication.*bypassed/i pattern to fix reversed word order detection
+
+**Results:**
+- A/B Validation: vulnerable-mcp (29 fail-open, 6 tools) vs hardened-mcp (0 fail-open, 32 fail-closed)
+- mcp-auditor Stage B prompt confirmed already includes auth bypass section
+- Published v1.26.4 to npm with all changes
+- GitHub Issue #75 closed
+
+**Next Steps:**
+- Monitor npm package usage for auth bypass detection in production
+- Consider adding failure simulation tests as optional module in future
+
+**Notes:**
+- CVE-2025-52882 pattern detection now available in inspector-assessment
+- All 1560 tests passing
+- Remaining open issues: #53, #48, #70, #25, #76
+
+---
+
+## 2026-01-09: Auth Bypass Detection Improvements - 100% Recall/Precision (Issue #79)
+
+**Summary:** Implemented auth bypass detection improvements achieving 100% recall and precision on Challenge #5 testbed (Issue #79).
+
+**Session Focus:** Security assessment - auth bypass fail-open vs fail-closed pattern recognition
+
+**Changes Made:**
+- `client/src/lib/securityPatterns.ts` - Added 3 simulate_failure payloads for auth failure injection testing
+- `client/src/services/assessment/modules/securityTests/SecurityResponseAnalyzer.ts` - Added auth_type patterns as highest priority detection, fixed vulnerable:true false positives by requiring auth context
+- `client/src/services/assessment/modules/securityTests/SecurityPayloadGenerator.ts` - Added auth_failure payloadType handling for failure simulation tests
+- `client/src/services/assessment/__tests__/AuthBypass-Testbed.test.ts` - NEW: 25 testbed validation tests for Challenge #5 scenarios
+- `client/src/services/assessment/__tests__/SecurityPayloadGenerator-AuthFailure.test.ts` - NEW: 12 unit tests for auth_failure payload generation
+- `client/src/services/assessment/__tests__/SecurityAssessor-AuthBypass.test.ts` - Updated test expectations to match improved detection logic
+
+**Key Decisions:**
+- Require auth context for `vulnerable: true` pattern to prevent false positives on non-auth tools
+- Add `auth_type` as highest priority detection pattern (detects fail-open/fail-closed classification)
+- Use test-automator agent to assess coverage gaps and generate comprehensive test scenarios
 
 **Commits:**
-- `d4c5842` - refactor(tests): split TestDataGenerator.test.ts into feature-focused files (Closes #73)
+- `39b4b8b` - fix: auth bypass detection improvements (Issue #79)
 
 **Testing Results:**
-- All 184 tests pass across 7 test suites (6 new files + original)
-- No regressions in test coverage
+- 37 new tests added (620 lines of test code)
+- Testbed verification: hardened-mcp shows 0 false positives
+- Challenge #5 validation: 100% recall and precision achieved
 
 **Next Steps:**
-- Continue with remaining test file splits (Issues #70-74) if needed
-- Consider applying same pattern to other large test files
+- Monitor production for edge cases in auth bypass detection
+- Consider adding pattern priority documentation tests
 
 **Notes:**
-- Issue #73: CLOSED
-- Remaining open issues: #53, #48, #69, #70-72, #74 (other test file splits)
+- Issue #79 auto-closed via commit reference
+- A/B testbed validation confirms behavioral detection (not name-based heuristics)
+- Remaining open issues: #53, #48, #70, #25, #76
 
 ---
 
-## 2026-01-09: Published v1.26.2 with Issue #69 Variance Classification
+## 2026-01-09: TemporalAssessor Test File Refactoring (Issue #70)
 
-**Summary:** Published v1.26.2 with Issue #69 variance classification and validated against testbeds.
+**Summary:** Refactored TemporalAssessor test suite from monolithic 2,201 line file into 6 focused test files with 213 tests passing.
 
-**Session Focus:** npm package publishing and testbed validation for Issue #69
-
-**Changes Made:**
-- Published `@bryan-thompson/inspector-assessment@1.26.2` (all 4 packages)
-- Git tag `v1.26.2` pushed to origin
-- Issue #69 comment added with validation results
-- Archived older PROJECT_STATUS entries to PROJECT_STATUS_ARCHIVE.md
-
-**Key Decisions:**
-- Used patch version bump (1.26.1 -> 1.26.2) for the bug fix
-- Validated against both testbeds before closing issue
-
-**Testing Results:**
-- A/B testbed validation: hardened-mcp PASS (2/2 modules), vulnerable-mcp FAIL (0/2 modules)
-- 1650 tests run on each testbed
-- All 3091 unit tests passing
-
-**Next Steps:**
-- Monitor for any false positive reports from production usage
-- Consider additional legitimate field patterns if needed
-
-**Notes:**
-- Issue #69: CLOSED after successful testbed validation
-- Remaining open issues: #53, #48, #70-74 (test file splits)
-
----
-
-## 2026-01-09: Split TestScenarioEngine.test.ts into Feature-Focused Files (Issue #72)
-
-**Summary:** Split TestScenarioEngine.test.ts into 6 feature-focused test files for Issue #72
-
-**Session Focus:** Test file refactoring following the pattern established in Issues #68 and #73
+**Session Focus:** Test file organization and maintainability improvement for TemporalAssessor module
 
 **Changes Made:**
-- Created: `client/src/services/assessment/__tests__/TestScenarioEngine.paramGeneration.test.ts` (302 lines) - Parameter generation tests
-- Created: `client/src/services/assessment/__tests__/TestScenarioEngine.execution.test.ts` (639 lines) - Scenario execution tests
-- Created: `client/src/services/assessment/__tests__/TestScenarioEngine.status.test.ts` (610 lines) - Status determination tests
-- Created: `client/src/services/assessment/__tests__/TestScenarioEngine.reporting.test.ts` (232 lines) - Report generation tests
-- Created: `client/src/services/assessment/__tests__/TestScenarioEngine.integration.test.ts` (229 lines) - End-to-end workflow tests
-- Modified: `client/src/services/assessment/__tests__/TestScenarioEngine.test.ts` (reduced to 67 lines) - Constructor/Configuration tests only
+- `client/src/services/assessment/__tests__/TemporalAssessor.test.ts` - Reduced from 2,201 to ~640 lines (core assess() tests)
+- `client/src/test/utils/testUtils.ts` - Added temporal test utilities, fixed getPrivateMethod binding
+- `client/src/services/assessment/__tests__/TemporalAssessor-StatefulTools.test.ts` - NEW: 31 tests for stateful tool detection
+- `client/src/services/assessment/__tests__/TemporalAssessor-SecondaryContent.test.ts` - NEW: 39 tests for secondary content detection
+- `client/src/services/assessment/__tests__/TemporalAssessor-DefinitionMutation.test.ts` - NEW: 13 tests for definition mutation detection
+- `client/src/services/assessment/__tests__/TemporalAssessor-VarianceClassification.test.ts` - NEW: 15 tests for variance classification
+- `client/src/services/assessment/__tests__/TemporalAssessor-ResponseNormalization.test.ts` - NEW: 23 tests for response normalization
 
 **Key Decisions:**
-- Followed pattern from Issues #68 (AuthenticationAssessor) and #73 (TestDataGenerator) for consistency
-- Each file is self-contained with its own helper functions and factories
-- Header comments in main file reference related test files for discoverability
-- Organized by logical feature areas: param generation, execution, status, reporting, integration
+- Followed SecurityAssessor pattern (8 split files) for consistency
+- Fixed getPrivateMethod to use .bind(instance) for proper 'this' context
+- Kept core assess() integration tests in main file
+- Used shared utilities to eliminate duplication across test files
 
 **Commits:**
-- `33d3130` - refactor(tests): split TestScenarioEngine.test.ts into feature-focused files (Closes #72)
+- `c94b02a` - Closes Issue #70 via commit message
 
 **Testing Results:**
-- All 108 tests pass across 6 test suites
-- No regressions in test coverage
-- Original: 1,838 lines -> Split: 2,079 lines (~13% growth due to shared utilities duplication)
-
-**Next Steps:**
-- Continue with remaining test file splits if needed (Issues #70, #71, #74)
-- Consider similar pattern for other large test files
-
-**Notes:**
-- Issue #72: CLOSED
-- Remaining open issues: #53, #48, #70, #71, #74
-
----
-
-## 2026-01-09: Split ToolAnnotationAssessor.test.ts into Feature-Focused Files (Issue #74)
-
-**Summary:** Refactored ToolAnnotationAssessor.test.ts into 6 feature-focused test files following the established AuthenticationAssessor pattern
-
-**Session Focus:** Test file refactoring for improved maintainability - splitting monolithic test file into focused feature areas
-
-**Changes Made:**
-- Created: `client/src/services/assessment/modules/ToolAnnotationAssessor.descriptionPoisoning.test.ts` (15 tests) - Description poisoning detection tests
-- Created: `client/src/services/assessment/modules/ToolAnnotationAssessor.deception.test.ts` (14 tests) - Deception indicator and word boundary tests
-- Created: `client/src/services/assessment/modules/ToolAnnotationAssessor.commandPatterns.test.ts` (14 tests) - Command execution and run exemption tests
-- Created: `client/src/services/assessment/modules/ToolAnnotationAssessor.extendedMetadata.test.ts` (8 tests) - Extended metadata and behavior tests
-- Created: `client/src/services/assessment/modules/ToolAnnotationAssessor.regressions.test.ts` (6 tests) - Regression prevention tests
-- Modified: `client/src/services/assessment/modules/ToolAnnotationAssessor.test.ts` (reduced from 1,686 to 428 lines, 19 tests) - Core assessment and ambiguous pattern handling
-
-**Key Decisions:**
-- Followed naming convention `ModuleName.feature.test.ts` from PR #68
-- Grouped related features: deception + word boundary, command execution + run exemption
-- Kept core assessment and ambiguous pattern handling in main file for foundational coverage
-
-**Commits:**
-- `31b8acb` - refactor(tests): split ToolAnnotationAssessor.test.ts into feature-focused files (#74)
-
-**Testing Results:**
-- All tests pass (3091 passed, 4 skipped across 109 test suites)
-- Original: 1,686 lines, 79 tests across 11 describe blocks
-- After split: 6 files totaling 76 test cases (some tests use loops for multiple assertions)
+- 213 total TemporalAssessor tests passing across 6 files
+- Test automator confirmed coverage is comprehensive - no additional tests needed
 
 **Next Steps:**
 - Consider similar refactoring for other large test files
-- TestScenarioEngine tests also pending commit (split in previous session)
+- Monitor test performance with split files
 
 **Notes:**
-- Issue #74: CLOSED
-- Remaining open issues: #53, #48, #70, #71
-
----
-
-## 2026-01-09: Split assessmentService.test.ts into Feature-Focused Files (Issue #71)
-
-**Summary:** Split assessmentService.test.ts into 7 feature-focused test files for improved maintainability
-
-**Session Focus:** Test file refactoring - splitting monolithic 1,931-line test file into focused feature areas following established pattern from PRs #68, #72, #73, #74
-
-**Changes Made:**
-- Created: `client/src/services/assessment/assessmentService.security.test.ts` (314 lines) - Security assessment tests
-- Created: `client/src/services/assessment/assessmentService.errorHandling.test.ts` (420 lines) - Error handling assessment tests
-- Created: `client/src/services/assessment/assessmentService.functionality.test.ts` (333 lines) - Functionality assessment tests
-- Created: `client/src/services/assessment/assessmentService.documentation.test.ts` (282 lines) - Documentation assessment tests
-- Created: `client/src/services/assessment/assessmentService.usability.test.ts` (312 lines) - Usability assessment tests
-- Created: `client/src/services/assessment/assessmentService.integration.test.ts` (311 lines) - Integration and edge case tests
-- Modified: `client/src/services/assessment/assessmentService.test.ts` (reduced from 1,931 to 251 lines) - Core assessment tests only
-
-**Key Decisions:**
-- Followed established naming convention `moduleName.feature.test.ts` from PRs #68, #72, #73, #74
-- Each split file focuses on a single assessment domain for better maintainability
-- Kept core assessment tests in main file for foundational coverage
-
-**Commits:**
-- `09d882b` - refactor(tests): split assessmentService.test.ts into feature-focused files (#71)
-
-**Testing Results:**
-- All 3091 tests passing across test suites
-- Original: 1,931 lines -> After split: 7 files with improved organization
-
-**Next Steps:**
-- None - Issue #71 complete
-
-**Notes:**
-- Issue #71: CLOSED
-- Remaining open issues: #53, #48, #70
+- Issue #70 closed via commit message
+- Main file reduced by 71% (2,201 to 640 lines)
+- Consistent with established test organization patterns
 
 ---
