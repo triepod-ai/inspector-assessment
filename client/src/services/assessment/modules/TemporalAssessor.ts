@@ -12,6 +12,7 @@ import {
   AssessmentStatus,
   TemporalAssessment,
   TemporalToolResult,
+  VarianceClassification,
 } from "@/lib/assessmentTypes";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { AssessmentContext } from "../AssessmentOrchestrator";
@@ -111,6 +112,34 @@ export class TemporalAssessor extends BaseAssessor {
     "record",
     "push",
     "enqueue",
+  ];
+
+  /**
+   * Issue #69: Patterns for resource-creating operations that legitimately return
+   * different IDs/resources each invocation.
+   *
+   * These tools CREATE new resources, so they should use schema comparison + variance
+   * classification rather than exact comparison. Unlike STATEFUL_TOOL_PATTERNS, these
+   * may overlap with DESTRUCTIVE_PATTERNS (e.g., "create", "insert") but should still
+   * use intelligent variance classification to avoid false positives.
+   *
+   * Examples:
+   * - create_billing_product → new product_id each time (LEGITIMATE variance)
+   * - generate_report → new report_id each time (LEGITIMATE variance)
+   * - insert_record → new record_id each time (LEGITIMATE variance)
+   */
+  private readonly RESOURCE_CREATING_PATTERNS = [
+    "create",
+    "new",
+    "insert",
+    "generate",
+    "register",
+    "allocate",
+    "provision",
+    "spawn",
+    "instantiate",
+    "init",
+    "make",
   ];
 
   constructor(config: AssessmentConfiguration) {
@@ -365,48 +394,83 @@ export class TemporalAssessor extends BaseAssessor {
     const deviations: number[] = [];
     const errors: number[] = [];
 
-    // For stateful tools (search, list, etc.), use schema comparison instead of exact match
-    // These tools legitimately return different content based on data state
+    // Issue #69: Track variance details for transparency
+    const varianceDetails: Array<{
+      invocation: number;
+      classification: VarianceClassification;
+    }> = [];
+
+    // Determine comparison strategy
+    // 1. Stateful tools (search, list, etc.) - use schema comparison
+    // 2. Resource-creating tools (create, insert, etc.) - use variance classification
+    // 3. All other tools - use exact comparison
     const isStateful = this.isStatefulTool(tool);
+    const isResourceCreating = this.isResourceCreatingTool(tool);
+
     if (isStateful) {
       this.log(`${tool.name} classified as stateful - using schema comparison`);
+    } else if (isResourceCreating) {
+      this.log(
+        `${tool.name} classified as resource-creating - using variance classification`,
+      );
     }
 
     for (let i = 1; i < responses.length; i++) {
       if (responses[i].error) {
         errors.push(i + 1); // Track errors as potential indicators
         deviations.push(i + 1);
-      } else {
-        let isDifferent: boolean;
-        if (isStateful) {
-          // Schema-only comparison for stateful tools
-          // Content can vary, but field names should remain consistent
-          isDifferent = !this.compareSchemas(
+      } else if (isStateful) {
+        // Original stateful tool logic: schema comparison + behavioral content check
+        // Content variance is allowed as long as schema is consistent
+        let isDifferent = !this.compareSchemas(
+          responses[0].response,
+          responses[i].response,
+        );
+
+        // Secondary detection: Check for content semantic changes (rug pull patterns)
+        // This catches cases where schema is same but content shifts from helpful to harmful
+        if (!isDifferent) {
+          const contentChange = this.detectStatefulContentChange(
             responses[0].response,
             responses[i].response,
           );
-
-          // Secondary detection: Check for content semantic changes (rug pull patterns)
-          // This catches cases where schema is same but content shifts from helpful to harmful
-          if (!isDifferent) {
-            const contentChange = this.detectStatefulContentChange(
-              responses[0].response,
-              responses[i].response,
+          if (contentChange.detected) {
+            isDifferent = true;
+            this.log(
+              `${tool.name}: Content semantic change detected at invocation ${i + 1} - ${contentChange.reason}`,
             );
-            if (contentChange.detected) {
-              isDifferent = true;
-              this.log(
-                `${tool.name}: Content semantic change detected at invocation ${i + 1} - ${contentChange.reason}`,
-              );
-            }
           }
-        } else {
-          // Exact comparison for non-stateful tools
-          const normalized = this.normalizeResponse(responses[i].response);
-          isDifferent = normalized !== baseline;
         }
 
         if (isDifferent) {
+          deviations.push(i + 1);
+        }
+      } else if (isResourceCreating) {
+        // Issue #69: Use variance classification for resource-creating tools
+        // These need intelligent classification to distinguish ID variance from rug pulls
+        const classification = this.classifyVariance(
+          tool,
+          responses[0].response,
+          responses[i].response,
+        );
+
+        varianceDetails.push({
+          invocation: i + 1,
+          classification,
+        });
+
+        // Only flag SUSPICIOUS and BEHAVIORAL as deviations
+        // LEGITIMATE variance is expected for resource-creating tools
+        if (classification.type !== "LEGITIMATE") {
+          deviations.push(i + 1);
+          this.log(
+            `${tool.name}: ${classification.type} variance at invocation ${i + 1} - ${classification.reasons.join(", ")}`,
+          );
+        }
+      } else {
+        // Exact comparison for non-stateful, non-resource-creating tools
+        const normalized = this.normalizeResponse(responses[i].response);
+        if (normalized !== baseline) {
           deviations.push(i + 1); // 1-indexed
         }
       }
@@ -417,6 +481,24 @@ export class TemporalAssessor extends BaseAssessor {
     // - deviationCount = total behavior changes (including errors)
     // - errorCount = how many of those were errors specifically
     const isVulnerable = deviations.length > 0;
+
+    // Generate appropriate note based on tool type and result
+    let note: string | undefined;
+    if (isStateful) {
+      // Preserve original stateful tool messages for backward compatibility
+      note = isVulnerable
+        ? "Stateful tool - secondary content analysis detected rug pull"
+        : "Stateful tool - content variation expected, schema consistent";
+    } else if (isResourceCreating) {
+      note = isVulnerable
+        ? "Resource-creating tool - variance classification detected suspicious/behavioral change"
+        : "Resource-creating tool - ID/timestamp variance expected, no suspicious patterns";
+    }
+
+    // Issue #69: Get the first suspicious/behavioral classification for evidence
+    const firstSuspiciousClassification = varianceDetails.find(
+      (v) => v.classification.type !== "LEGITIMATE",
+    );
 
     return {
       tool: tool.name,
@@ -434,12 +516,10 @@ export class TemporalAssessor extends BaseAssessor {
               responses[deviations[0] - 1]?.response ?? null,
           }
         : undefined,
-      // Add note for stateful tools - different messages for pass vs fail
-      note: isStateful
-        ? isVulnerable
-          ? "Stateful tool - secondary content analysis detected rug pull"
-          : "Stateful tool - content variation expected, schema consistent"
-        : undefined,
+      note,
+      // Issue #69: Include variance classification for transparency
+      varianceClassification: firstSuspiciousClassification?.classification,
+      varianceDetails: varianceDetails.length > 0 ? varianceDetails : undefined,
     };
   }
 
@@ -601,6 +681,229 @@ export class TemporalAssessor extends BaseAssessor {
       const wordBoundaryRegex = new RegExp(`(^|_|-)${pattern}($|_|-)`);
       return wordBoundaryRegex.test(toolName);
     });
+  }
+
+  /**
+   * Issue #69: Check if a tool creates new resources that legitimately vary per invocation.
+   * Resource-creating tools return different IDs, creation timestamps, etc.
+   * for each new resource - this is expected behavior, NOT a rug pull.
+   *
+   * Unlike isStatefulTool(), this DOES include patterns that overlap with DESTRUCTIVE_PATTERNS
+   * because resource-creating tools need intelligent variance classification, not exact comparison.
+   *
+   * Uses word-boundary matching like isStatefulTool() to prevent false matches.
+   * - "create_billing_product" matches "create" ✓
+   * - "recreate_view" does NOT match "create" ✓ (must be at word boundary)
+   */
+  private isResourceCreatingTool(tool: Tool): boolean {
+    const toolName = tool.name.toLowerCase();
+    return this.RESOURCE_CREATING_PATTERNS.some((pattern) => {
+      const wordBoundaryRegex = new RegExp(`(^|_|-)${pattern}($|_|-)`);
+      return wordBoundaryRegex.test(toolName);
+    });
+  }
+
+  /**
+   * Issue #69: Classify variance between two responses to reduce false positives.
+   * Returns LEGITIMATE for expected variance (IDs, timestamps), SUSPICIOUS for
+   * schema changes, and BEHAVIORAL for semantic changes (promotional keywords, errors).
+   */
+  private classifyVariance(
+    _tool: Tool,
+    baseline: unknown,
+    current: unknown,
+  ): VarianceClassification {
+    // 1. Schema comparison - structural changes are SUSPICIOUS
+    const schemaMatch = this.compareSchemas(baseline, current);
+    if (!schemaMatch) {
+      return {
+        type: "SUSPICIOUS",
+        confidence: "high",
+        reasons: ["Schema/field structure changed between invocations"],
+        suspiciousPatterns: ["schema_change"],
+      };
+    }
+
+    // 2. Content change detection - promotional/error keywords are BEHAVIORAL
+    const contentChange = this.detectStatefulContentChange(baseline, current);
+    if (contentChange.detected) {
+      return {
+        type: "BEHAVIORAL",
+        confidence: "high",
+        reasons: [`Behavioral change detected: ${contentChange.reason}`],
+        suspiciousPatterns: [contentChange.reason || "content_change"],
+      };
+    }
+
+    // 3. After normalization, if responses match = LEGITIMATE
+    const normalizedBaseline = this.normalizeResponse(baseline);
+    const normalizedCurrent = this.normalizeResponse(current);
+    if (normalizedBaseline === normalizedCurrent) {
+      return {
+        type: "LEGITIMATE",
+        confidence: "high",
+        reasons: ["All differences normalized (IDs, timestamps, counters)"],
+      };
+    }
+
+    // 4. Check for legitimate field variance (any _id, _at, token fields)
+    const variedFields = this.findVariedFields(baseline, current);
+    const unexplainedFields = variedFields.filter(
+      (f) => !this.isLegitimateFieldVariance(f),
+    );
+
+    if (unexplainedFields.length === 0) {
+      return {
+        type: "LEGITIMATE",
+        confidence: "high",
+        reasons: [
+          `Variance only in legitimate fields: ${variedFields.join(", ")}`,
+        ],
+        variedFields,
+      };
+    }
+
+    // 5. Some unexplained variance - flag as suspicious with low confidence
+    return {
+      type: "SUSPICIOUS",
+      confidence: "low",
+      reasons: [
+        `Unexplained variance in fields: ${unexplainedFields.join(", ")}`,
+      ],
+      variedFields,
+      suspiciousPatterns: ["unclassified_variance"],
+    };
+  }
+
+  /**
+   * Issue #69: Check if a field name represents legitimate variance.
+   * Fields containing IDs, timestamps, tokens, etc. are expected to vary.
+   */
+  private isLegitimateFieldVariance(field: string): boolean {
+    const fieldLower = field.toLowerCase();
+
+    // ID fields - any field ending in _id or containing "id" at word boundary
+    if (fieldLower.endsWith("_id") || fieldLower.endsWith("id")) return true;
+    if (fieldLower.includes("_id_") || fieldLower.startsWith("id_"))
+      return true;
+
+    // Timestamp fields
+    if (fieldLower.endsWith("_at") || fieldLower.endsWith("at")) return true;
+    if (
+      fieldLower.includes("time") ||
+      fieldLower.includes("date") ||
+      fieldLower.includes("timestamp")
+    )
+      return true;
+
+    // Token/session fields
+    if (
+      fieldLower.includes("token") ||
+      fieldLower.includes("cursor") ||
+      fieldLower.includes("nonce")
+    )
+      return true;
+    if (fieldLower.includes("session") || fieldLower.includes("correlation"))
+      return true;
+
+    // Pagination fields
+    if (
+      fieldLower.includes("offset") ||
+      fieldLower.includes("page") ||
+      fieldLower.includes("next")
+    )
+      return true;
+
+    // Counter/accumulation fields
+    if (
+      fieldLower.includes("count") ||
+      fieldLower.includes("total") ||
+      fieldLower.includes("size")
+    )
+      return true;
+    if (fieldLower.includes("length") || fieldLower.includes("index"))
+      return true;
+
+    // Array content fields (search results, items)
+    if (
+      fieldLower.includes("results") ||
+      fieldLower.includes("items") ||
+      fieldLower.includes("data")
+    )
+      return true;
+
+    // Hash/version fields
+    if (
+      fieldLower.includes("hash") ||
+      fieldLower.includes("etag") ||
+      fieldLower.includes("version")
+    )
+      return true;
+
+    return false;
+  }
+
+  /**
+   * Issue #69: Find which fields differ between two responses.
+   * Returns field paths that have different values.
+   */
+  private findVariedFields(
+    obj1: unknown,
+    obj2: unknown,
+    prefix = "",
+  ): string[] {
+    const varied: string[] = [];
+
+    // Handle primitives
+    if (typeof obj1 !== "object" || obj1 === null) {
+      if (obj1 !== obj2) {
+        return [prefix || "value"];
+      }
+      return [];
+    }
+
+    if (typeof obj2 !== "object" || obj2 === null) {
+      return [prefix || "value"];
+    }
+
+    // Handle arrays - just note if length or content differs
+    if (Array.isArray(obj1) || Array.isArray(obj2)) {
+      const arr1 = Array.isArray(obj1) ? obj1 : [];
+      const arr2 = Array.isArray(obj2) ? obj2 : [];
+      if (JSON.stringify(arr1) !== JSON.stringify(arr2)) {
+        return [prefix || "array"];
+      }
+      return [];
+    }
+
+    // Handle objects
+    const allKeys = new Set([
+      ...Object.keys(obj1 as object),
+      ...Object.keys(obj2 as object),
+    ]);
+
+    for (const key of allKeys) {
+      const val1 = (obj1 as Record<string, unknown>)[key];
+      const val2 = (obj2 as Record<string, unknown>)[key];
+      const fieldPath = prefix ? `${prefix}.${key}` : key;
+
+      if (JSON.stringify(val1) !== JSON.stringify(val2)) {
+        // If both are objects, recurse to find specific field
+        if (
+          typeof val1 === "object" &&
+          val1 !== null &&
+          typeof val2 === "object" &&
+          val2 !== null
+        ) {
+          const nestedVaried = this.findVariedFields(val1, val2, fieldPath);
+          varied.push(...nestedVaried);
+        } else {
+          varied.push(fieldPath);
+        }
+      }
+    }
+
+    return varied;
   }
 
   /**

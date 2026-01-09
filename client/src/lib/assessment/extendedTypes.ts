@@ -498,6 +498,45 @@ export interface TemporalToolResult {
     baselineSchema?: unknown;
     mutatedSchema?: unknown;
   };
+  /** Issue #69: Variance classification for reduced false positives */
+  varianceClassification?: VarianceClassification;
+  /** Issue #69: Per-invocation variance details for transparency */
+  varianceDetails?: Array<{
+    invocation: number;
+    classification: VarianceClassification;
+  }>;
+}
+
+// ============================================================================
+// Variance Classification Types (Issue #69)
+// Distinguishes legitimate response variance from suspicious behavioral changes
+// ============================================================================
+
+/**
+ * Classification of temporal variance between tool invocations.
+ * Used to reduce false positives while maintaining detection capability.
+ *
+ * - LEGITIMATE: Expected variance (IDs, timestamps, search results, pagination)
+ * - SUSPICIOUS: Concerning changes (capabilities, permissions, schema structure)
+ * - BEHAVIORAL: Semantic changes (promotional keywords, error injection)
+ */
+export type VarianceType = "LEGITIMATE" | "SUSPICIOUS" | "BEHAVIORAL";
+
+/**
+ * Result of variance classification analysis.
+ * Provides transparency into why a response difference was classified.
+ */
+export interface VarianceClassification {
+  /** Type of variance detected */
+  type: VarianceType;
+  /** Confidence in the classification */
+  confidence: "high" | "medium" | "low";
+  /** Human-readable reasons for the classification */
+  reasons: string[];
+  /** Field paths that varied between invocations */
+  variedFields?: string[];
+  /** Suspicious patterns detected (if type is SUSPICIOUS or BEHAVIORAL) */
+  suspiciousPatterns?: string[];
 }
 
 export interface TemporalAssessment {
