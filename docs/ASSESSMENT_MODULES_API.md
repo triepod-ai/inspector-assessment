@@ -49,6 +49,8 @@ Analyzes tool responses for security vulnerabilities with evidence-based detecti
 
 **Location**: `client/src/services/assessment/modules/securityTests/SecurityResponseAnalyzer.ts`
 
+**Architecture** (v2.0.0+): Refactored facade pattern (Issue #53) with 6 extracted classes for maintainability and testability. Original 1,638 lines → ~570 line facade delegating to focused analyzers.
+
 #### Public Exports
 
 ```typescript
@@ -86,6 +88,42 @@ export class SecurityResponseAnalyzer {
   extractResponseContent(response: CompatibilityCallToolResult): string;
 }
 ```
+
+#### Extracted Analysis Classes (v2.0.0+)
+
+The SecurityResponseAnalyzer facade delegates to 6 focused classes (Issue #53):
+
+**1. SecurityPatternLibrary** - Centralized regex patterns (eliminates 16 duplicate pattern collections)
+
+- **Exports**: HTTP_ERROR_PATTERNS, VALIDATION_ERROR_PATTERNS, EXECUTION_INDICATORS, EXECUTION_ARTIFACT_PATTERNS, CONNECTION_ERROR_PATTERNS, REFLECTION_PATTERNS, SEARCH_RESPONSE_PATTERNS, SAFE_CREATION_PATTERNS, ECHOED_PAYLOAD_PATTERNS, matchesAny(), hasMcpErrorPrefix()
+
+**2. ErrorClassifier** - Error classification and connection detection
+
+- **Methods**: isConnectionError(), isConnectionErrorFromException(), classifyError(), classifyErrorFromException(), extractErrorInfo()
+- **Type**: ErrorClassification ("connection" | "server" | "protocol"), ErrorInfo
+
+**3. ExecutionArtifactDetector** - Detects execution evidence
+
+- **Methods**: hasExecutionEvidence(), detectExecutionArtifacts(), containsEchoedInjectionPayload()
+- **Purpose**: Distinguishes safe reflection from actual command/code execution
+
+**4. MathAnalyzer** - Calculator injection detection
+
+- **Methods**: isComputedMathResult()
+- **Type**: MathResultAnalysis (with confidence levels)
+- **Purpose**: Detects simple math expressions (1+2=3) to avoid false positives
+
+**5. SafeResponseDetector** - Safe response pattern detection
+
+- **Methods**: isReflectionResponse(), isValidationRejection(), isSearchResultResponse(), isCreationResponse()
+- **Type**: AnalysisResult
+- **Purpose**: Identifies legitimate safe responses (stored, saved, search results, etc.)
+
+**6. ConfidenceScorer** - Confidence calculation for manual review
+
+- **Methods**: calculateConfidence()
+- **Type**: ConfidenceResult
+- **Purpose**: Determines if finding requires manual review based on evidence strength
 
 #### Interfaces
 
@@ -418,21 +456,29 @@ export class SecurityPayloadGenerator {
 
 #### Parameter Injection Algorithm
 
-The `createTestParameters()` method uses intelligent injection:
+The `createTestParameters()` method uses a priority-based injection system (Issue #81):
 
-1. **Language Detection**
+1. **PRIORITY 1: Auth Payloads** (Issue #81)
+   - Targets: token, auth_token, authorization, api_key, access_token
+   - Ensures auth bypass tests trigger actual auth checks
+   - Prevents false positives from payload going to primary input params
+
+2. **PRIORITY 2: Auth Failure Payloads** (Issue #79)
+   - Targets: simulate_failure, failure_mode, failure_type
+   - Tests fail-open/fail-closed authentication patterns
+
+3. **PRIORITY 3: Language Detection**
    - Detects Python, JavaScript, Java, SQL execution parameters
    - Uses LanguageAwarePayloadGenerator for language-specific payloads
-   - Prioritizes language-specific code execution parameters
 
-2. **Type-Based Matching**
+4. **PRIORITY 4: Type-Based Matching**
    - Matches payloadTypes to parameter names
    - Example: "command" parameter for command injection
 
-3. **Generic Injection**
+5. **PRIORITY 5: Generic Injection**
    - Falls back to first string parameter if no match found
 
-4. **Required Parameter Filling**
+6. **Required Parameter Filling**
    - Fills required parameters with safe defaults
    - Types: string="test", number=1, boolean=true, object={}, array=[]
 
@@ -1293,7 +1339,50 @@ const matched = containsKeyword(toolName, CUSTOM_KEYWORDS);
 
 ## Migration Guide
 
-If moving from monolithic SecurityAssessor to modular components:
+### SecurityResponseAnalyzer Refactoring (Issue #53, v2.0.0)
+
+If you have code using internal SecurityResponseAnalyzer methods:
+
+**Backward Compatibility** (v2.0.0+):
+
+- All public methods remain on SecurityResponseAnalyzer facade
+- No API changes - existing code continues to work
+- Internal implementation details are now delegated to focused classes
+
+**Direct Class Usage** (for advanced scenarios):
+
+```typescript
+// OLD: Use facade (still works!)
+import { SecurityResponseAnalyzer } from "@/services/assessment/modules/securityTests";
+const analyzer = new SecurityResponseAnalyzer();
+const result = analyzer.analyzeResponse(response, payload, tool);
+
+// NEW: Direct access to focused classes (if needed)
+import {
+  ErrorClassifier,
+  ExecutionArtifactDetector,
+  MathAnalyzer,
+  SafeResponseDetector,
+  ConfidenceScorer,
+} from "@/services/assessment/modules/securityTests";
+
+const errorClassifier = new ErrorClassifier();
+const isConnection = errorClassifier.isConnectionError(response);
+
+const executionDetector = new ExecutionArtifactDetector();
+const hasExecution = executionDetector.hasExecutionEvidence(responseText);
+```
+
+**Why This Refactoring**:
+
+- **Cyclomatic Complexity**: Reduced from 218 to ~50 (facade only)
+- **Maintainability**: Each class handles one responsibility
+- **Testability**: Focused classes are easier to unit test
+- **Pattern Reuse**: SecurityPatternLibrary eliminates 16 duplicate pattern collections
+
+### From Monolithic SecurityAssessor to Modular Components
+
+If moving from legacy SecurityAssessor:
 
 ```typescript
 // OLD: Single monolithic class
