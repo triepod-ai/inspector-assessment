@@ -271,3 +271,74 @@ Fraudulent transaction processing.
 
   return violations[violationType] || createMockReadmeContent();
 }
+
+// ============================================
+// Temporal Assessor Test Utilities
+// ============================================
+
+/**
+ * Helper to access private methods via reflection for testing.
+ * Binds the method to the instance to preserve 'this' context.
+ */
+export function getPrivateMethod<T, M>(instance: T, methodName: string): M {
+  const method = (instance as Record<string, unknown>)[methodName];
+  if (typeof method === "function") {
+    return method.bind(instance) as M;
+  }
+  return method as M;
+}
+
+/**
+ * Create a temporal test configuration with defaults optimized for testing
+ */
+export function createTemporalTestConfig(
+  overrides: Partial<AssessmentConfiguration> = {},
+): AssessmentConfiguration {
+  return {
+    testTimeout: 5000,
+    skipBrokenTools: false,
+    delayBetweenTests: 0,
+    assessmentCategories: {
+      functionality: false,
+      security: false,
+      documentation: false,
+      errorHandling: false,
+      usability: false,
+      temporal: true,
+    },
+    temporalInvocations: 5, // Small number for fast tests
+    ...overrides,
+  };
+}
+
+/**
+ * Create a minimal mock tool for temporal testing
+ */
+export function createTemporalTestTool(
+  name: string,
+  schema: Record<string, unknown> = {},
+): Tool {
+  return {
+    name,
+    description: `Test tool: ${name}`,
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: [],
+      ...schema,
+    },
+  };
+}
+
+/**
+ * Create a mock assessment context for temporal testing
+ */
+export function createTemporalMockContext(
+  tools: Tool[],
+  callToolFn: (name: string, args: unknown) => Promise<unknown>,
+): AssessmentContext {
+  return {
+    tools,
+    callTool: callToolFn,
+  } as unknown as AssessmentContext;
+}
