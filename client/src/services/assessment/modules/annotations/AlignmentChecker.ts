@@ -19,6 +19,67 @@ import type {
 } from "../../config/annotationPatterns";
 
 import { scanDescriptionForPoisoning } from "./DescriptionPoisoningDetector";
+
+/**
+ * Extended Tool type with MCP annotation properties
+ * The base Tool type from the SDK may not include annotation properties,
+ * so we extend it to provide type safety for annotation access.
+ */
+interface ToolWithAnnotations extends Tool {
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+    title?: string;
+    rateLimit?: RateLimitConfig;
+    permissions?: string | string[];
+    scopes?: string[];
+    supportsBulkOperations?: boolean;
+  };
+  metadata?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+    title?: string;
+    rateLimit?: RateLimitConfig;
+    requiredPermission?: string;
+    permissions?: string | string[];
+    requiredScopes?: string[];
+    scopes?: string[];
+    bulkOperations?: BulkOperationsConfig;
+    supportsBulkOperations?: boolean;
+    maxBatchSize?: number;
+    returnSchema?: Record<string, unknown>;
+  };
+  // Direct properties (legacy/alternative annotation locations)
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+  title?: string;
+  rateLimit?: RateLimitConfig;
+  requiredPermission?: string;
+  permissions?: string | string[];
+  requiredScopes?: string[];
+  scopes?: string[];
+  bulkOperations?: BulkOperationsConfig;
+  supportsBulkOperations?: boolean;
+  returnSchema?: Record<string, unknown>;
+}
+
+interface RateLimitConfig {
+  windowMs?: number;
+  maxRequests?: number;
+  requestsPerMinute?: number;
+  requestsPerSecond?: number;
+}
+
+interface BulkOperationsConfig {
+  maxBatchSize?: number;
+  supportsBulk?: boolean;
+}
 import {
   detectAnnotationDeception,
   isActionableConfidence,
@@ -61,22 +122,22 @@ export interface AlignmentMetricsResult {
  * Checks multiple sources in priority order: annotations object, direct properties, metadata
  */
 export function extractAnnotations(tool: Tool): ExtractedAnnotations {
-  const toolAny = tool as any;
+  const extendedTool = tool as ToolWithAnnotations;
 
   // Priority 1: Check annotations object (MCP 2024-11 spec)
-  if (toolAny.annotations) {
+  if (extendedTool.annotations) {
     const hasAnnotations =
-      toolAny.annotations.readOnlyHint !== undefined ||
-      toolAny.annotations.destructiveHint !== undefined;
+      extendedTool.annotations.readOnlyHint !== undefined ||
+      extendedTool.annotations.destructiveHint !== undefined;
 
     if (hasAnnotations) {
       return {
-        readOnlyHint: toolAny.annotations.readOnlyHint,
-        destructiveHint: toolAny.annotations.destructiveHint,
-        title: toolAny.annotations.title || toolAny.title,
+        readOnlyHint: extendedTool.annotations.readOnlyHint,
+        destructiveHint: extendedTool.annotations.destructiveHint,
+        title: extendedTool.annotations.title || extendedTool.title,
         description: tool.description,
-        idempotentHint: toolAny.annotations.idempotentHint,
-        openWorldHint: toolAny.annotations.openWorldHint,
+        idempotentHint: extendedTool.annotations.idempotentHint,
+        openWorldHint: extendedTool.annotations.openWorldHint,
         source: "mcp",
       };
     }
@@ -84,41 +145,41 @@ export function extractAnnotations(tool: Tool): ExtractedAnnotations {
 
   // Priority 2: Check direct properties
   if (
-    toolAny.readOnlyHint !== undefined ||
-    toolAny.destructiveHint !== undefined
+    extendedTool.readOnlyHint !== undefined ||
+    extendedTool.destructiveHint !== undefined
   ) {
     return {
-      readOnlyHint: toolAny.readOnlyHint,
-      destructiveHint: toolAny.destructiveHint,
-      title: toolAny.title,
+      readOnlyHint: extendedTool.readOnlyHint,
+      destructiveHint: extendedTool.destructiveHint,
+      title: extendedTool.title,
       description: tool.description,
-      idempotentHint: toolAny.idempotentHint,
-      openWorldHint: toolAny.openWorldHint,
+      idempotentHint: extendedTool.idempotentHint,
+      openWorldHint: extendedTool.openWorldHint,
       source: "mcp",
     };
   }
 
   // Priority 3: Check metadata
-  if (toolAny.metadata) {
+  if (extendedTool.metadata) {
     const hasMetadataAnnotations =
-      toolAny.metadata.readOnlyHint !== undefined ||
-      toolAny.metadata.destructiveHint !== undefined;
+      extendedTool.metadata.readOnlyHint !== undefined ||
+      extendedTool.metadata.destructiveHint !== undefined;
 
     if (hasMetadataAnnotations) {
       return {
-        readOnlyHint: toolAny.metadata.readOnlyHint,
-        destructiveHint: toolAny.metadata.destructiveHint,
-        title: toolAny.metadata.title || toolAny.title,
+        readOnlyHint: extendedTool.metadata.readOnlyHint,
+        destructiveHint: extendedTool.metadata.destructiveHint,
+        title: extendedTool.metadata.title || extendedTool.title,
         description: tool.description,
-        idempotentHint: toolAny.metadata.idempotentHint,
-        openWorldHint: toolAny.metadata.openWorldHint,
+        idempotentHint: extendedTool.metadata.idempotentHint,
+        openWorldHint: extendedTool.metadata.openWorldHint,
         source: "mcp",
       };
     }
   }
 
   return {
-    title: toolAny.title,
+    title: extendedTool.title,
     description: tool.description,
     source: "none",
   };
@@ -131,14 +192,14 @@ export function extractAnnotations(tool: Tool): ExtractedAnnotations {
 export function extractExtendedMetadata(
   tool: Tool,
 ): ToolAnnotationResult["extendedMetadata"] {
-  const toolAny = tool as any;
+  const extendedTool = tool as ToolWithAnnotations;
   const metadata: NonNullable<ToolAnnotationResult["extendedMetadata"]> = {};
 
   // Rate limiting - check annotations, metadata, and direct props
   const rateLimit =
-    toolAny.rateLimit ||
-    toolAny.annotations?.rateLimit ||
-    toolAny.metadata?.rateLimit;
+    extendedTool.rateLimit ||
+    extendedTool.annotations?.rateLimit ||
+    extendedTool.metadata?.rateLimit;
   if (rateLimit && typeof rateLimit === "object") {
     metadata.rateLimit = {
       windowMs: rateLimit.windowMs,
@@ -150,15 +211,17 @@ export function extractExtendedMetadata(
 
   // Permissions - check requiredPermission, permissions, scopes
   const permissions =
-    toolAny.requiredPermission ||
-    toolAny.permissions ||
-    toolAny.annotations?.permissions ||
-    toolAny.metadata?.requiredPermission ||
-    toolAny.metadata?.permissions;
+    extendedTool.requiredPermission ||
+    extendedTool.permissions ||
+    extendedTool.annotations?.permissions ||
+    extendedTool.metadata?.requiredPermission ||
+    extendedTool.metadata?.permissions;
   if (permissions) {
     const required = Array.isArray(permissions) ? permissions : [permissions];
     const scopes =
-      toolAny.scopes || toolAny.annotations?.scopes || toolAny.metadata?.scopes;
+      extendedTool.scopes ||
+      extendedTool.annotations?.scopes ||
+      extendedTool.metadata?.scopes;
     metadata.permissions = {
       required: required.filter((p: unknown) => typeof p === "string"),
       scopes: Array.isArray(scopes)
@@ -168,19 +231,19 @@ export function extractExtendedMetadata(
   }
 
   // Return schema - check outputSchema (MCP 2025-06-18 spec)
-  if (toolAny.outputSchema) {
+  if (extendedTool.outputSchema) {
     metadata.returnSchema = {
       hasSchema: true,
-      schema: toolAny.outputSchema,
+      schema: extendedTool.outputSchema,
     };
   }
 
   // Bulk operations - check metadata for batch support
   const bulkSupport =
-    toolAny.supportsBulkOperations ||
-    toolAny.annotations?.supportsBulkOperations ||
-    toolAny.metadata?.supportsBulkOperations;
-  const maxBatchSize = toolAny.metadata?.maxBatchSize;
+    extendedTool.supportsBulkOperations ||
+    extendedTool.annotations?.supportsBulkOperations ||
+    extendedTool.metadata?.supportsBulkOperations;
+  const maxBatchSize = extendedTool.metadata?.maxBatchSize;
   if (bulkSupport !== undefined || maxBatchSize !== undefined) {
     metadata.bulkOperations = {
       supported: !!bulkSupport,
