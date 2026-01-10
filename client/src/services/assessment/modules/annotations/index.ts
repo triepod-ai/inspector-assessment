@@ -1,8 +1,13 @@
 /**
  * Annotations Assessment Module
- * Exports all annotation-related components
+ *
+ * Exports all annotation-related components for analyzing MCP tool annotations.
+ * Includes behavior inference, architecture detection, and description analysis.
  *
  * Enhanced in Issue #57 with architecture detection and multi-signal behavior inference.
+ *
+ * @public
+ * @module assessment/annotations
  */
 
 export {

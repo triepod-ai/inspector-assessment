@@ -1,6 +1,9 @@
 /**
  * Response Validator for MCP Tool Testing
  * Validates that tool responses are actually functional, not just present
+ *
+ * @internal
+ * @module assessment/ResponseValidator
  */
 
 import {

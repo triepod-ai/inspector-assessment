@@ -1,6 +1,11 @@
 /**
  * Security Assessment Module
- * Exports all security-related components
+ *
+ * Exports all security-related components for testing MCP servers.
+ * Includes payload generation, testing, and response analysis.
+ *
+ * @public
+ * @module assessment/security
  */
 
 export {

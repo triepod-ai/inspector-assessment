@@ -3,6 +3,9 @@
  *
  * Provides standardized error handling across all assessment modules.
  * See docs/ERROR_HANDLING_CONVENTIONS.md for usage guidelines.
+ *
+ * @internal
+ * @module assessment/lib/errors
  */
 
 /**

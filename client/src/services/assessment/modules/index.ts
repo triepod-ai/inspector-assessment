@@ -37,6 +37,7 @@
  * - MCPSpecComplianceAssessor → use ProtocolComplianceAssessor
  * - ProtocolConformanceAssessor → use ProtocolComplianceAssessor
  *
+ * @public
  * @module assessment/modules
  */
 
@@ -100,6 +101,7 @@ export * from "./annotations";
 // ============================================================================
 
 /**
+ * @public
  * @deprecated Use DeveloperExperienceAssessor instead.
  * DocumentationAssessor has been merged into DeveloperExperienceAssessor.
  * This export will be removed in v2.0.0.
@@ -107,6 +109,7 @@ export * from "./annotations";
 export { DocumentationAssessor } from "./DocumentationAssessor";
 
 /**
+ * @public
  * @deprecated Use DeveloperExperienceAssessor instead.
  * UsabilityAssessor has been merged into DeveloperExperienceAssessor.
  * This export will be removed in v2.0.0.
@@ -114,6 +117,7 @@ export { DocumentationAssessor } from "./DocumentationAssessor";
 export { UsabilityAssessor } from "./UsabilityAssessor";
 
 /**
+ * @public
  * @deprecated Use ProtocolComplianceAssessor instead.
  * MCPSpecComplianceAssessor has been merged into ProtocolComplianceAssessor.
  * This export will be removed in v2.0.0.
@@ -121,6 +125,7 @@ export { UsabilityAssessor } from "./UsabilityAssessor";
 export { MCPSpecComplianceAssessor } from "./MCPSpecComplianceAssessor";
 
 /**
+ * @public
  * @deprecated Use ProtocolComplianceAssessor instead.
  * ProtocolConformanceAssessor has been merged into ProtocolComplianceAssessor.
  * This export will be removed in v2.0.0.

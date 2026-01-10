@@ -4,6 +4,9 @@
  *
  * Supports optional Claude Code integration for intelligent test generation
  * when ClaudeCodeBridge is provided.
+ *
+ * @internal
+ * @module assessment/TestDataGenerator
  */
 
 import { Tool } from "@modelcontextprotocol/sdk/types.js";

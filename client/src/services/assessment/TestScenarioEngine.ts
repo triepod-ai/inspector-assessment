@@ -1,6 +1,9 @@
 /**
  * Test Scenario Engine for Multi-Scenario MCP Tool Testing
  * Orchestrates comprehensive testing with multiple scenarios per tool
+ *
+ * @internal
+ * @module assessment/TestScenarioEngine
  */
 
 import {

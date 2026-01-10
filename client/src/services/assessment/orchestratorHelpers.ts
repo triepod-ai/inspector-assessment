@@ -7,6 +7,9 @@
  * - Module progress/started event emission
  * - Overall status determination
  * - Summary and recommendations generation
+ *
+ * @internal
+ * @module orchestratorHelpers
  */
 
 import {

@@ -19,6 +19,7 @@ Integration documentation for using the npm package programmatically.
 
 | Document                                                    | Purpose                                          |
 | ----------------------------------------------------------- | ------------------------------------------------ |
+| [Public API Surface](PUBLIC_API.md)                         | Stable exports, entry points, versioning policy  |
 | [Programmatic API Guide](PROGRAMMATIC_API_GUIDE.md)         | Step-by-step guide for AssessmentOrchestrator    |
 | [API Reference](API_REFERENCE.md)                           | Complete API documentation and method signatures |
 | [Integration Guide](INTEGRATION_GUIDE.md)                   | Practical patterns for multi-server, CI/CD, etc. |

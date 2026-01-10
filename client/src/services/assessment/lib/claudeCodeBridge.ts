@@ -9,6 +9,9 @@
  * - Semantic AUP violation analysis
  * - Tool behavior inference for annotation validation
  * - Documentation quality assessment
+ *
+ * @internal
+ * @module assessment/lib/claudeCodeBridge
  */
 
 import { execFileSync, execSync } from "child_process";

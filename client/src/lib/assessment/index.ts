@@ -4,6 +4,7 @@
  * Re-exports all assessment types from focused modules.
  * This provides backward compatibility for existing imports.
  *
+ * @public
  * @example
  * // Existing imports continue to work:
  * import { MCPDirectoryAssessment, AssessmentConfiguration } from "@/lib/assessment";

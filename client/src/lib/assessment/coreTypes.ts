@@ -4,15 +4,19 @@
  * Foundational types used across all assessment modules.
  * These are the building blocks that other type files depend on.
  *
+ * @public
  * @module assessment/coreTypes
  */
 
+/** @public Assessment status returned by modules */
 export type AssessmentStatus = "PASS" | "FAIL" | "NEED_MORE_INFO";
+/** @public Security risk level for vulnerabilities */
 export type SecurityRiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
 /**
  * Alignment status for tool annotations.
  * Extends beyond PASS/FAIL to handle ambiguous cases.
+ * @public
  */
 export type AlignmentStatus =
   | "ALIGNED" // Annotations match inferred behavior
@@ -22,6 +26,7 @@ export type AlignmentStatus =
 
 /**
  * Confidence level for behavior inference
+ * @public
  */
 export type InferenceConfidence = "high" | "medium" | "low";
 
@@ -29,11 +34,13 @@ export type InferenceConfidence = "high" | "medium" | "low";
  * Assessment category tier for distinguishing core vs optional assessments.
  * - "core": Always applicable to any MCP server audit
  * - "optional": Contextual assessments (e.g., MCPB bundle-specific)
+ * @public
  */
 export type AssessmentCategoryTier = "core" | "optional";
 
 /**
  * Metadata for assessment categories including tier and applicability info.
+ * @public
  */
 export interface AssessmentCategoryMetadata {
   tier: AssessmentCategoryTier;
@@ -119,6 +126,7 @@ const ASSESSMENT_CATEGORY_METADATA_INTERNAL = {
 /**
  * Type-safe module name derived from ASSESSMENT_CATEGORY_METADATA keys.
  * Use this type for compile-time validation of module names.
+ * @public
  */
 export type AssessmentModuleName =
   keyof typeof ASSESSMENT_CATEGORY_METADATA_INTERNAL;
@@ -126,6 +134,7 @@ export type AssessmentModuleName =
 /**
  * Re-export with original name for backward compatibility.
  * Type is preserved as Record<AssessmentModuleName, AssessmentCategoryMetadata>.
+ * @public
  */
 export const ASSESSMENT_CATEGORY_METADATA: Record<
   AssessmentModuleName,
@@ -136,6 +145,7 @@ export const ASSESSMENT_CATEGORY_METADATA: Record<
  * Generate module configuration derived from ASSESSMENT_CATEGORY_METADATA.
  * Single source of truth for all assessment module names.
  *
+ * @public
  * @param options.sourceCodePath - If true, enables externalAPIScanner
  * @param options.skipTemporal - If true, disables temporal assessment
  * @returns Record of module names to enabled state (type-safe)
@@ -179,6 +189,7 @@ export function getAllModulesConfig(options: {
  * - "deferred": Write operations are in-memory until explicit save operation
  * - "unknown": Cannot determine persistence model
  *
+ * @public
  * @see services/assessment/config/annotationPatterns.ts for implementation
  */
 export type {
@@ -189,6 +200,7 @@ export type {
 /**
  * JSON Schema Draft 7 compatible interface for tool input/output schemas.
  * Based on the JSON Schema specification used by MCP SDK.
+ * @public
  */
 export interface JSONSchema7 {
   type?: string | string[];
@@ -240,6 +252,7 @@ export interface JSONSchema7 {
 /**
  * MCP content block interface for tool responses.
  * Maps to ContentBlock types from @modelcontextprotocol/sdk/types.js
+ * @public
  */
 export interface MCPContent {
   type: "text" | "image" | "audio" | "resource_link" | "resource";
@@ -259,6 +272,7 @@ export interface MCPContent {
 
 /**
  * Server info for assessment context.
+ * @public
  */
 export interface ServerInfo {
   name: string;

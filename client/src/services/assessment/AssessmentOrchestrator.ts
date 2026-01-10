@@ -1,6 +1,9 @@
 /**
  * Assessment Orchestrator
  * Coordinates all assessment modules and manages the assessment workflow
+ *
+ * @public
+ * @module AssessmentOrchestrator
  */
 
 import {
@@ -74,6 +77,7 @@ import {
 
 /**
  * MCP Resource interface for assessment context
+ * @public
  */
 export interface MCPResource {
   uri: string;
@@ -84,6 +88,7 @@ export interface MCPResource {
 
 /**
  * MCP Resource Template interface for assessment context
+ * @public
  */
 export interface MCPResourceTemplate {
   uriTemplate: string;
@@ -94,6 +99,7 @@ export interface MCPResourceTemplate {
 
 /**
  * MCP Prompt interface for assessment context
+ * @public
  */
 export interface MCPPrompt {
   name: string;
@@ -107,6 +113,7 @@ export interface MCPPrompt {
 
 /**
  * MCP Server Capabilities interface
+ * @public
  */
 export interface MCPServerCapabilities {
   tools?: { listChanged?: boolean };
@@ -116,6 +123,10 @@ export interface MCPServerCapabilities {
   experimental?: Record<string, unknown>;
 }
 
+/**
+ * Assessment context providing all inputs needed for MCP server assessment
+ * @public
+ */
 export interface AssessmentContext {
   serverName: string;
   tools: Tool[];
@@ -169,6 +180,18 @@ export interface AssessmentContext {
   listTools?: () => Promise<Tool[]>;
 }
 
+/**
+ * Main orchestrator class for running MCP server assessments
+ *
+ * @public
+ * @example
+ * ```typescript
+ * import { AssessmentOrchestrator, AssessmentContext } from '@bryan-thompson/inspector-assessment';
+ *
+ * const orchestrator = new AssessmentOrchestrator();
+ * const result = await orchestrator.runFullAssessment(context);
+ * ```
+ */
 export class AssessmentOrchestrator {
   private config: AssessmentConfiguration;
   private logger: Logger;
@@ -389,6 +412,7 @@ export class AssessmentOrchestrator {
   /**
    * Enable Claude Code integration programmatically
    * Call this method to enable Claude features after construction
+   * @public
    */
   enableClaudeCode(config?: Partial<ClaudeCodeBridgeConfig>): void {
     const bridgeConfig: ClaudeCodeBridgeConfig = {
@@ -416,6 +440,7 @@ export class AssessmentOrchestrator {
 
   /**
    * Check if Claude Code integration is enabled and available
+   * @public
    */
   isClaudeEnabled(): boolean {
     return this.claudeEnabled && this.claudeBridge !== undefined;
@@ -423,6 +448,7 @@ export class AssessmentOrchestrator {
 
   /**
    * Get Claude Code Bridge for external access
+   * @public
    */
   getClaudeBridge(): ClaudeCodeBridge | undefined {
     return this.claudeBridge;
@@ -476,6 +502,7 @@ export class AssessmentOrchestrator {
 
   /**
    * Run a complete assessment on an MCP server
+   * @public
    */
   async runFullAssessment(
     context: AssessmentContext,
@@ -1080,6 +1107,8 @@ export class AssessmentOrchestrator {
 
   /**
    * Legacy assess method for backward compatibility
+   * @public
+   * @deprecated Use runFullAssessment() with AssessmentContext instead
    */
   async assess(
     serverName: string,
@@ -1191,6 +1220,7 @@ export class AssessmentOrchestrator {
 
   /**
    * Get assessment configuration
+   * @public
    */
   getConfig(): AssessmentConfiguration {
     return this.config;
@@ -1198,6 +1228,7 @@ export class AssessmentOrchestrator {
 
   /**
    * Update assessment configuration
+   * @public
    */
   updateConfig(config: Partial<AssessmentConfiguration>): void {
     this.config = { ...this.config, ...config };

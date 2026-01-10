@@ -5,6 +5,8 @@
  * scattered across multiple modules. Supports JSON configuration files
  * for runtime tuning via CLI flags.
  *
+ * @public
+ * @module assessment/performance
  * @see https://github.com/triepod-ai/inspector-assessment/issues/37
  */
 
@@ -14,6 +16,7 @@ import type { Logger } from "../lib/logger";
 /**
  * Performance configuration for assessment execution.
  * Controls batching, timeouts, concurrency, and resource limits.
+ * @public
  */
 export interface PerformanceConfig {
   /**
@@ -74,6 +77,7 @@ export interface PerformanceConfig {
 /**
  * Default performance configuration.
  * These values preserve existing behavior across all modules.
+ * @public
  */
 export const DEFAULT_PERFORMANCE_CONFIG: Readonly<Required<PerformanceConfig>> =
   Object.freeze({
@@ -88,6 +92,7 @@ export const DEFAULT_PERFORMANCE_CONFIG: Readonly<Required<PerformanceConfig>> =
 
 /**
  * Performance presets for common use cases.
+ * @public
  */
 export const PERFORMANCE_PRESETS = {
   /** Default configuration - balanced performance */
@@ -113,6 +118,7 @@ export const PERFORMANCE_PRESETS = {
  * Validate a partial performance config.
  * Ensures values are within reasonable bounds.
  *
+ * @public
  * @param config - Partial config to validate
  * @returns Array of validation error messages (empty if valid)
  */
@@ -180,6 +186,7 @@ export function validatePerformanceConfig(
  * Merge a partial config with defaults.
  * User-provided values override defaults.
  *
+ * @public
  * @param partial - Partial config to merge
  * @returns Complete config with defaults applied
  */
@@ -213,6 +220,7 @@ export function mergeWithDefaults(
  * Load performance configuration from a JSON file.
  * Partial configs are validated and merged with defaults.
  *
+ * @public
  * @param configPath - Path to JSON configuration file
  * @param logger - Optional logger for diagnostic output
  * @returns Complete configuration with defaults applied

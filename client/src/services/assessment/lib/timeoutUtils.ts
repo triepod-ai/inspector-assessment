@@ -8,6 +8,9 @@
  * 1. Clears setTimeout when operation completes (prevents timer leaks)
  * 2. Uses AbortController for signal-based cancellation
  * 3. Provides consistent error messages
+ *
+ * @internal
+ * @module assessment/lib/timeoutUtils
  */
 
 export interface TimeoutOptions {

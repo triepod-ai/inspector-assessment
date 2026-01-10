@@ -3,6 +3,7 @@
  *
  * Configuration interfaces and preset configurations for assessments.
  *
+ * @public
  * @module assessment/configTypes
  */
 
@@ -12,12 +13,14 @@ import {
   DEFAULT_LOGGING_CONFIG,
 } from "@/services/assessment/lib/logger";
 
-// Re-export logging types for convenience
+/** @public Re-export logging types for convenience */
 export type { LoggingConfig, LogLevel };
+/** @public Default logging configuration */
 export { DEFAULT_LOGGING_CONFIG };
 
 /**
  * HTTP transport configuration for connecting to mcp-auditor API
+ * @public
  */
 export interface HttpTransportConfig {
   baseUrl: string; // e.g., "http://localhost:8085"
@@ -28,6 +31,7 @@ export interface HttpTransportConfig {
 /**
  * Claude Code Bridge Configuration
  * Enables integration with Claude Code CLI for intelligent analysis
+ * @public
  */
 export interface ClaudeCodeConfig {
   enabled: boolean;
@@ -44,6 +48,10 @@ export interface ClaudeCodeConfig {
   httpConfig?: HttpTransportConfig; // Required when transport is "http"
 }
 
+/**
+ * Main configuration interface for assessment orchestrator
+ * @public
+ */
 export interface AssessmentConfiguration {
   /**
    * Config schema version for migration support.
@@ -122,6 +130,10 @@ export interface AssessmentConfiguration {
 // Configuration Presets
 // ============================================================================
 
+/**
+ * Default assessment configuration
+ * @public
+ */
 export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
   configVersion: 2,
   testTimeout: 30000, // 30 seconds per tool
@@ -163,8 +175,11 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
   },
 };
 
-// Reviewer mode configuration: optimized for fast, human-assisted reviews
-// Focuses on Anthropic's 5 core requirements only
+/**
+ * Reviewer mode configuration: optimized for fast, human-assisted reviews
+ * Focuses on Anthropic's 5 core requirements only
+ * @public
+ */
 export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
   configVersion: 2,
   testTimeout: 10000, // 10 seconds per tool (faster)
@@ -207,7 +222,10 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
   },
 };
 
-// Developer mode configuration: comprehensive testing for debugging
+/**
+ * Developer mode configuration: comprehensive testing for debugging
+ * @public
+ */
 export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
   configVersion: 2,
   testTimeout: 30000, // 30 seconds per tool
@@ -249,8 +267,11 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
   },
 };
 
-// MCP Directory Audit mode: focuses on compliance gap assessors
-// Use for pre-submission validation to Anthropic MCP Directory
+/**
+ * MCP Directory Audit mode: focuses on compliance gap assessors
+ * Use for pre-submission validation to Anthropic MCP Directory
+ * @public
+ */
 export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
   configVersion: 2,
   testTimeout: 30000,
@@ -292,8 +313,11 @@ export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
   },
 };
 
-// Claude-enhanced audit mode: uses Claude Code for intelligent analysis
-// Reduces false positives in AUP scanning and improves test quality
+/**
+ * Claude-enhanced audit mode: uses Claude Code for intelligent analysis
+ * Reduces false positives in AUP scanning and improves test quality
+ * @public
+ */
 export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
   configVersion: 2,
   testTimeout: 30000,

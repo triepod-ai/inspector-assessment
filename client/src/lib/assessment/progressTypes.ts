@@ -4,6 +4,7 @@
  * Types for real-time test progress tracking during assessment.
  * Used by CLI to emit batched JSONL events.
  *
+ * @public
  * @module assessment/progressTypes
  */
 
@@ -12,6 +13,7 @@ import type { AssessmentStatus, InferenceConfidence } from "./coreTypes";
 /**
  * Progress callback for assessment modules to report test execution progress.
  * Used by CLI to emit batched JSONL events.
+ * @public
  */
 export interface ProgressCallback {
   (event: ProgressEvent): void;
@@ -19,6 +21,7 @@ export interface ProgressCallback {
 
 /**
  * Union type for all progress events emitted during assessment.
+ * @public
  */
 export type ProgressEvent =
   | ModuleStartedProgress
@@ -33,6 +36,7 @@ export type ProgressEvent =
 
 /**
  * Emitted when an assessment module begins execution.
+ * @public
  */
 export interface ModuleStartedProgress {
   type: "module_started";
@@ -44,6 +48,7 @@ export interface ModuleStartedProgress {
 /**
  * Emitted periodically during module execution with batched test results.
  * Batching reduces event volume for large assessments.
+ * @public
  */
 export interface TestBatchProgress {
   type: "test_batch";
@@ -56,6 +61,7 @@ export interface TestBatchProgress {
 
 /**
  * Emitted when an assessment module completes with final stats.
+ * @public
  */
 export interface ModuleCompleteProgress {
   type: "module_complete";
@@ -69,6 +75,7 @@ export interface ModuleCompleteProgress {
 /**
  * Emitted when a security vulnerability is detected during assessment.
  * Provides real-time alerts for security findings.
+ * @public
  */
 export interface VulnerabilityFoundProgress {
   type: "vulnerability_found";
@@ -84,6 +91,7 @@ export interface VulnerabilityFoundProgress {
 /**
  * Tool parameter metadata for annotation events.
  * Reusable type matching jsonl-events.ts ToolParam.
+ * @public
  */
 export interface ToolParamProgress {
   name: string;
@@ -95,6 +103,7 @@ export interface ToolParamProgress {
 /**
  * Emitted when a tool is missing required annotations.
  * Provides real-time alerts during annotation assessment.
+ * @public
  */
 export interface AnnotationMissingProgress {
   type: "annotation_missing";
@@ -112,6 +121,7 @@ export interface AnnotationMissingProgress {
 /**
  * Emitted when tool annotations don't match inferred behavior.
  * Provides real-time alerts during annotation assessment.
+ * @public
  */
 export interface AnnotationMisalignedProgress {
   type: "annotation_misaligned";
@@ -131,6 +141,7 @@ export interface AnnotationMisalignedProgress {
  * Used for ambiguous patterns like store_*, queue_*, cache_* where behavior
  * varies by implementation context. Does not indicate a failure - just flags
  * for human review.
+ * @public
  */
 export interface AnnotationReviewRecommendedProgress {
   type: "annotation_review_recommended";
@@ -149,6 +160,7 @@ export interface AnnotationReviewRecommendedProgress {
 /**
  * Emitted when tool description contains poisoning patterns (Issue #8).
  * Indicates potential prompt injection or malicious instructions in tool metadata.
+ * @public
  */
 export interface AnnotationPoisonedProgress {
   type: "annotation_poisoned";
@@ -167,6 +179,7 @@ export interface AnnotationPoisonedProgress {
 /**
  * Emitted when tool annotations correctly match inferred behavior.
  * Provides real-time confirmation during annotation assessment.
+ * @public
  */
 export interface AnnotationAlignedProgress {
   type: "annotation_aligned";
