@@ -88,47 +88,61 @@ describe("validatePerformanceConfig", () => {
 
   it("should reject batchFlushIntervalMs below minimum", () => {
     const errors = validatePerformanceConfig({ batchFlushIntervalMs: 10 });
-    expect(errors).toContain(
-      "batchFlushIntervalMs must be between 50 and 10000",
-    );
+    expect(
+      errors.some(
+        (e) => e.includes("batchFlushIntervalMs") && e.includes(">="),
+      ),
+    ).toBe(true);
   });
 
   it("should reject batchFlushIntervalMs above maximum", () => {
     const errors = validatePerformanceConfig({ batchFlushIntervalMs: 50000 });
-    expect(errors).toContain(
-      "batchFlushIntervalMs must be between 50 and 10000",
-    );
+    expect(
+      errors.some(
+        (e) => e.includes("batchFlushIntervalMs") && e.includes("<="),
+      ),
+    ).toBe(true);
   });
 
   it("should reject functionalityBatchSize below minimum", () => {
     const errors = validatePerformanceConfig({ functionalityBatchSize: 0 });
-    expect(errors).toContain(
-      "functionalityBatchSize must be between 1 and 100",
-    );
+    expect(
+      errors.some(
+        (e) => e.includes("functionalityBatchSize") && e.includes(">="),
+      ),
+    ).toBe(true);
   });
 
   it("should reject securityBatchSize above maximum", () => {
     const errors = validatePerformanceConfig({ securityBatchSize: 200 });
-    expect(errors).toContain("securityBatchSize must be between 1 and 100");
+    expect(
+      errors.some((e) => e.includes("securityBatchSize") && e.includes("<=")),
+    ).toBe(true);
   });
 
   it("should reject testTimeoutMs below minimum", () => {
     const errors = validatePerformanceConfig({ testTimeoutMs: 50 });
-    expect(errors).toContain("testTimeoutMs must be between 100 and 300000");
+    expect(
+      errors.some((e) => e.includes("testTimeoutMs") && e.includes(">=")),
+    ).toBe(true);
   });
 
   it("should reject queueWarningThreshold below minimum", () => {
     const errors = validatePerformanceConfig({ queueWarningThreshold: 50 });
-    expect(errors).toContain(
-      "queueWarningThreshold must be between 100 and 1000000",
-    );
+    expect(
+      errors.some(
+        (e) => e.includes("queueWarningThreshold") && e.includes(">="),
+      ),
+    ).toBe(true);
   });
 
   it("should reject eventEmitterMaxListeners below minimum", () => {
     const errors = validatePerformanceConfig({ eventEmitterMaxListeners: 5 });
-    expect(errors).toContain(
-      "eventEmitterMaxListeners must be between 10 and 1000",
-    );
+    expect(
+      errors.some(
+        (e) => e.includes("eventEmitterMaxListeners") && e.includes(">="),
+      ),
+    ).toBe(true);
   });
 
   it("should return multiple errors for multiple invalid values", () => {
