@@ -29,6 +29,9 @@ const DEFAULT_HEADERS = {
  */
 async function checkServerAvailable(url: string): Promise<boolean> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     const response = await fetch(url, {
       method: "POST",
       headers: DEFAULT_HEADERS,
@@ -42,7 +45,10 @@ async function checkServerAvailable(url: string): Promise<boolean> {
         },
         id: 1,
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
     // Accept any response (200 or error) as indication server is up
     return response.status < 500;
   } catch {
@@ -129,7 +135,7 @@ describe("HTTP Transport Integration", () => {
       console.log("   - vulnerable-mcp: http://localhost:10900/mcp");
       console.log("   - hardened-mcp: http://localhost:10901/mcp\n");
     }
-  });
+  }, 30000);
 
   describe("HTTP Transport Creation (Unit-level)", () => {
     it("should create transport with valid HTTP URL", () => {

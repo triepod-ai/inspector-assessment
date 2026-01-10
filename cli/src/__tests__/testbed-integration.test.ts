@@ -31,6 +31,9 @@ const DEFAULT_HEADERS = {
  */
 async function checkServerAvailable(url: string): Promise<boolean> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     const response = await fetch(url, {
       method: "POST",
       headers: DEFAULT_HEADERS,
@@ -44,7 +47,10 @@ async function checkServerAvailable(url: string): Promise<boolean> {
         },
         id: 1,
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
     return response.status < 500;
   } catch {
     return false;
@@ -158,7 +164,7 @@ describe("Testbed A/B Comparison", () => {
       console.log("   - vulnerable-mcp: http://localhost:10900/mcp");
       console.log("   - hardened-mcp: http://localhost:10901/mcp\n");
     }
-  });
+  }, 30000);
 
   describe("Health Check Tests", () => {
     it("should connect to vulnerable-mcp server", async () => {
