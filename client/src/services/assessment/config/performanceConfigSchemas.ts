@@ -6,22 +6,22 @@
  *
  * @module assessment/config/performanceConfigSchemas
  * @see performanceConfig.ts for the interface definitions
+ * @see sharedSchemas.ts for PERF_CONFIG_RANGES constants
  */
 
 import { z } from "zod";
+
+// Import validation range constants from single source of truth
+import { PERF_CONFIG_RANGES } from "../../../lib/assessment/sharedSchemas";
+
+// Re-export for consumers who need the range constants
+export { PERF_CONFIG_RANGES };
 
 /**
  * Schema for performance configuration fields.
  * All fields are optional since partial configs are merged with defaults.
  *
- * Validation ranges match existing validatePerformanceConfig() logic:
- * - batchFlushIntervalMs: 50-10000
- * - functionalityBatchSize: 1-100
- * - securityBatchSize: 1-100
- * - testTimeoutMs: 100-300000
- * - securityTestTimeoutMs: 100-300000
- * - queueWarningThreshold: 100-1000000
- * - eventEmitterMaxListeners: 10-1000
+ * Validation ranges are defined in PERF_CONFIG_RANGES (sharedSchemas.ts).
  */
 export const PerformanceConfigSchema = z.object({
   /**
@@ -30,8 +30,14 @@ export const PerformanceConfigSchema = z.object({
   batchFlushIntervalMs: z
     .number()
     .int("batchFlushIntervalMs must be an integer")
-    .min(50, "batchFlushIntervalMs must be >= 50")
-    .max(10000, "batchFlushIntervalMs must be <= 10000")
+    .min(
+      PERF_CONFIG_RANGES.batchFlushIntervalMs.min,
+      `batchFlushIntervalMs must be >= ${PERF_CONFIG_RANGES.batchFlushIntervalMs.min}`,
+    )
+    .max(
+      PERF_CONFIG_RANGES.batchFlushIntervalMs.max,
+      `batchFlushIntervalMs must be <= ${PERF_CONFIG_RANGES.batchFlushIntervalMs.max}`,
+    )
     .optional(),
 
   /**
@@ -40,8 +46,14 @@ export const PerformanceConfigSchema = z.object({
   functionalityBatchSize: z
     .number()
     .int("functionalityBatchSize must be an integer")
-    .min(1, "functionalityBatchSize must be >= 1")
-    .max(100, "functionalityBatchSize must be <= 100")
+    .min(
+      PERF_CONFIG_RANGES.functionalityBatchSize.min,
+      `functionalityBatchSize must be >= ${PERF_CONFIG_RANGES.functionalityBatchSize.min}`,
+    )
+    .max(
+      PERF_CONFIG_RANGES.functionalityBatchSize.max,
+      `functionalityBatchSize must be <= ${PERF_CONFIG_RANGES.functionalityBatchSize.max}`,
+    )
     .optional(),
 
   /**
@@ -50,8 +62,14 @@ export const PerformanceConfigSchema = z.object({
   securityBatchSize: z
     .number()
     .int("securityBatchSize must be an integer")
-    .min(1, "securityBatchSize must be >= 1")
-    .max(100, "securityBatchSize must be <= 100")
+    .min(
+      PERF_CONFIG_RANGES.securityBatchSize.min,
+      `securityBatchSize must be >= ${PERF_CONFIG_RANGES.securityBatchSize.min}`,
+    )
+    .max(
+      PERF_CONFIG_RANGES.securityBatchSize.max,
+      `securityBatchSize must be <= ${PERF_CONFIG_RANGES.securityBatchSize.max}`,
+    )
     .optional(),
 
   /**
@@ -60,8 +78,14 @@ export const PerformanceConfigSchema = z.object({
   testTimeoutMs: z
     .number()
     .int("testTimeoutMs must be an integer")
-    .min(100, "testTimeoutMs must be >= 100")
-    .max(300000, "testTimeoutMs must be <= 300000")
+    .min(
+      PERF_CONFIG_RANGES.testTimeoutMs.min,
+      `testTimeoutMs must be >= ${PERF_CONFIG_RANGES.testTimeoutMs.min}`,
+    )
+    .max(
+      PERF_CONFIG_RANGES.testTimeoutMs.max,
+      `testTimeoutMs must be <= ${PERF_CONFIG_RANGES.testTimeoutMs.max}`,
+    )
     .optional(),
 
   /**
@@ -70,8 +94,14 @@ export const PerformanceConfigSchema = z.object({
   securityTestTimeoutMs: z
     .number()
     .int("securityTestTimeoutMs must be an integer")
-    .min(100, "securityTestTimeoutMs must be >= 100")
-    .max(300000, "securityTestTimeoutMs must be <= 300000")
+    .min(
+      PERF_CONFIG_RANGES.securityTestTimeoutMs.min,
+      `securityTestTimeoutMs must be >= ${PERF_CONFIG_RANGES.securityTestTimeoutMs.min}`,
+    )
+    .max(
+      PERF_CONFIG_RANGES.securityTestTimeoutMs.max,
+      `securityTestTimeoutMs must be <= ${PERF_CONFIG_RANGES.securityTestTimeoutMs.max}`,
+    )
     .optional(),
 
   /**
@@ -80,8 +110,14 @@ export const PerformanceConfigSchema = z.object({
   queueWarningThreshold: z
     .number()
     .int("queueWarningThreshold must be an integer")
-    .min(100, "queueWarningThreshold must be >= 100")
-    .max(1000000, "queueWarningThreshold must be <= 1000000")
+    .min(
+      PERF_CONFIG_RANGES.queueWarningThreshold.min,
+      `queueWarningThreshold must be >= ${PERF_CONFIG_RANGES.queueWarningThreshold.min}`,
+    )
+    .max(
+      PERF_CONFIG_RANGES.queueWarningThreshold.max,
+      `queueWarningThreshold must be <= ${PERF_CONFIG_RANGES.queueWarningThreshold.max}`,
+    )
     .optional(),
 
   /**
@@ -90,8 +126,14 @@ export const PerformanceConfigSchema = z.object({
   eventEmitterMaxListeners: z
     .number()
     .int("eventEmitterMaxListeners must be an integer")
-    .min(10, "eventEmitterMaxListeners must be >= 10")
-    .max(1000, "eventEmitterMaxListeners must be <= 1000")
+    .min(
+      PERF_CONFIG_RANGES.eventEmitterMaxListeners.min,
+      `eventEmitterMaxListeners must be >= ${PERF_CONFIG_RANGES.eventEmitterMaxListeners.min}`,
+    )
+    .max(
+      PERF_CONFIG_RANGES.eventEmitterMaxListeners.max,
+      `eventEmitterMaxListeners must be <= ${PERF_CONFIG_RANGES.eventEmitterMaxListeners.max}`,
+    )
     .optional(),
 });
 

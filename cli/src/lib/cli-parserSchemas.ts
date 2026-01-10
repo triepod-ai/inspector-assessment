@@ -9,25 +9,24 @@
 
 import { z } from "zod";
 
-// ============================================================================
-// Enums and Constants
-// ============================================================================
+// Import shared schemas from single source of truth
+import {
+  LogLevelSchema,
+  ReportFormatSchema,
+  TransportTypeSchema,
+  ZOD_SCHEMA_VERSION,
+} from "../../../client/lib/lib/assessment/sharedSchemas.js";
 
-/**
- * Valid log levels for CLI output.
- */
-export const LogLevelSchema = z.enum([
-  "silent",
-  "error",
-  "warn",
-  "info",
-  "debug",
-]);
+// Re-export shared schemas for backwards compatibility
+export { LogLevelSchema, ReportFormatSchema, TransportTypeSchema };
+export type {
+  LogLevel,
+  ReportFormat,
+  TransportType,
+} from "../../../client/lib/lib/assessment/sharedSchemas.js";
 
-/**
- * Valid report output formats.
- */
-export const ReportFormatSchema = z.enum(["json", "markdown"]);
+// Export schema version for consumers
+export { ZOD_SCHEMA_VERSION };
 
 /**
  * Valid assessment profile names.
@@ -71,10 +70,15 @@ export const AssessmentModuleNameSchema = z.enum([
 /**
  * Schema for server connection configuration.
  * Validates transport-specific required fields.
+ *
+ * @remarks
+ * This schema provides flexible validation for CLI argument parsing.
+ * For type-safe config file parsing with discriminated unions, see
+ * server-configSchemas.ts (HttpSseServerConfigSchema, StdioServerConfigSchema).
  */
 export const ServerConfigSchema = z
   .object({
-    transport: z.enum(["stdio", "http", "sse"]).optional(),
+    transport: TransportTypeSchema.optional(),
     command: z.string().optional(),
     args: z.array(z.string()).optional(),
     env: z.record(z.string()).optional(),
@@ -182,15 +186,7 @@ export type AssessmentOptionsParsed = z.infer<typeof AssessmentOptionsSchema>;
  */
 export type ValidationResultParsed = z.infer<typeof ValidationResultSchema>;
 
-/**
- * Inferred log level type.
- */
-export type LogLevel = z.infer<typeof LogLevelSchema>;
-
-/**
- * Inferred report format type.
- */
-export type ReportFormat = z.infer<typeof ReportFormatSchema>;
+// Note: LogLevel, ReportFormat, and TransportType are re-exported from sharedSchemas above
 
 /**
  * Inferred profile name type.

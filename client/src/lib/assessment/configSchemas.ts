@@ -10,20 +10,15 @@
 
 import { z } from "zod";
 
+// Import shared schemas from single source of truth
+import { LogLevelSchema, ZOD_SCHEMA_VERSION } from "./sharedSchemas";
+
+// Re-export for backwards compatibility
+export { LogLevelSchema, ZOD_SCHEMA_VERSION };
+
 // ============================================================================
 // Logging Configuration
 // ============================================================================
-
-/**
- * Schema for log level values.
- */
-export const LogLevelSchema = z.enum([
-  "silent",
-  "error",
-  "warn",
-  "info",
-  "debug",
-]);
 
 /**
  * Schema for logging configuration.

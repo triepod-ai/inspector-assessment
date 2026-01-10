@@ -5,14 +5,33 @@
  * Supports both Claude Desktop config format and standalone config format.
  *
  * @module cli/lib/assessment-runner/server-configSchemas
+ *
+ * @remarks
+ * This module provides type-discriminated schemas for config FILE parsing,
+ * with separate schemas for each transport type (HttpSseServerConfigSchema,
+ * StdioServerConfigSchema). This enables type-safe handling of transport-specific
+ * fields.
+ *
+ * For flexible CLI argument parsing where transport may not be specified,
+ * see cli-parserSchemas.ts (ServerConfigSchema) which uses a single schema
+ * with refinement-based validation.
+ *
+ * **Design Decision (Issue #114):**
+ * Both schema approaches are kept because they serve different purposes:
+ * - server-configSchemas.ts: Type-safe discriminated unions for file parsing
+ * - cli-parserSchemas.ts: Flexible validation for CLI argument parsing
+ *
+ * @see cli-parserSchemas.ts for CLI argument validation
+ * @see sharedSchemas.ts for common schemas (TransportTypeSchema, etc.)
  */
 
 import { z } from "zod";
 
-/**
- * Transport type for MCP connections.
- */
-export const TransportTypeSchema = z.enum(["stdio", "http", "sse"]);
+// Import TransportTypeSchema from shared schemas for consistency
+import { TransportTypeSchema } from "../../../../client/lib/lib/assessment/sharedSchemas.js";
+
+// Re-export for backwards compatibility
+export { TransportTypeSchema };
 
 /**
  * Schema for HTTP/SSE transport server configuration.
