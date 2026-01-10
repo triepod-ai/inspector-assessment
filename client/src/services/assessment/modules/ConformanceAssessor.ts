@@ -81,22 +81,24 @@ export class ConformanceAssessor extends BaseAssessor<ConformanceAssessment> {
 
     const scenarios: ConformanceScenario[] = [];
     const allChecks: ConformanceCheck[] = [];
-    let passedChecks = 0;
-    let totalChecks = 0;
+    let passedScenarios = 0;
+    let totalScenarios = 0;
 
     // Run each server scenario
     for (const scenario of SERVER_SCENARIOS) {
+      totalScenarios++;
       try {
         const scenarioResult = await this.runScenario(serverUrl, scenario);
         scenarios.push(scenarioResult);
 
-        // Aggregate checks
+        // Count scenario pass/fail (not individual checks)
+        if (scenarioResult.status === "pass") {
+          passedScenarios++;
+        }
+
+        // Aggregate any detailed checks for reporting
         for (const check of scenarioResult.checks) {
           allChecks.push(check);
-          totalChecks++;
-          if (check.status === "pass") {
-            passedChecks++;
-          }
         }
 
         this.testCount++;
@@ -114,22 +116,24 @@ export class ConformanceAssessor extends BaseAssessor<ConformanceAssessment> {
       }
     }
 
-    // Calculate compliance score
+    // Calculate compliance score based on scenarios
     const complianceScore =
-      totalChecks > 0 ? Math.round((passedChecks / totalChecks) * 100) : 0;
+      totalScenarios > 0
+        ? Math.round((passedScenarios / totalScenarios) * 100)
+        : 0;
 
     // Determine overall status
     const status = this.determineConformanceStatus(
-      passedChecks,
-      totalChecks,
+      passedScenarios,
+      totalScenarios,
       scenarios,
     );
 
     // Generate explanation and recommendations
     const explanation = this.generateExplanation(
       status,
-      passedChecks,
-      totalChecks,
+      passedScenarios,
+      totalScenarios,
       scenarios,
     );
     const recommendations = this.generateRecommendations(scenarios, allChecks);
@@ -140,8 +144,8 @@ export class ConformanceAssessor extends BaseAssessor<ConformanceAssessment> {
       protocolVersion: context.config.mcpProtocolVersion || "2025-06",
       scenarios,
       officialChecks: allChecks,
-      passedChecks,
-      totalChecks,
+      passedChecks: passedScenarios,
+      totalChecks: totalScenarios,
       complianceScore,
       explanation,
       recommendations,
