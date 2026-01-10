@@ -46,7 +46,11 @@ client/src/services/assessment/modules/
 ├── PortabilityAssessor.ts             # Portability checks
 ├── PortabilityAssessor.test.ts
 ├── ExternalAPIScannerAssessor.ts      # API detection
-├── TemporalAssessor.ts                # Rug pull detection
+├── TemporalAssessor.ts                # Rug pull detection (orchestrator)
+├── temporal/
+│   ├── index.ts                       # Barrel exports
+│   ├── MutationDetector.ts            # Definition mutation detection
+│   └── VarianceClassifier.ts          # Response variance classification
 ├── ResourceAssessor.ts                # MCP Resources capability
 ├── PromptAssessor.ts                  # MCP Prompts capability
 ├── CrossCapabilitySecurityAssessor.ts # Cross-capability security
@@ -557,7 +561,19 @@ manifestValidation?: boolean;  // Only enabled in bundle-specific assessment mod
 
 **Return Type**: `TemporalAssessment`
 
-**Implementation Location**: `client/src/services/assessment/modules/TemporalAssessor.ts`
+**Architecture** (Issue #106 refactoring):
+
+The TemporalAssessor is split into focused modules for maintainability:
+
+- **TemporalAssessor.ts** (561 lines) - Orchestration and invocation loop
+- **temporal/MutationDetector.ts** (202 lines) - Definition & content mutation detection
+  - Detects schema changes and description poisoning
+  - Used to identify DVMCP Challenge 4 (rug pull via description mutation)
+- **temporal/VarianceClassifier.ts** (517 lines) - Response variance classification
+  - Distinguishes legitimate variance (side-effect tools) from anomalies
+  - Reduces false positives with pattern-based tool classification
+
+**Implementation Location**: `client/src/services/assessment/modules/TemporalAssessor.ts` (primary) + `temporal/` helpers
 
 ---
 

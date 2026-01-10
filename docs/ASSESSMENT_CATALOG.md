@@ -654,7 +654,12 @@ See [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) for complete
 - No schema changes detected
 - No suspicious timing patterns
 
-**Implementation**: `client/src/services/assessment/modules/TemporalAssessor.ts`
+**Implementation**: `client/src/services/assessment/modules/TemporalAssessor.ts` (orchestrator, 561 lines)
+
+**Helper Modules** (Issue #106 refactoring):
+
+- `client/src/services/assessment/modules/temporal/MutationDetector.ts` (202 lines) - Definition & content mutation detection
+- `client/src/services/assessment/modules/temporal/VarianceClassifier.ts` (517 lines) - Tool classification & variance analysis
 
 ---
 
