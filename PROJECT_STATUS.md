@@ -341,3 +341,34 @@
 - 100% precision (0 false positives) and high recall achieved
 
 ---
+
+## 2026-01-09: CI Pipeline Fixes - Lint Errors and Test Stability
+
+**Summary:** Fixed pre-existing lint errors and disabled flaky tests in CI to unblock the build pipeline.
+
+**Session Focus:** CI pipeline fixes - lint errors and test stability
+
+**Changes Made:**
+- `client/src/services/assessment/__tests__/SecurityPatternLibrary.test.ts` - Removed 7 unused imports
+- `client/src/services/assessment/__tests__/SecurityAssessor-ClaudeBridge.test.ts` - Converted require() to ESM imports, added missing config imports
+- `client/src/services/__tests__/assessmentService.test.ts` - Removed unused MOCK_TOOLS variable
+- `client/src/services/assessment/__tests__/TestScenarioEngine.test.ts` - Removed unused createTool function
+- `client/src/services/assessment/modules/securityTests/ChainExecutionTester.ts` - Added eslint-disable for verbose logging
+- `client/src/services/assessment/modules/securityTests/CrossToolStateTester.ts` - Added eslint-disable for verbose logging
+- `.github/workflows/main.yml` - Commented out flaky client tests step
+
+**Key Decisions:**
+- Skip client tests in CI rather than fix flaky timing-sensitive tests (user preference)
+- Keep lint and build checks active
+- Use eslint-disable comments for intentional verbose logging rather than removing the functionality
+
+**Next Steps:**
+- Consider fixing the flaky tests properly in future session
+- Monitor CI for any new issues
+
+**Notes:**
+- Lint errors were pre-existing, not introduced by recent PR #98
+- Two flaky tests: AssessmentOrchestrator timeout test and performance throughput test
+- Both fail due to CI runner performance variance
+
+---
