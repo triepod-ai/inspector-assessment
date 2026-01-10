@@ -1,6 +1,6 @@
 {
   "name": "@bryan-thompson/inspector-assessment-cli",
-  "version": "1.27.0",
+  "version": "1.28.0",
   "description": "CLI for the Enhanced MCP Inspector with assessment capabilities",
   "license": "MIT",
   "author": "Bryan Thompson <bryan@triepod.ai>",
