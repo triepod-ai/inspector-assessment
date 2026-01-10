@@ -20,6 +20,7 @@ import {
   getProfileHelpText,
   type AssessmentProfileName,
 } from "../profiles.js";
+import packageJson from "../../package.json" with { type: "json" };
 
 // ============================================================================
 // Types
@@ -57,6 +58,8 @@ export interface AssessmentOptions {
   verbose?: boolean;
   jsonOnly?: boolean;
   helpRequested?: boolean;
+  /** Version requested via --version flag */
+  versionRequested?: boolean;
   format?: ReportFormat;
   includePolicy?: boolean;
   preflightOnly?: boolean;
@@ -363,6 +366,11 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
         }
         break;
       }
+      case "--version":
+      case "-V":
+        printVersion();
+        options.versionRequested = true;
+        return options as AssessmentOptions;
       case "--help":
       case "-h":
         printHelp();
@@ -437,8 +445,22 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
 }
 
 // ============================================================================
-// Help Text
+// Version and Help Text
 // ============================================================================
+
+/**
+ * Get package version from package.json
+ */
+function getPackageVersion(): string {
+  return packageJson.version;
+}
+
+/**
+ * Print version to console
+ */
+export function printVersion(): void {
+  console.log(`mcp-assess-full ${getPackageVersion()}`);
+}
 
 /**
  * Print help message to console
@@ -477,6 +499,7 @@ Options:
   --silent               Suppress all diagnostic logging
   --log-level <level>    Set log level: silent, error, warn, info (default), debug
                          Also supports LOG_LEVEL environment variable
+  --version, -V          Show version number
   --help, -h             Show this help message
 
 Environment Variables:

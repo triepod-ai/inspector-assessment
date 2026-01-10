@@ -37,7 +37,7 @@ async function main() {
   try {
     const options = parseArgs();
 
-    if (options.helpRequested) {
+    if (options.helpRequested || options.versionRequested) {
       return;
     }
 
