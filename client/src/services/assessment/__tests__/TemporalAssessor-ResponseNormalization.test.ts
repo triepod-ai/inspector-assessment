@@ -3,18 +3,20 @@
  *
  * Tests for the response normalization algorithm that eliminates naturally-varying data
  * before comparison (timestamps, UUIDs, IDs, counters).
+ *
+ * Note: normalizeResponse was extracted to VarianceClassifier in Issue #106 refactoring.
  */
 
-import { TemporalAssessor } from "../modules/TemporalAssessor";
-import { getPrivateMethod, createConfig } from "@/test/utils/testUtils";
+import { VarianceClassifier } from "../modules/temporal";
 
 describe("TemporalAssessor - Response Normalization", () => {
-  let assessor: TemporalAssessor;
+  let varianceClassifier: VarianceClassifier;
   let normalizeResponse: (response: unknown) => string;
 
   beforeEach(() => {
-    assessor = new TemporalAssessor(createConfig());
-    normalizeResponse = getPrivateMethod(assessor, "normalizeResponse");
+    varianceClassifier = new VarianceClassifier();
+    normalizeResponse = (response: unknown) =>
+      varianceClassifier.normalizeResponse(response);
   });
 
   describe("Timestamp Normalization", () => {

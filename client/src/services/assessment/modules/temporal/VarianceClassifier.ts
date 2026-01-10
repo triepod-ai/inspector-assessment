@@ -253,7 +253,6 @@ export class VarianceClassifier {
    * schema changes, and BEHAVIORAL for semantic changes (promotional keywords, errors).
    */
   classifyVariance(
-    _tool: Tool,
     baseline: unknown,
     current: unknown,
   ): VarianceClassification {

@@ -3,11 +3,13 @@
  *
  * Tests for classification of response variations for resource-creating tools.
  * Includes isResourceCreatingTool, classifyVariance, isLegitimateFieldVariance, and integration tests.
+ *
+ * Note: These methods were extracted to VarianceClassifier in Issue #106 refactoring.
  */
 
 import { TemporalAssessor } from "../modules/TemporalAssessor";
+import { VarianceClassifier } from "../modules/temporal";
 import {
-  getPrivateMethod,
   createConfig,
   createTool,
   createMockContext,
@@ -15,15 +17,15 @@ import {
 
 describe("TemporalAssessor - Variance Classification (Issue #69)", () => {
   describe("isResourceCreatingTool", () => {
-    let assessor: TemporalAssessor;
+    let varianceClassifier: VarianceClassifier;
     let isResourceCreatingTool: (tool: { name: string }) => boolean;
 
     beforeEach(() => {
-      assessor = new TemporalAssessor(createConfig());
-      isResourceCreatingTool = getPrivateMethod(
-        assessor,
-        "isResourceCreatingTool",
-      );
+      varianceClassifier = new VarianceClassifier();
+      isResourceCreatingTool = (tool: { name: string }) =>
+        varianceClassifier.isResourceCreatingTool(
+          tool as import("@modelcontextprotocol/sdk/types.js").Tool,
+        );
     });
 
     it.each([
@@ -58,48 +60,36 @@ describe("TemporalAssessor - Variance Classification (Issue #69)", () => {
   });
 
   describe("classifyVariance", () => {
-    let assessor: TemporalAssessor;
+    let varianceClassifier: VarianceClassifier;
     let classifyVariance: (
-      tool: { name: string },
       baseline: unknown,
       current: unknown,
     ) => { type: string; confidence: string; reasons: string[] };
 
     beforeEach(() => {
-      assessor = new TemporalAssessor(createConfig());
-      classifyVariance = getPrivateMethod(assessor, "classifyVariance");
+      varianceClassifier = new VarianceClassifier();
+      classifyVariance = (baseline, current) =>
+        varianceClassifier.classifyVariance(baseline, current);
     });
 
     it("classifies ID differences as LEGITIMATE", () => {
       const baseline = { id: "prod_123", name: "Product A" };
       const current = { id: "prod_456", name: "Product A" };
-      const result = classifyVariance(
-        { name: "create_product" },
-        baseline,
-        current,
-      );
+      const result = classifyVariance(baseline, current);
       expect(result.type).toBe("LEGITIMATE");
     });
 
     it("classifies timestamp differences as LEGITIMATE", () => {
       const baseline = { result: "ok", created_at: "2025-01-01T00:00:00Z" };
       const current = { result: "ok", created_at: "2025-01-02T00:00:00Z" };
-      const result = classifyVariance(
-        { name: "create_item" },
-        baseline,
-        current,
-      );
+      const result = classifyVariance(baseline, current);
       expect(result.type).toBe("LEGITIMATE");
     });
 
     it("classifies schema changes as SUSPICIOUS", () => {
       const baseline = { id: "1", name: "Product" };
       const current = { id: "2", malicious_field: "rm -rf /" };
-      const result = classifyVariance(
-        { name: "create_item" },
-        baseline,
-        current,
-      );
+      const result = classifyVariance(baseline, current);
       expect(result.type).toBe("SUSPICIOUS");
       expect(result.reasons[0]).toContain("Schema");
     });
@@ -107,11 +97,7 @@ describe("TemporalAssessor - Variance Classification (Issue #69)", () => {
     it("classifies promotional keywords as BEHAVIORAL", () => {
       const baseline = { result: "Success", data: "normal" };
       const current = { result: "Upgrade to premium!", data: "normal" };
-      const result = classifyVariance(
-        { name: "create_item" },
-        baseline,
-        current,
-      );
+      const result = classifyVariance(baseline, current);
       expect(result.type).toBe("BEHAVIORAL");
     });
 
@@ -121,36 +107,26 @@ describe("TemporalAssessor - Variance Classification (Issue #69)", () => {
         result: "Error: Rate limit exceeded",
         data: "normal",
       };
-      const result = classifyVariance(
-        { name: "create_item" },
-        baseline,
-        current,
-      );
+      const result = classifyVariance(baseline, current);
       expect(result.type).toBe("BEHAVIORAL");
     });
 
     it("classifies identical responses as LEGITIMATE", () => {
       const baseline = { id: "1", name: "Same" };
       const current = { id: "1", name: "Same" };
-      const result = classifyVariance(
-        { name: "create_item" },
-        baseline,
-        current,
-      );
+      const result = classifyVariance(baseline, current);
       expect(result.type).toBe("LEGITIMATE");
     });
   });
 
   describe("isLegitimateFieldVariance", () => {
-    let assessor: TemporalAssessor;
+    let varianceClassifier: VarianceClassifier;
     let isLegitimateFieldVariance: (field: string) => boolean;
 
     beforeEach(() => {
-      assessor = new TemporalAssessor(createConfig());
-      isLegitimateFieldVariance = getPrivateMethod(
-        assessor,
-        "isLegitimateFieldVariance",
-      );
+      varianceClassifier = new VarianceClassifier();
+      isLegitimateFieldVariance = (field: string) =>
+        varianceClassifier.isLegitimateFieldVariance(field);
     });
 
     it.each([

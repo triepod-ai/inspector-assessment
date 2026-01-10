@@ -3,12 +3,14 @@
  *
  * Tests for detecting tool definition changes (description/schema mutations) across invocations.
  * Tracks changes in tool docstrings and schemas to detect rug pull attacks.
+ *
+ * Note: detectDefinitionMutation was extracted to MutationDetector in Issue #106 refactoring.
  */
 
 import { TemporalAssessor } from "../modules/TemporalAssessor";
+import { MutationDetector, DefinitionSnapshot } from "../modules/temporal";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import {
-  getPrivateMethod,
   createConfig,
   createTool,
   createMockContext,
@@ -16,15 +18,8 @@ import {
 
 describe("TemporalAssessor - Definition Mutation Detection (Issue #7)", () => {
   describe("detectDefinitionMutation", () => {
-    let assessor: TemporalAssessor;
-    let detectDefinitionMutation: (
-      snapshots: Array<{
-        invocation: number;
-        description: string | undefined;
-        inputSchema: unknown;
-        timestamp: number;
-      }>,
-    ) => {
+    let mutationDetector: MutationDetector;
+    let detectDefinitionMutation: (snapshots: DefinitionSnapshot[]) => {
       detectedAt: number;
       baselineDescription?: string;
       mutatedDescription?: string;
@@ -33,11 +28,9 @@ describe("TemporalAssessor - Definition Mutation Detection (Issue #7)", () => {
     } | null;
 
     beforeEach(() => {
-      assessor = new TemporalAssessor(createConfig());
-      detectDefinitionMutation = getPrivateMethod(
-        assessor,
-        "detectDefinitionMutation",
-      );
+      mutationDetector = new MutationDetector();
+      detectDefinitionMutation = (snapshots) =>
+        mutationDetector.detectDefinitionMutation(snapshots);
     });
 
     it("returns null when no snapshots provided", () => {

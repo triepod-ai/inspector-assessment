@@ -5,6 +5,9 @@
  *
  * This addresses a critical gap: standard assessments call tools with many different
  * payloads but never call the same tool repeatedly with identical payloads.
+ *
+ * Refactored in Issue #106 to extract MutationDetector and VarianceClassifier
+ * into focused helper modules for maintainability.
  */
 
 import {
@@ -17,6 +20,11 @@ import {
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { BaseAssessor } from "./BaseAssessor";
+import {
+  MutationDetector,
+  DefinitionSnapshot,
+  VarianceClassifier,
+} from "./temporal";
 
 interface InvocationResult {
   invocation: number;
@@ -25,126 +33,22 @@ interface InvocationResult {
   timestamp: number;
 }
 
-/**
- * Tracks tool definition snapshots across invocations to detect rug pull mutations.
- * DVMCP Challenge 4: Tool descriptions that mutate after N calls to inject malicious instructions.
- */
-interface DefinitionSnapshot {
-  invocation: number;
-  description: string | undefined;
-  inputSchema: unknown;
-  timestamp: number;
-}
-
-interface DefinitionMutation {
-  detectedAt: number; // Invocation number where mutation was detected
-  baselineDescription?: string;
-  mutatedDescription?: string;
-  baselineSchema?: unknown;
-  mutatedSchema?: unknown;
-}
-
 // Security: Maximum response size to prevent memory exhaustion attacks
 const MAX_RESPONSE_SIZE = 1_000_000; // 1MB
 
 export class TemporalAssessor extends BaseAssessor {
   private invocationsPerTool: number;
-
-  // Patterns that suggest a tool may have side effects
-  private readonly DESTRUCTIVE_PATTERNS = [
-    "create",
-    "write",
-    "delete",
-    "remove",
-    "update",
-    "insert",
-    "post",
-    "put",
-    "send",
-    "submit",
-    "execute",
-    "run",
-    // P2-3: Additional destructive patterns
-    "drop",
-    "truncate",
-    "clear",
-    "purge",
-    "destroy",
-    "reset",
-  ];
+  private mutationDetector: MutationDetector;
+  private varianceClassifier: VarianceClassifier;
 
   // P2-2: Per-invocation timeout to prevent long-running tools from blocking
   private readonly PER_INVOCATION_TIMEOUT = 10_000; // 10 seconds
 
-  /**
-   * Tool name patterns that are expected to have state-dependent responses.
-   * These tools legitimately return different results based on data state,
-   * which is NOT a rug pull vulnerability.
-   *
-   * Includes both:
-   * - READ operations: search, list, query return more results after data stored
-   * - ACCUMULATION operations: add, append, store return accumulated state (counts, IDs)
-   *
-   * NOTE: Does NOT include patterns already in DESTRUCTIVE_PATTERNS (create, write,
-   * insert, etc.) - those need strict comparison to detect real rug pulls.
-   *
-   * Uses word-boundary matching to prevent false matches.
-   * "add_observations" matches "add" but "address_validator" does not.
-   */
-  private readonly STATEFUL_TOOL_PATTERNS = [
-    // READ operations - results depend on current data state
-    "search",
-    "list",
-    "query",
-    "find",
-    "get",
-    "fetch",
-    "read",
-    "browse",
-    // ACCUMULATION operations (non-destructive) that return accumulated state
-    // These legitimately return different counts/IDs as data accumulates
-    // NOTE: "add" is NOT in DESTRUCTIVE_PATTERNS, unlike "insert", "create", "write"
-    "add",
-    "append",
-    "store",
-    "save",
-    "log",
-    "record",
-    "push",
-    "enqueue",
-  ];
-
-  /**
-   * Issue #69: Patterns for resource-creating operations that legitimately return
-   * different IDs/resources each invocation.
-   *
-   * These tools CREATE new resources, so they should use schema comparison + variance
-   * classification rather than exact comparison. Unlike STATEFUL_TOOL_PATTERNS, these
-   * may overlap with DESTRUCTIVE_PATTERNS (e.g., "create", "insert") but should still
-   * use intelligent variance classification to avoid false positives.
-   *
-   * Examples:
-   * - create_billing_product → new product_id each time (LEGITIMATE variance)
-   * - generate_report → new report_id each time (LEGITIMATE variance)
-   * - insert_record → new record_id each time (LEGITIMATE variance)
-   */
-  private readonly RESOURCE_CREATING_PATTERNS = [
-    "create",
-    "new",
-    "insert",
-    "generate",
-    "register",
-    "allocate",
-    "provision",
-    "spawn",
-    "instantiate",
-    "init",
-    "make",
-  ];
-
   constructor(config: AssessmentConfiguration) {
     super(config);
     this.invocationsPerTool = config.temporalInvocations ?? 25;
+    this.mutationDetector = new MutationDetector();
+    this.varianceClassifier = new VarianceClassifier(this.mutationDetector);
   }
 
   async assess(context: AssessmentContext): Promise<TemporalAssessment> {
@@ -225,7 +129,7 @@ export class TemporalAssessor extends BaseAssessor {
     const payload = this.generateSafePayload(tool);
 
     // Reduce invocations for potentially destructive tools
-    const isDestructive = this.isDestructiveTool(tool);
+    const isDestructive = this.varianceClassifier.isDestructiveTool(tool);
     const invocations = isDestructive
       ? Math.min(5, this.invocationsPerTool)
       : this.invocationsPerTool;
@@ -310,7 +214,7 @@ export class TemporalAssessor extends BaseAssessor {
 
     // Analyze definitions for mutation (rug pull via description change)
     const definitionMutation =
-      this.detectDefinitionMutation(definitionSnapshots);
+      this.mutationDetector.detectDefinitionMutation(definitionSnapshots);
 
     return {
       ...result,
@@ -335,44 +239,6 @@ export class TemporalAssessor extends BaseAssessor {
     };
   }
 
-  /**
-   * Detect mutations in tool definition across invocation snapshots.
-   * DVMCP Challenge 4: Tool descriptions that mutate after N calls.
-   */
-  private detectDefinitionMutation(
-    snapshots: DefinitionSnapshot[],
-  ): DefinitionMutation | null {
-    if (snapshots.length < 2) return null;
-
-    const baseline = snapshots[0];
-
-    for (let i = 1; i < snapshots.length; i++) {
-      const current = snapshots[i];
-
-      // Check if description changed
-      const descriptionChanged = baseline.description !== current.description;
-
-      // Check if schema changed (deep comparison)
-      const schemaChanged =
-        JSON.stringify(baseline.inputSchema) !==
-        JSON.stringify(current.inputSchema);
-
-      if (descriptionChanged || schemaChanged) {
-        return {
-          detectedAt: current.invocation,
-          baselineDescription: baseline.description,
-          mutatedDescription: descriptionChanged
-            ? current.description
-            : undefined,
-          baselineSchema: schemaChanged ? baseline.inputSchema : undefined,
-          mutatedSchema: schemaChanged ? current.inputSchema : undefined,
-        };
-      }
-    }
-
-    return null;
-  }
-
   private analyzeResponses(
     tool: Tool,
     responses: InvocationResult[],
@@ -390,7 +256,9 @@ export class TemporalAssessor extends BaseAssessor {
       };
     }
 
-    const baseline = this.normalizeResponse(responses[0].response);
+    const baseline = this.varianceClassifier.normalizeResponse(
+      responses[0].response,
+    );
     const deviations: number[] = [];
     const errors: number[] = [];
 
@@ -404,8 +272,9 @@ export class TemporalAssessor extends BaseAssessor {
     // 1. Stateful tools (search, list, etc.) - use schema comparison
     // 2. Resource-creating tools (create, insert, etc.) - use variance classification
     // 3. All other tools - use exact comparison
-    const isStateful = this.isStatefulTool(tool);
-    const isResourceCreating = this.isResourceCreatingTool(tool);
+    const isStateful = this.varianceClassifier.isStatefulTool(tool);
+    const isResourceCreating =
+      this.varianceClassifier.isResourceCreatingTool(tool);
 
     if (isStateful) {
       this.logger.info(
@@ -424,7 +293,7 @@ export class TemporalAssessor extends BaseAssessor {
       } else if (isStateful) {
         // Original stateful tool logic: schema comparison + behavioral content check
         // Content variance is allowed as long as schema is consistent
-        let isDifferent = !this.compareSchemas(
+        let isDifferent = !this.varianceClassifier.compareSchemas(
           responses[0].response,
           responses[i].response,
         );
@@ -432,10 +301,11 @@ export class TemporalAssessor extends BaseAssessor {
         // Secondary detection: Check for content semantic changes (rug pull patterns)
         // This catches cases where schema is same but content shifts from helpful to harmful
         if (!isDifferent) {
-          const contentChange = this.detectStatefulContentChange(
-            responses[0].response,
-            responses[i].response,
-          );
+          const contentChange =
+            this.mutationDetector.detectStatefulContentChange(
+              responses[0].response,
+              responses[i].response,
+            );
           if (contentChange.detected) {
             isDifferent = true;
             this.logger.info(
@@ -450,8 +320,7 @@ export class TemporalAssessor extends BaseAssessor {
       } else if (isResourceCreating) {
         // Issue #69: Use variance classification for resource-creating tools
         // These need intelligent classification to distinguish ID variance from rug pulls
-        const classification = this.classifyVariance(
-          tool,
+        const classification = this.varianceClassifier.classifyVariance(
           responses[0].response,
           responses[i].response,
         );
@@ -471,7 +340,9 @@ export class TemporalAssessor extends BaseAssessor {
         }
       } else {
         // Exact comparison for non-stateful, non-resource-creating tools
-        const normalized = this.normalizeResponse(responses[i].response);
+        const normalized = this.varianceClassifier.normalizeResponse(
+          responses[i].response,
+        );
         if (normalized !== baseline) {
           deviations.push(i + 1); // 1-indexed
         }
@@ -565,536 +436,6 @@ export class TemporalAssessor extends BaseAssessor {
     }
 
     return payload;
-  }
-
-  /**
-   * Normalize response for comparison by removing naturally varying data.
-   * Prevents false positives from timestamps, UUIDs, request IDs, counters, etc.
-   * Handles both direct JSON and nested JSON strings (e.g., content[].text).
-   */
-  private normalizeResponse(response: unknown): string {
-    const str = JSON.stringify(response);
-
-    return (
-      str
-        // ISO timestamps (bounded quantifier to prevent ReDoS)
-        .replace(/"\d{4}-\d{2}-\d{2}T[\d:.]{1,30}Z?"/g, '"<TIMESTAMP>"')
-        // Unix timestamps (13 digits)
-        .replace(/"\d{13}"/g, '"<TIMESTAMP>"')
-        // UUIDs
-        .replace(
-          /"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"/gi,
-          '"<UUID>"',
-        )
-        // Common ID fields (string values)
-        .replace(/"request_id":\s*"[^"]+"/g, '"request_id": "<ID>"')
-        .replace(/"requestId":\s*"[^"]+"/g, '"requestId": "<ID>"')
-        .replace(/"trace_id":\s*"[^"]+"/g, '"trace_id": "<ID>"')
-        // Numeric ID fields (normalize incrementing IDs) - both direct and escaped
-        .replace(/"id":\s*\d+/g, '"id": <NUMBER>')
-        .replace(/"Id":\s*\d+/g, '"Id": <NUMBER>')
-        .replace(/\\"id\\":\s*\d+/g, '\\"id\\": <NUMBER>')
-        .replace(/\\"Id\\":\s*\d+/g, '\\"Id\\": <NUMBER>')
-        // Counter/sequence fields - both direct and escaped (for nested JSON)
-        .replace(/"total_items":\s*\d+/g, '"total_items": <NUMBER>')
-        .replace(/\\"total_items\\":\s*\d+/g, '\\"total_items\\": <NUMBER>')
-        .replace(/"count":\s*\d+/g, '"count": <NUMBER>')
-        .replace(/\\"count\\":\s*\d+/g, '\\"count\\": <NUMBER>')
-        .replace(/"invocation_count":\s*\d+/g, '"invocation_count": <NUMBER>')
-        .replace(
-          /\\"invocation_count\\":\s*\d+/g,
-          '\\"invocation_count\\": <NUMBER>',
-        )
-        .replace(/"sequence":\s*\d+/g, '"sequence": <NUMBER>')
-        .replace(/\\"sequence\\":\s*\d+/g, '\\"sequence\\": <NUMBER>')
-        .replace(/"index":\s*\d+/g, '"index": <NUMBER>')
-        .replace(/\\"index\\":\s*\d+/g, '\\"index\\": <NUMBER>')
-        // Additional accumulation-related counter fields (defense-in-depth)
-        .replace(
-          /"total_observations":\s*\d+/g,
-          '"total_observations": <NUMBER>',
-        )
-        .replace(
-          /\\"total_observations\\":\s*\d+/g,
-          '\\"total_observations\\": <NUMBER>',
-        )
-        .replace(
-          /"observations_count":\s*\d+/g,
-          '"observations_count": <NUMBER>',
-        )
-        .replace(
-          /\\"observations_count\\":\s*\d+/g,
-          '\\"observations_count\\": <NUMBER>',
-        )
-        .replace(/"total_records":\s*\d+/g, '"total_records": <NUMBER>')
-        .replace(/\\"total_records\\":\s*\d+/g, '\\"total_records\\": <NUMBER>')
-        .replace(/"records_added":\s*\d+/g, '"records_added": <NUMBER>')
-        .replace(/\\"records_added\\":\s*\d+/g, '\\"records_added\\": <NUMBER>')
-        .replace(/"items_added":\s*\d+/g, '"items_added": <NUMBER>')
-        .replace(/\\"items_added\\":\s*\d+/g, '\\"items_added\\": <NUMBER>')
-        .replace(/"size":\s*\d+/g, '"size": <NUMBER>')
-        .replace(/\\"size\\":\s*\d+/g, '\\"size\\": <NUMBER>')
-        .replace(/"length":\s*\d+/g, '"length": <NUMBER>')
-        .replace(/\\"length\\":\s*\d+/g, '\\"length\\": <NUMBER>')
-        .replace(/"total":\s*\d+/g, '"total": <NUMBER>')
-        .replace(/\\"total\\":\s*\d+/g, '\\"total\\": <NUMBER>')
-        // String IDs
-        .replace(/"id":\s*"[^"]+"/g, '"id": "<ID>"')
-        // P2-1: Additional timestamp fields that vary between calls
-        .replace(
-          /"(updated_at|created_at|modified_at)":\s*"[^"]+"/g,
-          '"$1": "<TIMESTAMP>"',
-        )
-        // P2-1: Dynamic tokens/hashes that change per request
-        .replace(
-          /"(nonce|token|hash|etag|session_id|correlation_id)":\s*"[^"]+"/g,
-          '"$1": "<DYNAMIC>"',
-        )
-    );
-  }
-
-  /**
-   * Detect if a tool may have side effects based on naming patterns.
-   */
-  private isDestructiveTool(tool: Tool): boolean {
-    const name = tool.name.toLowerCase();
-    return this.DESTRUCTIVE_PATTERNS.some((p) => name.includes(p));
-  }
-
-  /**
-   * Check if a tool is expected to have state-dependent behavior.
-   * Stateful tools (search, list, add, store, etc.) legitimately return different
-   * results as underlying data changes - this is NOT a rug pull.
-   *
-   * Uses word-boundary matching to prevent false positives:
-   * - "add_observations" matches "add" ✓
-   * - "address_validator" does NOT match "add" ✓
-   */
-  private isStatefulTool(tool: Tool): boolean {
-    const toolName = tool.name.toLowerCase();
-    // Exclude tools that are ALSO destructive - they should get strict exact comparison
-    // e.g., "get_and_delete" matches both "get" (stateful) and "delete" (destructive)
-    if (this.isDestructiveTool(tool)) {
-      return false;
-    }
-    // Use word-boundary matching: pattern must be at start/end or bounded by _ or -
-    // This prevents "address_validator" from matching "add"
-    return this.STATEFUL_TOOL_PATTERNS.some((pattern) => {
-      const wordBoundaryRegex = new RegExp(`(^|_|-)${pattern}($|_|-)`);
-      return wordBoundaryRegex.test(toolName);
-    });
-  }
-
-  /**
-   * Issue #69: Check if a tool creates new resources that legitimately vary per invocation.
-   * Resource-creating tools return different IDs, creation timestamps, etc.
-   * for each new resource - this is expected behavior, NOT a rug pull.
-   *
-   * Unlike isStatefulTool(), this DOES include patterns that overlap with DESTRUCTIVE_PATTERNS
-   * because resource-creating tools need intelligent variance classification, not exact comparison.
-   *
-   * Uses word-boundary matching like isStatefulTool() to prevent false matches.
-   * - "create_billing_product" matches "create" ✓
-   * - "recreate_view" does NOT match "create" ✓ (must be at word boundary)
-   */
-  private isResourceCreatingTool(tool: Tool): boolean {
-    const toolName = tool.name.toLowerCase();
-    return this.RESOURCE_CREATING_PATTERNS.some((pattern) => {
-      const wordBoundaryRegex = new RegExp(`(^|_|-)${pattern}($|_|-)`);
-      return wordBoundaryRegex.test(toolName);
-    });
-  }
-
-  /**
-   * Issue #69: Classify variance between two responses to reduce false positives.
-   * Returns LEGITIMATE for expected variance (IDs, timestamps), SUSPICIOUS for
-   * schema changes, and BEHAVIORAL for semantic changes (promotional keywords, errors).
-   */
-  private classifyVariance(
-    _tool: Tool,
-    baseline: unknown,
-    current: unknown,
-  ): VarianceClassification {
-    // 1. Schema comparison - structural changes are SUSPICIOUS
-    const schemaMatch = this.compareSchemas(baseline, current);
-    if (!schemaMatch) {
-      return {
-        type: "SUSPICIOUS",
-        confidence: "high",
-        reasons: ["Schema/field structure changed between invocations"],
-        suspiciousPatterns: ["schema_change"],
-      };
-    }
-
-    // 2. Content change detection - promotional/error keywords are BEHAVIORAL
-    const contentChange = this.detectStatefulContentChange(baseline, current);
-    if (contentChange.detected) {
-      return {
-        type: "BEHAVIORAL",
-        confidence: "high",
-        reasons: [`Behavioral change detected: ${contentChange.reason}`],
-        suspiciousPatterns: [contentChange.reason || "content_change"],
-      };
-    }
-
-    // 3. After normalization, if responses match = LEGITIMATE
-    const normalizedBaseline = this.normalizeResponse(baseline);
-    const normalizedCurrent = this.normalizeResponse(current);
-    if (normalizedBaseline === normalizedCurrent) {
-      return {
-        type: "LEGITIMATE",
-        confidence: "high",
-        reasons: ["All differences normalized (IDs, timestamps, counters)"],
-      };
-    }
-
-    // 4. Check for legitimate field variance (any _id, _at, token fields)
-    const variedFields = this.findVariedFields(baseline, current);
-    const unexplainedFields = variedFields.filter(
-      (f) => !this.isLegitimateFieldVariance(f),
-    );
-
-    if (unexplainedFields.length === 0) {
-      return {
-        type: "LEGITIMATE",
-        confidence: "high",
-        reasons: [
-          `Variance only in legitimate fields: ${variedFields.join(", ")}`,
-        ],
-        variedFields,
-      };
-    }
-
-    // 5. Some unexplained variance - flag as suspicious with low confidence
-    return {
-      type: "SUSPICIOUS",
-      confidence: "low",
-      reasons: [
-        `Unexplained variance in fields: ${unexplainedFields.join(", ")}`,
-      ],
-      variedFields,
-      suspiciousPatterns: ["unclassified_variance"],
-    };
-  }
-
-  /**
-   * Issue #69: Check if a field name represents legitimate variance.
-   * Fields containing IDs, timestamps, tokens, etc. are expected to vary.
-   */
-  private isLegitimateFieldVariance(field: string): boolean {
-    const fieldLower = field.toLowerCase();
-
-    // ID fields - any field ending in _id or containing "id" at word boundary
-    if (fieldLower.endsWith("_id") || fieldLower.endsWith("id")) return true;
-    if (fieldLower.includes("_id_") || fieldLower.startsWith("id_"))
-      return true;
-
-    // Timestamp fields
-    if (fieldLower.endsWith("_at") || fieldLower.endsWith("at")) return true;
-    if (
-      fieldLower.includes("time") ||
-      fieldLower.includes("date") ||
-      fieldLower.includes("timestamp")
-    )
-      return true;
-
-    // Token/session fields
-    if (
-      fieldLower.includes("token") ||
-      fieldLower.includes("cursor") ||
-      fieldLower.includes("nonce")
-    )
-      return true;
-    if (fieldLower.includes("session") || fieldLower.includes("correlation"))
-      return true;
-
-    // Pagination fields
-    if (
-      fieldLower.includes("offset") ||
-      fieldLower.includes("page") ||
-      fieldLower.includes("next")
-    )
-      return true;
-
-    // Counter/accumulation fields
-    if (
-      fieldLower.includes("count") ||
-      fieldLower.includes("total") ||
-      fieldLower.includes("size")
-    )
-      return true;
-    if (fieldLower.includes("length") || fieldLower.includes("index"))
-      return true;
-
-    // Array content fields (search results, items)
-    if (
-      fieldLower.includes("results") ||
-      fieldLower.includes("items") ||
-      fieldLower.includes("data")
-    )
-      return true;
-
-    // Hash/version fields
-    if (
-      fieldLower.includes("hash") ||
-      fieldLower.includes("etag") ||
-      fieldLower.includes("version")
-    )
-      return true;
-
-    return false;
-  }
-
-  /**
-   * Issue #69: Find which fields differ between two responses.
-   * Returns field paths that have different values.
-   */
-  private findVariedFields(
-    obj1: unknown,
-    obj2: unknown,
-    prefix = "",
-  ): string[] {
-    const varied: string[] = [];
-
-    // Handle primitives
-    if (typeof obj1 !== "object" || obj1 === null) {
-      if (obj1 !== obj2) {
-        return [prefix || "value"];
-      }
-      return [];
-    }
-
-    if (typeof obj2 !== "object" || obj2 === null) {
-      return [prefix || "value"];
-    }
-
-    // Handle arrays - just note if length or content differs
-    if (Array.isArray(obj1) || Array.isArray(obj2)) {
-      const arr1 = Array.isArray(obj1) ? obj1 : [];
-      const arr2 = Array.isArray(obj2) ? obj2 : [];
-      if (JSON.stringify(arr1) !== JSON.stringify(arr2)) {
-        return [prefix || "array"];
-      }
-      return [];
-    }
-
-    // Handle objects
-    const allKeys = new Set([
-      ...Object.keys(obj1 as object),
-      ...Object.keys(obj2 as object),
-    ]);
-
-    for (const key of allKeys) {
-      const val1 = (obj1 as Record<string, unknown>)[key];
-      const val2 = (obj2 as Record<string, unknown>)[key];
-      const fieldPath = prefix ? `${prefix}.${key}` : key;
-
-      if (JSON.stringify(val1) !== JSON.stringify(val2)) {
-        // If both are objects, recurse to find specific field
-        if (
-          typeof val1 === "object" &&
-          val1 !== null &&
-          typeof val2 === "object" &&
-          val2 !== null
-        ) {
-          const nestedVaried = this.findVariedFields(val1, val2, fieldPath);
-          varied.push(...nestedVaried);
-        } else {
-          varied.push(fieldPath);
-        }
-      }
-    }
-
-    return varied;
-  }
-
-  /**
-   * Compare response schemas (field names) rather than full content.
-   * Stateful tools may have different values but should have consistent fields.
-   *
-   * For stateful tools, allows schema growth (empty arrays → populated arrays)
-   * but flags when baseline fields disappear (suspicious behavior).
-   */
-  private compareSchemas(response1: unknown, response2: unknown): boolean {
-    const fields1 = this.extractFieldNames(response1).sort();
-    const fields2 = this.extractFieldNames(response2).sort();
-
-    // Edge case: empty baseline with populated later response is suspicious
-    // An attacker could start with {} then switch to content with malicious fields
-    if (fields1.length === 0 && fields2.length > 0) {
-      return false; // Flag as schema mismatch
-    }
-
-    // Check for exact match (handles non-array cases)
-    const exactMatch = fields1.join(",") === fields2.join(",");
-    if (exactMatch) return true;
-
-    // For stateful tools, allow schema to grow (empty arrays → populated)
-    // Baseline (fields1) can be a subset of later responses (fields2)
-    // But fields2 cannot have FEWER fields than baseline (that's suspicious)
-    const set2 = new Set(fields2);
-    const baselineIsSubset = fields1.every((f) => set2.has(f));
-
-    return baselineIsSubset;
-  }
-
-  /**
-   * Extract all field names from an object recursively.
-   * Handles arrays by sampling multiple elements to detect heterogeneous schemas.
-   */
-  private extractFieldNames(obj: unknown, prefix = ""): string[] {
-    if (obj === null || obj === undefined || typeof obj !== "object") return [];
-
-    const fields: string[] = [];
-
-    // Handle arrays: sample multiple elements to detect heterogeneous schemas
-    // An attacker could hide malicious fields in non-first array elements
-    if (Array.isArray(obj)) {
-      const samplesToCheck = Math.min(obj.length, 3); // Check up to 3 elements
-      const seenFields = new Set<string>();
-
-      for (let i = 0; i < samplesToCheck; i++) {
-        if (typeof obj[i] === "object" && obj[i] !== null) {
-          const itemFields = this.extractFieldNames(obj[i], `${prefix}[]`);
-          itemFields.forEach((f) => seenFields.add(f));
-        }
-      }
-      fields.push(...seenFields);
-      return fields;
-    }
-
-    // Handle objects
-    for (const [key, value] of Object.entries(obj)) {
-      const fieldPath = prefix ? `${prefix}.${key}` : key;
-      fields.push(fieldPath);
-
-      if (typeof value === "object" && value !== null) {
-        fields.push(...this.extractFieldNames(value, fieldPath));
-      }
-    }
-    return fields;
-  }
-
-  /**
-   * Secondary detection for stateful tools that pass schema comparison.
-   * Catches rug pulls that change content semantically while keeping schema intact.
-   *
-   * Examples detected:
-   * - Weather data → "Rate limit exceeded, upgrade to premium"
-   * - Stock prices → "Subscribe for $9.99/month to continue"
-   * - Search results → "Error: Service unavailable"
-   */
-  private detectStatefulContentChange(
-    baseline: unknown,
-    current: unknown,
-  ): { detected: boolean; reason: string | null } {
-    // Convert to strings for content analysis
-    const baselineText = this.extractTextContent(baseline);
-    const currentText = this.extractTextContent(current);
-
-    // Skip if both are empty or identical
-    if (!baselineText && !currentText) return { detected: false, reason: null };
-    if (baselineText === currentText) return { detected: false, reason: null };
-
-    // Check 1: Error keywords appearing in later responses (not present in baseline)
-    if (
-      this.hasErrorKeywords(currentText) &&
-      !this.hasErrorKeywords(baselineText)
-    ) {
-      return { detected: true, reason: "error_keywords_appeared" };
-    }
-
-    // Check 2: Promotional/payment keywords (rug pull monetization pattern)
-    if (
-      this.hasPromotionalKeywords(currentText) &&
-      !this.hasPromotionalKeywords(baselineText)
-    ) {
-      return { detected: true, reason: "promotional_keywords_appeared" };
-    }
-
-    // Check 3: Suspicious links injected (URLs not present in baseline)
-    if (
-      this.hasSuspiciousLinks(currentText) &&
-      !this.hasSuspiciousLinks(baselineText)
-    ) {
-      return { detected: true, reason: "suspicious_links_injected" };
-    }
-
-    // Check 4: Significant length DECREASE only (response becoming much shorter)
-    // This catches cases where helpful responses shrink to terse error messages
-    // We don't flag length increase because stateful tools legitimately accumulate data
-    if (baselineText.length > 20) {
-      // Only check if baseline has meaningful content
-      const lengthRatio = currentText.length / baselineText.length;
-      if (lengthRatio < 0.3) {
-        // Response shrunk to <30% of original
-        return { detected: true, reason: "significant_length_decrease" };
-      }
-    }
-
-    return { detected: false, reason: null };
-  }
-
-  /**
-   * Extract text content from a response for semantic analysis.
-   */
-  private extractTextContent(obj: unknown): string {
-    if (typeof obj === "string") return obj;
-    if (typeof obj !== "object" || !obj) return "";
-    return JSON.stringify(obj);
-  }
-
-  /**
-   * Check for error-related keywords that indicate service degradation.
-   */
-  private hasErrorKeywords(text: string): boolean {
-    const patterns = [
-      /\berror\b/i,
-      /\bfail(ed|ure)?\b/i,
-      /\bunavailable\b/i,
-      /\brate\s*limit/i,
-      /\bdenied\b/i,
-      /\bexpired\b/i,
-      /\btimeout\b/i,
-      /\bblocked\b/i,
-    ];
-    return patterns.some((p) => p.test(text));
-  }
-
-  /**
-   * Check for promotional/monetization keywords that indicate a monetization rug pull.
-   * Enhanced to catch CH4-style rug pulls with limited-time offers, referral codes, etc.
-   *
-   * Combined into single regex for O(text_length) performance instead of O(18 * text_length).
-   */
-  private hasPromotionalKeywords(text: string): boolean {
-    // Single combined regex with alternation - matches all 18 original patterns
-    // Word-boundary patterns: upgrade, premium, discount, exclusive, subscription variants,
-    //   multi-word phrases (pro plan, buy now, limited time/offer, free trial, etc.)
-    // Non-word patterns: price ($X.XX), percentage (N% off/discount)
-    const PROMO_PATTERN =
-      /\b(?:upgrade|premium|discount|exclusive|subscri(?:be|ption)|pro\s*plan|buy\s*now|limited\s*(?:time|offer)|free\s*trial|special\s*offer|referral\s*code|promo\s*code|act\s*now|don't\s*miss|for\s*a\s*fee|pay(?:ment)?\s*(?:required|needed|now))\b|\$\d+(?:\.\d{2})?|\b\d+%\s*(?:off|discount)\b/i;
-    return PROMO_PATTERN.test(text);
-  }
-
-  /**
-   * Check for suspicious URL/link injection that wasn't present initially.
-   * Rug pulls often inject links to external malicious or monetization pages.
-   */
-  private hasSuspiciousLinks(text: string): boolean {
-    const patterns = [
-      // HTTP(S) URLs
-      /https?:\/\/[^\s]+/i,
-      // Markdown links
-      /\[.{0,50}?\]\(.{0,200}?\)/,
-      // URL shorteners
-      /\b(bit\.ly|tinyurl|t\.co|goo\.gl|ow\.ly|buff\.ly)\b/i,
-      // Click-bait action patterns
-      /\bclick\s*(here|now|this)\b/i,
-      /\bvisit\s*our\s*(website|site|page)\b/i,
-      /\b(sign\s*up|register)\s*(here|now|at)\b/i,
-    ];
-    return patterns.some((p) => p.test(text));
   }
 
   private determineTemporalStatus(
@@ -1198,7 +539,7 @@ export class TemporalAssessor extends BaseAssessor {
           : "unknown";
 
         recommendations.push(
-          `${tool.tool}: Description changed at invocation ${tool.definitionMutationAt}. Baseline: ${baseline} → Mutated: ${mutated}`,
+          `${tool.tool}: Description changed at invocation ${tool.definitionMutationAt}. Baseline: ${baseline} -> Mutated: ${mutated}`,
         );
       }
 

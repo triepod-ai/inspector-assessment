@@ -4,7 +4,7 @@ A comprehensive reference for all assessment modules in the MCP Inspector Assess
 
 ## Overview
 
-The MCP Inspector Assessment runs **16 specialized modules** organized in **4 tiers** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
+The MCP Inspector Assessment runs **17 specialized modules** organized in **4 tiers** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
 
 ### Module Tier Organization (v1.25.0+)
 
@@ -13,7 +13,7 @@ The MCP Inspector Assessment runs **16 specialized modules** organized in **4 ti
 | **Tier 1: Core Security** | 6       | Essential security validation         | `quick`          |
 | **Tier 2: Compliance**    | 4       | MCP Directory requirements            | `compliance`     |
 | **Tier 3: Capability**    | 3       | Resource/Prompt testing (conditional) | `full`           |
-| **Tier 4: Extended**      | 3       | Developer experience (optional)       | `full`           |
+| **Tier 4: Extended**      | 4       | Developer experience & code quality   | `full`           |
 
 ### CLI Profiles
 
@@ -44,7 +44,7 @@ Tier 3 (Capability-Based):
   resources, prompts, crossCapability
 
 Tier 4 (Extended):
-  developerExperience, portability, externalAPIScanner*
+  developerExperience, portability, externalAPIScanner*, fileModularization
 ```
 
 \* `externalAPIScanner` only runs when `--source` flag is provided
@@ -742,11 +742,66 @@ See [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) for complete
 - Privilege boundaries maintained
 - Input validation at each step
 
-**Implementation**: `client/src/services/assessment/modules/CrossCapabilityAssessor.ts`
+**Implementation**: `client/src/services/assessment/modules/CrossCapabilitySecurityAssessor.ts`
 
 ---
 
-### 18. Protocol Conformance Assessment (Deprecated)
+### 18. File Modularization Assessment
+
+**Purpose**: Detect large monolithic tool files and recommend modularization patterns (Issue #104).
+
+**Test Approach**:
+
+- Scan source code files for line count and tool density
+- Detect language-specific tool definition patterns
+- Evaluate modularization structure (tools/ directory, distributed files)
+- Calculate modularization score (0-100)
+
+**Language Support**:
+
+- Python: `@mcp.tool`, `@server.tool`, `@app.tool`, `*_tool` function patterns
+- TypeScript/JavaScript: `server.tool()`, `.setRequestHandler()`, `registerTool()`, `.addTool()`
+- Go: `*Tool` function names, `mcp.NewTool()`, `tools.Register()`
+- Rust: `*_tool` functions, `#[tool]` macros, `.register_tool()`
+
+**Modularization Checks**:
+
+| Check             | Threshold                | Severity |
+| ----------------- | ------------------------ | -------- |
+| File size         | >2000 lines              | HIGH     |
+| File size         | 1000-2000 lines          | MEDIUM   |
+| Tools per file    | >20 tools                | HIGH     |
+| Tools per file    | 10-20 tools              | MEDIUM   |
+| Modular structure | No tools/ dir + <3 files | LOW      |
+
+**Scoring System**:
+
+- Starts at 100 points
+- -15 per file >2000 lines, -8 per file 1000-2000 lines
+- -12 per file with >20 tools, -6 per file 10-20 tools
+- -10 for no modular structure
+- +5 for tools/ subdirectory, +3 for multiple tool files, +2 for shared utilities
+
+**Pass Criteria**:
+
+- No files exceed 2000 lines (HIGH threshold)
+- No files contain >20 tools (HIGH threshold)
+- Modularization score ≥70
+
+**Configuration**:
+
+```typescript
+{
+  fileModularization?: boolean;      // Enable this assessment (default: true in full profile)
+  enableSourceCodeAnalysis?: boolean; // Required: scan source files (default: true)
+}
+```
+
+**Implementation**: `client/src/services/assessment/modules/FileModularizationAssessor.ts` (675 lines)
+
+---
+
+### 19. Protocol Conformance Assessment (Deprecated)
 
 > **⚠️ DEPRECATED v1.25.2**: This module has been merged into **Protocol Compliance (#6)**. The standalone `ProtocolConformanceAssessor` remains exported for backwards compatibility but will be removed in v2.0.0. Use `ProtocolComplianceAssessor` for new code.
 
@@ -831,26 +886,27 @@ Enabled in these config presets:
 
 ## Quick Reference Table
 
-| #   | Module               | Tests               | Policy Ref     | Severity | Tier     |
-| --- | -------------------- | ------------------- | -------------- | -------- | -------- |
-| 1   | Functionality        | ~10 per tool        | Core           | Medium   | Core     |
-| 2   | Security             | 23 patterns × tools | Core           | High     | Core     |
-| 3   | Error Handling       | ~20 per tool        | MCP Spec       | Medium   | Core     |
-| 4   | Documentation        | ~10 checks          | Core           | Low      | Core     |
-| 5   | Usability            | ~8 checks           | Core           | Low      | Core     |
-| 6   | Protocol Compliance  | ~20 checks          | MCP Spec       | High     | Core     |
-| 7   | AUP Compliance       | 14 categories       | AUP A-N        | Critical | Core     |
-| 8   | Tool Annotations     | Per tool            | Policy #17     | Medium   | Core     |
-| 9   | Prohibited Libraries | ~25 libraries       | Policy #28-30  | Blocking | Core     |
-| 10  | Manifest Validation  | ~10 checks          | MCPB v0.3      | Medium   | Optional |
-| 11  | Portability          | ~8 patterns         | Cross-platform | Low      | Optional |
-| 12  | External API Scanner | API detection       | Disclosure     | Medium   | Core     |
-| 13  | Authentication       | Auth patterns       | Security       | High     | Core     |
-| 14  | Temporal             | 25 invocations/tool | Rug pull       | High     | Core     |
-| 15  | Resources            | Per resource        | MCP Spec       | Medium   | Core     |
-| 16  | Prompts              | Per prompt          | MCP Spec       | Medium   | Core     |
-| 17  | Cross-Capability     | Multi-tool chains   | Security       | High     | Core     |
-| 18  | Protocol Conformance | 3 protocol checks   | MCP Spec       | High     | Core     |
+| #   | Module               | Tests               | Policy Ref     | Severity | Tier         |
+| --- | -------------------- | ------------------- | -------------- | -------- | ------------ |
+| 1   | Functionality        | ~10 per tool        | Core           | Medium   | Tier 1: Core |
+| 2   | Security             | 23 patterns × tools | Core           | High     | Tier 1: Core |
+| 3   | Error Handling       | ~20 per tool        | MCP Spec       | Medium   | Tier 1: Core |
+| 4   | Documentation        | ~10 checks          | Core           | Low      | Tier 1: Core |
+| 5   | Usability            | ~8 checks           | Core           | Low      | Tier 1: Core |
+| 6   | Protocol Compliance  | ~20 checks          | MCP Spec       | High     | Tier 1: Core |
+| 7   | AUP Compliance       | 14 categories       | AUP A-N        | Critical | Tier 2: Comp |
+| 8   | Tool Annotations     | Per tool            | Policy #17     | Medium   | Tier 2: Comp |
+| 9   | Prohibited Libraries | ~25 libraries       | Policy #28-30  | Blocking | Tier 2: Comp |
+| 10  | Manifest Validation  | ~10 checks          | MCPB v0.3      | Medium   | Tier 2: Comp |
+| 11  | Portability          | ~8 patterns         | Cross-platform | Low      | Tier 4: Ext  |
+| 12  | External API Scanner | API detection       | Disclosure     | Medium   | Tier 2: Comp |
+| 13  | Authentication       | Auth patterns       | Security       | High     | Tier 2: Comp |
+| 14  | Temporal             | 25 invocations/tool | Rug pull       | High     | Tier 1: Core |
+| 15  | Resources            | Per resource        | MCP Spec       | Medium   | Tier 3: Cap  |
+| 16  | Prompts              | Per prompt          | MCP Spec       | Medium   | Tier 3: Cap  |
+| 17  | Cross-Capability     | Multi-tool chains   | Security       | High     | Tier 3: Cap  |
+| 18  | File Modularization  | Per file            | Code quality   | Medium   | Tier 4: Ext  |
+| 19  | Protocol Conformance | 3 protocol checks   | MCP Spec       | High     | Deprecated   |
 
 ---
 

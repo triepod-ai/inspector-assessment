@@ -3,18 +3,29 @@
  *
  * Tests for detecting secondary content changes (error keywords, promotional content, etc.)
  * that indicate rug pulls in stateful tools.
+ *
+ * Note: These methods were extracted to MutationDetector in Issue #106 refactoring.
  */
 
 import { TemporalAssessor } from "../modules/TemporalAssessor";
+import { MutationDetector } from "../modules/temporal";
 import {
-  getPrivateMethod,
   createConfig,
   createTool,
   createMockContext,
 } from "@/test/utils/testUtils";
 
+// Helper to access private methods on MutationDetector for testing
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getPrivateMethodOnDetector = <T>(
+  detector: MutationDetector,
+  name: string,
+): T => {
+  return (detector as Record<string, unknown>)[name] as T;
+};
+
 describe("TemporalAssessor - Secondary Content Detection for Stateful Tools", () => {
-  let assessor: TemporalAssessor;
+  let mutationDetector: MutationDetector;
   let detectStatefulContentChange: (
     baseline: unknown,
     current: unknown,
@@ -23,16 +34,17 @@ describe("TemporalAssessor - Secondary Content Detection for Stateful Tools", ()
   let hasPromotionalKeywords: (text: string) => boolean;
 
   beforeEach(() => {
-    assessor = new TemporalAssessor(createConfig());
-    detectStatefulContentChange = getPrivateMethod(
-      assessor,
-      "detectStatefulContentChange",
+    mutationDetector = new MutationDetector();
+    detectStatefulContentChange = (baseline: unknown, current: unknown) =>
+      mutationDetector.detectStatefulContentChange(baseline, current);
+    // Access private methods for unit testing
+    hasErrorKeywords = getPrivateMethodOnDetector<(text: string) => boolean>(
+      mutationDetector,
+      "hasErrorKeywords",
     );
-    hasErrorKeywords = getPrivateMethod(assessor, "hasErrorKeywords");
-    hasPromotionalKeywords = getPrivateMethod(
-      assessor,
-      "hasPromotionalKeywords",
-    );
+    hasPromotionalKeywords = getPrivateMethodOnDetector<
+      (text: string) => boolean
+    >(mutationDetector, "hasPromotionalKeywords");
   });
 
   describe("hasErrorKeywords", () => {
@@ -137,7 +149,9 @@ describe("TemporalAssessor - Secondary Content Detection for Stateful Tools", ()
     let hasSuspiciousLinks: (text: string) => boolean;
 
     beforeEach(() => {
-      hasSuspiciousLinks = getPrivateMethod(assessor, "hasSuspiciousLinks");
+      hasSuspiciousLinks = getPrivateMethodOnDetector<
+        (text: string) => boolean
+      >(mutationDetector, "hasSuspiciousLinks");
     });
 
     it("detects HTTP URLs", () => {

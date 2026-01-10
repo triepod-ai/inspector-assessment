@@ -389,12 +389,14 @@ describe("TemporalAssessor", () => {
   });
 
   describe("isDestructiveTool", () => {
-    let assessor: TemporalAssessor;
+    let varianceClassifier: import("../modules/temporal").VarianceClassifier;
     let isDestructiveTool: (tool: Tool) => boolean;
 
-    beforeEach(() => {
-      assessor = new TemporalAssessor(createConfig());
-      isDestructiveTool = getPrivateMethod(assessor, "isDestructiveTool");
+    beforeEach(async () => {
+      const { VarianceClassifier } = await import("../modules/temporal");
+      varianceClassifier = new VarianceClassifier();
+      isDestructiveTool = (tool: Tool) =>
+        varianceClassifier.isDestructiveTool(tool);
     });
 
     const DESTRUCTIVE_PATTERNS = [

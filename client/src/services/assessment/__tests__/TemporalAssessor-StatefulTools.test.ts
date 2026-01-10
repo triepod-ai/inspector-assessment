@@ -3,28 +3,32 @@
  *
  * Tests for detecting and handling stateful tools (those where content variation is expected).
  * Includes isStatefulTool, extractFieldNames, compareSchemas, and integration tests.
+ *
+ * Note: These methods were extracted to VarianceClassifier in Issue #106 refactoring.
  */
 
 import { TemporalAssessor } from "../modules/TemporalAssessor";
+import { VarianceClassifier } from "../modules/temporal";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import {
-  getPrivateMethod,
   createConfig,
   createTool,
   createMockContext,
 } from "@/test/utils/testUtils";
 
 describe("TemporalAssessor - Stateful Tool Handling", () => {
-  let assessor: TemporalAssessor;
+  let varianceClassifier: VarianceClassifier;
   let isStatefulTool: (tool: Tool) => boolean;
   let compareSchemas: (r1: unknown, r2: unknown) => boolean;
   let extractFieldNames: (obj: unknown, prefix?: string) => string[];
 
   beforeEach(() => {
-    assessor = new TemporalAssessor(createConfig());
-    isStatefulTool = getPrivateMethod(assessor, "isStatefulTool");
-    compareSchemas = getPrivateMethod(assessor, "compareSchemas");
-    extractFieldNames = getPrivateMethod(assessor, "extractFieldNames");
+    varianceClassifier = new VarianceClassifier();
+    isStatefulTool = (tool: Tool) => varianceClassifier.isStatefulTool(tool);
+    compareSchemas = (r1: unknown, r2: unknown) =>
+      varianceClassifier.compareSchemas(r1, r2);
+    extractFieldNames = (obj: unknown, prefix?: string) =>
+      varianceClassifier.extractFieldNames(obj, prefix);
   });
 
   describe("isStatefulTool", () => {
