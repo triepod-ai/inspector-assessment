@@ -12,7 +12,9 @@
  * - Mutual exclusivity - Flag conflict detection
  */
 
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect, jest } from "@jest/globals";
+import { parseArgs, printVersion } from "../lib/cli-parser.js";
+import packageJson from "../../package.json" with { type: "json" };
 
 describe("Key-Value Pair Parsing", () => {
   /**
@@ -760,6 +762,55 @@ describe("Log Level Validation", () => {
       expect(isValidLogLevel("trace")).toBe(false);
       expect(isValidLogLevel("INFO")).toBe(false);
       expect(isValidLogLevel("")).toBe(false);
+    });
+  });
+});
+
+describe("Version Flag Parsing", () => {
+  describe("parseArgs with version flags", () => {
+    it("should set versionRequested flag for --version", () => {
+      const options = parseArgs(["test-server", "--version"]);
+      expect(options.versionRequested).toBe(true);
+    });
+
+    it("should set versionRequested flag for -V", () => {
+      const options = parseArgs(["test-server", "-V"]);
+      expect(options.versionRequested).toBe(true);
+    });
+
+    it("should return early when version flag is present", () => {
+      const options = parseArgs(["--version"]);
+      expect(options.versionRequested).toBe(true);
+      expect(options.serverName).toBeUndefined();
+    });
+
+    it("should handle version flag at any position", () => {
+      const options = parseArgs(["--version", "--verbose"]);
+      expect(options.versionRequested).toBe(true);
+    });
+  });
+
+  describe("printVersion function", () => {
+    it("should output version in correct format", () => {
+      const consoleSpy = jest
+        .spyOn(console, "log")
+        .mockImplementation(() => {});
+      printVersion();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/^mcp-assess-full \d+\.\d+\.\d+$/),
+      );
+      consoleSpy.mockRestore();
+    });
+
+    it("should match package.json version", () => {
+      const consoleSpy = jest
+        .spyOn(console, "log")
+        .mockImplementation(() => {});
+      printVersion();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        `mcp-assess-full ${packageJson.version}`,
+      );
+      consoleSpy.mockRestore();
     });
   });
 });
