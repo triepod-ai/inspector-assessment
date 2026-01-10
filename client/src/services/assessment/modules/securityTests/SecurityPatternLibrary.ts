@@ -117,6 +117,69 @@ export const EXECUTION_ARTIFACT_PATTERNS = {
 } as const;
 
 // =============================================================================
+// LLM INJECTION MARKER PATTERNS (Issue #110, Challenge #8)
+// =============================================================================
+
+/**
+ * Patterns for detecting LLM prompt injection markers in tool output
+ * These indicate potential indirect prompt injection (output injection)
+ * Used by: hasLLMInjectionMarkers()
+ *
+ * When tool output contains these markers, it may flow to the orchestrating
+ * LLM and influence its behavior - a security concern for MCP integrations.
+ */
+export const LLM_INJECTION_MARKERS = [
+  // XML-style instruction tags
+  /<IMPORTANT>/i,
+  /<\/IMPORTANT>/i,
+  /<SYSTEM>/i,
+  /<\/SYSTEM>/i,
+  /<INSTRUCTION>/i,
+  /<\/INSTRUCTION>/i,
+
+  // Chat model format markers
+  /\[INST\]/i,
+  /\[\/INST\]/i,
+  /<\|system\|>/i,
+  /<\|user\|>/i,
+  /<\|assistant\|>/i,
+  /<\|im_start\|>/i,
+  /<\|im_end\|>/i,
+
+  // Template injection patterns
+  /\{\{SYSTEM_PROMPT\}\}/i,
+  /\{\{USER_INPUT\}\}/i,
+  /\{\{ASSISTANT\}\}/i,
+
+  // Instruction override patterns
+  /ignore.*previous.*instructions/i,
+  /disregard.*above.*instructions/i,
+  /new.*instructions.*follow/i,
+  /override.*system.*prompt/i,
+] as const;
+
+/**
+ * Patterns for detecting output injection vulnerability metadata
+ * Tools that self-report vulnerability status
+ */
+export const OUTPUT_INJECTION_METADATA = {
+  /** Tool reports it includes raw/unsanitized content */
+  rawContentIncluded: [
+    /"raw_content_included"\s*:\s*true/i,
+    /"unsanitized"\s*:\s*true/i,
+    /"content_sanitized"\s*:\s*false/i,
+  ],
+
+  /** Tool reports vulnerability in output handling */
+  vulnerableOutput: [
+    /enables\s+indirect\s+prompt\s+injection/i,
+    /returns\s+unsanitized\s+user\s+content/i,
+    /output\s+injection/i,
+    /"injection_risk"\s*:\s*true/i,
+  ],
+} as const;
+
+// =============================================================================
 // CONNECTION ERROR PATTERNS (consolidated from 2 duplicate locations)
 // =============================================================================
 
@@ -1048,4 +1111,23 @@ export function isHttpError(text: string): boolean {
  */
 export function hasMcpErrorPrefix(text: string): boolean {
   return CONNECTION_ERROR_PATTERNS.mcpPrefix.test(text);
+}
+
+/**
+ * Check if text contains LLM injection markers (Issue #110, Challenge #8)
+ * Detects XML-style tags, chat format markers, and instruction overrides
+ */
+export function hasLLMInjectionMarkers(text: string): boolean {
+  return matchesAny(LLM_INJECTION_MARKERS, text);
+}
+
+/**
+ * Check if response indicates output injection vulnerability (Issue #110, Challenge #8)
+ * Detects tools that self-report including raw/unsanitized content
+ */
+export function hasOutputInjectionVulnerability(text: string): boolean {
+  return (
+    matchesAny(OUTPUT_INJECTION_METADATA.rawContentIncluded, text) ||
+    matchesAny(OUTPUT_INJECTION_METADATA.vulnerableOutput, text)
+  );
 }

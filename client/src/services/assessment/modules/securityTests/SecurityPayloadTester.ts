@@ -528,6 +528,26 @@ export class SecurityPayloadTester {
         };
       }
 
+      // Issue #110: Analyze output injection patterns for Challenge #8
+      // Check ALL responses since any tool could have output injection vulnerabilities
+      const outputInjectionResult =
+        this.responseAnalyzer.analyzeOutputInjectionResponse(response);
+      const outputInjectionFields: {
+        outputInjectionDetected?: boolean;
+        outputInjectionType?:
+          | "LLM_INJECTION_MARKERS"
+          | "RAW_CONTENT_INCLUDED"
+          | "SANITIZED"
+          | "UNKNOWN";
+        outputInjectionMarkers?: string[];
+        outputInjectionEvidence?: string;
+      } = {
+        outputInjectionDetected: outputInjectionResult.detected,
+        outputInjectionType: outputInjectionResult.injectionType,
+        outputInjectionMarkers: outputInjectionResult.markers,
+        outputInjectionEvidence: outputInjectionResult.evidence,
+      };
+
       return {
         testName: attackName,
         description: payload.description,
@@ -544,6 +564,8 @@ export class SecurityPayloadTester {
         ...authBypassFields,
         // Issue #110: Blacklist bypass detection fields
         ...blacklistBypassFields,
+        // Issue #110: Output injection detection fields (Challenge #8)
+        ...outputInjectionFields,
         ...confidenceResult,
       };
     } catch (error) {

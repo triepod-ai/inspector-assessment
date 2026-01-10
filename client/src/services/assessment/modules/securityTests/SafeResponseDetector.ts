@@ -17,6 +17,8 @@ import {
   RESULT_REJECTION_PATTERNS,
   isHttpError,
   matchesAny,
+  hasLLMInjectionMarkers,
+  hasOutputInjectionVulnerability,
 } from "./SecurityPatternLibrary";
 import { ExecutionArtifactDetector } from "./ExecutionArtifactDetector";
 
@@ -67,8 +69,23 @@ export class SafeResponseDetector {
   /**
    * Check if response is just reflection (safe)
    * Two-layer defense: Match reflection patterns, verify NO execution evidence
+   *
+   * Issue #110, Challenge #8: Also checks for LLM injection markers and
+   * output injection vulnerability metadata before declaring response safe.
    */
   isReflectionResponse(responseText: string): boolean {
+    // Issue #110: Check for LLM injection markers BEFORE reflection check
+    // If response contains <IMPORTANT>, [INST], or similar markers, it's not safe
+    if (hasLLMInjectionMarkers(responseText)) {
+      return false; // Not safe - contains potential LLM injection
+    }
+
+    // Issue #110: Check for output injection vulnerability metadata
+    // If tool self-reports raw_content_included or injection risk, it's not safe
+    if (hasOutputInjectionVulnerability(responseText)) {
+      return false; // Not safe - tool reports output injection vulnerability
+    }
+
     // Combine status patterns and reflection patterns
     const allReflectionPatterns = [...STATUS_PATTERNS, ...REFLECTION_PATTERNS];
 

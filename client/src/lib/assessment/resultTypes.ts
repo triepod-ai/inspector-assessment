@@ -159,6 +159,15 @@ export interface SecurityTestResult {
   blacklistBypassType?: "BLACKLIST_BYPASS" | "ALLOWLIST_BLOCKED" | "UNKNOWN";
   blacklistBypassMethod?: string; // e.g., "python3", "perl", "wget"
   blacklistBypassEvidence?: string; // Evidence text that triggered detection
+  // Issue #110: Output injection detection fields for Challenge #8
+  outputInjectionDetected?: boolean; // Whether output injection vulnerability was detected
+  outputInjectionType?:
+    | "LLM_INJECTION_MARKERS"
+    | "RAW_CONTENT_INCLUDED"
+    | "SANITIZED"
+    | "UNKNOWN";
+  outputInjectionMarkers?: string[]; // Which markers were found (e.g., ["<IMPORTANT>", "[INST]"])
+  outputInjectionEvidence?: string; // Evidence text that triggered detection
 }
 
 // ============================================================================

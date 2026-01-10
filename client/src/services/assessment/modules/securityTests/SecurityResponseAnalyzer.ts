@@ -82,6 +82,21 @@ export interface BlacklistBypassResult {
 }
 
 /**
+ * Result of output injection response analysis (Issue #110, Challenge #8)
+ * Detects indirect prompt injection via unsanitized tool output
+ */
+export interface OutputInjectionResult {
+  detected: boolean;
+  injectionType:
+    | "LLM_INJECTION_MARKERS"
+    | "RAW_CONTENT_INCLUDED"
+    | "SANITIZED"
+    | "UNKNOWN";
+  markers?: string[];
+  evidence?: string;
+}
+
+/**
  * Chain execution type classification (Issue #93, Challenge #6)
  */
 export type ChainExecutionType =
@@ -506,6 +521,113 @@ export class SecurityResponseAnalyzer {
     }
 
     return { detected: false, bypassType: "UNKNOWN" };
+  }
+
+  /**
+   * Analyze response for output injection vulnerabilities (Issue #110, Challenge #8)
+   * Detects indirect prompt injection via unsanitized tool output
+   *
+   * This method detects:
+   * - VULNERABLE: LLM injection markers (<IMPORTANT>, [INST], etc.) in output
+   * - VULNERABLE: Tool self-reports raw_content_included: true
+   * - SAFE: Tool reports content_sanitized: true or uses hash references
+   *
+   * @param response The tool response to analyze
+   * @returns Analysis result with output injection detection status
+   */
+  analyzeOutputInjectionResponse(
+    response: CompatibilityCallToolResult,
+  ): OutputInjectionResult {
+    const responseText = this.extractResponseContent(response);
+
+    // Check for LLM injection markers in response
+    const llmMarkers: string[] = [];
+    const markerPatterns = [
+      { pattern: /<IMPORTANT>/i, name: "<IMPORTANT>" },
+      { pattern: /<\/IMPORTANT>/i, name: "</IMPORTANT>" },
+      { pattern: /<SYSTEM>/i, name: "<SYSTEM>" },
+      { pattern: /\[INST\]/i, name: "[INST]" },
+      { pattern: /<\|system\|>/i, name: "<|system|>" },
+      { pattern: /<\|user\|>/i, name: "<|user|>" },
+      { pattern: /\{\{SYSTEM_PROMPT\}\}/i, name: "{{SYSTEM_PROMPT}}" },
+      {
+        pattern: /ignore.*previous.*instructions/i,
+        name: "ignore instructions",
+      },
+    ];
+
+    for (const { pattern, name } of markerPatterns) {
+      if (pattern.test(responseText)) {
+        llmMarkers.push(name);
+      }
+    }
+
+    if (llmMarkers.length > 0) {
+      return {
+        detected: true,
+        injectionType: "LLM_INJECTION_MARKERS",
+        markers: llmMarkers,
+        evidence: `LLM injection markers detected: ${llmMarkers.join(", ")}`,
+      };
+    }
+
+    // Check for raw content vulnerability metadata
+    const rawContentPatterns = [
+      {
+        pattern: /"raw_content_included"\s*:\s*true/i,
+        evidence: "raw_content_included: true (unsanitized user content)",
+      },
+      {
+        pattern: /returns\s+unsanitized\s+user\s+content/i,
+        evidence: "Tool reports returning unsanitized user content",
+      },
+      {
+        pattern: /enables\s+indirect\s+prompt\s+injection/i,
+        evidence: "Tool reports enabling indirect prompt injection",
+      },
+      {
+        pattern: /"injection_risk_level"\s*:\s*"(HIGH|CRITICAL)"/i,
+        evidence: "Tool reports HIGH/CRITICAL injection risk level",
+      },
+    ];
+
+    for (const { pattern, evidence } of rawContentPatterns) {
+      if (pattern.test(responseText)) {
+        return {
+          detected: true,
+          injectionType: "RAW_CONTENT_INCLUDED",
+          evidence,
+        };
+      }
+    }
+
+    // Check for safe patterns (sanitized output)
+    const safePatterns = [
+      {
+        pattern: /"content_sanitized"\s*:\s*true/i,
+        evidence: "content_sanitized: true (secure)",
+      },
+      {
+        pattern: /"uses_hash_reference"\s*:\s*true/i,
+        evidence: "uses_hash_reference: true (secure)",
+      },
+      {
+        pattern: /"raw_content_included"\s*:\s*false/i,
+        evidence: "raw_content_included: false (secure)",
+      },
+    ];
+
+    for (const { pattern, evidence } of safePatterns) {
+      if (pattern.test(responseText)) {
+        return {
+          detected: false,
+          injectionType: "SANITIZED",
+          evidence,
+        };
+      }
+    }
+
+    return { detected: false, injectionType: "UNKNOWN" };
   }
 
   /**
