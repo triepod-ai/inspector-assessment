@@ -23,6 +23,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - compliance: ~5 min → ~8-10 minutes
   - full: ~10-15 min → ~8-12 minutes
 
+## [1.30.1] - 2026-01-10
+
+### Added
+
+- **Cryptographic Failure CWE Detection** (Issue #112): OWASP A02:2021 vulnerability detection for Challenge #13 from mcp-vulnerable-testbed
+  - 8 CWE patterns detected across crypto and encryption tools:
+    - CWE-328: Weak Hash Algorithm (MD5/SHA1 for passwords)
+    - CWE-916: Static Salt / Weak KDF (MD5 key derivation)
+    - CWE-330: Predictable RNG (random.random() with timestamp seed)
+    - CWE-208: Timing Attack Vulnerability (timing_safe: false)
+    - CWE-327: Insecure Cipher Mode (ECB mode)
+    - CWE-321: Hardcoded Encryption Key
+    - CWE-326: Inadequate Key Length (< 16 bytes)
+  - New `analyzeCryptographicFailures()` method in SecurityResponseAnalyzer
+  - New "Cryptographic Failures" attack pattern (#31) with 8 payloads
+  - Result fields: `cryptoFailureDetected`, `cryptoVulnerabilityType`, `cryptoCweIds`, `cryptoFailureEvidence`
+  - A/B validated: Detects vulnerabilities on vulnerable-mcp, passes hardened-mcp
+
+- **Crypto Payload Generator**: PRIORITY 2.6 handler for crypto payloads
+  - Injects action parameters (hash, salt_hash, random, verify, encrypt, derive_key, sign)
+  - Adds companion parameters (password, data) for realistic test scenarios
+
+### Notes
+
+- 26 new unit tests for cryptographic failure detection
+- Attack pattern count increased from 30 to 31
+- Version 1.30.0 was partially published before build failure; 1.30.1 is the complete release
+
+## [1.29.1] - 2026-01-09
+
+### Added
+
+- **Session Management CWE Detection** (Issue #111): Security module patterns for Challenge #12 from mcp-vulnerable-testbed
+  - 5 CWE patterns detected:
+    - CWE-384: Session Fixation (external session ID acceptance)
+    - CWE-200: Session ID in URL (exposure via URL parameters)
+    - CWE-613: Insufficient Session Expiration (no timeout)
+    - CWE-330: Predictable Session ID (weak randomness)
+  - New `analyzeSessionManagement()` method in SecurityResponseAnalyzer
+  - New "Session Management" attack pattern (#30) with 5 payloads
+  - Result fields: `sessionVulnerabilityDetected`, `sessionVulnerabilityType`, `sessionCweIds`, `sessionVulnerabilityEvidence`
+
+- **JSONL Schema Versioning** (Issue #108): Added `schemaVersion` field to all JSONL events
+  - New `BaseEvent` interface extended by all event types
+  - `SCHEMA_VERSION` constant (single source of truth) in `moduleScoring.ts`
+  - Enables consumers to detect schema changes and handle migrations
+  - All 13 event types now include `version` and `schemaVersion` fields
+
+- **Config Version Field** (Issue #107): Added `configVersion` field for assessment configuration schema migrations
+  - Tracks assessment configuration format changes
+  - Enables backward compatibility handling
+
+### Notes
+
+- 22 new unit tests for session management detection
+- Attack pattern count increased from 29 to 30
+
 ## [1.26.1] - 2026-01-08
 
 ### Added
