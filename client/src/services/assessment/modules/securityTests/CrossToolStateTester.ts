@@ -78,6 +78,7 @@ export class CrossToolStateTester {
    */
   private log(message: string): void {
     if (this.verbose) {
+      // eslint-disable-next-line no-console
       console.log(`[CrossToolStateTester] ${message}`);
     }
   }

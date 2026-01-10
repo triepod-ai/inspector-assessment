@@ -13,24 +13,6 @@
 
 import { MCPAssessmentService } from "../assessmentService";
 import { AssessmentConfiguration } from "@/lib/assessmentTypes";
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
-
-// Mock data for testing
-const MOCK_TOOLS: Tool[] = [
-  {
-    name: "test_tool",
-    description: "A test tool for basic operations",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        query: { type: "string" },
-        limit: { type: "number", minimum: 1 },
-        enabled: { type: "boolean" },
-      },
-      required: ["query"],
-    },
-  },
-];
 
 describe("MCPAssessmentService", () => {
   let service: MCPAssessmentService;

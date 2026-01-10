@@ -108,6 +108,7 @@ export class ChainExecutionTester {
    */
   private log(message: string): void {
     if (this.verbose) {
+      // eslint-disable-next-line no-console
       console.log(`[ChainExecutionTester] ${message}`);
     }
   }
@@ -349,6 +350,7 @@ export class ChainExecutionTester {
       results.set(test.name, result);
 
       if (this.verbose) {
+        // eslint-disable-next-line no-console
         console.log(
           `    Result: ${result.vulnerable ? "VULNERABLE" : "SAFE"} (${result.reason})`,
         );

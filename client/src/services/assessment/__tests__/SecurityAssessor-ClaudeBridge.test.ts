@@ -13,6 +13,9 @@ import {
   ClaudeCodeBridge,
   ClaudeCodeBridgeConfig,
   SecuritySemanticAnalysisResult,
+  FULL_CLAUDE_CODE_CONFIG,
+  HTTP_CLAUDE_CODE_CONFIG,
+  DEFAULT_CLAUDE_CODE_CONFIG,
 } from "../lib/claudeCodeBridge";
 import {
   createMockAssessmentContext,
@@ -352,12 +355,7 @@ describe("SecurityAssessor - ClaudeCodeBridge Integration", () => {
 
   describe("Feature Flag - securitySemanticAnalysis", () => {
     it("should respect securitySemanticAnalysis feature flag in config presets", () => {
-      // Import and check presets include new feature
-      const {
-        FULL_CLAUDE_CODE_CONFIG,
-        HTTP_CLAUDE_CODE_CONFIG,
-      } = require("../lib/claudeCodeBridge");
-
+      // Verify presets include new feature
       expect(FULL_CLAUDE_CODE_CONFIG.features.securitySemanticAnalysis).toBe(
         true,
       );
@@ -367,8 +365,6 @@ describe("SecurityAssessor - ClaudeCodeBridge Integration", () => {
     });
 
     it("should have securitySemanticAnalysis disabled in DEFAULT_CLAUDE_CODE_CONFIG", () => {
-      const { DEFAULT_CLAUDE_CODE_CONFIG } = require("../lib/claudeCodeBridge");
-
       expect(DEFAULT_CLAUDE_CODE_CONFIG.features.securitySemanticAnalysis).toBe(
         false,
       );

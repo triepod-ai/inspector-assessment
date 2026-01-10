@@ -15,22 +15,6 @@
  */
 
 import { TestScenarioEngine } from "../TestScenarioEngine";
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
-
-// Mock tool factory
-const createTool = (
-  name: string,
-  schema: Record<string, unknown> = {},
-): Tool => ({
-  name,
-  description: `Test tool: ${name}`,
-  inputSchema: {
-    type: "object",
-    properties: {},
-    required: [],
-    ...schema,
-  },
-});
 
 describe("TestScenarioEngine", () => {
   describe("Constructor and Configuration", () => {
