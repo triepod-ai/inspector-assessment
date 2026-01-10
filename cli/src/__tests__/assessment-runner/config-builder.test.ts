@@ -24,6 +24,7 @@ jest.unstable_mockModule(
   "../../../../client/lib/lib/assessmentTypes.js",
   () => ({
     DEFAULT_ASSESSMENT_CONFIG: {
+      configVersion: 2,
       enableExtendedAssessment: false,
       parallelTesting: false,
       testTimeout: 10000,
@@ -356,6 +357,71 @@ describe("buildConfig", () => {
       process.env.LOG_LEVEL = "warn";
       const result = buildConfig({ serverName: "test", logLevel: "error" });
       expect(result.logging?.level).toBe("error");
+    });
+  });
+
+  describe("config version validation (Issue #107)", () => {
+    let consoleWarnSpy: ReturnType<typeof jest.spyOn>;
+
+    beforeEach(() => {
+      consoleWarnSpy = jest
+        .spyOn(console, "warn")
+        .mockImplementation(() => {}) as ReturnType<typeof jest.spyOn>;
+    });
+
+    afterEach(() => {
+      consoleWarnSpy.mockRestore();
+    });
+
+    it("should not warn when configVersion is present in defaults", () => {
+      // DEFAULT_ASSESSMENT_CONFIG mock includes configVersion: 2
+      buildConfig({ serverName: "test" });
+
+      // Should NOT warn because configVersion is set
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("Config missing configVersion"),
+      );
+    });
+
+    it("should still build config successfully with configVersion", () => {
+      const result = buildConfig({ serverName: "test" });
+
+      expect(result).toBeDefined();
+      expect(result.configVersion).toBe(2);
+      expect(result.testTimeout).toBeDefined();
+      expect(result.logging).toBeDefined();
+    });
+
+    it("should include configVersion in final config", () => {
+      const result = buildConfig({ serverName: "test" });
+
+      expect(result.configVersion).toBe(2);
+    });
+
+    it("should preserve configVersion through profile-based config", () => {
+      (modulesToLegacyConfig as jest.Mock).mockReturnValue({
+        functionality: true,
+        security: true,
+      });
+
+      const result = buildConfig({ serverName: "test", profile: "quick" });
+
+      expect(result.configVersion).toBe(2);
+    });
+
+    it("should preserve configVersion through module filtering", () => {
+      (getAllModulesConfig as jest.Mock).mockReturnValue({
+        functionality: true,
+        security: true,
+      });
+      (resolveModuleNames as jest.Mock).mockReturnValue(["functionality"]);
+
+      const result = buildConfig({
+        serverName: "test",
+        onlyModules: ["functionality"],
+      });
+
+      expect(result.configVersion).toBe(2);
     });
   });
 });

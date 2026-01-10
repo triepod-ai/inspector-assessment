@@ -162,5 +162,15 @@ export function buildConfig(
   const logLevel = options.logLevel ?? envLogLevel ?? "info";
   config.logging = { level: logLevel };
 
+  // Config version validation (Issue #107)
+  // Warn if config is missing version field - will be required in v2.0.0
+  if (!config.configVersion) {
+    console.warn(
+      "⚠️  Config missing configVersion field. " +
+        "This will be required in v2.0.0. " +
+        "See docs/DEPRECATION_GUIDE.md for migration info.",
+    );
+  }
+
   return config;
 }

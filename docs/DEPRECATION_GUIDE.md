@@ -23,6 +23,86 @@ Warnings are emitted:
 
 All warnings use the `logger.warn()` interface with structured metadata for programmatic parsing.
 
+---
+
+## Config Schema Versioning
+
+**Introduced**: v1.27.0
+**Required**: v2.0.0
+
+### Overview
+
+`AssessmentConfiguration` now includes a `configVersion` field to enable graceful schema migrations. This allows the system to detect old configurations and provide appropriate warnings or automatic migrations in future versions.
+
+### Current Version
+
+**configVersion: 2**
+
+All built-in preset configurations include `configVersion: 2`:
+
+- `DEFAULT_ASSESSMENT_CONFIG`
+- `REVIEWER_MODE_CONFIG`
+- `DEVELOPER_MODE_CONFIG`
+- `AUDIT_MODE_CONFIG`
+- `CLAUDE_ENHANCED_AUDIT_CONFIG`
+
+### Migration Path
+
+#### For CLI Users
+
+No action needed. The CLI automatically uses preset configurations with the correct version.
+
+#### For Library Users (Custom Configs)
+
+If you're building custom `AssessmentConfiguration` objects:
+
+```typescript
+// Before (v1.26.x and earlier)
+const myConfig: AssessmentConfiguration = {
+  testTimeout: 30000,
+  skipBrokenTools: false,
+  // ... other fields
+};
+
+// After (v1.27.0+)
+const myConfig: AssessmentConfiguration = {
+  configVersion: 2, // Add this field
+  testTimeout: 30000,
+  skipBrokenTools: false,
+  // ... other fields
+};
+```
+
+#### Recommended: Spread from Defaults
+
+The safest approach is to spread from a preset config:
+
+```typescript
+import { DEFAULT_ASSESSMENT_CONFIG } from "@bryan-thompson/inspector-assessment";
+
+const myConfig: AssessmentConfiguration = {
+  ...DEFAULT_ASSESSMENT_CONFIG,
+  testTimeout: 60000, // Override specific fields
+};
+```
+
+This ensures you inherit the correct `configVersion` and any future required fields.
+
+### Timeline
+
+| Version | Status                               |
+| ------- | ------------------------------------ |
+| v1.27.0 | `configVersion` introduced, optional |
+| v2.0.0  | `configVersion` required             |
+
+### Version History
+
+| configVersion | Introduced | Description                                  |
+| ------------- | ---------- | -------------------------------------------- |
+| 2             | v1.27.0    | Initial versioning after deprecation cleanup |
+
+---
+
 ## Deprecation Categories
 
 ### 1. Deprecated Assessment Modules (4 modules)

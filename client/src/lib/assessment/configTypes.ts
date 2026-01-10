@@ -45,6 +45,12 @@ export interface ClaudeCodeConfig {
 }
 
 export interface AssessmentConfiguration {
+  /**
+   * Config schema version for migration support.
+   * Current version: 2
+   * @since 1.27.0
+   */
+  configVersion?: number;
   testTimeout: number; // milliseconds
   /** Security-specific test timeout in ms (default: 5000). Lower than testTimeout for fast payload testing. */
   securityTestTimeout?: number;
@@ -117,6 +123,7 @@ export interface AssessmentConfiguration {
 // ============================================================================
 
 export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
+  configVersion: 2,
   testTimeout: 30000, // 30 seconds per tool
   delayBetweenTests: 0, // No delay by default
   skipBrokenTools: false,
@@ -159,6 +166,7 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
 // Reviewer mode configuration: optimized for fast, human-assisted reviews
 // Focuses on Anthropic's 5 core requirements only
 export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
+  configVersion: 2,
   testTimeout: 10000, // 10 seconds per tool (faster)
   delayBetweenTests: 100, // Small delay for rate limiting
   skipBrokenTools: true, // Skip broken tools to save time
@@ -201,6 +209,7 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
 
 // Developer mode configuration: comprehensive testing for debugging
 export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
+  configVersion: 2,
   testTimeout: 30000, // 30 seconds per tool
   delayBetweenTests: 500, // Moderate delay for thorough testing
   skipBrokenTools: false,
@@ -243,6 +252,7 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
 // MCP Directory Audit mode: focuses on compliance gap assessors
 // Use for pre-submission validation to Anthropic MCP Directory
 export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
+  configVersion: 2,
   testTimeout: 30000,
   delayBetweenTests: 100,
   skipBrokenTools: false,
@@ -285,6 +295,7 @@ export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
 // Claude-enhanced audit mode: uses Claude Code for intelligent analysis
 // Reduces false positives in AUP scanning and improves test quality
 export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
+  configVersion: 2,
   testTimeout: 30000,
   delayBetweenTests: 100,
   skipBrokenTools: false,
