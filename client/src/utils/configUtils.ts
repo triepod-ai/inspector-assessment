@@ -160,7 +160,7 @@ export const initializeInspectorConfig = (
         baseConfig = validationResult.data;
       } else {
         console.warn(
-          "Invalid config in sessionStorage, ignoring:",
+          "Invalid config in sessionStorage, using current config:",
           validationResult.error.errors.map((e) => e.message),
         );
       }

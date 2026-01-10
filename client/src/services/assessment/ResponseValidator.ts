@@ -18,7 +18,9 @@ import {
 } from "@/utils/schemaUtils";
 import {
   safeParseContentArray,
+  safeParseMCPToolCallResult,
   ContentArray,
+  MCPToolCallResultParsed,
 } from "./responseValidatorSchemas";
 
 export interface ValidationResult {
@@ -57,12 +59,23 @@ export class ResponseValidator {
   }
 
   /**
+   * Safely parse MCP tool call result using Zod validation.
+   * Returns validated data or undefined if validation fails.
+   */
+  private static safeGetMCPResponse(
+    response: CompatibilityCallToolResult,
+  ): MCPToolCallResultParsed | undefined {
+    const parseResult = safeParseMCPToolCallResult(response);
+    return parseResult.success ? parseResult.data : undefined;
+  }
+
+  /**
    * Extract response metadata including content types, structuredContent, and _meta
    */
   static extractResponseMetadata(context: ValidationContext): ResponseMetadata {
-    // Use validated parsing for content array
+    // Use validated parsing for content array and full response
     const content = this.safeGetContentArray(context.response);
-    const response = context.response as Record<string, unknown>;
+    const validatedResponse = this.safeGetMCPResponse(context.response);
 
     // Track content types present
     const contentTypes: ResponseMetadata["contentTypes"] = [];
@@ -94,12 +107,16 @@ export class ResponseValidator {
     }
 
     // Check for structuredContent property (MCP 2024-11-05+)
+    // Use validated response data when available, fallback to raw response check
     const hasStructuredContent =
-      "structuredContent" in response &&
-      response.structuredContent !== undefined;
+      validatedResponse?.structuredContent !== undefined ||
+      ("structuredContent" in context.response &&
+        context.response.structuredContent !== undefined);
 
     // Check for _meta property
-    const hasMeta = "_meta" in response && response._meta !== undefined;
+    const hasMeta =
+      validatedResponse?._meta !== undefined ||
+      ("_meta" in context.response && context.response._meta !== undefined);
 
     // Output schema validation
     let outputSchemaValidation: ResponseMetadata["outputSchemaValidation"];
@@ -108,9 +125,13 @@ export class ResponseValidator {
     if (toolHasOutputSchema) {
       if (hasStructuredContent) {
         // Primary path: validate structuredContent
+        // Prefer validated data, fallback to raw response
+        const structuredContent =
+          validatedResponse?.structuredContent ??
+          context.response.structuredContent;
         const validation = validateToolOutput(
           context.tool.name,
-          response.structuredContent,
+          structuredContent,
         );
         outputSchemaValidation = {
           hasOutputSchema: true,
