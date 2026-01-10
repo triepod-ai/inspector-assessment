@@ -106,12 +106,12 @@ The following module names are deprecated but still work via aliasing:
 
 **Test Approach**:
 
-- 23 distinct attack patterns with context-aware reflection detection
+- 30 distinct attack patterns with context-aware reflection detection
 - Pure behavior-based detection (no metadata reliance)
 - Domain-specific payloads based on parameter semantics
 - Confidence levels (high/medium/low) for findings
 
-**23 Attack Patterns** (organized by category):
+**30 Attack Patterns** (organized by category):
 
 | #                           | Attack Type                      | Risk   | Description                                                          |
 | --------------------------- | -------------------------------- | ------ | -------------------------------------------------------------------- |
@@ -894,7 +894,7 @@ Enabled in these config presets:
 | #   | Module               | Tests               | Policy Ref     | Severity | Tier         |
 | --- | -------------------- | ------------------- | -------------- | -------- | ------------ |
 | 1   | Functionality        | ~10 per tool        | Core           | Medium   | Tier 1: Core |
-| 2   | Security             | 23 patterns × tools | Core           | High     | Tier 1: Core |
+| 2   | Security             | 30 patterns × tools | Core           | High     | Tier 1: Core |
 | 3   | Error Handling       | ~20 per tool        | MCP Spec       | Medium   | Tier 1: Core |
 | 4   | Documentation        | ~10 checks          | Core           | Low      | Tier 1: Core |
 | 5   | Usability            | ~8 checks           | Core           | Low      | Tier 1: Core |
@@ -988,7 +988,7 @@ cat /tmp/inspector-assessment-*.json | jq '.overallStatus'
 ## Related Documentation
 
 - [Testbed Setup Guide](TESTBED_SETUP_GUIDE.md) - A/B validation with vulnerable-mcp/hardened-mcp
-- [Security Patterns Catalog](SECURITY_PATTERNS_CATALOG.md) - 23 attack patterns
+- [Security Patterns Catalog](SECURITY_PATTERNS_CATALOG.md) - 30 attack patterns
 - [Real-Time Progress Output](REAL_TIME_PROGRESS_OUTPUT.md) - CLI integration guide
 
 ---

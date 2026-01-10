@@ -548,6 +548,30 @@ export class SecurityPayloadTester {
         outputInjectionEvidence: outputInjectionResult.evidence,
       };
 
+      // Issue #111: Analyze session management patterns for Challenge #12
+      let sessionManagementFields: {
+        sessionManagementDetected?: boolean;
+        sessionVulnerabilityType?:
+          | "SESSION_FIXATION"
+          | "PREDICTABLE_TOKEN"
+          | "NO_TIMEOUT"
+          | "ID_IN_URL"
+          | "NO_REGENERATION"
+          | "UNKNOWN";
+        sessionCweIds?: string[];
+        sessionManagementEvidence?: string;
+      } = {};
+      if (attackName === "Session Management") {
+        const sessionResult =
+          this.responseAnalyzer.analyzeSessionManagementResponse(response);
+        sessionManagementFields = {
+          sessionManagementDetected: sessionResult.detected,
+          sessionVulnerabilityType: sessionResult.vulnerabilityType,
+          sessionCweIds: sessionResult.cweIds,
+          sessionManagementEvidence: sessionResult.evidence,
+        };
+      }
+
       return {
         testName: attackName,
         description: payload.description,
@@ -566,6 +590,8 @@ export class SecurityPayloadTester {
         ...blacklistBypassFields,
         // Issue #110: Output injection detection fields (Challenge #8)
         ...outputInjectionFields,
+        // Issue #111: Session management detection fields (Challenge #12)
+        ...sessionManagementFields,
         ...confidenceResult,
       };
     } catch (error) {

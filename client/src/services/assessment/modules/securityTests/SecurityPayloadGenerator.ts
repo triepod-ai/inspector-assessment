@@ -96,6 +96,55 @@ export class SecurityPayloadGenerator {
       }
     }
 
+    // PRIORITY 2.5: Handle session payloads (Issue #111, Challenge #12)
+    // Session payloads need companion parameters for proper testing
+    if (!payloadInjected && payload.payloadType === "session") {
+      const actionParams = ["action", "session_action", "operation", "type"];
+      for (const [key, prop] of Object.entries(schema.properties)) {
+        const propSchema = prop as { type?: string };
+        if (propSchema.type === "string") {
+          for (const actionParam of actionParams) {
+            if (key.toLowerCase().includes(actionParam.toLowerCase())) {
+              params[key] = payload.payload;
+              payloadInjected = true;
+              break;
+            }
+          }
+          if (payloadInjected) break;
+        }
+      }
+
+      // Add companion parameters for session testing
+      if (payloadInjected) {
+        for (const [key, prop] of Object.entries(schema.properties)) {
+          const propSchema = prop as { type?: string };
+          if (propSchema.type !== "string") continue;
+          if (params[key] !== undefined) continue; // Skip already set params
+
+          const keyLower = key.toLowerCase();
+          // Provide test values for common session parameters
+          if (
+            keyLower.includes("user") ||
+            keyLower.includes("username") ||
+            keyLower.includes("name")
+          ) {
+            params[key] = "testuser";
+          } else if (
+            keyLower.includes("session_id") ||
+            keyLower.includes("sessionid") ||
+            keyLower.includes("sid")
+          ) {
+            params[key] = "attacker_session_12345";
+          } else if (
+            keyLower.includes("password") ||
+            keyLower.includes("pass")
+          ) {
+            params[key] = "testpass123";
+          }
+        }
+      }
+    }
+
     // PRIORITY 3: Check for language-specific code execution parameters
     for (const [key, prop] of Object.entries(schema.properties)) {
       const propSchema = prop as { type?: string };

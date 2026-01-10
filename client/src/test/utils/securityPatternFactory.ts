@@ -1,4 +1,4 @@
-// Security pattern test factories for all 23 patterns
+// Security pattern test factories for all 30 patterns
 
 export interface SecurityTestCase {
   pattern: string;

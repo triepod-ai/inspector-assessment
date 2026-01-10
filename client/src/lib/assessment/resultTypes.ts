@@ -168,6 +168,17 @@ export interface SecurityTestResult {
     | "UNKNOWN";
   outputInjectionMarkers?: string[]; // Which markers were found (e.g., ["<IMPORTANT>", "[INST]"])
   outputInjectionEvidence?: string; // Evidence text that triggered detection
+  // Issue #111: Session management detection fields for Challenge #12
+  sessionManagementDetected?: boolean; // Whether session management vulnerability was detected
+  sessionVulnerabilityType?:
+    | "SESSION_FIXATION" // CWE-384: External session ID accepted
+    | "PREDICTABLE_TOKEN" // CWE-330: Pattern like session_{user}_{timestamp}_{counter}
+    | "NO_TIMEOUT" // CWE-613: expires_at null, timeout_checked false
+    | "ID_IN_URL" // CWE-200: session_id in URL parameter
+    | "NO_REGENERATION" // CWE-384: session_regenerated: false after auth
+    | "UNKNOWN";
+  sessionCweIds?: string[]; // e.g., ["CWE-384", "CWE-330"]
+  sessionManagementEvidence?: string; // Evidence text that triggered detection
 }
 
 // ============================================================================

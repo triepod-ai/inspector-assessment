@@ -1,6 +1,6 @@
 /**
  * Backend API Security Patterns
- * Tests MCP server API security with 29 focused patterns
+ * Tests MCP server API security with 30 focused patterns
  *
  * Architecture: Attack-Type with Specific Payloads
  * - Critical Injection (6 patterns): Command, Calculator, SQL, Path Traversal, XXE, NoSQL
@@ -19,6 +19,7 @@
  * - Auth Bypass (1 pattern): Fail-open authentication vulnerabilities (Issue #75)
  * - Cross-Tool State Bypass (1 pattern): Cross-tool privilege escalation via shared state (Issue #92)
  * - Chained Exploitation (1 pattern): Multi-tool chain execution attacks (Issue #93)
+ * - Session Management (1 pattern): Session fixation, predictable tokens, no timeout (Issue #111)
  *
  * Scope: Backend API Security ONLY
  * - Tests structured data inputs to API endpoints
@@ -54,7 +55,7 @@ export interface AttackPattern {
  * BACKEND API SECURITY PATTERNS
  * ========================================
  *
- * 29 focused patterns for MCP server API security
+ * 30 focused patterns for MCP server API security
  */
 export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
   // ==========================================
@@ -1856,6 +1857,78 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
         description: "Base64 encoded command bypass",
         payloadType: "blacklist_bypass",
         parameterTypes: ["command", "cmd", "exec", "run"],
+      },
+    ],
+  },
+
+  // ==========================================
+  // SESSION MANAGEMENT TESTS (Issue #111, Challenge #12)
+  // ==========================================
+
+  // 30. SESSION MANAGEMENT VULNERABILITIES
+  {
+    attackName: "Session Management",
+    description:
+      "Tests for session management vulnerabilities: fixation, predictable tokens, no timeout, ID exposure, no regeneration",
+    payloads: [
+      // CWE-384: Session Fixation - accepting external session IDs
+      {
+        payload: "fixate",
+        evidence:
+          /"attacker_controlled"\s*:\s*true|"fixation_url"\s*:|session\s*fixation\s*accepted|"fixed"\s*:\s*true/i,
+        riskLevel: "HIGH",
+        description:
+          "Session fixation - external session ID accepted (CWE-384)",
+        payloadType: "session",
+        parameterTypes: ["action", "session_action", "operation", "type"],
+      },
+      // CWE-330: Predictable session token pattern
+      {
+        payload: "create",
+        evidence:
+          /"token_pattern"\s*:\s*"session_\{user\}_\{timestamp\}_\{counter\}"|"session_id"\s*:\s*"session_[a-z0-9]+_\d{9,}_\d+"/i,
+        riskLevel: "HIGH",
+        description: "Predictable session token pattern (CWE-330)",
+        payloadType: "session",
+        parameterTypes: ["action", "session_action", "operation", "type"],
+      },
+      // CWE-613: No session timeout - expires_at null
+      {
+        payload: "create",
+        evidence: /"expires_at"\s*:\s*null|"timeout_checked"\s*:\s*false/i,
+        riskLevel: "HIGH",
+        description: "Session never expires - no timeout (CWE-613)",
+        payloadType: "session",
+        parameterTypes: ["action", "session_action", "operation", "type"],
+      },
+      // CWE-200: Session ID exposed in URL parameter
+      {
+        payload: "create",
+        evidence:
+          /"session_url"\s*:\s*"[^"]*[?&]session_id=|"fixation_url"\s*:\s*"[^"]*[?&]session_id=/i,
+        riskLevel: "HIGH",
+        description: "Session ID exposed in URL parameter (CWE-200)",
+        payloadType: "session",
+        parameterTypes: ["action", "session_action", "operation", "type"],
+      },
+      // CWE-384: No session regeneration after authentication
+      {
+        payload: "login",
+        evidence: /"session_regenerated"\s*:\s*false/i,
+        riskLevel: "HIGH",
+        description: "Session ID not regenerated after login (CWE-384)",
+        payloadType: "session",
+        parameterTypes: ["action", "session_action", "operation", "type"],
+      },
+      // CWE-613: Validation without timeout check
+      {
+        payload: "validate",
+        evidence:
+          /"timeout_checked"\s*:\s*false|"expires_at"\s*:\s*null.*"valid"\s*:\s*true/i,
+        riskLevel: "HIGH",
+        description: "Session validation without timeout check (CWE-613)",
+        payloadType: "session",
+        parameterTypes: ["action", "session_action", "operation", "type"],
       },
     ],
   },

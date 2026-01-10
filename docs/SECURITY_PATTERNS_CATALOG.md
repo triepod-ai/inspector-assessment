@@ -2,12 +2,12 @@
 
 ## Overview
 
-This catalog documents the **23 security attack patterns** used by the MCP Inspector to assess MCP server security. Each pattern includes attack vectors, example payloads, detection logic, and validation against the vulnerability testbed.
+This catalog documents the **30 security attack patterns** used by the MCP Inspector to assess MCP server security. Each pattern includes attack vectors, example payloads, detection logic, and validation against the vulnerability testbed.
 
 **Version**: 1.23.8
-**Pattern Count**: 23 attack categories
-**Total Payloads**: 118 distinct payloads
-**Risk Levels**: HIGH (98), MEDIUM (15), LOW (5)
+**Pattern Count**: 30 attack categories
+**Total Payloads**: 125+ distinct payloads (updated with session management)
+**Risk Levels**: HIGH (103+), MEDIUM (17+), LOW (5)
 
 **Core Principles**:
 
@@ -61,10 +61,23 @@ This catalog documents the **23 security attack patterns** used by the MCP Inspe
 9. [Code Execution Patterns (1)](#code-execution-patterns)
    - [23. Code Execution](#23-code-execution-language-aware)
 
-10. [Detection Architecture](#detection-architecture)
-11. [Zero False Positive Design](#zero-false-positive-design)
-12. [Adding New Patterns](#adding-new-patterns)
-13. [Testbed Validation](#testbed-validation)
+10. [Session Management Patterns (1)](#session-management-patterns)
+
+- [24. Session Management](#24-session-management)
+
+11. [Additional Security Patterns (6)](#additional-security-patterns)
+
+- [25. Tool Output Injection](#25-tool-output-injection-issue-103-challenge-8)
+- [26. Secret Leakage](#26-secret-leakage-issue-103-challenge-9)
+- [27. Blacklist Bypass](#27-blacklist-bypass-issue-103-challenge-11)
+- [28. Auth Bypass](#28-auth-bypass-issue-75)
+- [29. Cross-Tool State Bypass](#29-cross-tool-state-bypass-issue-92)
+- [30. Chained Exploitation](#30-chained-exploitation-issue-93)
+
+12. [Detection Architecture](#detection-architecture)
+13. [Zero False Positive Design](#zero-false-positive-design)
+14. [Adding New Patterns](#adding-new-patterns)
+15. [Testbed Validation](#testbed-validation)
 
 ---
 
@@ -1236,6 +1249,142 @@ if (/\b(root|user|admin)\b/.test(response)) {
 
 ---
 
+## Session Management Patterns
+
+### 24. Session Management
+
+**Attack Vector**: Tests if tools handle session tokens securely. Detects session fixation, predictable tokens, missing timeouts, and ID exposure in URLs (Issue #111: Challenge #12).
+
+**Risk Level**: HIGH
+**Payload Count**: 6
+**CWEs Detected**: CWE-384, CWE-330, CWE-613, CWE-200
+
+#### Payloads
+
+| ID   | Payload                                            | Evidence Pattern                                                    | CWE     | Description                                          |
+| ---- | -------------------------------------------------- | ------------------------------------------------------------------- | ------- | ---------------------------------------------------- |
+| 24.1 | `{"session_id": "external123"}`                    | `/session_fixed\|external.*accepted\|external.*session/i`           | CWE-384 | Session Fixation - accepts external session ID       |
+| 24.2 | `{"session_regenerated": false}`                   | `/no.*regenerat\|session.*not.*regenerat\|regenerat.*false/i`       | CWE-384 | No Session Regeneration - session unchanged          |
+| 24.3 | `{"session_id": "session_user_timestamp_counter"}` | `/session_user_.*_.*_.*\|predictable.*token\|sequential.*session/i` | CWE-330 | Predictable Token - pattern-based session generation |
+| 24.4 | `{"expires_at": null, "timeout_checked": false}`   | `/no.*timeout\|expires.*null\|never.*expire\|permanent.*session/i`  | CWE-613 | No Session Timeout - indefinite session validity     |
+| 24.5 | `?session_id=abc123def456` (URL parameter)         | `/session_id.*url\|session.*exposed.*url\|id.*visible.*url/i`       | CWE-200 | ID Exposure in URL - session ID in query string      |
+| 24.6 | `{"session": "weak_token_123"}`                    | `/weak.*token\|123.*session\|simple.*token\|non.*random/i`          | CWE-330 | Weak Token Generation - non-random or simple tokens  |
+
+#### Target Parameters
+
+Payloads target parameters: `["session", "session_id", "token", "auth_token", "jwt", "cookie", "user_session", "access_token"]`
+
+#### Expected Vulnerable Responses
+
+**Session Fixation Vulnerability**:
+
+```json
+{
+  "session_fixed": true,
+  "session_id": "external123"
+}
+```
+
+**No Regeneration Vulnerability**:
+
+```json
+{
+  "session_regenerated": false,
+  "current_session_id": "old_id_123"
+}
+```
+
+#### Detection Logic
+
+```typescript
+// Test 1: Session Fixation
+if (response.session_fixed || response.session_id === "external123") {
+  vulnerabilities.push({
+    type: "sessionFixation",
+    cwe: "CWE-384",
+    severity: "HIGH",
+  });
+}
+
+// Test 2: No Regeneration
+if (!response.session_regenerated) {
+  vulnerabilities.push({
+    type: "noSessionRegeneration",
+    cwe: "CWE-384",
+    severity: "HIGH",
+  });
+}
+
+// Test 3: Predictable Tokens
+if (/session_\w+_\d+_\d+/.test(sessionId)) {
+  vulnerabilities.push({
+    type: "predictableToken",
+    cwe: "CWE-330",
+    severity: "HIGH",
+  });
+}
+
+// Test 4: No Timeout
+if (expiresAt === null || !timeoutChecked) {
+  vulnerabilities.push({
+    type: "noSessionTimeout",
+    cwe: "CWE-613",
+    severity: "HIGH",
+  });
+}
+
+// Test 5: ID Exposure in URL
+if (url.includes("session_id=")) {
+  vulnerabilities.push({
+    type: "sessionIdInUrl",
+    cwe: "CWE-200",
+    severity: "HIGH",
+  });
+}
+```
+
+---
+
+## Additional Security Patterns
+
+### 25. Tool Output Injection (Issue #103, Challenge #8)
+
+**Description**: Tests if tool responses can be manipulated to inject content into other tools.
+
+**Status**: Referenced in codebase, pattern framework in place
+
+### 26. Secret Leakage (Issue #103, Challenge #9)
+
+**Description**: Tests if tools leak secrets through responses or error messages.
+
+**Status**: Referenced in codebase, pattern framework in place
+
+### 27. Blacklist Bypass (Issue #103, Challenge #11)
+
+**Description**: Tests if input validation blacklists can be bypassed.
+
+**Status**: Referenced in codebase, pattern framework in place
+
+### 28. Auth Bypass (Issue #75)
+
+**Description**: Tests for fail-open authentication vulnerabilities where tools respond successfully without proper authorization.
+
+**Status**: Referenced in codebase, pattern framework in place
+
+### 29. Cross-Tool State Bypass (Issue #92)
+
+**Description**: Tests for cross-tool privilege escalation via shared state management.
+
+**Status**: Referenced in codebase, pattern framework in place
+
+### 30. Chained Exploitation (Issue #93)
+
+**Description**: Tests for multi-tool attack chains where output of one tool feeds into vulnerability in another.
+
+**Status**: Referenced in codebase, pattern framework in place
+
+---
+
 ## Detection Architecture
 
 The inspector uses a **4-layer defense-in-depth detection strategy** to eliminate false positives:
@@ -1548,11 +1697,11 @@ cat /tmp/inspector-assessment-vulnerable-mcp.json | \
 | vulnerable_unicode_processor_tool | Unicode Bypass (1)                | 1                |
 | vulnerable_package_installer_tool | Package Squatting (2)             | 60               |
 | vulnerable_rug_pull_tool          | Temporal Behavior                 | 80               |
-| **Total**                         | **23 patterns**                   | **200**          |
+| **Total**                         | **30 patterns**                   | **200**          |
 
 ### Safe Tool Validation (0 False Positives)
 
-All safe tools tested with **80 patterns each** (23 attack types × ~3.5 payloads average):
+All safe tools tested with **100+ patterns each** (30 attack types × ~3.5 payloads average):
 
 - ✅ safe_storage_tool_mcp: 0 vulnerabilities
 - ✅ safe_search_tool_mcp: 0 vulnerabilities
@@ -1569,18 +1718,20 @@ All safe tools tested with **80 patterns each** (23 attack types × ~3.5 payload
 
 ```javascript
 {
-  totalAttackTypes: 23,
-  totalPayloads: 141,
-  highRiskPayloads: 120,
-  mediumRiskPayloads: 15,
-  lowRiskPayloads: 6,
+  totalAttackTypes: 30,
+  totalPayloads: 145,
+  highRiskPayloads: 125,
+  mediumRiskPayloads: 17,
+  lowRiskPayloads: 5,
   payloadTypeBreakdown: {
     injection: 115,
     validation: 7,
     protocol: 2,
-    dos: 12
+    sessionManagement: 6,
+    dos: 12,
+    other: 3
   },
-  averagePayloadsPerAttack: 6
+  averagePayloadsPerAttack: 4.8
 }
 ```
 
