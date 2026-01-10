@@ -145,6 +145,50 @@ export class SecurityPayloadGenerator {
       }
     }
 
+    // PRIORITY 2.6: Handle crypto payloads (Issue #112, Challenge #13)
+    // Crypto payloads need companion parameters for proper testing
+    if (!payloadInjected && payload.payloadType === "crypto") {
+      const actionParams = ["action", "operation", "type"];
+      for (const [key, prop] of Object.entries(schema.properties)) {
+        const propSchema = prop as { type?: string };
+        if (propSchema.type === "string") {
+          for (const actionParam of actionParams) {
+            if (key.toLowerCase().includes(actionParam.toLowerCase())) {
+              params[key] = payload.payload;
+              payloadInjected = true;
+              break;
+            }
+          }
+          if (payloadInjected) break;
+        }
+      }
+
+      // Add companion parameters for crypto testing
+      if (payloadInjected) {
+        for (const [key, prop] of Object.entries(schema.properties)) {
+          const propSchema = prop as { type?: string };
+          if (propSchema.type !== "string") continue;
+          if (params[key] !== undefined) continue; // Skip already set params
+
+          const keyLower = key.toLowerCase();
+          // Provide test values for common crypto parameters
+          if (
+            keyLower.includes("password") ||
+            keyLower.includes("pass") ||
+            keyLower.includes("secret")
+          ) {
+            params[key] = "test_password_123";
+          } else if (
+            keyLower.includes("data") ||
+            keyLower.includes("input") ||
+            keyLower.includes("plaintext")
+          ) {
+            params[key] = "sensitive_data_to_encrypt";
+          }
+        }
+      }
+    }
+
     // PRIORITY 3: Check for language-specific code execution parameters
     for (const [key, prop] of Object.entries(schema.properties)) {
       const propSchema = prop as { type?: string };

@@ -1932,6 +1932,103 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
       },
     ],
   },
+
+  // ==========================================
+  // CRYPTOGRAPHIC FAILURES (Issue #112, Challenge #13)
+  // OWASP A02:2021 - Cryptographic Failures
+  // ==========================================
+
+  // 31. CRYPTOGRAPHIC FAILURES
+  {
+    attackName: "Cryptographic Failures",
+    description:
+      "Tests for OWASP A02:2021 cryptographic vulnerabilities: weak hash, static salt, predictable RNG, timing attacks, ECB mode, hardcoded keys",
+    payloads: [
+      // CWE-328: Weak hash algorithm (MD5 for passwords)
+      {
+        payload: "hash",
+        evidence:
+          /"algorithm"\s*:\s*"MD5"|"algorithm_secure"\s*:\s*false|"cwe_ids"\s*:\s*\[.*"CWE-328"/i,
+        riskLevel: "HIGH",
+        description: "Weak hash algorithm MD5 for password hashing (CWE-328)",
+        payloadType: "crypto",
+        parameterTypes: ["action", "operation", "type"],
+      },
+      // CWE-916: Static salt for password hashing
+      {
+        payload: "salt_hash",
+        evidence:
+          /"salt_type"\s*:\s*"static"|"salt"\s*:\s*"static_salt_123"|"salt_secure"\s*:\s*false/i,
+        riskLevel: "HIGH",
+        description: "Static salt enables rainbow table attacks (CWE-916)",
+        payloadType: "crypto",
+        parameterTypes: ["action", "operation", "type"],
+      },
+      // CWE-330: Predictable RNG for token generation
+      {
+        payload: "random",
+        evidence:
+          /"rng_type"\s*:\s*"random\.random\(\)"|"seed"\s*:\s*"timestamp"|"cryptographically_secure"\s*:\s*false/i,
+        riskLevel: "HIGH",
+        description:
+          "Predictable RNG with timestamp seed instead of secrets module (CWE-330)",
+        payloadType: "crypto",
+        parameterTypes: ["action", "operation", "type"],
+      },
+      // CWE-208: Timing attack vulnerability in password verification
+      {
+        payload: "verify",
+        evidence:
+          /"timing_safe"\s*:\s*false|"comparison_type"\s*:\s*"direct_equality"|"cwe_ids"\s*:\s*\[.*"CWE-208"/i,
+        riskLevel: "HIGH",
+        description:
+          "Non-constant-time comparison enables timing attacks (CWE-208)",
+        payloadType: "crypto",
+        parameterTypes: ["action", "operation", "type"],
+      },
+      // CWE-327: Insecure cipher mode (ECB)
+      {
+        payload: "encrypt",
+        evidence:
+          /"mode"\s*:\s*"ECB"|"algorithm"\s*:\s*"XOR"|"cwe_ids"\s*:\s*\[.*"CWE-327"/i,
+        riskLevel: "HIGH",
+        description: "AES-ECB mode leaks patterns in ciphertext (CWE-327)",
+        payloadType: "crypto",
+        parameterTypes: ["action", "operation", "type"],
+      },
+      // CWE-321: Hardcoded encryption key
+      {
+        payload: "encrypt",
+        evidence:
+          /"key_source"\s*:\s*"hardcoded"|"key_preview"\s*:\s*"hardcode|"cwe_ids"\s*:\s*\[.*"CWE-321"/i,
+        riskLevel: "HIGH",
+        description: "Hardcoded encryption key in source code (CWE-321)",
+        payloadType: "crypto",
+        parameterTypes: ["action", "operation", "type"],
+      },
+      // CWE-916: Weak key derivation function (MD5, no iterations)
+      {
+        payload: "derive_key",
+        evidence:
+          /"derivation_function"\s*:\s*"MD5"|"iterations"\s*:\s*1|"kdf_secure"\s*:\s*false/i,
+        riskLevel: "HIGH",
+        description:
+          "MD5 for key derivation without iterations or salt (CWE-916)",
+        payloadType: "crypto",
+        parameterTypes: ["action", "operation", "type"],
+      },
+      // CWE-326: Inadequate encryption key length
+      {
+        payload: "sign",
+        evidence:
+          /"key_length"\s*:\s*[1-9](?!\d)|"key_secure"\s*:\s*false|"cwe_ids"\s*:\s*\[.*"CWE-326"/i,
+        riskLevel: "HIGH",
+        description: "Weak HMAC key length easily brute-forceable (CWE-326)",
+        payloadType: "crypto",
+        parameterTypes: ["action", "operation", "type"],
+      },
+    ],
+  },
 ];
 
 /**

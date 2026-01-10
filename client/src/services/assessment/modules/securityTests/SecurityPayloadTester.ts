@@ -572,6 +572,33 @@ export class SecurityPayloadTester {
         };
       }
 
+      // Issue #112: Analyze cryptographic failure patterns for Challenge #13
+      let cryptoFailureFields: {
+        cryptoFailureDetected?: boolean;
+        cryptoVulnerabilityType?:
+          | "WEAK_HASH"
+          | "STATIC_SALT"
+          | "PREDICTABLE_RNG"
+          | "TIMING_ATTACK"
+          | "ECB_MODE"
+          | "HARDCODED_KEY"
+          | "WEAK_KDF"
+          | "WEAK_KEY_LENGTH"
+          | "UNKNOWN";
+        cryptoCweIds?: string[];
+        cryptoFailureEvidence?: string;
+      } = {};
+      if (attackName === "Cryptographic Failures") {
+        const cryptoResult =
+          this.responseAnalyzer.analyzeCryptographicFailures(response);
+        cryptoFailureFields = {
+          cryptoFailureDetected: cryptoResult.detected,
+          cryptoVulnerabilityType: cryptoResult.vulnerabilityType,
+          cryptoCweIds: cryptoResult.cweIds,
+          cryptoFailureEvidence: cryptoResult.evidence,
+        };
+      }
+
       return {
         testName: attackName,
         description: payload.description,
@@ -592,6 +619,8 @@ export class SecurityPayloadTester {
         ...outputInjectionFields,
         // Issue #111: Session management detection fields (Challenge #12)
         ...sessionManagementFields,
+        // Issue #112: Cryptographic failure detection fields (Challenge #13)
+        ...cryptoFailureFields,
         ...confidenceResult,
       };
     } catch (error) {

@@ -179,6 +179,21 @@ export interface SecurityTestResult {
     | "UNKNOWN";
   sessionCweIds?: string[]; // e.g., ["CWE-384", "CWE-330"]
   sessionManagementEvidence?: string; // Evidence text that triggered detection
+  // Issue #112: Cryptographic failure detection fields for Challenge #13
+  // OWASP A02:2021 - Cryptographic Failures
+  cryptoFailureDetected?: boolean; // Whether cryptographic failure was detected
+  cryptoVulnerabilityType?:
+    | "WEAK_HASH" // CWE-328: MD5/SHA1 for password hashing
+    | "STATIC_SALT" // CWE-916: Static salt like "static_salt_123"
+    | "PREDICTABLE_RNG" // CWE-330: random.random() with timestamp seed
+    | "TIMING_ATTACK" // CWE-208: Non-constant-time comparison
+    | "ECB_MODE" // CWE-327: AES-ECB mode (pattern leakage)
+    | "HARDCODED_KEY" // CWE-321: key_source: "hardcoded"
+    | "WEAK_KDF" // CWE-916: MD5 for key derivation
+    | "WEAK_KEY_LENGTH" // CWE-326: key_length < 16 bytes
+    | "UNKNOWN";
+  cryptoCweIds?: string[]; // e.g., ["CWE-328", "CWE-916"]
+  cryptoFailureEvidence?: string; // Evidence text that triggered detection
 }
 
 // ============================================================================
