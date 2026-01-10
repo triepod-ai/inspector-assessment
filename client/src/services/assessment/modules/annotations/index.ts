@@ -62,3 +62,38 @@ export {
   type Tool as ArchitectureTool,
   type ArchitectureContext,
 } from "./ArchitectureDetector";
+
+// Issue #105: Alignment Checker
+export {
+  extractAnnotations,
+  extractExtendedMetadata,
+  extractToolParams,
+  assessSingleTool,
+  determineAnnotationStatus,
+  calculateMetrics,
+  type ExtractedAnnotations,
+  type AlignmentMetricsResult,
+} from "./AlignmentChecker";
+
+// Issue #105: Explanation Generator
+export {
+  generateExplanation,
+  generateEnhancedExplanation,
+  generateRecommendations,
+  generateEnhancedRecommendations,
+  type EnhancedToolAnnotationResultForExplanation,
+} from "./ExplanationGenerator";
+
+// Issue #105: Event Emitter
+export {
+  emitAnnotationEvents,
+  emitMismatchEvent,
+  type EnhancedToolAnnotationResultForEvents,
+} from "./EventEmitter";
+
+// Issue #105: Claude Integration
+export {
+  enhanceWithClaudeInference,
+  createPatternBasedInference,
+  type EnhancedToolAnnotationResult,
+} from "./ClaudeIntegration";
