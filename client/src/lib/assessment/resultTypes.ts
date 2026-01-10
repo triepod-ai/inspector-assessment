@@ -154,6 +154,11 @@ export interface SecurityTestResult {
   authBypassDetected?: boolean; // Whether fail-open auth bypass was detected
   authFailureMode?: "FAIL_OPEN" | "FAIL_CLOSED" | "UNKNOWN"; // Classification of auth behavior
   authBypassEvidence?: string; // Evidence text that triggered detection
+  // Issue #110: Blacklist bypass detection fields for Challenge #11
+  blacklistBypassDetected?: boolean; // Whether blacklist bypass was detected
+  blacklistBypassType?: "BLACKLIST_BYPASS" | "ALLOWLIST_BLOCKED" | "UNKNOWN";
+  blacklistBypassMethod?: string; // e.g., "python3", "perl", "wget"
+  blacklistBypassEvidence?: string; // Evidence text that triggered detection
 }
 
 // ============================================================================

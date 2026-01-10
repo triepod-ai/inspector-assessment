@@ -507,6 +507,27 @@ export class SecurityPayloadTester {
         };
       }
 
+      // Issue #110: Analyze blacklist bypass patterns for "Blacklist Bypass" attack type
+      let blacklistBypassFields: {
+        blacklistBypassDetected?: boolean;
+        blacklistBypassType?:
+          | "BLACKLIST_BYPASS"
+          | "ALLOWLIST_BLOCKED"
+          | "UNKNOWN";
+        blacklistBypassMethod?: string;
+        blacklistBypassEvidence?: string;
+      } = {};
+      if (attackName === "Blacklist Bypass") {
+        const bypassResult =
+          this.responseAnalyzer.analyzeBlacklistBypassResponse(response);
+        blacklistBypassFields = {
+          blacklistBypassDetected: bypassResult.detected,
+          blacklistBypassType: bypassResult.bypassType,
+          blacklistBypassMethod: bypassResult.bypassMethod,
+          blacklistBypassEvidence: bypassResult.evidence,
+        };
+      }
+
       return {
         testName: attackName,
         description: payload.description,
@@ -521,6 +542,8 @@ export class SecurityPayloadTester {
         sanitizationLibraries: combinedSanitization.libraries,
         // Issue #75: Auth bypass detection fields
         ...authBypassFields,
+        // Issue #110: Blacklist bypass detection fields
+        ...blacklistBypassFields,
         ...confidenceResult,
       };
     } catch (error) {
