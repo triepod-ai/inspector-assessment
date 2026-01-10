@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import DynamicJsonForm, { DynamicJsonFormRef } from "./DynamicJsonForm";
+import DynamicJsonForm from "./DynamicJsonForm";
 import type { JsonValue, JsonSchemaType } from "@/utils/jsonUtils";
 import {
   generateDefaultValue,
@@ -35,7 +35,7 @@ import {
   Copy,
   CheckCheck,
 } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { useToolsTabState } from "@/lib/hooks/useToolsTabState";
 import ListPane from "./ListPane";
 import JsonView from "./JsonView";
 import ToolResults from "./ToolResults";
@@ -85,53 +85,23 @@ const ToolsTab = ({
   resourceContent: Record<string, string>;
   onReadResource?: (uri: string) => void;
 }) => {
-  const [params, setParams] = useState<Record<string, unknown>>({});
-  const [isToolRunning, setIsToolRunning] = useState(false);
-  const [isOutputSchemaExpanded, setIsOutputSchemaExpanded] = useState(false);
-  const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
-  const [metadataEntries, setMetadataEntries] = useState<
-    { id: string; key: string; value: string }[]
-  >([]);
-  const [hasValidationErrors, setHasValidationErrors] = useState(false);
-  const formRefs = useRef<Record<string, DynamicJsonFormRef | null>>({});
+  const {
+    params,
+    setParams,
+    isToolRunning,
+    setIsToolRunning,
+    isOutputSchemaExpanded,
+    setIsOutputSchemaExpanded,
+    isMetadataExpanded,
+    setIsMetadataExpanded,
+    metadataEntries,
+    setMetadataEntries,
+    hasValidationErrors,
+    formRefs,
+    checkValidationErrors,
+  } = useToolsTabState({ selectedTool });
   const { toast } = useToast();
   const { copied, setCopied } = useCopy();
-
-  // Function to check if any form has validation errors
-  const checkValidationErrors = () => {
-    const errors = Object.values(formRefs.current).some(
-      (ref) => ref && !ref.validateJson().isValid,
-    );
-    setHasValidationErrors(errors);
-    return errors;
-  };
-
-  useEffect(() => {
-    const params = Object.entries(
-      selectedTool?.inputSchema.properties ?? [],
-    ).map(([key, value]) => {
-      // First resolve any $ref references
-      const resolvedValue = resolveRef(
-        value as JsonSchemaType,
-        selectedTool?.inputSchema as JsonSchemaType,
-      );
-      return [
-        key,
-        generateDefaultValue(
-          resolvedValue,
-          key,
-          selectedTool?.inputSchema as JsonSchemaType,
-        ),
-      ];
-    });
-    setParams(Object.fromEntries(params));
-
-    // Reset validation errors when switching tools
-    setHasValidationErrors(false);
-
-    // Clear form refs for the previous tool
-    formRefs.current = {};
-  }, [selectedTool]);
 
   const hasReservedMetadataEntry = metadataEntries.some(({ key }) => {
     const trimmedKey = key.trim();
