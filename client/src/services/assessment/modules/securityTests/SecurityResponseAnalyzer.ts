@@ -480,6 +480,27 @@ export class SecurityResponseAnalyzer {
    * - Database connection strings with credentials
    * - Environment variable values
    * - Partial key previews
+   *
+   * @note This method must be called separately from analyzeResponse().
+   * It is not part of the standard vulnerability detection flow because
+   * secret leakage detection requires examining ALL responses, not just
+   * those matching attack payloads. Callers should invoke this method
+   * independently when auditing tool responses for credential exposure.
+   *
+   * @example
+   * ```typescript
+   * const analyzer = new SecurityResponseAnalyzer();
+   * const response = await client.callTool("get_status", { verbose: true });
+   *
+   * // Standard vulnerability check
+   * const vulnResult = analyzer.analyzeResponse(response, payload);
+   *
+   * // Additional secret leakage check (separate concern)
+   * const leakResult = analyzer.checkSecretLeakage(response);
+   * if (leakResult.detected) {
+   *   console.warn(`Secret leaked: ${leakResult.evidence}`);
+   * }
+   * ```
    */
   checkSecretLeakage(response: CompatibilityCallToolResult): {
     detected: boolean;
