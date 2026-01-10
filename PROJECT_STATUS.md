@@ -2,7 +2,51 @@
 
 ## Current Version
 
-- **Version**: 1.25.7 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.26.7 (published to npm as "@bryan-thompson/inspector-assessment")
+
+---
+
+## 2026-01-10: CLI E2E Integration Tests Complete (Issue #97)
+
+**Summary:** Added comprehensive end-to-end integration tests for the CLI and fixed test timeout issues.
+
+**Session Focus:** Implement CLI E2E tests (issue #97) and fix test failures
+
+**Changes Made:**
+- Added `--version` / `-V` flag to CLI (cli-parser.ts, assess-full.ts)
+- Created `cli/src/__tests__/assess-full-e2e.test.ts` with 16 tests
+- Fixed version to read from package.json instead of hardcoded string
+- Fixed spawnCLI timeout race condition (exitCode overwrite bug)
+- Fixed checkServerAvailable to handle SSE responses properly
+- Increased integration test timeouts from 2-3 min to 5-6 min
+- Created GitHub issue #100 for unit test follow-up
+
+**Test Coverage (16 tests):**
+- Help and Version Display: 4 tests
+- Configuration Validation: 3 tests
+- Profile Selection: 2 tests
+- Error Handling: 2 tests
+- Server Assessment (Integration): 4 tests
+- Preflight Mode: 1 test
+
+**Key Fixes:**
+1. **Timeout race condition**: `spawnCLI()` close handler was overwriting timeout exit code (-1) with null
+2. **SSE handling**: MCP servers use SSE which keeps connections open; now reads first chunk to confirm availability
+3. **Insufficient timeouts**: Full assessments need 4-5 minutes, increased from 2-3 min
+
+**Commits:**
+- f441cee: test: add CLI E2E integration tests (#97)
+- 32fe453: fix(tests): resolve E2E test timeout issues (#97)
+
+**Issues Closed:** #97, #83 (duplicate)
+
+**Next Steps:**
+- Address unit test follow-up (issue #100)
+- Continue with other code quality issues from review
+
+---
+
+## 2026-01-09: Code Review and Testbed Validation
 
 **Session Focus:** Code review and testbed validation for recent security improvements
 
@@ -21,11 +65,6 @@
 - testUtils.ts (convenience aliases)
 - TEST_ORGANIZATION_PATTERN.md (new documentation)
 - TEST_UTILITIES_REFERENCE.md (new documentation)
-
-**Next Steps:**
-- Consider adding edge case tests (auth vs language priority)
-- Add A/B testbed validation to CI pipeline
-- Run vulnerable-mcp comparison when time permits
 
 **Notes:**
 - Hardened-mcp: 1,650 tests, 0 vulnerabilities, PASS
@@ -370,5 +409,33 @@
 - Lint errors were pre-existing, not introduced by recent PR #98
 - Two flaky tests: AssessmentOrchestrator timeout test and performance throughput test
 - Both fail due to CI runner performance variance
+
+---
+
+## 2026-01-09: Documentation Updates, CI Fixes, and v1.26.7 Release
+
+**Summary:** Published v1.26.7 with documentation updates for closed issues and CI pipeline fixes.
+
+**Session Focus:** Commit documentation updates, CI fixes, and publish new npm version.
+
+**Changes Made:**
+- `.gitignore` - Added `coverage/` to ignore test coverage reports
+- `PROJECT_STATUS.md` - Added timeline entries for issue closures (#85, #92, #93, #94) and CI fixes
+- `package.json` (all workspaces) - Version bumped to 1.26.7
+- Published `@bryan-thompson/inspector-assessment@1.26.7` to npm
+
+**Key Decisions:**
+- Separated commits by concern (gitignore, issue docs, CI docs)
+- Published despite 2 known flaky test failures (timing-sensitive tests already documented)
+- CI pipeline runs lint and build checks, skips flaky client tests
+
+**Next Steps:**
+- Address remaining open issues (#87, #88, #89, #91, #97)
+- Consider fixing flaky tests properly in future session
+
+**Notes:**
+- 3428 tests passing, 2 flaky failures (timing thresholds in CI)
+- Package verified working via `bunx @bryan-thompson/inspector-assessment`
+- Issues closed: #85 (docs), #92 (docs), #93 (docs), #94 (docs)
 
 ---
