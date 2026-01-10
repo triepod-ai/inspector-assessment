@@ -9,11 +9,23 @@ import {
   ErrorTestDetail,
   AssessmentStatus,
 } from "@/lib/assessmentTypes";
+import { AssessmentConfiguration } from "@/lib/assessment/configTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { createConcurrencyLimit } from "../lib/concurrencyLimit";
+import { ExecutionArtifactDetector } from "./securityTests/ExecutionArtifactDetector";
+import { SafeResponseDetector } from "./securityTests/SafeResponseDetector";
 
 export class ErrorHandlingAssessor extends BaseAssessor {
+  private executionDetector: ExecutionArtifactDetector;
+  private safeResponseDetector: SafeResponseDetector;
+
+  constructor(config: AssessmentConfiguration) {
+    super(config);
+    this.executionDetector = new ExecutionArtifactDetector();
+    this.safeResponseDetector = new SafeResponseDetector();
+  }
+
   async assess(context: AssessmentContext): Promise<ErrorHandlingAssessment> {
     this.logger.info("Starting error handling assessment");
 
@@ -561,6 +573,117 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
   // isErrorResponse and extractErrorInfo moved to BaseAssessor for reuse across all assessors
 
+  /**
+   * Analyze invalid_values response to determine scoring impact
+   * Issue #99: Contextual empty string validation scoring
+   *
+   * Classifications:
+   * - safe_rejection: Tool rejected with error (no penalty)
+   * - safe_reflection: Tool stored/echoed without executing (no penalty)
+   * - defensive_programming: Tool handled gracefully (no penalty)
+   * - execution_detected: Tool executed input (penalty)
+   * - unknown: Cannot determine (partial penalty)
+   */
+  private analyzeInvalidValuesResponse(test: ErrorTestDetail): {
+    shouldPenalize: boolean;
+    penaltyAmount: number;
+    classification: string;
+    reason: string;
+  } {
+    const responseText = this.extractResponseTextSafe(
+      test.actualResponse.rawResponse,
+    );
+
+    // Case 1: Tool rejected with error - best case (no penalty)
+    if (test.actualResponse.isError) {
+      return {
+        shouldPenalize: false,
+        penaltyAmount: 0,
+        classification: "safe_rejection",
+        reason: "Tool properly rejected invalid input",
+      };
+    }
+
+    // Case 2: Defensive programming patterns (no penalty)
+    // Check BEFORE execution detection because patterns like "query returned 0"
+    // might match execution indicators but are actually safe
+    if (this.isDefensiveProgrammingResponse(responseText)) {
+      return {
+        shouldPenalize: false,
+        penaltyAmount: 0,
+        classification: "defensive_programming",
+        reason: "Tool handled empty input defensively",
+      };
+    }
+
+    // Case 3: Safe reflection patterns (no penalty)
+    if (this.safeResponseDetector.isReflectionResponse(responseText)) {
+      return {
+        shouldPenalize: false,
+        penaltyAmount: 0,
+        classification: "safe_reflection",
+        reason: "Tool safely reflected input without execution",
+      };
+    }
+
+    // Case 4: Check for execution evidence - VULNERABLE (full penalty)
+    if (
+      this.executionDetector.hasExecutionEvidence(responseText) ||
+      this.executionDetector.detectExecutionArtifacts(responseText)
+    ) {
+      return {
+        shouldPenalize: true,
+        penaltyAmount: 100,
+        classification: "execution_detected",
+        reason: "Tool executed input without validation",
+      };
+    }
+
+    // Case 5: Unknown - partial penalty for manual review
+    return {
+      shouldPenalize: true,
+      penaltyAmount: 25,
+      classification: "unknown",
+      reason: "Unable to determine safety - manual review recommended",
+    };
+  }
+
+  /**
+   * Safely extract response text from various response formats
+   */
+  private extractResponseTextSafe(rawResponse: unknown): string {
+    if (typeof rawResponse === "string") return rawResponse;
+    if (rawResponse && typeof rawResponse === "object") {
+      const resp = rawResponse as Record<string, unknown>;
+      if (resp.content && Array.isArray(resp.content)) {
+        return (resp.content as Array<{ type: string; text?: string }>)
+          .map((c) => (c.type === "text" ? c.text : ""))
+          .join(" ");
+      }
+      return JSON.stringify(rawResponse);
+    }
+    return String(rawResponse || "");
+  }
+
+  /**
+   * Check for defensive programming patterns - tool accepted but caused no harm
+   * Examples: "Deleted 0 keys", "No results found", "Query returned 0"
+   */
+  private isDefensiveProgrammingResponse(responseText: string): boolean {
+    // Patterns for safe "no-op" responses where tool handled empty input gracefully
+    // Use word boundaries (\b) to avoid matching numbers like "10" or "15"
+    const patterns = [
+      /deleted\s+0\s+(keys?|records?|rows?|items?)/i,
+      /no\s+(results?|matches?|items?)\s+found/i,
+      /\b0\s+items?\s+(deleted|updated|processed)/i, // \b prevents matching "10 items"
+      /nothing\s+to\s+(delete|update|process)/i,
+      /empty\s+(result|response|query)/i,
+      /no\s+action\s+taken/i,
+      /query\s+returned\s+0\b/i, // \b prevents matching "query returned 05" etc.
+    ];
+    return patterns.some((p) => p.test(responseText));
+  }
+
   private calculateMetrics(
     tests: ErrorTestDetail[],
     _passed: number, // parameter kept for API compatibility
@@ -570,12 +693,22 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     let maxPossibleScore = 0;
 
     tests.forEach((test) => {
-      // Phase 1: Exclude "invalid_values" tests from scoring (informational only)
-      // Reason: These tests penalize tools that handle edge cases gracefully (empty strings, etc.)
-      // Instead of rejecting them, which is often correct defensive programming.
-      // Real schema violations will be tested separately in Phase 2+.
+      // Issue #99: Contextual scoring for invalid_values tests
+      // Instead of blanket exclusion, analyze response patterns to determine if
+      // the tool safely handled empty strings (defensive programming, reflection)
+      // or if it executed without validation (security concern).
       if (test.testType === "invalid_values") {
-        return; // Skip scoring, but still included in testDetails
+        const analysis = this.analyzeInvalidValuesResponse(test);
+        if (!analysis.shouldPenalize) {
+          // Safe response (rejection, reflection, or defensive programming)
+          // Skip scoring to preserve backward compatibility for well-behaved tools
+          return;
+        }
+        // Execution detected or unknown - include in scoring with penalty
+        maxPossibleScore += 100;
+        const scoreEarned = 100 * (1 - analysis.penaltyAmount / 100);
+        enhancedScore += test.passed ? scoreEarned : 0;
+        return;
       }
 
       maxPossibleScore += 100; // Base score for each test
