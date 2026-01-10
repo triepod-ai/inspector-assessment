@@ -21,6 +21,33 @@
 
 ---
 
+## 2026-01-10: Resource & Metadata Assessment Enhancements (Issue #119 Completed)
+
+**Summary:** Enhanced three assessment modules for DVMCP Challenges #2, #14, #15 with zero-width character detection, URI injection testing, hidden resource discovery, and temporal detection phase tracking.
+
+**Session Focus:** Issue #119 - Resource & Metadata Assessment Modules
+
+**Changes Made:**
+- `DescriptionPoisoningDetector.ts` - Added 6 zero-width character patterns (U+200B, U+200D, U+200C, U+2060, U+FEFF), description length warning threshold (500 chars)
+- `AlignmentChecker.ts` - Added `scanInputSchemaDescriptions()` for input schema property description scanning
+- `TemporalAssessor.ts` - Changed default invocations from 25 to 15, added `calculateDetectionPhase()` method (baseline/monitoring)
+- `ResourceAssessor.ts` - Added 14 URI injection payloads, 21 hidden resource patterns, `testParameterizedUriInjection()`, `testHiddenResourceDiscovery()` methods
+- `extendedTypes.ts` - Added `detectionPhase`, `uriInjectionTested`, `uriInjectionPayload`, `hiddenResourceProbe`, `probePattern` fields
+
+**A/B Testbed Validation:**
+- vulnerable-mcp: ❌ FAIL, 398 vulnerabilities, 17 AUP violations, 0 false positives
+- hardened-mcp: ✅ PASS, 0 vulnerabilities, 0 AUP violations, 0 false positives
+- Pure behavior-based detection validated (same tool names, different implementations)
+
+**Key Commits:**
+- 245e0ac7 - feat: Issue #119 resource & metadata assessment enhancements
+
+**Notes:**
+- Challenge #16 (Multi-Server Shadowing) deferred to future issue
+- All 3773+ tests passing
+
+---
+
 ## 2026-01-10: ToolAnnotationAssessor Refactor (Issue #105 Completed)
 
 **Summary:** Completed Issue #105 by splitting ToolAnnotationAssessor.ts into 5 focused modules and addressing code review warnings.
@@ -443,5 +470,62 @@
 - All 57 responseValidatorSchemas tests pass
 - All 26 performanceConfig tests pass
 - Code review showed 0 critical issues after fixes
+
+---
+
+## 2026-01-10: MCP Conformance Testing Integration Fixes
+
+**Summary:** Fixed MCP conformance testing integration - updated scenario names for v0.1.9 and fixed status calculation bug.
+
+**Session Focus:** MCP Conformance Testing Integration Fixes
+
+**Changes Made:**
+- `client/src/services/assessment/modules/ConformanceAssessor.ts` - Updated scenario names (tools-call-simple-text, resources-read-text, prompts-get-simple) and fixed pass/fail counting logic
+- `client/src/services/assessment/__tests__/ConformanceAssessor.test.ts` - Updated scenario names in test expectations
+- `PROJECT_STATUS.md` and `PROJECT_STATUS_ARCHIVE.md` - Documentation archival (7-day rule)
+
+**Key Decisions:**
+- Count scenarios (5/7 = 71%) not individual checks within scenarios for status determination
+- Status thresholds: >=90% PASS, 70-90% NEED_MORE_INFO, <70% FAIL
+
+**Key Commits:**
+- 245e0ac7 - fix(conformance): update scenario names for @modelcontextprotocol/conformance v0.1.9
+- 740409ed - fix(conformance): count scenarios not just failed checks
+
+**Next Steps:**
+- Implement conformance checkbox in mcp-auditor dev portal (Issue #100)
+- Consider adding more conformance scenarios as they become available
+
+**Notes:**
+- Both vulnerable-mcp and hardened-mcp show identical conformance (5/7, 71%) since they share MCP transport implementation
+- 2 scenarios skip because testbed servers don't implement resources-read-text and prompts-get-simple operations
+- Conformance tests protocol compliance, not security (both servers pass equally despite security differences)
+
+---
+
+## 2026-01-10: Fixed Flaky CI Tests (Issue #122)
+
+**Summary:** Fixed 5 flaky timing/performance tests with CI-aware skip helper and increased timeouts.
+
+**Session Focus:** Addressing flaky test failures caused by timing variability in CI environments
+
+**Changes Made:**
+- Modified `client/src/services/assessment/performance.test.ts` - Added isCI detection and itSkipInCI helper, applied to 3 benchmark tests
+- Modified `client/src/services/assessment/AssessmentOrchestrator.test.ts` - Increased timeout from 30s to 60s for timeout scenario test
+
+**Key Decisions:**
+- Used conditional CI skip (itSkipInCI) rather than unconditional skip to preserve local benchmarking capability
+- Combined Option A (increase thresholds) and Option B (skip in CI) from issue for pragmatic fix
+- Documented each skip with GitHub Issue #122 reference for traceability
+
+**Next Steps:**
+- Monitor CI runs to verify flaky tests no longer cause failures
+- Consider similar patterns for any future timing-sensitive tests
+
+**Notes:**
+- Changes committed in 245e0ac7 and pushed to origin
+- Issue #122 closed with detailed resolution comment
+- 4 tests now skip in CI mode, all pass locally
+- Pattern established: use `itSkipInCI` helper for timing-sensitive benchmarks
 
 ---
