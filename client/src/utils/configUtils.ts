@@ -3,6 +3,7 @@ import {
   DEFAULT_MCP_PROXY_LISTEN_PORT,
   DEFAULT_INSPECTOR_CONFIG,
 } from "@/lib/constants";
+import { safeParseInspectorConfig } from "@/lib/configurationTypesSchemas";
 
 const getSearchParam = (key: string): string | null => {
   try {
@@ -128,16 +129,44 @@ export const initializeInspectorConfig = (
   // Start with default config
   let baseConfig = { ...DEFAULT_INSPECTOR_CONFIG };
 
-  // Apply saved persistent config
+  // Apply saved persistent config with validation
   if (savedPersistentConfig) {
-    const parsedPersistentConfig = JSON.parse(savedPersistentConfig);
-    baseConfig = { ...baseConfig, ...parsedPersistentConfig };
+    try {
+      const parsedPersistentConfig = JSON.parse(savedPersistentConfig);
+      // Merge with defaults first to ensure all keys exist
+      const mergedConfig = { ...baseConfig, ...parsedPersistentConfig };
+      const validationResult = safeParseInspectorConfig(mergedConfig);
+      if (validationResult.success) {
+        baseConfig = validationResult.data;
+      } else {
+        console.warn(
+          "Invalid config in localStorage, using defaults:",
+          validationResult.error.errors.map((e) => e.message),
+        );
+      }
+    } catch (e) {
+      console.warn("Failed to parse localStorage config:", e);
+    }
   }
 
-  // Apply saved ephemeral config
+  // Apply saved ephemeral config with validation
   if (savedEphemeralConfig) {
-    const parsedEphemeralConfig = JSON.parse(savedEphemeralConfig);
-    baseConfig = { ...baseConfig, ...parsedEphemeralConfig };
+    try {
+      const parsedEphemeralConfig = JSON.parse(savedEphemeralConfig);
+      // Merge with current config
+      const mergedConfig = { ...baseConfig, ...parsedEphemeralConfig };
+      const validationResult = safeParseInspectorConfig(mergedConfig);
+      if (validationResult.success) {
+        baseConfig = validationResult.data;
+      } else {
+        console.warn(
+          "Invalid config in sessionStorage, ignoring:",
+          validationResult.error.errors.map((e) => e.message),
+        );
+      }
+    } catch (e) {
+      console.warn("Failed to parse sessionStorage config:", e);
+    }
   }
 
   // Ensure all config items have the latest labels/descriptions from defaults

@@ -16,6 +16,10 @@ import {
   hasOutputSchema,
   tryExtractJsonFromContent,
 } from "@/utils/schemaUtils";
+import {
+  safeParseContentArray,
+  ContentArray,
+} from "./responseValidatorSchemas";
 
 export interface ValidationResult {
   isValid: boolean;
@@ -42,12 +46,22 @@ export interface ValidationContext {
 
 export class ResponseValidator {
   /**
+   * Safely extract content array from response using Zod validation.
+   * Falls back to undefined if content is not a valid array.
+   */
+  private static safeGetContentArray(
+    response: CompatibilityCallToolResult,
+  ): ContentArray | undefined {
+    const parseResult = safeParseContentArray(response.content);
+    return parseResult.success ? parseResult.data : undefined;
+  }
+
+  /**
    * Extract response metadata including content types, structuredContent, and _meta
    */
   static extractResponseMetadata(context: ValidationContext): ResponseMetadata {
-    const content = context.response.content as
-      | Array<{ type: string; text?: string; data?: string; mimeType?: string }>
-      | undefined;
+    // Use validated parsing for content array
+    const content = this.safeGetContentArray(context.response);
     const response = context.response as Record<string, unknown>;
 
     // Track content types present

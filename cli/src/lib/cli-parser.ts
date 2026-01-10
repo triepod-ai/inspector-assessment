@@ -16,7 +16,6 @@ import {
 import { type ReportFormat } from "../../../client/lib/lib/reportFormatters/index.js";
 import {
   ASSESSMENT_PROFILES,
-  isValidProfileName,
   getProfileHelpText,
   TIER_1_CORE_SECURITY,
   TIER_2_COMPLIANCE,
@@ -25,6 +24,12 @@ import {
   type AssessmentProfileName,
 } from "../profiles.js";
 import packageJson from "../../package.json" with { type: "json" };
+import {
+  safeParseModuleNames,
+  LogLevelSchema,
+  ReportFormatSchema,
+  AssessmentProfileNameSchema,
+} from "./cli-parserSchemas.js";
 
 // ============================================================================
 // Types
@@ -95,7 +100,7 @@ export interface ValidationResult {
 // Constants
 // ============================================================================
 
-// Valid module names derived from ASSESSMENT_CATEGORY_METADATA
+// Valid module names derived from ASSESSMENT_CATEGORY_METADATA (used for help text)
 const VALID_MODULE_NAMES = Object.keys(
   ASSESSMENT_CATEGORY_METADATA,
 ) as (keyof typeof ASSESSMENT_CATEGORY_METADATA)[];
@@ -105,33 +110,24 @@ const VALID_MODULE_NAMES = Object.keys(
 // ============================================================================
 
 /**
- * Validate module names from CLI input
+ * Validate module names from CLI input using Zod schema.
  *
  * @param input - Comma-separated module names
  * @param flagName - Flag name for error messages (e.g., "--skip-modules")
  * @returns Array of validated module names, or empty array if invalid
  */
 export function validateModuleNames(input: string, flagName: string): string[] {
-  const names = input
-    .split(",")
-    .map((n) => n.trim())
-    .filter(Boolean);
-  const invalid = names.filter(
-    (n) =>
-      !VALID_MODULE_NAMES.includes(
-        n as keyof typeof ASSESSMENT_CATEGORY_METADATA,
-      ),
-  );
+  const result = safeParseModuleNames(input);
 
-  if (invalid.length > 0) {
+  if (result.invalid.length > 0) {
     console.error(
-      `Error: Invalid module name(s) for ${flagName}: ${invalid.join(", ")}`,
+      `Error: Invalid module name(s) for ${flagName}: ${result.invalid.join(", ")}`,
     );
     console.error(`Valid modules: ${VALID_MODULE_NAMES.join(", ")}`);
     setTimeout(() => process.exit(1), 10);
     return [];
   }
-  return names;
+  return result.valid;
 }
 
 /**
@@ -255,23 +251,17 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
         options.logLevel = "silent";
         break;
       case "--log-level": {
-        const levelValue = args[++i] as LogLevel;
-        const validLevels: LogLevel[] = [
-          "silent",
-          "error",
-          "warn",
-          "info",
-          "debug",
-        ];
-        if (!validLevels.includes(levelValue)) {
+        const levelValue = args[++i];
+        const parseResult = LogLevelSchema.safeParse(levelValue);
+        if (!parseResult.success) {
           console.error(
-            `Invalid log level: ${levelValue}. Valid options: ${validLevels.join(", ")}`,
+            `Invalid log level: ${levelValue}. Valid options: silent, error, warn, info, debug`,
           );
           setTimeout(() => process.exit(1), 10);
           options.helpRequested = true;
           return options as AssessmentOptions;
         }
-        options.logLevel = levelValue;
+        options.logLevel = parseResult.data;
         break;
       }
       case "--json":
@@ -279,8 +269,9 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
         break;
       case "--format":
       case "-f": {
-        const formatValue = args[++i] as ReportFormat;
-        if (formatValue !== "json" && formatValue !== "markdown") {
+        const formatValue = args[++i];
+        const parseResult = ReportFormatSchema.safeParse(formatValue);
+        if (!parseResult.success) {
           console.error(
             `Invalid format: ${formatValue}. Valid options: json, markdown`,
           );
@@ -288,7 +279,7 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
           options.helpRequested = true;
           return options as AssessmentOptions;
         }
-        options.format = formatValue;
+        options.format = parseResult.data;
         break;
       }
       case "--include-policy":
@@ -326,7 +317,8 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
           options.helpRequested = true;
           return options as AssessmentOptions;
         }
-        if (!isValidProfileName(profileValue)) {
+        const parseResult = AssessmentProfileNameSchema.safeParse(profileValue);
+        if (!parseResult.success) {
           console.error(`Error: Invalid profile name: ${profileValue}`);
           console.error(
             `Valid profiles: ${Object.keys(ASSESSMENT_PROFILES).join(", ")}`,
@@ -335,7 +327,7 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
           options.helpRequested = true;
           return options as AssessmentOptions;
         }
-        options.profile = profileValue;
+        options.profile = parseResult.data;
         break;
       }
       case "--skip-modules": {
