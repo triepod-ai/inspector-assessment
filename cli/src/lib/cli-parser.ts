@@ -18,6 +18,10 @@ import {
   ASSESSMENT_PROFILES,
   isValidProfileName,
   getProfileHelpText,
+  TIER_1_CORE_SECURITY,
+  TIER_2_COMPLIANCE,
+  TIER_3_CAPABILITY,
+  TIER_4_EXTENDED,
   type AssessmentProfileName,
 } from "../profiles.js";
 import packageJson from "../../package.json" with { type: "json" };
@@ -75,6 +79,8 @@ export interface AssessmentOptions {
   profile?: AssessmentProfileName;
   /** Log level for diagnostic output */
   logLevel?: LogLevel;
+  /** List available modules and exit */
+  listModules?: boolean;
 }
 
 /**
@@ -366,6 +372,10 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
         }
         break;
       }
+      case "--list-modules":
+        printModules();
+        options.listModules = true;
+        return options as AssessmentOptions;
       case "--version":
       case "-V":
         printVersion();
@@ -567,4 +577,68 @@ Examples:
   mcp-assess-full --server my-server --format markdown --include-policy
   mcp-assess-full --server my-server --compare ./baseline.json --diff-only
   `);
+}
+
+/**
+ * Module description mappings for printModules output.
+ * Uses human-friendly descriptions that may differ from ASSESSMENT_CATEGORY_METADATA.
+ */
+const MODULE_DESCRIPTIONS: Record<string, string> = {
+  functionality: "Tool functionality validation",
+  security: "Security vulnerability detection (23 attack patterns)",
+  temporal: "Temporal/rug pull detection",
+  errorHandling: "Error handling compliance",
+  protocolCompliance: "MCP protocol + JSON-RPC validation",
+  aupCompliance: "Acceptable use policy compliance",
+  toolAnnotations: "Tool annotation validation (readOnlyHint, destructiveHint)",
+  prohibitedLibraries: "Prohibited library detection",
+  manifestValidation: "MCPB manifest.json validation",
+  authentication: "OAuth/auth evaluation",
+  resources: "Resource path traversal + sensitive data exposure",
+  prompts: "Prompt AUP compliance + injection testing",
+  crossCapability: "Cross-capability attack chain detection",
+  developerExperience: "Documentation + usability assessment",
+  portability: "Cross-platform compatibility",
+  externalAPIScanner: "External API detection (requires --source)",
+};
+
+/**
+ * Print available modules organized by tier
+ */
+export function printModules(): void {
+  const formatModule = (name: string): string => {
+    const desc =
+      MODULE_DESCRIPTIONS[name] ||
+      ASSESSMENT_CATEGORY_METADATA[
+        name as keyof typeof ASSESSMENT_CATEGORY_METADATA
+      ]?.description ||
+      "";
+    return `  ${name.padEnd(22)} ${desc}`;
+  };
+
+  console.log(`
+Available Assessment Modules (16 total):
+
+Tier 1 - Core Security (${TIER_1_CORE_SECURITY.length} modules):
+${TIER_1_CORE_SECURITY.map(formatModule).join("\n")}
+
+Tier 2 - Compliance (${TIER_2_COMPLIANCE.length} modules):
+${TIER_2_COMPLIANCE.map(formatModule).join("\n")}
+
+Tier 3 - Capability-Based (${TIER_3_CAPABILITY.length} modules):
+${TIER_3_CAPABILITY.map(formatModule).join("\n")}
+
+Tier 4 - Extended (${TIER_4_EXTENDED.length} modules):
+${TIER_4_EXTENDED.map(formatModule).join("\n")}
+
+Usage:
+  --only-modules <list>   Run only specified modules (comma-separated)
+  --skip-modules <list>   Skip specified modules (comma-separated)
+  --profile <name>        Use predefined profile (quick, security, compliance, full)
+
+Examples:
+  mcp-assess-full my-server --only-modules functionality,security
+  mcp-assess-full my-server --skip-modules temporal,portability
+  mcp-assess-full my-server --profile compliance
+`);
 }
