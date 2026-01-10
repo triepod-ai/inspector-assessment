@@ -849,3 +849,87 @@ export interface EnhancedBehaviorInferenceResult {
   /** Aggregated confidence from all signals (0-100) */
   aggregatedConfidence: number;
 }
+
+// ============================================================================
+// File Modularization Assessment Types (Issue #104)
+// Detects large monolithic tool files and recommends modularization
+// ============================================================================
+
+/**
+ * Severity level for file modularization issues
+ */
+export type FileSeverity = "HIGH" | "MEDIUM" | "LOW" | "INFO";
+
+/**
+ * Information about a large file detected in the codebase
+ */
+export interface LargeFileInfo {
+  /** Relative path to the file */
+  path: string;
+  /** Total line count */
+  lines: number;
+  /** Number of tool definitions detected */
+  toolCount: number;
+  /** Severity of the modularization issue */
+  severity: FileSeverity;
+  /** Specific recommendation for this file */
+  recommendation: string;
+}
+
+/**
+ * Result of a single modularization check
+ */
+export interface ModularizationCheck {
+  /** Name of the check (e.g., "file_line_count", "tool_per_file") */
+  checkName: string;
+  /** Whether the check passed */
+  passed: boolean;
+  /** Severity if failed */
+  severity: FileSeverity;
+  /** Evidence explaining the result */
+  evidence?: string;
+  /** Threshold that was checked against */
+  threshold?: number;
+  /** Actual value measured */
+  actualValue?: number;
+}
+
+/**
+ * Aggregated metrics about file modularization
+ */
+export interface FileModularizationMetrics {
+  /** Total number of source files analyzed */
+  totalSourceFiles: number;
+  /** Total lines across all source files */
+  totalLines: number;
+  /** Files exceeding thresholds, sorted by size */
+  largestFiles: LargeFileInfo[];
+  /** Count of files over 1,000 lines (warning threshold) */
+  filesOver1000Lines: number;
+  /** Count of files over 2,000 lines (error threshold) */
+  filesOver2000Lines: number;
+  /** Count of files with more than 10 tools */
+  filesWithOver10Tools: number;
+  /** Count of files with more than 20 tools */
+  filesWithOver20Tools: number;
+  /** Whether the codebase has modular structure (tools/ dir, multiple files) */
+  hasModularStructure: boolean;
+  /** Overall modularization score (0-100) */
+  modularizationScore: number;
+}
+
+/**
+ * Complete file modularization assessment result
+ */
+export interface FileModularizationAssessment {
+  /** Aggregated metrics */
+  metrics: FileModularizationMetrics;
+  /** Individual check results */
+  checks: ModularizationCheck[];
+  /** Overall assessment status */
+  status: AssessmentStatus;
+  /** Human-readable explanation of the assessment */
+  explanation: string;
+  /** Specific recommendations for improvement */
+  recommendations: string[];
+}

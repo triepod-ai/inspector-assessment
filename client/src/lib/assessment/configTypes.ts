@@ -107,6 +107,8 @@ export interface AssessmentConfiguration {
     // Protocol conformance assessment
     /** @deprecated Use protocolCompliance instead. Will be removed in v2.0.0. */
     protocolConformance?: boolean; // MCP protocol-level compliance (error format, content types, initialization)
+    // Code quality assessors
+    fileModularization?: boolean; // Code quality - detects large monolithic tool files (Issue #104)
   };
 }
 
@@ -149,6 +151,8 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
     crossCapability: false,
     // Protocol conformance - disabled by default
     protocolConformance: false,
+    // Code quality - disabled by default (requires source code analysis)
+    fileModularization: false,
   },
 };
 
@@ -190,6 +194,8 @@ export const REVIEWER_MODE_CONFIG: AssessmentConfiguration = {
     crossCapability: false,
     // Protocol conformance - disabled in reviewer mode for speed
     protocolConformance: false,
+    // Code quality - disabled in reviewer mode for speed
+    fileModularization: false,
   },
 };
 
@@ -229,6 +235,8 @@ export const DEVELOPER_MODE_CONFIG: AssessmentConfiguration = {
     crossCapability: true,
     // Protocol conformance - enabled in developer mode for comprehensive testing
     protocolConformance: true,
+    // Code quality - enabled in developer mode for comprehensive testing
+    fileModularization: true,
   },
 };
 
@@ -269,6 +277,8 @@ export const AUDIT_MODE_CONFIG: AssessmentConfiguration = {
     crossCapability: true,
     // Protocol conformance - enabled in audit mode for compliance validation
     protocolConformance: true,
+    // Code quality - enabled in audit mode for compliance validation
+    fileModularization: true,
   },
 };
 
@@ -320,5 +330,7 @@ export const CLAUDE_ENHANCED_AUDIT_CONFIG: AssessmentConfiguration = {
     crossCapability: true,
     // Protocol conformance - enabled in Claude mode for comprehensive validation (@deprecated)
     protocolConformance: true,
+    // Code quality - enabled in Claude mode for comprehensive validation
+    fileModularization: true,
   },
 };

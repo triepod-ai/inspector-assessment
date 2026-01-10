@@ -41,6 +41,9 @@ import { ResourceAssessor } from "./modules/ResourceAssessor";
 import { PromptAssessor } from "./modules/PromptAssessor";
 import { CrossCapabilitySecurityAssessor } from "./modules/CrossCapabilitySecurityAssessor";
 
+// Code quality assessors
+import { FileModularizationAssessor } from "./modules/FileModularizationAssessor";
+
 // Note: ProtocolConformanceAssessor merged into ProtocolComplianceAssessor (v1.25.2)
 
 // Pattern configuration for tool annotation assessment
@@ -201,6 +204,9 @@ export class AssessmentOrchestrator {
   private promptAssessor?: PromptAssessor;
   private crossCapabilityAssessor?: CrossCapabilitySecurityAssessor;
 
+  // Code quality assessors
+  private fileModularizationAssessor?: FileModularizationAssessor;
+
   // Note: protocolConformanceAssessor merged into protocolComplianceAssessor (v1.25.2)
 
   constructor(config: Partial<AssessmentConfiguration> = {}) {
@@ -330,6 +336,13 @@ export class AssessmentOrchestrator {
         );
       }
 
+      // Initialize code quality assessors
+      if (this.config.assessmentCategories?.fileModularization) {
+        this.fileModularizationAssessor = new FileModularizationAssessor(
+          this.config,
+        );
+      }
+
       // Note: Protocol conformance now handled by unified ProtocolComplianceAssessor above
     }
 
@@ -455,6 +468,9 @@ export class AssessmentOrchestrator {
     }
     if (this.crossCapabilityAssessor) {
       this.crossCapabilityAssessor.resetTestCount();
+    }
+    if (this.fileModularizationAssessor) {
+      this.fileModularizationAssessor.resetTestCount();
     }
   }
 
@@ -749,6 +765,25 @@ export class AssessmentOrchestrator {
           }),
         );
       }
+      if (this.fileModularizationAssessor) {
+        const sourceFileCount = context.sourceCodeFiles?.size || 0;
+        emitModuleStartedEvent(
+          "File Modularization",
+          sourceFileCount,
+          sourceFileCount,
+        );
+        assessmentPromises.push(
+          this.fileModularizationAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "File Modularization",
+              r.status,
+              r,
+              this.fileModularizationAssessor!.getTestCount(),
+            );
+            return (assessmentResults.fileModularization = r);
+          }),
+        );
+      }
 
       // Note: Protocol Conformance now handled by unified ProtocolComplianceAssessor above
 
@@ -971,6 +1006,22 @@ export class AssessmentOrchestrator {
           this.crossCapabilityAssessor.getTestCount(),
         );
       }
+      if (this.fileModularizationAssessor) {
+        const sourceFileCount = context.sourceCodeFiles?.size || 0;
+        emitModuleStartedEvent(
+          "File Modularization",
+          sourceFileCount,
+          sourceFileCount,
+        );
+        assessmentResults.fileModularization =
+          await this.fileModularizationAssessor.assess(context);
+        emitModuleProgress(
+          "File Modularization",
+          assessmentResults.fileModularization.status,
+          assessmentResults.fileModularization,
+          this.fileModularizationAssessor.getTestCount(),
+        );
+      }
 
       // Note: Protocol Conformance now handled by unified ProtocolComplianceAssessor above
     }
@@ -1084,6 +1135,10 @@ export class AssessmentOrchestrator {
     const crossCapabilityCount =
       this.crossCapabilityAssessor?.getTestCount() || 0;
 
+    // Code quality assessor counts
+    const fileModularizationCount =
+      this.fileModularizationAssessor?.getTestCount() || 0;
+
     // Note: Protocol conformance now included in mcpSpecCount (unified ProtocolComplianceAssessor)
 
     this.logger.debug("Test counts by assessor", {
@@ -1104,6 +1159,7 @@ export class AssessmentOrchestrator {
       resources: resourcesCount,
       prompts: promptsCount,
       crossCapability: crossCapabilityCount,
+      fileModularization: fileModularizationCount,
       // Note: protocolConformance now included in mcpSpec (unified)
     });
 
@@ -1124,7 +1180,8 @@ export class AssessmentOrchestrator {
       temporalCount +
       resourcesCount +
       promptsCount +
-      crossCapabilityCount;
+      crossCapabilityCount +
+      fileModularizationCount;
     // Note: protocolConformance now included in mcpSpecCount (unified)
 
     this.logger.debug("Total test count", { total });
