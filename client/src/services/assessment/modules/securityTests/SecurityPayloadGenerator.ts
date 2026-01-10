@@ -166,6 +166,22 @@ export class SecurityPayloadGenerator {
       }
     }
 
+    // VERBOSE MODE TESTING (Issue #103, Challenge #9)
+    // For secret_leakage payloads, enable verbose mode to detect additional credential exposure
+    if (payload.payloadType === "secret_leakage") {
+      for (const [key, prop] of Object.entries(schema.properties)) {
+        const propSchema = prop as { type?: string };
+        if (
+          propSchema.type === "boolean" &&
+          key.toLowerCase() === "verbose" &&
+          !(key in params)
+        ) {
+          params[key] = true; // Enable verbose mode to test for additional leakage
+          break;
+        }
+      }
+    }
+
     // Fill required parameters with safe defaults
     for (const [key, prop] of Object.entries(schema.properties)) {
       const propSchema = prop as { type?: string };

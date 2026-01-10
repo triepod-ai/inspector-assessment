@@ -967,6 +967,60 @@ export const STRUCTURED_DATA_INDICATORS = {
 } as const;
 
 // =============================================================================
+// SECRET LEAKAGE PATTERNS (Issue #103, Challenge #9)
+// =============================================================================
+
+/**
+ * Patterns for detecting secret/credential leakage in tool responses
+ * Used by: checkSecretLeakage()
+ */
+export const SECRET_LEAKAGE_PATTERNS = {
+  /** Well-known API key formats */
+  apiKeys: [
+    /AKIA[A-Z0-9]{16}/, // AWS Access Key
+    /sk-[a-zA-Z0-9]{20,}/, // OpenAI Key
+    /ghp_[a-zA-Z0-9]{36}/, // GitHub PAT
+    /glpat-[a-zA-Z0-9]{20}/, // GitLab PAT
+    /xox[baprs]-[a-zA-Z0-9-]+/, // Slack tokens
+  ],
+  /** Database connection strings with credentials */
+  connectionStrings: [
+    /(postgresql|mysql|mongodb|redis|mssql):\/\/[^:]+:[^@]+@/i,
+  ],
+  /** Environment variable patterns with values */
+  envVars: [
+    /(SECRET_TOKEN|DATABASE_URL|API_KEY|PRIVATE_KEY|DB_PASSWORD)[^\s]*[:=]/i,
+  ],
+  /** Partial key exposure patterns */
+  partialKeys: [/api_key_preview|key_fragment|partial_key/i],
+  /** Generic credential assignment patterns */
+  credentialAssignment: [
+    /(api[_-]?key|secret|password)[^\s]*[:=]\s*["']?[a-zA-Z0-9_-]{10,}/i,
+  ],
+} as const;
+
+// =============================================================================
+// OUTPUT INJECTION PATTERNS (Issue #103, Challenge #8)
+// =============================================================================
+
+/**
+ * Patterns for detecting tool output injection vulnerabilities
+ * Detects when user content is echoed unsanitized in tool output
+ * Used by: analyzeOutputInjection()
+ */
+export const OUTPUT_INJECTION_PATTERNS = {
+  /** LLM control patterns that should be sanitized */
+  llmControl: [
+    /<IMPORTANT>.*<\/IMPORTANT>/is,
+    /\[INST\].*\[\/INST\]/is,
+    /<\|system\|>.*<\|end\|>/is,
+    /\{\{.*\}\}/, // Template vars
+  ],
+  /** Canary markers for echo detection */
+  canaryMarkers: [/SENTINEL_OUTPUT_MARKER_\d+/],
+} as const;
+
+// =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
 

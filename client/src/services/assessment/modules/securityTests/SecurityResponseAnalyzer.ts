@@ -472,6 +472,59 @@ export class SecurityResponseAnalyzer {
   }
 
   /**
+   * Check for secret leakage in response (Issue #103, Challenge #9)
+   * Scans for credential patterns regardless of payload type.
+   *
+   * This method detects when tools inadvertently expose:
+   * - API keys (AWS, OpenAI, GitHub, GitLab, Slack)
+   * - Database connection strings with credentials
+   * - Environment variable values
+   * - Partial key previews
+   */
+  checkSecretLeakage(response: CompatibilityCallToolResult): {
+    detected: boolean;
+    evidence?: string;
+  } {
+    const responseText = this.extractResponseContent(response);
+
+    const patterns = [
+      { regex: /AKIA[A-Z0-9]{16}/, name: "AWS Access Key" },
+      { regex: /sk-[a-zA-Z0-9]{20,}/, name: "OpenAI API Key" },
+      { regex: /ghp_[a-zA-Z0-9]{36}/, name: "GitHub PAT" },
+      { regex: /glpat-[a-zA-Z0-9]{20}/, name: "GitLab PAT" },
+      { regex: /xox[baprs]-[a-zA-Z0-9-]+/, name: "Slack Token" },
+      {
+        regex: /(postgresql|mysql|mongodb|redis|mssql):\/\/[^:]+:[^@]+@/i,
+        name: "Connection String with Credentials",
+      },
+      {
+        regex:
+          /(api[_-]?key|secret|password|credential)[^\s]*[:=]\s*["']?[a-zA-Z0-9_-]{10,}/i,
+        name: "Credential Assignment",
+      },
+      {
+        regex:
+          /(SECRET_TOKEN|DATABASE_URL|API_KEY|PRIVATE_KEY|DB_PASSWORD)[^\s]*[:=]/i,
+        name: "Environment Variable Leakage",
+      },
+      {
+        regex: /api_key_preview|key_fragment|partial_key/i,
+        name: "Partial Key Exposure",
+      },
+    ];
+
+    for (const { regex, name } of patterns) {
+      if (regex.test(responseText)) {
+        return {
+          detected: true,
+          evidence: `${name} pattern found in response`,
+        };
+      }
+    }
+    return { detected: false };
+  }
+
+  /**
    * Check if response indicates connection/server failure
    */
   isConnectionError(response: CompatibilityCallToolResult): boolean {
