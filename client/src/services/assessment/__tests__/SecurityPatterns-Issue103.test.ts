@@ -59,8 +59,8 @@ describe("Issue #103 - Detection Patterns", () => {
   }
 
   describe("Pattern Registration", () => {
-    it("should have 29 attack patterns total", () => {
-      expect(SECURITY_ATTACK_PATTERNS.length).toBe(29);
+    it("should have 31 attack patterns total", () => {
+      expect(SECURITY_ATTACK_PATTERNS.length).toBe(31);
     });
 
     it("should have Tool Output Injection pattern (#27)", () => {
