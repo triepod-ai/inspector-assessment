@@ -212,6 +212,9 @@ Main configuration interface for controlling assessment behavior.
 
 ```typescript
 interface AssessmentConfiguration {
+  // Schema versioning (v1.27.0+)
+  configVersion?: number; // Config schema version for migrations (required in v2.0.0, current: 2)
+
   // Timing
   testTimeout: number; // Per-tool timeout in ms (default: 30000)
   securityTestTimeout?: number; // Security test timeout in ms (default: 5000)

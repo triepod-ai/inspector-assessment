@@ -523,6 +523,8 @@ import {
 } from "@bryan-thompson/inspector-assessment/config";
 ```
 
+All presets include `configVersion: 2` for schema migration support (v1.27.0+). When spreading from a preset or creating a custom config, the version field is preserved automatically. See [Config Schema Versioning](DEPRECATION_GUIDE.md#config-schema-versioning) for details on required fields.
+
 ### Module Selection (v1.25.0+)
 
 ```typescript
