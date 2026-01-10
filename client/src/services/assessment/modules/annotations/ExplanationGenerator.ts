@@ -6,26 +6,7 @@
  */
 
 import type { ToolAnnotationResult } from "@/lib/assessmentTypes";
-
-/**
- * Enhanced tool annotation result with Claude inference (for recommendation generation)
- */
-export interface EnhancedToolAnnotationResultForExplanation extends ToolAnnotationResult {
-  claudeInference?: {
-    expectedReadOnly: boolean;
-    expectedDestructive: boolean;
-    confidence: number;
-    reasoning: string;
-    suggestedAnnotations: {
-      readOnlyHint?: boolean;
-      destructiveHint?: boolean;
-      idempotentHint?: boolean;
-    };
-    misalignmentDetected: boolean;
-    misalignmentDetails?: string;
-    source: "claude-inferred" | "pattern-based";
-  };
-}
+import type { EnhancedToolAnnotationResult } from "./types";
 
 /**
  * Generate basic explanation for annotation assessment
@@ -151,7 +132,7 @@ export function generateRecommendations(
  * Generate enhanced recommendations with Claude analysis
  */
 export function generateEnhancedRecommendations(
-  results: EnhancedToolAnnotationResultForExplanation[],
+  results: EnhancedToolAnnotationResult[],
 ): string[] {
   const recommendations: string[] = [];
 

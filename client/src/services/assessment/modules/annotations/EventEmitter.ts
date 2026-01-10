@@ -15,26 +15,7 @@ import type {
 
 import { isActionableConfidence } from "./AnnotationDeceptionDetector";
 import { extractAnnotations, extractToolParams } from "./AlignmentChecker";
-
-/**
- * Enhanced tool annotation result with Claude inference (for event emission)
- */
-export interface EnhancedToolAnnotationResultForEvents extends ToolAnnotationResult {
-  claudeInference?: {
-    expectedReadOnly: boolean;
-    expectedDestructive: boolean;
-    confidence: number;
-    reasoning: string;
-    suggestedAnnotations: {
-      readOnlyHint?: boolean;
-      destructiveHint?: boolean;
-      idempotentHint?: boolean;
-    };
-    misalignmentDetected: boolean;
-    misalignmentDetails?: string;
-    source: "claude-inferred" | "pattern-based";
-  };
-}
+import type { EnhancedToolAnnotationResult } from "./types";
 
 /**
  * Emit annotation-related progress events
@@ -42,7 +23,7 @@ export interface EnhancedToolAnnotationResultForEvents extends ToolAnnotationRes
 export function emitAnnotationEvents(
   onProgress: ProgressCallback | undefined,
   tool: Tool,
-  result: EnhancedToolAnnotationResultForEvents,
+  result: EnhancedToolAnnotationResult,
 ): void {
   if (!onProgress || !result.inferredBehavior) return;
 
@@ -85,6 +66,9 @@ export function emitAnnotationEvents(
     return;
   }
 
+  // Get alignment status with fallback to UNKNOWN if undefined
+  const alignmentStatus = result.alignmentStatus ?? "UNKNOWN";
+
   // Check readOnlyHint mismatch
   if (
     annotations?.readOnlyHint !== undefined &&
@@ -100,7 +84,7 @@ export function emitAnnotationEvents(
       inferred.expectedReadOnly,
       confidence,
       inferred,
-      result.alignmentStatus!,
+      alignmentStatus,
     );
   }
 
@@ -119,7 +103,7 @@ export function emitAnnotationEvents(
       inferred.expectedDestructive,
       confidence,
       inferred,
-      result.alignmentStatus!,
+      alignmentStatus,
     );
   }
 }

@@ -63,6 +63,12 @@ export {
   type ArchitectureContext,
 } from "./ArchitectureDetector";
 
+// Issue #105: Shared Types (consolidated from duplicate definitions)
+export {
+  type ClaudeInference,
+  type EnhancedToolAnnotationResult,
+} from "./types";
+
 // Issue #105: Alignment Checker
 export {
   extractAnnotations,
@@ -81,19 +87,13 @@ export {
   generateEnhancedExplanation,
   generateRecommendations,
   generateEnhancedRecommendations,
-  type EnhancedToolAnnotationResultForExplanation,
 } from "./ExplanationGenerator";
 
 // Issue #105: Event Emitter
-export {
-  emitAnnotationEvents,
-  emitMismatchEvent,
-  type EnhancedToolAnnotationResultForEvents,
-} from "./EventEmitter";
+export { emitAnnotationEvents, emitMismatchEvent } from "./EventEmitter";
 
 // Issue #105: Claude Integration
 export {
   enhanceWithClaudeInference,
   createPatternBasedInference,
-  type EnhancedToolAnnotationResult,
 } from "./ClaudeIntegration";

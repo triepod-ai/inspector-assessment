@@ -9,26 +9,10 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { ToolAnnotationResult } from "@/lib/assessmentTypes";
 import type { ClaudeCodeBridge } from "../../lib/claudeCodeBridge";
 import type { Logger } from "../../lib/logger";
+import type { EnhancedToolAnnotationResult } from "./types";
 
-/**
- * Enhanced tool annotation result with Claude inference
- */
-export interface EnhancedToolAnnotationResult extends ToolAnnotationResult {
-  claudeInference?: {
-    expectedReadOnly: boolean;
-    expectedDestructive: boolean;
-    confidence: number;
-    reasoning: string;
-    suggestedAnnotations: {
-      readOnlyHint?: boolean;
-      destructiveHint?: boolean;
-      idempotentHint?: boolean;
-    };
-    misalignmentDetected: boolean;
-    misalignmentDetails?: string;
-    source: "claude-inferred" | "pattern-based";
-  };
-}
+// Re-export for backwards compatibility
+export type { EnhancedToolAnnotationResult } from "./types";
 
 /**
  * Enhance tool assessment with Claude inference
