@@ -32,15 +32,16 @@ const CONFORMANCE_PACKAGE_VERSION = "0.1.9";
 
 /**
  * Available server scenarios from the conformance package
+ * Updated for @modelcontextprotocol/conformance v0.1.9+
  */
 const SERVER_SCENARIOS = [
   "server-initialize",
   "tools-list",
-  "tools-call",
+  "tools-call-simple-text",
   "resources-list",
-  "resources-read",
+  "resources-read-text",
   "prompts-list",
-  "prompts-get",
+  "prompts-get-simple",
 ] as const;
 
 /**

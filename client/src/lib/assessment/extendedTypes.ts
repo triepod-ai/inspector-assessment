@@ -507,6 +507,14 @@ export interface TemporalToolResult {
     invocation: number;
     classification: VarianceClassification;
   }>;
+  /**
+   * Issue #119, Challenge #2: Detection phase tracking
+   * Indicates when the deviation was first detected
+   * - "baseline" (invocations 1-5): Deviation during safe behavior establishment
+   * - "monitoring" (invocations 6-15): Deviation during threshold monitoring
+   * - null: No deviation detected
+   */
+  detectionPhase?: "baseline" | "monitoring" | null;
 }
 
 // ============================================================================
@@ -586,6 +594,16 @@ export interface ResourceTestResult {
   };
   /** Data classification based on content analysis */
   dataClassification?: "public" | "internal" | "confidential" | "restricted";
+  // Issue #119, Challenge #14: URI injection testing fields
+  /** Whether URI injection testing was performed */
+  uriInjectionTested?: boolean;
+  /** The injection payload used in this test */
+  uriInjectionPayload?: string;
+  // Issue #119, Challenge #14: Hidden resource discovery fields
+  /** Whether this result is from hidden resource probing */
+  hiddenResourceProbe?: boolean;
+  /** The pattern used to probe for this hidden resource */
+  probePattern?: string;
 }
 
 export interface ResourceAssessment {

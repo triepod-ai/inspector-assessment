@@ -18,7 +18,10 @@ import type {
   ServerPersistenceContext,
 } from "../../config/annotationPatterns";
 
-import { scanDescriptionForPoisoning } from "./DescriptionPoisoningDetector";
+import {
+  scanDescriptionForPoisoning,
+  type PoisoningScanResult,
+} from "./DescriptionPoisoningDetector";
 
 /**
  * Extended Tool type with MCP annotation properties
@@ -281,6 +284,101 @@ export function extractToolParams(schema: unknown): ToolParamProgress[] {
 }
 
 /**
+ * Scan all description fields in tool input schema for poisoning patterns
+ * Issue #119, Challenge #15: Input schema description poisoning detection
+ *
+ * Malicious actors may embed hidden instructions in parameter descriptions
+ * rather than the main tool description to evade detection.
+ */
+export function scanInputSchemaDescriptions(tool: Tool): PoisoningScanResult {
+  const allMatches: PoisoningScanResult["patterns"] = [];
+
+  const schema = tool.inputSchema as Record<string, unknown> | undefined;
+  if (!schema || !schema.properties) {
+    return { detected: false, patterns: [], riskLevel: "NONE" };
+  }
+
+  const properties = schema.properties as Record<
+    string,
+    Record<string, unknown>
+  >;
+
+  for (const [propName, propDef] of Object.entries(properties)) {
+    const propDescription = propDef.description as string | undefined;
+    if (!propDescription) continue;
+
+    // Create a fake tool to reuse existing scanner
+    const fakeTool: Tool = {
+      name: `${tool.name}.inputSchema.properties.${propName}`,
+      description: propDescription,
+      inputSchema: { type: "object", properties: {} },
+    };
+
+    const result = scanDescriptionForPoisoning(fakeTool);
+    if (result.detected) {
+      // Prefix evidence with property location for clear identification
+      for (const match of result.patterns) {
+        allMatches.push({
+          ...match,
+          evidence: `[inputSchema.properties.${propName}.description] ${match.evidence}`,
+        });
+      }
+    }
+  }
+
+  // Calculate overall risk level
+  let riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH" = "NONE";
+  if (allMatches.some((m) => m.severity === "HIGH")) {
+    riskLevel = "HIGH";
+  } else if (allMatches.some((m) => m.severity === "MEDIUM")) {
+    riskLevel = "MEDIUM";
+  } else if (allMatches.length > 0) {
+    riskLevel = "LOW";
+  }
+
+  return {
+    detected: allMatches.length > 0,
+    patterns: allMatches,
+    riskLevel,
+  };
+}
+
+/**
+ * Merge two poisoning scan results, combining patterns and taking highest risk
+ */
+function mergePoisoningScanResults(
+  primary: PoisoningScanResult,
+  secondary: PoisoningScanResult,
+): PoisoningScanResult {
+  const combinedPatterns = [...primary.patterns, ...secondary.patterns];
+
+  let riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH" = "NONE";
+  if (
+    primary.riskLevel === "HIGH" ||
+    secondary.riskLevel === "HIGH" ||
+    combinedPatterns.some((m) => m.severity === "HIGH")
+  ) {
+    riskLevel = "HIGH";
+  } else if (
+    primary.riskLevel === "MEDIUM" ||
+    secondary.riskLevel === "MEDIUM" ||
+    combinedPatterns.some((m) => m.severity === "MEDIUM")
+  ) {
+    riskLevel = "MEDIUM";
+  } else if (combinedPatterns.length > 0) {
+    riskLevel = "LOW";
+  }
+
+  return {
+    detected: combinedPatterns.length > 0,
+    patterns: combinedPatterns,
+    riskLevel,
+    // Keep lengthWarning from primary (tool description) if present
+    lengthWarning: primary.lengthWarning,
+  };
+}
+
+/**
  * Assess a single tool's annotations
  */
 export function assessSingleTool(
@@ -391,14 +489,38 @@ export function assessSingleTool(
     }
   }
 
-  // Scan for description poisoning
-  const descriptionPoisoning = scanDescriptionForPoisoning(tool);
+  // Scan for description poisoning (tool.description)
+  const toolDescriptionPoisoning = scanDescriptionForPoisoning(tool);
+
+  // Issue #119, Challenge #15: Also scan input schema property descriptions
+  // Malicious actors may hide instructions in parameter descriptions
+  const schemaPoisoning = scanInputSchemaDescriptions(tool);
+
+  // Merge results from both scans
+  const descriptionPoisoning = mergePoisoningScanResults(
+    toolDescriptionPoisoning,
+    schemaPoisoning,
+  );
+
   if (descriptionPoisoning.detected) {
-    issues.push(
-      `Tool description contains suspicious patterns: ${descriptionPoisoning.patterns.map((p) => p.name).join(", ")}`,
+    // Differentiate between tool description and schema description poisoning in issues
+    const toolDescPatterns = toolDescriptionPoisoning.patterns.map(
+      (p) => p.name,
     );
+    const schemaPatterns = schemaPoisoning.patterns.map((p) => p.name);
+
+    if (toolDescPatterns.length > 0) {
+      issues.push(
+        `Tool description contains suspicious patterns: ${toolDescPatterns.join(", ")}`,
+      );
+    }
+    if (schemaPatterns.length > 0) {
+      issues.push(
+        `Input schema property descriptions contain suspicious patterns: ${schemaPatterns.join(", ")}`,
+      );
+    }
     recommendations.push(
-      `Review ${tool.name} description for potential prompt injection or hidden instructions`,
+      `Review ${tool.name} description and parameter descriptions for potential prompt injection or hidden instructions`,
     );
   }
 

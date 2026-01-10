@@ -44,9 +44,13 @@ export class TemporalAssessor extends BaseAssessor {
   // P2-2: Per-invocation timeout to prevent long-running tools from blocking
   private readonly PER_INVOCATION_TIMEOUT = 10_000; // 10 seconds
 
+  // Issue #119, Challenge #2: Baseline phase (1-5) and monitoring phase (6-15)
+  private readonly BASELINE_PHASE_END = 5;
+
   constructor(config: AssessmentConfiguration) {
     super(config);
-    this.invocationsPerTool = config.temporalInvocations ?? 25;
+    // Issue #119: Changed default from 25 to 15 for more efficient temporal testing
+    this.invocationsPerTool = config.temporalInvocations ?? 15;
     this.mutationDetector = new MutationDetector();
     this.varianceClassifier = new VarianceClassifier(this.mutationDetector);
   }
@@ -373,6 +377,9 @@ export class TemporalAssessor extends BaseAssessor {
       (v) => v.classification.type !== "LEGITIMATE",
     );
 
+    // Issue #119, Challenge #2: Calculate detection phase
+    const detectionPhase = this.calculateDetectionPhase(deviations[0] ?? null);
+
     return {
       tool: tool.name,
       vulnerable: isVulnerable,
@@ -393,7 +400,34 @@ export class TemporalAssessor extends BaseAssessor {
       // Issue #69: Include variance classification for transparency
       varianceClassification: firstSuspiciousClassification?.classification,
       varianceDetails: varianceDetails.length > 0 ? varianceDetails : undefined,
+      // Issue #119, Challenge #2: Detection phase tracking
+      detectionPhase,
     };
+  }
+
+  /**
+   * Calculate which detection phase a deviation occurred in
+   * Issue #119, Challenge #2: Detection phase tracking
+   *
+   * @param firstDeviationAt - Invocation number where first deviation occurred
+   * @returns Phase identifier or null if no deviation
+   *
+   * Phases:
+   * - "baseline" (invocations 1-5): Deviation during safe behavior establishment
+   * - "monitoring" (invocations 6-15): Deviation during threshold monitoring
+   * - null: No deviation detected
+   */
+  private calculateDetectionPhase(
+    firstDeviationAt: number | null,
+  ): "baseline" | "monitoring" | null {
+    if (firstDeviationAt === null) return null;
+
+    // BASELINE_PHASE_END defaults to 5 (see class property)
+    if (firstDeviationAt <= this.BASELINE_PHASE_END) {
+      return "baseline";
+    }
+
+    return "monitoring";
   }
 
   /**

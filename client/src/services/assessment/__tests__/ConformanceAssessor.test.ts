@@ -174,14 +174,15 @@ describe("ConformanceAssessor - Integration Prerequisites", () => {
 
   it("documents available server scenarios", () => {
     // These are the scenarios tested by the conformance assessor
+    // Updated for @modelcontextprotocol/conformance v0.1.9+
     const expectedScenarios = [
       "server-initialize",
       "tools-list",
-      "tools-call",
+      "tools-call-simple-text",
       "resources-list",
-      "resources-read",
+      "resources-read-text",
       "prompts-list",
-      "prompts-get",
+      "prompts-get-simple",
     ];
 
     // Just document that these exist - actual testing happens at runtime

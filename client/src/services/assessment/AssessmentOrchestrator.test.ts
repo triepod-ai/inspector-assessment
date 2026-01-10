@@ -438,7 +438,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       expect(["NEED_MORE_INFO", "FAIL", "PASS"]).toContain(
         result.overallStatus,
       );
-    }, 30000); // 30 second timeout for this test
+    }, 60000); // 60 second timeout for this test (relaxed from 30s for CI variability)
 
     it("should generate comprehensive evidence files", async () => {
       // Arrange

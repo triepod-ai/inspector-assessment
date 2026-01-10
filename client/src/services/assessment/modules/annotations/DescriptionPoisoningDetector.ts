@@ -31,6 +31,12 @@ export interface PoisoningScanResult {
     evidence: string;
   }>;
   riskLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH";
+  /** Length warning for suspiciously long descriptions (Issue #119, Challenge #15) */
+  lengthWarning?: {
+    length: number;
+    threshold: number;
+    isExcessive: boolean;
+  };
 }
 
 /**
@@ -311,12 +317,54 @@ export const DESCRIPTION_POISONING_PATTERNS: PoisoningPattern[] = [
     severity: "HIGH",
     category: "state_dependency",
   },
+
+  // Zero-width character obfuscation (Issue #119, Challenge #15)
+  // These invisible characters can hide instructions from human review
+  {
+    name: "zero_width_space",
+    pattern: /\u200B/g, // U+200B Zero Width Space
+    severity: "HIGH",
+    category: "obfuscation",
+  },
+  {
+    name: "zero_width_joiner",
+    pattern: /\u200D/g, // U+200D Zero Width Joiner
+    severity: "HIGH",
+    category: "obfuscation",
+  },
+  {
+    name: "zero_width_non_joiner",
+    pattern: /\u200C/g, // U+200C Zero Width Non-Joiner
+    severity: "HIGH",
+    category: "obfuscation",
+  },
+  {
+    name: "word_joiner",
+    pattern: /\u2060/g, // U+2060 Word Joiner
+    severity: "HIGH",
+    category: "obfuscation",
+  },
+  {
+    name: "byte_order_mark",
+    pattern: /\uFEFF/g, // U+FEFF Byte Order Mark (when not at start)
+    severity: "MEDIUM",
+    category: "obfuscation",
+  },
+  {
+    name: "multiple_zero_width_chars",
+    pattern: /[\u200B\u200C\u200D\u2060\uFEFF]{2,}/g, // Multiple consecutive zero-width chars
+    severity: "HIGH",
+    category: "obfuscation",
+  },
 ];
 
 /**
  * Scan tool description for poisoning patterns
  * Detects hidden instructions, override commands, concealment, and exfiltration attempts
  */
+// Description length threshold for suspicious descriptions (Issue #119, Challenge #15)
+const DESCRIPTION_LENGTH_WARNING_THRESHOLD = 500;
+
 export function scanDescriptionForPoisoning(tool: Tool): PoisoningScanResult {
   const description = tool.description || "";
   const matches: Array<{
@@ -326,6 +374,26 @@ export function scanDescriptionForPoisoning(tool: Tool): PoisoningScanResult {
     category: string;
     evidence: string;
   }> = [];
+
+  // Length-based heuristic (Issue #119, Challenge #15)
+  // Excessively long descriptions may be used to hide malicious content
+  let lengthWarning:
+    | { length: number; threshold: number; isExcessive: boolean }
+    | undefined;
+  if (description.length > DESCRIPTION_LENGTH_WARNING_THRESHOLD) {
+    lengthWarning = {
+      length: description.length,
+      threshold: DESCRIPTION_LENGTH_WARNING_THRESHOLD,
+      isExcessive: true,
+    };
+    matches.push({
+      name: "excessive_description_length",
+      pattern: `length > ${DESCRIPTION_LENGTH_WARNING_THRESHOLD}`,
+      severity: "MEDIUM",
+      category: "suspicious_length",
+      evidence: `Description is ${description.length} characters (threshold: ${DESCRIPTION_LENGTH_WARNING_THRESHOLD})`,
+    });
+  }
 
   for (const patternDef of DESCRIPTION_POISONING_PATTERNS) {
     // Create a fresh regex to reset lastIndex
@@ -363,5 +431,6 @@ export function scanDescriptionForPoisoning(tool: Tool): PoisoningScanResult {
     detected: matches.length > 0,
     patterns: matches,
     riskLevel,
+    lengthWarning,
   };
 }

@@ -75,10 +75,12 @@ export {
 } from "./types";
 
 // Issue #105: Alignment Checker
+// Issue #119: Added scanInputSchemaDescriptions for Challenge #15
 export {
   extractAnnotations,
   extractExtendedMetadata,
   extractToolParams,
+  scanInputSchemaDescriptions,
   assessSingleTool,
   determineAnnotationStatus,
   calculateMetrics,
