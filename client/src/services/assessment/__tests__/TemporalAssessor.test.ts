@@ -19,6 +19,7 @@
  */
 
 import { TemporalAssessor } from "../modules/TemporalAssessor";
+import { VarianceClassifier } from "../modules/temporal";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import {
   getPrivateMethod,
@@ -389,11 +390,10 @@ describe("TemporalAssessor", () => {
   });
 
   describe("isDestructiveTool", () => {
-    let varianceClassifier: import("../modules/temporal").VarianceClassifier;
+    let varianceClassifier: VarianceClassifier;
     let isDestructiveTool: (tool: Tool) => boolean;
 
-    beforeEach(async () => {
-      const { VarianceClassifier } = await import("../modules/temporal");
+    beforeEach(() => {
       varianceClassifier = new VarianceClassifier();
       isDestructiveTool = (tool: Tool) =>
         varianceClassifier.isDestructiveTool(tool);
