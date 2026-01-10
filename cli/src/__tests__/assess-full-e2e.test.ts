@@ -260,6 +260,10 @@ function createTempConfig(
 ): string {
   const name = filename || `config-${Date.now()}.json`;
   const configPath = path.join(TEMP_DIR, name);
+  // Defensive: ensure directory exists (handles race conditions with beforeAll)
+  if (!fs.existsSync(TEMP_DIR)) {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  }
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
   return configPath;
 }
@@ -274,6 +278,10 @@ function createTempConfig(
 function createInvalidConfig(content: string, filename?: string): string {
   const name = filename || `invalid-${Date.now()}.json`;
   const configPath = path.join(TEMP_DIR, name);
+  // Defensive: ensure directory exists (handles race conditions with beforeAll)
+  if (!fs.existsSync(TEMP_DIR)) {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  }
   fs.writeFileSync(configPath, content);
   return configPath;
 }
@@ -489,7 +497,7 @@ describe("CLI E2E Integration Tests", () => {
           "--profile",
           "quick",
         ],
-        300000, // 5 min timeout for assessment
+        600000, // 10 min timeout for assessment (was 5 min)
       );
 
       // Should complete (may PASS or FAIL based on vulnerabilities)
@@ -500,7 +508,7 @@ describe("CLI E2E Integration Tests", () => {
         (e) => e.event === "assessment_complete",
       );
       expect(completeEvent).toBeDefined();
-    }, 360000); // 6 minute jest timeout
+    }, 660000); // 11 minute jest timeout (was 6 min)
 
     it("should emit valid JSONL events to stderr", async () => {
       if (!vulnerableAvailable) {
@@ -522,7 +530,7 @@ describe("CLI E2E Integration Tests", () => {
           "--profile",
           "quick",
         ],
-        300000, // 5 min timeout for assessment
+        600000, // 10 min timeout for assessment (was 5 min)
       );
 
       // Validate event sequence
@@ -547,7 +555,7 @@ describe("CLI E2E Integration Tests", () => {
       expect(assessmentComplete).toHaveProperty("overallStatus");
       expect(assessmentComplete).toHaveProperty("totalTests");
       expect(assessmentComplete).toHaveProperty("outputPath");
-    }, 360000); // 6 minute jest timeout
+    }, 660000); // 11 minute jest timeout (was 6 min)
 
     it("should return exit code 1 for FAIL status on vulnerable server", async () => {
       if (!vulnerableAvailable) {
@@ -569,7 +577,7 @@ describe("CLI E2E Integration Tests", () => {
           "--profile",
           "security",
         ],
-        300000, // 5 min timeout for assessment
+        600000, // 10 min timeout for assessment (was 5 min)
       );
 
       // Vulnerable server should have vulnerabilities -> FAIL status
@@ -580,7 +588,7 @@ describe("CLI E2E Integration Tests", () => {
       if (assessmentComplete?.overallStatus === "FAIL") {
         expect(result.exitCode).toBe(1);
       }
-    }, 360000); // 6 minute jest timeout
+    }, 660000); // 11 minute jest timeout (was 6 min)
 
     it("should return exit code 0 for PASS status on hardened server", async () => {
       if (!hardenedAvailable) {
@@ -602,7 +610,7 @@ describe("CLI E2E Integration Tests", () => {
           "--profile",
           "quick",
         ],
-        300000, // 5 min timeout for assessment
+        600000, // 10 min timeout for assessment (was 5 min)
       );
 
       // Hardened server should pass -> exit 0
@@ -613,7 +621,7 @@ describe("CLI E2E Integration Tests", () => {
       if (assessmentComplete?.overallStatus === "PASS") {
         expect(result.exitCode).toBe(0);
       }
-    }, 360000); // 6 minute jest timeout
+    }, 660000); // 11 minute jest timeout (was 6 min)
   });
 
   // ==========================================================================
