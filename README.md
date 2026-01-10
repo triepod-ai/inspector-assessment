@@ -3,8 +3,8 @@
 [![npm version](https://badge.fury.io/js/@bryan-thompson%2Finspector-assessment.svg)](https://www.npmjs.com/package/@bryan-thompson/inspector-assessment)
 [![npm downloads](https://img.shields.io/npm/dm/@bryan-thompson/inspector-assessment.svg)](https://www.npmjs.com/package/@bryan-thompson/inspector-assessment)
 
-**Comprehensive MCP server validation with 18 automated assessment modules.**
-Test functionality, security, documentation, and policy compliance from the command line.
+**Comprehensive MCP server validation with 18 automated assessment modules (17 active + 1 deprecated).**
+Test functionality, security, documentation, code quality, and policy compliance from the command line.
 
 ![MCP Inspector Screenshot](./mcp-inspector.png)
 
