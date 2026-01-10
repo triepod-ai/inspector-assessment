@@ -1075,9 +1075,9 @@ export class SecurityResponseAnalyzer {
     // CWE-326: Weak Key Length
     const weakKeyPatterns = [
       {
-        // Match single digit key_length (1-9 bytes = weak)
-        pattern: /"key_length"\s*:\s*[1-9](?!\d)/i,
-        evidence: "key_length < 10 bytes (weak key)",
+        // Match key_length 1-15 bytes (< 16 bytes = weak for AES-128/HMAC)
+        pattern: /"key_length"\s*:\s*(?:[1-9]|1[0-5])(?!\d)/i,
+        evidence: "key_length < 16 bytes (weak key)",
       },
       {
         pattern: /"key_secure"\s*:\s*false/i,

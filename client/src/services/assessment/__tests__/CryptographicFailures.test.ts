@@ -456,6 +456,58 @@ describe("Cryptographic Failures Detection (Issue #112, Challenge #13)", () => {
       expect(result.detected).toBe(true);
       expect(result.cweIds).toContain("CWE-326");
     });
+
+    it("should detect key_length 10-15 bytes as weak (Issue #115)", () => {
+      // Test boundary cases: 10, 12, and 15 bytes are all weak
+      const testCases = [10, 12, 15];
+
+      for (const keyLength of testCases) {
+        const response = {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                result: "Data signed",
+                algorithm: "HMAC-SHA256",
+                key_length: keyLength,
+              }),
+            },
+          ],
+        };
+
+        const result = analyzer.analyzeCryptographicFailures(response);
+
+        expect(result.detected).toBe(true);
+        expect(result.cweIds).toContain("CWE-326");
+        expect(result.evidence).toContain("< 16 bytes");
+      }
+    });
+
+    it("should NOT flag key_length 16+ as weak", () => {
+      // 16 bytes (128 bits) is the minimum secure key length
+      const testCases = [16, 32, 64, 256];
+
+      for (const keyLength of testCases) {
+        const response = {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                result: "Data signed",
+                algorithm: "HMAC-SHA256",
+                key_length: keyLength,
+                key_secure: true,
+              }),
+            },
+          ],
+        };
+
+        const result = analyzer.analyzeCryptographicFailures(response);
+
+        // Should NOT detect CWE-326 for adequate key lengths
+        expect(result.cweIds).not.toContain("CWE-326");
+      }
+    });
   });
 
   describe("Multiple Vulnerability Detection", () => {

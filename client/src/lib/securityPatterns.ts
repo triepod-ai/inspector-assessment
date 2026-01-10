@@ -2017,11 +2017,11 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
         payloadType: "crypto",
         parameterTypes: ["action", "operation", "type"],
       },
-      // CWE-326: Inadequate encryption key length
+      // CWE-326: Inadequate encryption key length (< 16 bytes)
       {
         payload: "sign",
         evidence:
-          /"key_length"\s*:\s*[1-9](?!\d)|"key_secure"\s*:\s*false|"cwe_ids"\s*:\s*\[.*"CWE-326"/i,
+          /"key_length"\s*:\s*(?:[1-9]|1[0-5])(?!\d)|"key_secure"\s*:\s*false|"cwe_ids"\s*:\s*\[.*"CWE-326"/i,
         riskLevel: "HIGH",
         description: "Weak HMAC key length easily brute-forceable (CWE-326)",
         payloadType: "crypto",
