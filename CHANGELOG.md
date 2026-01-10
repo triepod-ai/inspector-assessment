@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.0] - 2026-01-10
+
+### Added
+
+- **MCP Conformance Tests Integration** (Issue #118): Official MCP conformance tests via @modelcontextprotocol/conformance v0.1.9
+  - New ConformanceAssessor module (424 lines) integrating upstream MCP test scenarios
+  - Validates protocol compliance against official MCP specification tests
+  - Scenario counting now tracks scenarios, not individual checks
+
+- **Expanded Zod Validation** (Issue #113): Enhanced runtime type safety across assessment modules
+  - New Zod schemas for ContentBlock, tool responses, and configuration
+  - ContentBlockSchema union for stricter type validation
+  - Centralized schema definitions to reduce duplication
+
 ### Changed
 
 - **SecurityResponseAnalyzer Refactoring** (Issue #53): Converted to facade pattern with 6 extracted classes
@@ -22,6 +36,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - security: ~2-3 min → ~8-10 minutes
   - compliance: ~5 min → ~8-10 minutes
   - full: ~10-15 min → ~8-12 minutes
+
+### Fixed
+
+- **Conformance Scenario Counting**: Now counts scenarios instead of individual failed checks for accurate reporting
+- **Conformance Scenario Names**: Updated to match @modelcontextprotocol/conformance v0.1.9 naming conventions
+- **Type Safety**: Replaced unsafe type casts with runtime type checking in configUtils
+- **Content Block Validation**: Uses ContentBlockSchema union for stricter validation
+
+### Refactored
+
+- **Zod Schema Consolidation** (Issue #114): Deduplicated Zod schemas across modules
+- **Runtime Validation** (Issue #84): Added comprehensive Zod schemas for runtime validation
+
+### Notes
+
+- New unit tests for Zod schema modules (#117)
+- CWE-326 weak key length detection expanded to include 10-15 bytes (#115)
+- Test pattern count updated from 29 to 31
 
 ## [1.30.1] - 2026-01-10
 
