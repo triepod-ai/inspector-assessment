@@ -92,6 +92,16 @@ export function buildConfig(
     config.temporalInvocations = options.temporalInvocations;
   }
 
+  // Official MCP conformance testing (opt-in via --conformance flag)
+  // Requires HTTP/SSE transport with serverUrl - STDIO transport will skip gracefully
+  if (options.conformanceEnabled) {
+    config.assessmentCategories = {
+      ...config.assessmentCategories,
+      conformance: true,
+    };
+    console.log("🔍 Official MCP conformance testing enabled");
+  }
+
   if (options.claudeEnabled) {
     // Check for HTTP transport via --claude-http flag or environment variables
     const useHttpTransport =

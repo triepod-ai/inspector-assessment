@@ -123,7 +123,14 @@ export interface AssessmentConfiguration {
     protocolConformance?: boolean; // MCP protocol-level compliance (error format, content types, initialization)
     // Code quality assessors
     fileModularization?: boolean; // Code quality - detects large monolithic tool files (Issue #104)
+    // Official MCP conformance (opt-in, requires HTTP transport)
+    conformance?: boolean; // Official @modelcontextprotocol/conformance tests
   };
+  /**
+   * Server URL for HTTP/SSE transport (required for conformance tests)
+   * Only available when transport is http or sse
+   */
+  serverUrl?: string;
 }
 
 // ============================================================================

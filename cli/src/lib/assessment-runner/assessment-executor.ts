@@ -239,6 +239,11 @@ export async function runFullAssessment(
 
   const config = buildConfig(options);
 
+  // Set serverUrl for conformance tests when HTTP/SSE transport is used
+  if (serverConfig.url && !config.serverUrl) {
+    config.serverUrl = serverConfig.url;
+  }
+
   // Emit modules_configured event for consumer progress tracking
   if (config.assessmentCategories) {
     const enabled: string[] = [];

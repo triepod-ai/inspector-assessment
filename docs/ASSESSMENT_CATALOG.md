@@ -4,7 +4,7 @@ A comprehensive reference for all assessment modules in the MCP Inspector Assess
 
 ## Overview
 
-The MCP Inspector Assessment runs **17 specialized modules** organized in **4 tiers** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
+The MCP Inspector Assessment runs **17 specialized modules** organized in **4 tiers** (plus opt-in experimental modules) to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
 
 ### Module Tier Organization (v1.25.0+)
 
@@ -889,6 +889,74 @@ Enabled in these config presets:
 
 ---
 
+## Opt-In Modules (Experimental)
+
+### Official MCP Conformance Testing
+
+**Purpose**: Run official MCP protocol conformance tests from Anthropic's `@modelcontextprotocol/conformance` package.
+
+**Requirements**:
+
+- HTTP or SSE transport (STDIO transport not supported)
+- Server must expose an HTTP endpoint accessible by the conformance CLI
+
+**Test Approach**:
+
+- Runs official MCP server scenarios via subprocess
+- Validates server initialization, tools, resources, and prompts
+- Parses conformance check results from JSON output
+
+**Scenarios Tested**:
+
+| Scenario            | Description                      |
+| ------------------- | -------------------------------- |
+| `server-initialize` | MCP initialization handshake     |
+| `tools-list`        | Tool listing endpoint validation |
+| `tools-call`        | Tool invocation scenarios        |
+| `resources-list`    | Resource listing compliance      |
+| `resources-read`    | Resource read operations         |
+| `prompts-list`      | Prompt listing compliance        |
+| `prompts-get`       | Prompt retrieval operations      |
+
+**Result Structure**:
+
+```typescript
+interface ConformanceAssessment {
+  status: AssessmentStatus;
+  conformanceVersion: string; // e.g., "0.1.9"
+  protocolVersion: string; // e.g., "2025-06"
+  scenarios: ConformanceScenario[];
+  officialChecks: ConformanceCheck[];
+  passedChecks: number;
+  totalChecks: number;
+  complianceScore: number; // 0-100%
+  explanation: string;
+  recommendations: string[];
+  skipped?: boolean;
+  skipReason?: string;
+}
+```
+
+**CLI Usage**:
+
+```bash
+# Enable conformance testing (requires HTTP/SSE transport)
+mcp-assess-full my-server --config http-config.json --conformance
+
+# HTTP config example
+# { "transport": "http", "url": "http://localhost:10900/mcp" }
+```
+
+**When Skipped**:
+
+- Returns `NEED_MORE_INFO` status with skip reason
+- Provides recommendations for enabling HTTP/SSE transport
+- Does not fail the overall assessment
+
+**Implementation**: `client/src/services/assessment/modules/ConformanceAssessor.ts` (~420 lines)
+
+---
+
 ## Quick Reference Table
 
 | #   | Module               | Tests               | Policy Ref     | Severity | Tier         |
@@ -912,6 +980,7 @@ Enabled in these config presets:
 | 17  | Cross-Capability     | Multi-tool chains   | Security       | High     | Tier 3: Cap  |
 | 18  | File Modularization  | Per file            | Code quality   | Medium   | Tier 4: Ext  |
 | 19  | Protocol Conformance | 3 protocol checks   | MCP Spec       | High     | Deprecated   |
+| 20  | MCP Conformance      | 7 scenarios         | Official MCP   | High     | Opt-In       |
 
 ---
 

@@ -126,6 +126,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@modelcontextprotocol/conformance": "^0.1.9",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "commander": "^14.0.2",
     "node-fetch": "^3.3.2",

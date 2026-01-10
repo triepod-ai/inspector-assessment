@@ -86,6 +86,8 @@ export interface AssessmentOptions {
   logLevel?: LogLevel;
   /** List available modules and exit */
   listModules?: boolean;
+  /** Enable official MCP conformance tests (requires HTTP/SSE transport) */
+  conformanceEnabled?: boolean;
 }
 
 /**
@@ -306,6 +308,10 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
       case "--skip-temporal":
         options.skipTemporal = true;
         break;
+      case "--conformance":
+        // Enable official MCP conformance tests (requires HTTP/SSE transport with serverUrl)
+        options.conformanceEnabled = true;
+        break;
       case "--profile": {
         const profileValue = args[++i];
         if (!profileValue) {
@@ -494,6 +500,7 @@ Options:
   --profile <name>       Use predefined module profile (quick, security, compliance, full)
   --temporal-invocations <n>  Number of invocations per tool for rug pull detection (default: 25)
   --skip-temporal        Skip temporal/rug pull testing (faster assessment)
+  --conformance          Enable official MCP conformance tests (experimental, requires HTTP/SSE transport)
   --skip-modules <list>  Skip specific modules (comma-separated)
   --only-modules <list>  Run only specific modules (comma-separated)
   --json                 Output only JSON path (no console summary)

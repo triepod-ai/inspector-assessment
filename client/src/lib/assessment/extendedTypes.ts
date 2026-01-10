@@ -933,3 +933,69 @@ export interface FileModularizationAssessment {
   /** Specific recommendations for improvement */
   recommendations: string[];
 }
+
+// ============================================================================
+// MCP Conformance Types (Official MCP Protocol Conformance)
+// Integration with @modelcontextprotocol/conformance package
+// ============================================================================
+
+/**
+ * Individual conformance check result
+ */
+export interface ConformanceCheck {
+  /** Name of the conformance check */
+  name: string;
+  /** Whether the check passed */
+  status: "pass" | "fail" | "skip";
+  /** Human-readable message explaining the result */
+  message: string;
+  /** Reference to MCP specification section */
+  specReference?: string;
+  /** Timestamp when check was executed */
+  timestamp?: string;
+}
+
+/**
+ * Result of a conformance scenario (group of related checks)
+ */
+export interface ConformanceScenario {
+  /** Scenario name (e.g., "server-initialize", "tools-list") */
+  name: string;
+  /** Overall scenario status */
+  status: "pass" | "fail" | "skip";
+  /** Individual checks within this scenario */
+  checks: ConformanceCheck[];
+  /** Execution time in milliseconds */
+  executionTime?: number;
+}
+
+/**
+ * Complete MCP conformance assessment result
+ * Uses official @modelcontextprotocol/conformance package
+ */
+export interface ConformanceAssessment {
+  /** Overall assessment status */
+  status: AssessmentStatus;
+  /** Version of the conformance package used */
+  conformanceVersion: string;
+  /** MCP protocol version tested against */
+  protocolVersion: string;
+  /** Scenario results from official conformance tests */
+  scenarios: ConformanceScenario[];
+  /** All individual checks (flattened from scenarios) */
+  officialChecks: ConformanceCheck[];
+  /** Number of checks that passed */
+  passedChecks: number;
+  /** Total number of checks run */
+  totalChecks: number;
+  /** Compliance score (0-100) */
+  complianceScore: number;
+  /** Human-readable explanation */
+  explanation: string;
+  /** Recommendations for improving conformance */
+  recommendations: string[];
+  /** Whether conformance tests were skipped (e.g., server unavailable) */
+  skipped?: boolean;
+  /** Reason for skipping if applicable */
+  skipReason?: string;
+}

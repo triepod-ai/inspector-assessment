@@ -24,6 +24,7 @@ import type {
   CrossCapabilitySecurityAssessment,
   ProtocolConformanceAssessment,
   FileModularizationAssessment,
+  ConformanceAssessment,
 } from "./extendedTypes";
 
 // ============================================================================
@@ -849,6 +850,10 @@ export interface MCPDirectoryAssessment {
   // Code quality assessors
   /** File modularization assessment - detects large monolithic tool files (Issue #104) */
   fileModularization?: FileModularizationAssessment;
+
+  // Official MCP conformance testing
+  /** Official MCP conformance tests via @modelcontextprotocol/conformance (opt-in) */
+  conformance?: ConformanceAssessment;
 
   // Overall assessment
   overallStatus: AssessmentStatus;

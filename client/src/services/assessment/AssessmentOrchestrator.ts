@@ -47,6 +47,9 @@ import { CrossCapabilitySecurityAssessor } from "./modules/CrossCapabilitySecuri
 // Code quality assessors
 import { FileModularizationAssessor } from "./modules/FileModularizationAssessor";
 
+// Official MCP conformance testing
+import { ConformanceAssessor } from "./modules/ConformanceAssessor";
+
 // Note: ProtocolConformanceAssessor merged into ProtocolComplianceAssessor (v1.25.2)
 
 // Pattern configuration for tool annotation assessment
@@ -230,6 +233,9 @@ export class AssessmentOrchestrator {
   // Code quality assessors
   private fileModularizationAssessor?: FileModularizationAssessor;
 
+  // Official MCP conformance testing (opt-in via --conformance flag)
+  private conformanceAssessor?: ConformanceAssessor;
+
   // Note: protocolConformanceAssessor merged into protocolComplianceAssessor (v1.25.2)
 
   constructor(config: Partial<AssessmentConfiguration> = {}) {
@@ -366,6 +372,12 @@ export class AssessmentOrchestrator {
         );
       }
 
+      // Initialize official MCP conformance testing (opt-in via --conformance flag)
+      // Requires HTTP/SSE transport with serverUrl available
+      if (this.config.assessmentCategories?.conformance) {
+        this.conformanceAssessor = new ConformanceAssessor(this.config);
+      }
+
       // Note: Protocol conformance now handled by unified ProtocolComplianceAssessor above
     }
 
@@ -497,6 +509,10 @@ export class AssessmentOrchestrator {
     }
     if (this.fileModularizationAssessor) {
       this.fileModularizationAssessor.resetTestCount();
+    }
+    // Reset official conformance assessor
+    if (this.conformanceAssessor) {
+      this.conformanceAssessor.resetTestCount();
     }
   }
 
@@ -812,6 +828,23 @@ export class AssessmentOrchestrator {
         );
       }
 
+      // Official MCP conformance testing (opt-in, requires HTTP/SSE transport)
+      if (this.conformanceAssessor) {
+        // Conformance tests ~7 server scenarios
+        emitModuleStartedEvent("Conformance", 7, toolCount);
+        assessmentPromises.push(
+          this.conformanceAssessor.assess(context).then((r) => {
+            emitModuleProgress(
+              "Conformance",
+              r.status,
+              r,
+              this.conformanceAssessor!.getTestCount(),
+            );
+            return (assessmentResults.conformance = r);
+          }),
+        );
+      }
+
       // Note: Protocol Conformance now handled by unified ProtocolComplianceAssessor above
 
       await Promise.all(assessmentPromises);
@@ -1050,6 +1083,19 @@ export class AssessmentOrchestrator {
         );
       }
 
+      // Official MCP conformance testing (sequential, opt-in)
+      if (this.conformanceAssessor) {
+        emitModuleStartedEvent("Conformance", 7, toolCount);
+        assessmentResults.conformance =
+          await this.conformanceAssessor.assess(context);
+        emitModuleProgress(
+          "Conformance",
+          assessmentResults.conformance.status,
+          assessmentResults.conformance,
+          this.conformanceAssessor.getTestCount(),
+        );
+      }
+
       // Note: Protocol Conformance now handled by unified ProtocolComplianceAssessor above
     }
 
@@ -1168,6 +1214,9 @@ export class AssessmentOrchestrator {
     const fileModularizationCount =
       this.fileModularizationAssessor?.getTestCount() || 0;
 
+    // Official MCP conformance test count
+    const conformanceCount = this.conformanceAssessor?.getTestCount() || 0;
+
     // Note: Protocol conformance now included in mcpSpecCount (unified ProtocolComplianceAssessor)
 
     this.logger.debug("Test counts by assessor", {
@@ -1189,6 +1238,7 @@ export class AssessmentOrchestrator {
       prompts: promptsCount,
       crossCapability: crossCapabilityCount,
       fileModularization: fileModularizationCount,
+      conformance: conformanceCount,
       // Note: protocolConformance now included in mcpSpec (unified)
     });
 
@@ -1210,7 +1260,8 @@ export class AssessmentOrchestrator {
       resourcesCount +
       promptsCount +
       crossCapabilityCount +
-      fileModularizationCount;
+      fileModularizationCount +
+      conformanceCount;
     // Note: protocolConformance now included in mcpSpecCount (unified)
 
     this.logger.debug("Total test count", { total });
