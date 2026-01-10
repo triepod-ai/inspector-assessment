@@ -52,7 +52,7 @@ describe("configUtils", () => {
       expect(result.header).toBe("X-MCP-Proxy-Auth");
     });
 
-    test("handles null/undefined value gracefully", () => {
+    test("handles null/undefined value gracefully by returning default", () => {
       const config: InspectorConfig = {
         ...DEFAULT_INSPECTOR_CONFIG,
         MCP_PROXY_AUTH_TOKEN: {
@@ -63,8 +63,9 @@ describe("configUtils", () => {
 
       const result = getMCPProxyAuthToken(config);
 
+      // Safer behavior: return default empty string instead of null
       expect(result).toEqual({
-        token: null,
+        token: "",
         header: "X-MCP-Proxy-Auth",
       });
     });
