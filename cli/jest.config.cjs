@@ -1,11 +1,13 @@
 module.exports = {
   preset: "ts-jest/presets/default-esm",
   testEnvironment: "node",
-  roots: ["<rootDir>/src"],
-  testMatch: ["**/__tests__/**/*.test.ts"],
+  roots: ["<rootDir>/src", "<rootDir>/../client/src"],
+  testMatch: ["<rootDir>/src/**/__tests__/**/*.test.ts"],
   extensionsToTreatAsEsm: [".ts"],
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
+    // Map client lib (built output) to client src (TypeScript source)
+    "(.*)client/lib/lib/(.*)": "$1client/src/lib/$2",
   },
   transform: {
     "^.+\\.tsx?$": [
