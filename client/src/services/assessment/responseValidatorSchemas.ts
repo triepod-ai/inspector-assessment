@@ -94,8 +94,9 @@ export type ContentBlock = z.infer<typeof ContentBlockSchema>;
 
 /**
  * Schema for content array in MCP responses.
+ * Uses ContentBlockSchema union for stricter type discrimination.
  */
-export const ContentArraySchema = z.array(GenericContentBlockSchema);
+export const ContentArraySchema = z.array(ContentBlockSchema);
 
 export type ContentArray = z.infer<typeof ContentArraySchema>;
 
