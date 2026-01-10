@@ -19,6 +19,7 @@ import {
   calculateModuleScore,
   normalizeModuleKey,
   INSPECTOR_VERSION,
+  SCHEMA_VERSION,
 } from "@/lib/moduleScoring";
 
 // Track module start times for duration calculation
@@ -36,7 +37,7 @@ export function emitModuleStartedEvent(
   const moduleKey = normalizeModuleKey(moduleName);
   moduleStartTimes.set(moduleKey, Date.now());
 
-  // Emit JSONL to stderr with version field
+  // Emit JSONL to stderr with version and schemaVersion fields
   console.error(
     JSON.stringify({
       event: "module_started",
@@ -44,6 +45,7 @@ export function emitModuleStartedEvent(
       estimatedTests,
       toolCount,
       version: INSPECTOR_VERSION,
+      schemaVersion: SCHEMA_VERSION,
     }),
   );
 }
@@ -81,6 +83,7 @@ export function emitModuleProgress(
     testsRun,
     duration,
     version: INSPECTOR_VERSION,
+    schemaVersion: SCHEMA_VERSION,
   };
 
   // Add AUP enrichment when module is AUP
@@ -89,7 +92,7 @@ export function emitModuleProgress(
     Object.assign(event, aupEnrichment);
   }
 
-  // Emit JSONL to stderr with version field
+  // Emit JSONL to stderr with version and schemaVersion fields
   console.error(JSON.stringify(event));
 }
 

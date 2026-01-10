@@ -59,3 +59,15 @@ export function calculateModuleScore(result: unknown): number | null {
  * Dynamically imported from package.json to stay in sync.
  */
 export const INSPECTOR_VERSION = packageJson.version;
+
+/**
+ * Schema version for JSONL events.
+ * Increment when event structure changes to enable consumers to handle
+ * schema evolution gracefully.
+ *
+ * This is the single source of truth - imported by:
+ * - scripts/lib/jsonl-events.ts
+ * - cli/src/lib/jsonl-events.ts
+ * - client/src/services/assessment/orchestratorHelpers.ts
+ */
+export const SCHEMA_VERSION = 1;

@@ -23,13 +23,86 @@ The MCP Inspector emits a comprehensive stream of structured JSONL (JSON Lines) 
 - **Annotation assessment** via four specialized annotation events
 - **AUP enrichment** for Acceptable Use Policy violations (sampled, severity-prioritized)
 - **Automatic version tracking** - all events include `version` field for compatibility checking
+- **Schema versioning** - all events include `schemaVersion` field for schema evolution
 - **EventBatcher** - controls progress event volume via intelligent batch size and time-based flushing
+
+---
+
+## Schema Versioning
+
+All JSONL events include two versioning fields:
+
+| Field           | Type    | Description                                                                                                      |
+| --------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| `version`       | string  | Inspector software version (e.g., "1.26.7"). Changes with each release.                                          |
+| `schemaVersion` | integer | Event schema version (starts at 1). Only increments when event structure changes (fields added/removed/renamed). |
+
+**Why two versions?**
+
+- `version` tells consumers which Inspector build emitted the event
+- `schemaVersion` tells consumers how to parse the event structure
+
+**Schema Version History:**
+
+| schemaVersion | Date       | Changes                             |
+| ------------- | ---------- | ----------------------------------- |
+| 1             | 2026-01-10 | Initial schema version (Issue #108) |
+
+**Consumer Guidance:**
+
+```typescript
+// Example: Check schema version before parsing
+const event = JSON.parse(line);
+if (event.schemaVersion === 1) {
+  // Current schema - parse normally
+} else if (event.schemaVersion > 1) {
+  // Newer schema - may have additional fields, but should be backwards compatible
+  console.warn(
+    `Unknown schema version ${event.schemaVersion}, parsing with best effort`,
+  );
+}
+```
+
+---
+
+## BaseEvent Interface
+
+All 13 JSONL events extend a common `BaseEvent` interface that provides versioning fields:
+
+```typescript
+export interface BaseEvent {
+  /** Inspector software version (e.g., "1.29.0") */
+  version: string;
+  /** Event schema version (integer, increment when structure changes) */
+  schemaVersion: number;
+}
+```
+
+**Single Source of Truth:**
+
+The `SCHEMA_VERSION` constant (currently `1`) is defined in `/client/src/lib/moduleScoring.ts` and imported by:
+
+- `scripts/lib/jsonl-events.ts` - CLI event emission
+- `cli/src/lib/jsonl-events.ts` - CLI interface helpers
+- `client/src/services/assessment/orchestratorHelpers.ts` - Assessment orchestration
+
+This ensures all event emitters use the same schema version, enabling version bumping from a single location.
+
+**All Event Interfaces Extend BaseEvent:**
+
+- ServerConnectedEvent, ToolDiscoveredEvent, ToolsDiscoveryCompleteEvent
+- AssessmentCompleteEvent, ModuleStartedEvent, TestBatchEvent
+- ModuleCompleteEvent, VulnerabilityFoundEvent
+- AnnotationMissingEvent, AnnotationMisalignedEvent
+- AnnotationReviewRecommendedEvent, AnnotationAlignedEvent
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Schema Versioning](#schema-versioning)
+- [BaseEvent Interface](#baseevent-interface)
 - [Event Timeline](#event-timeline)
 - [Event Reference](#event-reference)
   - [1. server_connected](#1-server_connected)
@@ -94,17 +167,19 @@ _\* = Optional, only emitted if conditions are met_
   "event": "server_connected",
   "serverName": "memory-mcp",
   "transport": "http",
-  "version": "1.20.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
 **Fields:**
 
-| Field        | Type                             | Required | Description                       |
-| ------------ | -------------------------------- | -------- | --------------------------------- |
-| `serverName` | string                           | Yes      | Name of MCP server being assessed |
-| `transport`  | `"stdio"` \| `"http"` \| `"sse"` | Yes      | Connection transport type         |
-| `version`    | string                           | Yes      | Inspector version (auto-added)    |
+| Field           | Type                             | Required | Description                                   |
+| --------------- | -------------------------------- | -------- | --------------------------------------------- |
+| `serverName`    | string                           | Yes      | Name of MCP server being assessed             |
+| `transport`     | `"stdio"` \| `"http"` \| `"sse"` | Yes      | Connection transport type                     |
+| `version`       | string                           | Yes      | Inspector version (auto-added)                |
+| `schemaVersion` | integer                          | Yes      | Event schema version (auto-added, current: 1) |
 
 **TypeScript Interface:**
 
@@ -114,6 +189,7 @@ interface ServerConnectedEvent {
   serverName: string;
   transport: "stdio" | "http" | "sse";
   version: string;
+  schemaVersion: number;
 }
 ```
 
@@ -142,7 +218,8 @@ interface ServerConnectedEvent {
     "readOnlyHint": false,
     "destructiveHint": false
   },
-  "version": "1.22.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
@@ -155,19 +232,21 @@ interface ServerConnectedEvent {
   "description": "A legacy tool without annotations",
   "params": [],
   "annotations": null,
-  "version": "1.22.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
 **Fields:**
 
-| Field         | Type           | Required | Description                                             |
-| ------------- | -------------- | -------- | ------------------------------------------------------- |
-| `name`        | string         | Yes      | Tool name from MCP manifest                             |
-| `description` | string \| null | Yes      | Tool description or null if missing                     |
-| `params`      | array          | Yes      | Extracted parameters from inputSchema                   |
-| `annotations` | object \| null | Yes      | Tool annotations or null if server doesn't provide them |
-| `version`     | string         | Yes      | Inspector version (auto-added)                          |
+| Field           | Type           | Required | Description                                             |
+| --------------- | -------------- | -------- | ------------------------------------------------------- |
+| `name`          | string         | Yes      | Tool name from MCP manifest                             |
+| `description`   | string \| null | Yes      | Tool description or null if missing                     |
+| `params`        | array          | Yes      | Extracted parameters from inputSchema                   |
+| `annotations`   | object \| null | Yes      | Tool annotations or null if server doesn't provide them |
+| `version`       | string         | Yes      | Inspector version (auto-added)                          |
+| `schemaVersion` | integer        | Yes      | Event schema version (auto-added, current: 1)           |
 
 **Param Object Fields:**
 
@@ -209,6 +288,7 @@ interface ToolDiscoveredEvent {
     openWorldHint?: boolean;
   } | null;
   version: string;
+  schemaVersion: number;
 }
 ```
 
@@ -224,16 +304,18 @@ interface ToolDiscoveredEvent {
 {
   "event": "tools_discovery_complete",
   "count": 17,
-  "version": "1.20.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
 **Fields:**
 
-| Field     | Type   | Required | Description                      |
-| --------- | ------ | -------- | -------------------------------- |
-| `count`   | number | Yes      | Total number of tools discovered |
-| `version` | string | Yes      | Inspector version (auto-added)   |
+| Field           | Type    | Required | Description                                   |
+| --------------- | ------- | -------- | --------------------------------------------- |
+| `count`         | number  | Yes      | Total number of tools discovered              |
+| `version`       | string  | Yes      | Inspector version (auto-added)                |
+| `schemaVersion` | integer | Yes      | Event schema version (auto-added, current: 1) |
 
 **TypeScript Interface:**
 
@@ -242,6 +324,7 @@ interface ToolsDiscoveryCompleteEvent {
   event: "tools_discovery_complete";
   count: number;
   version: string;
+  schemaVersion: number;
 }
 ```
 
@@ -259,18 +342,20 @@ interface ToolsDiscoveryCompleteEvent {
   "module": "security",
   "estimatedTests": 240,
   "toolCount": 17,
-  "version": "1.20.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
 **Fields:**
 
-| Field            | Type   | Required | Description                     |
-| ---------------- | ------ | -------- | ------------------------------- |
-| `module`         | string | Yes      | Module name in snake_case       |
-| `estimatedTests` | number | Yes      | Estimated test count for module |
-| `toolCount`      | number | Yes      | Number of tools to be tested    |
-| `version`        | string | Yes      | Inspector version (auto-added)  |
+| Field            | Type    | Required | Description                                   |
+| ---------------- | ------- | -------- | --------------------------------------------- |
+| `module`         | string  | Yes      | Module name in snake_case                     |
+| `estimatedTests` | number  | Yes      | Estimated test count for module               |
+| `toolCount`      | number  | Yes      | Number of tools to be tested                  |
+| `version`        | string  | Yes      | Inspector version (auto-added)                |
+| `schemaVersion`  | integer | Yes      | Event schema version (auto-added, current: 1) |
 
 **Module Names:**
 
@@ -300,6 +385,7 @@ interface ModuleStartedEvent {
   estimatedTests: number;
   toolCount: number;
   version: string;
+  schemaVersion: number;
 }
 ```
 
@@ -319,20 +405,22 @@ interface ModuleStartedEvent {
   "total": 240,
   "batchSize": 10,
   "elapsed": 2450,
-  "version": "1.20.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
 **Fields:**
 
-| Field       | Type   | Required | Description                               |
-| ----------- | ------ | -------- | ----------------------------------------- |
-| `module`    | string | Yes      | Module name (normalized to snake_case)    |
-| `completed` | number | Yes      | Number of tests completed so far          |
-| `total`     | number | Yes      | Total tests for module (may update)       |
-| `batchSize` | number | Yes      | Number of tests in this batch             |
-| `elapsed`   | number | Yes      | Milliseconds elapsed since module started |
-| `version`   | string | Yes      | Inspector version (auto-added)            |
+| Field           | Type    | Required | Description                                   |
+| --------------- | ------- | -------- | --------------------------------------------- |
+| `module`        | string  | Yes      | Module name (normalized to snake_case)        |
+| `completed`     | number  | Yes      | Number of tests completed so far              |
+| `total`         | number  | Yes      | Total tests for module (may update)           |
+| `batchSize`     | number  | Yes      | Number of tests in this batch                 |
+| `elapsed`       | number  | Yes      | Milliseconds elapsed since module started     |
+| `version`       | string  | Yes      | Inspector version (auto-added)                |
+| `schemaVersion` | integer | Yes      | Event schema version (auto-added, current: 1) |
 
 **Calculation Examples:**
 
@@ -356,6 +444,7 @@ interface TestBatchEvent {
   batchSize: number;
   elapsed: number;
   version: string;
+  schemaVersion: number;
 }
 ```
 
@@ -370,7 +459,8 @@ interface TestBatchEvent {
 ```json
 {
   "event": "vulnerability_found",
-  "version": "1.20.0",
+  "version": "1.26.7",
+  "schemaVersion": 1,
   "tool": "system_exec_tool",
   "pattern": "Command Injection",
   "confidence": "high",
@@ -393,6 +483,7 @@ interface TestBatchEvent {
 | `requiresReview` | boolean                           | Yes      | Whether human review is recommended               |
 | `payload`        | string                            | No       | The test payload that triggered the vulnerability |
 | `version`        | string                            | Yes      | Inspector version (auto-added)                    |
+| `schemaVersion`  | integer                           | Yes      | Event schema version (auto-added, current: 1)     |
 
 **TypeScript Interface:**
 
@@ -400,6 +491,7 @@ interface TestBatchEvent {
 interface VulnerabilityFoundEvent {
   event: "vulnerability_found";
   version: string;
+  schemaVersion: number;
   tool: string;
   pattern: string;
   confidence: "high" | "medium" | "low";
@@ -437,20 +529,22 @@ interface VulnerabilityFoundEvent {
     "expectedDestructive": true,
     "reason": "Tool modifies filesystem with write_* pattern and content parameter"
   },
-  "version": "1.20.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
 **Fields:**
 
-| Field              | Type   | Required | Description                           |
-| ------------------ | ------ | -------- | ------------------------------------- |
-| `tool`             | string | Yes      | Tool name                             |
-| `title`            | string | No       | Tool title if available               |
-| `description`      | string | No       | Tool description if available         |
-| `parameters`       | array  | Yes      | Tool parameters (ToolParam[])         |
-| `inferredBehavior` | object | Yes      | Behavior inference from code analysis |
-| `version`          | string | Yes      | Inspector version (auto-added)        |
+| Field              | Type    | Required | Description                                   |
+| ------------------ | ------- | -------- | --------------------------------------------- |
+| `tool`             | string  | Yes      | Tool name                                     |
+| `title`            | string  | No       | Tool title if available                       |
+| `description`      | string  | No       | Tool description if available                 |
+| `parameters`       | array   | Yes      | Tool parameters (ToolParam[])                 |
+| `inferredBehavior` | object  | Yes      | Behavior inference from code analysis         |
+| `version`          | string  | Yes      | Inspector version (auto-added)                |
+| `schemaVersion`    | integer | Yes      | Event schema version (auto-added, current: 1) |
 
 **InferredBehavior Fields:**
 
@@ -477,6 +571,7 @@ interface AnnotationMissingEvent {
   parameters: ToolParam[];
   inferredBehavior: InferredBehavior;
   version: string;
+  schemaVersion: number;
 }
 ```
 
@@ -507,24 +602,26 @@ interface AnnotationMissingEvent {
   "expected": true,
   "confidence": 0.95,
   "reason": "Tool name contains 'delete' and accepts ID parameter. Tool description mentions 'remove'. Inference confidence 95%.",
-  "version": "1.20.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
 **Fields:**
 
-| Field         | Type                                    | Required | Description                                |
-| ------------- | --------------------------------------- | -------- | ------------------------------------------ |
-| `tool`        | string                                  | Yes      | Tool name                                  |
-| `title`       | string                                  | No       | Tool title if available                    |
-| `description` | string                                  | No       | Tool description if available              |
-| `parameters`  | array                                   | Yes      | Tool parameters (ToolParam[])              |
-| `field`       | `"readOnlyHint"` \| `"destructiveHint"` | Yes      | Which annotation field is misaligned       |
-| `actual`      | boolean \| undefined                    | Yes      | Current annotation value (or undefined)    |
-| `expected`    | boolean                                 | Yes      | Expected value based on behavior inference |
-| `confidence`  | number                                  | Yes      | Confidence of inference (0-1)              |
-| `reason`      | string                                  | Yes      | Explanation of the mismatch                |
-| `version`     | string                                  | Yes      | Inspector version (auto-added)             |
+| Field           | Type                                    | Required | Description                                   |
+| --------------- | --------------------------------------- | -------- | --------------------------------------------- |
+| `tool`          | string                                  | Yes      | Tool name                                     |
+| `title`         | string                                  | No       | Tool title if available                       |
+| `description`   | string                                  | No       | Tool description if available                 |
+| `parameters`    | array                                   | Yes      | Tool parameters (ToolParam[])                 |
+| `field`         | `"readOnlyHint"` \| `"destructiveHint"` | Yes      | Which annotation field is misaligned          |
+| `actual`        | boolean \| undefined                    | Yes      | Current annotation value (or undefined)       |
+| `expected`      | boolean                                 | Yes      | Expected value based on behavior inference    |
+| `confidence`    | number                                  | Yes      | Confidence of inference (0-1)                 |
+| `reason`        | string                                  | Yes      | Explanation of the mismatch                   |
+| `version`       | string                                  | Yes      | Inspector version (auto-added)                |
+| `schemaVersion` | integer                                 | Yes      | Event schema version (auto-added, current: 1) |
 
 **TypeScript Interface:**
 
@@ -541,6 +638,7 @@ interface AnnotationMisalignedEvent {
   confidence: number;
   reason: string;
   version: string;
+  schemaVersion: number;
 }
 ```
 
@@ -573,25 +671,27 @@ interface AnnotationMisalignedEvent {
   "confidence": "medium",
   "isAmbiguous": true,
   "reason": "Pattern 'cache_*' is ambiguous. Could be read-only (cache lookup) or destructive (cache invalidation). Recommend human review of implementation.",
-  "version": "1.20.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
 **Fields:**
 
-| Field         | Type                                    | Required | Description                                |
-| ------------- | --------------------------------------- | -------- | ------------------------------------------ |
-| `tool`        | string                                  | Yes      | Tool name                                  |
-| `title`       | string                                  | No       | Tool title if available                    |
-| `description` | string                                  | No       | Tool description if available              |
-| `parameters`  | array                                   | Yes      | Tool parameters (ToolParam[])              |
-| `field`       | `"readOnlyHint"` \| `"destructiveHint"` | Yes      | Which annotation field needs review        |
-| `actual`      | boolean \| undefined                    | Yes      | Current annotation value (or undefined)    |
-| `inferred`    | boolean                                 | Yes      | Inferred value (but marked as ambiguous)   |
-| `confidence`  | `"high"` \| `"medium"` \| `"low"`       | Yes      | Confidence of inference                    |
-| `isAmbiguous` | boolean                                 | Yes      | Flag indicating ambiguous pattern detected |
-| `reason`      | string                                  | Yes      | Explanation and recommendation             |
-| `version`     | string                                  | Yes      | Inspector version (auto-added)             |
+| Field           | Type                                    | Required | Description                                   |
+| --------------- | --------------------------------------- | -------- | --------------------------------------------- |
+| `tool`          | string                                  | Yes      | Tool name                                     |
+| `title`         | string                                  | No       | Tool title if available                       |
+| `description`   | string                                  | No       | Tool description if available                 |
+| `parameters`    | array                                   | Yes      | Tool parameters (ToolParam[])                 |
+| `field`         | `"readOnlyHint"` \| `"destructiveHint"` | Yes      | Which annotation field needs review           |
+| `actual`        | boolean \| undefined                    | Yes      | Current annotation value (or undefined)       |
+| `inferred`      | boolean                                 | Yes      | Inferred value (but marked as ambiguous)      |
+| `confidence`    | `"high"` \| `"medium"` \| `"low"`       | Yes      | Confidence of inference                       |
+| `isAmbiguous`   | boolean                                 | Yes      | Flag indicating ambiguous pattern detected    |
+| `reason`        | string                                  | Yes      | Explanation and recommendation                |
+| `version`       | string                                  | Yes      | Inspector version (auto-added)                |
+| `schemaVersion` | integer                                 | Yes      | Event schema version (auto-added, current: 1) |
 
 **TypeScript Interface:**
 
@@ -609,6 +709,7 @@ interface AnnotationReviewRecommendedEvent {
   isAmbiguous: boolean;
   reason: string;
   version: string;
+  schemaVersion: number;
 }
 ```
 
@@ -629,18 +730,20 @@ interface AnnotationReviewRecommendedEvent {
     "readOnlyHint": false,
     "destructiveHint": true
   },
-  "version": "1.21.5"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
 **Fields:**
 
-| Field         | Type                              | Required | Description                                |
-| ------------- | --------------------------------- | -------- | ------------------------------------------ |
-| `tool`        | string                            | Yes      | Tool name                                  |
-| `confidence`  | `"high"` \| `"medium"` \| `"low"` | Yes      | Confidence of behavior inference           |
-| `annotations` | object                            | Yes      | The actual annotation values from the tool |
-| `version`     | string                            | Yes      | Inspector version (auto-added)             |
+| Field           | Type                              | Required | Description                                   |
+| --------------- | --------------------------------- | -------- | --------------------------------------------- |
+| `tool`          | string                            | Yes      | Tool name                                     |
+| `confidence`    | `"high"` \| `"medium"` \| `"low"` | Yes      | Confidence of behavior inference              |
+| `annotations`   | object                            | Yes      | The actual annotation values from the tool    |
+| `version`       | string                            | Yes      | Inspector version (auto-added)                |
+| `schemaVersion` | integer                           | Yes      | Event schema version (auto-added, current: 1) |
 
 **Annotations Object Fields:**
 
@@ -665,6 +768,7 @@ interface AnnotationAlignedEvent {
     idempotentHint?: boolean;
   };
   version: string;
+  schemaVersion: number;
 }
 ```
 
@@ -705,18 +809,20 @@ interface AnnotationAlignedEvent {
     "crossCapability"
   ],
   "reason": "only-modules",
-  "version": "1.22.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
 **Fields:**
 
-| Field     | Type                                                | Required | Description                            |
-| --------- | --------------------------------------------------- | -------- | -------------------------------------- |
-| `enabled` | string[]                                            | Yes      | List of module names that will run     |
-| `skipped` | string[]                                            | Yes      | List of module names that are disabled |
-| `reason`  | `"skip-modules"` \| `"only-modules"` \| `"default"` | Yes      | Why modules were configured this way   |
-| `version` | string                                              | Yes      | Inspector version (auto-added)         |
+| Field           | Type                                                | Required | Description                                   |
+| --------------- | --------------------------------------------------- | -------- | --------------------------------------------- |
+| `enabled`       | string[]                                            | Yes      | List of module names that will run            |
+| `skipped`       | string[]                                            | Yes      | List of module names that are disabled        |
+| `reason`        | `"skip-modules"` \| `"only-modules"` \| `"default"` | Yes      | Why modules were configured this way          |
+| `version`       | string                                              | Yes      | Inspector version (auto-added)                |
+| `schemaVersion` | integer                                             | Yes      | Event schema version (auto-added, current: 1) |
 
 **Valid Module Names (18 total):**
 
@@ -749,7 +855,8 @@ interface AnnotationAlignedEvent {
   ],
   "skipped": [],
   "reason": "default",
-  "version": "1.22.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
@@ -775,7 +882,8 @@ interface AnnotationAlignedEvent {
   ],
   "skipped": ["security", "aupCompliance"],
   "reason": "skip-modules",
-  "version": "1.22.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
@@ -801,7 +909,8 @@ interface AnnotationAlignedEvent {
     "crossCapability"
   ],
   "reason": "only-modules",
-  "version": "1.22.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
@@ -814,6 +923,7 @@ interface ModulesConfiguredEvent {
   skipped: string[];
   reason: "skip-modules" | "only-modules" | "default";
   version: string;
+  schemaVersion: number;
 }
 ```
 
@@ -837,7 +947,8 @@ interface ModulesConfiguredEvent {
   "score": 95,
   "testsRun": 234,
   "duration": 5234,
-  "version": "1.20.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
@@ -851,7 +962,8 @@ interface ModulesConfiguredEvent {
   "score": 60,
   "testsRun": 15,
   "duration": 3500,
-  "version": "1.20.0",
+  "version": "1.26.7",
+  "schemaVersion": 1,
   "violationsSample": [
     {
       "category": "B",
@@ -882,14 +994,15 @@ interface ModulesConfiguredEvent {
 
 **Fields (All Modules):**
 
-| Field      | Type                                       | Required | Description                    |
-| ---------- | ------------------------------------------ | -------- | ------------------------------ |
-| `module`   | string                                     | Yes      | Module name (snake_case)       |
-| `status`   | `"PASS"` \| `"FAIL"` \| `"NEED_MORE_INFO"` | Yes      | Module result status           |
-| `score`    | number                                     | Yes      | Score 0-100                    |
-| `testsRun` | number                                     | Yes      | Number of tests executed       |
-| `duration` | number                                     | Yes      | Execution time in milliseconds |
-| `version`  | string                                     | Yes      | Inspector version (auto-added) |
+| Field           | Type                                       | Required | Description                                   |
+| --------------- | ------------------------------------------ | -------- | --------------------------------------------- |
+| `module`        | string                                     | Yes      | Module name (snake_case)                      |
+| `status`        | `"PASS"` \| `"FAIL"` \| `"NEED_MORE_INFO"` | Yes      | Module result status                          |
+| `score`         | number                                     | Yes      | Score 0-100                                   |
+| `testsRun`      | number                                     | Yes      | Number of tests executed                      |
+| `duration`      | number                                     | Yes      | Execution time in milliseconds                |
+| `version`       | string                                     | Yes      | Inspector version (auto-added)                |
+| `schemaVersion` | integer                                    | Yes      | Event schema version (auto-added, current: 1) |
 
 **Fields (AUP Module Only):**
 
@@ -957,6 +1070,7 @@ interface ModuleCompleteEvent {
   testsRun: number;
   duration: number;
   version: string;
+  schemaVersion: number;
   // AUP module only:
   violationsSample?: AUPViolationSample[];
   samplingNote?: string;
@@ -986,19 +1100,21 @@ interface ModuleCompleteEvent {
   "totalTests": 1440,
   "executionTime": 47823,
   "outputPath": "/tmp/inspector-full-assessment-memory-mcp.json",
-  "version": "1.20.0"
+  "version": "1.26.7",
+  "schemaVersion": 1
 }
 ```
 
 **Fields:**
 
-| Field           | Type   | Required | Description                           |
-| --------------- | ------ | -------- | ------------------------------------- |
-| `overallStatus` | string | Yes      | `"PASS"` or `"FAIL"` (overall result) |
-| `totalTests`    | number | Yes      | Sum of all tests across all modules   |
-| `executionTime` | number | Yes      | Total execution time in milliseconds  |
-| `outputPath`    | string | Yes      | Path to JSON results file for details |
-| `version`       | string | Yes      | Inspector version (auto-added)        |
+| Field           | Type    | Required | Description                                   |
+| --------------- | ------- | -------- | --------------------------------------------- |
+| `overallStatus` | string  | Yes      | `"PASS"` or `"FAIL"` (overall result)         |
+| `totalTests`    | number  | Yes      | Sum of all tests across all modules           |
+| `executionTime` | number  | Yes      | Total execution time in milliseconds          |
+| `outputPath`    | string  | Yes      | Path to JSON results file for details         |
+| `version`       | string  | Yes      | Inspector version (auto-added)                |
+| `schemaVersion` | integer | Yes      | Event schema version (auto-added, current: 1) |
 
 **TypeScript Interface:**
 
@@ -1010,6 +1126,7 @@ interface AssessmentCompleteEvent {
   executionTime: number;
   outputPath: string;
   version: string;
+  schemaVersion: number;
 }
 ```
 
@@ -1023,5 +1140,5 @@ interface AssessmentCompleteEvent {
 
 ---
 
-**Last Updated**: 2026-01-03
+**Last Updated**: 2026-01-10
 **Status**: Stable

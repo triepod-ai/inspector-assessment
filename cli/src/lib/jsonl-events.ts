@@ -9,7 +9,13 @@
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { INSPECTOR_VERSION } from "../../../client/lib/lib/moduleScoring.js";
+import {
+  INSPECTOR_VERSION,
+  SCHEMA_VERSION,
+} from "../../../client/lib/lib/moduleScoring.js";
+
+// Re-export for consumers of this module
+export { SCHEMA_VERSION };
 
 // ============================================================================
 // Types
@@ -28,10 +34,16 @@ export interface ToolParam {
 
 /**
  * Emit a JSONL event to stderr for real-time machine parsing.
- * Automatically includes version field for compatibility checking.
+ * Automatically includes version and schemaVersion fields for compatibility checking.
  */
 export function emitJSONL(event: Record<string, unknown>): void {
-  console.error(JSON.stringify({ ...event, version: INSPECTOR_VERSION }));
+  console.error(
+    JSON.stringify({
+      ...event,
+      version: INSPECTOR_VERSION,
+      schemaVersion: SCHEMA_VERSION,
+    }),
+  );
 }
 
 /**

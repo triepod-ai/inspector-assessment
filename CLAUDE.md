@@ -403,6 +403,10 @@ For detailed documentation on specific features:
 - **Algorithms**: [docs/JSONL_EVENTS_ALGORITHMS.md](docs/JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP enrichment
 - **Integration**: [docs/JSONL_EVENTS_INTEGRATION.md](docs/JSONL_EVENTS_INTEGRATION.md) - Lifecycle examples, checklist, testing
 
+**Schema Versioning (Issue #108):**
+
+All events extend `BaseEvent` interface with `version` and `schemaVersion` fields. The `SCHEMA_VERSION` constant is maintained in `/client/src/lib/moduleScoring.ts` (single source of truth) and imported by CLI and orchestration modules. Increment `SCHEMA_VERSION` when event structure changes. See BaseEvent Interface section in JSONL_EVENTS_REFERENCE.md for details.
+
 ### Test Data Generation
 
 - **Architecture**: [docs/TEST_DATA_ARCHITECTURE.md](docs/TEST_DATA_ARCHITECTURE.md) - Core architecture, field handlers, boundaries

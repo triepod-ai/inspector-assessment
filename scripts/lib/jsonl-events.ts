@@ -22,11 +22,13 @@ export {
   normalizeModuleKey,
   calculateModuleScore,
   INSPECTOR_VERSION,
+  SCHEMA_VERSION,
 } from "../../client/src/lib/moduleScoring.js";
 
 import {
   normalizeModuleKey,
   INSPECTOR_VERSION,
+  SCHEMA_VERSION,
 } from "../../client/src/lib/moduleScoring.js";
 import { DEFAULT_PERFORMANCE_CONFIG } from "../../client/src/services/assessment/config/performanceConfig.js";
 
@@ -41,13 +43,25 @@ export interface ToolParam {
   description?: string;
 }
 
-export interface ServerConnectedEvent {
+/**
+ * Base interface for all JSONL events.
+ * All events include version (software version) and schemaVersion (event schema version)
+ * for compatibility checking and schema evolution.
+ */
+export interface BaseEvent {
+  /** Inspector software version (e.g., "1.29.0") */
+  version: string;
+  /** Event schema version (integer, increment when structure changes) */
+  schemaVersion: number;
+}
+
+export interface ServerConnectedEvent extends BaseEvent {
   event: "server_connected";
   serverName: string;
   transport: "stdio" | "http" | "sse";
 }
 
-export interface ToolDiscoveredEvent {
+export interface ToolDiscoveredEvent extends BaseEvent {
   event: "tool_discovered";
   name: string;
   description: string | null;
@@ -60,12 +74,12 @@ export interface ToolDiscoveredEvent {
   } | null;
 }
 
-export interface ToolsDiscoveryCompleteEvent {
+export interface ToolsDiscoveryCompleteEvent extends BaseEvent {
   event: "tools_discovery_complete";
   count: number;
 }
 
-export interface AssessmentCompleteEvent {
+export interface AssessmentCompleteEvent extends BaseEvent {
   event: "assessment_complete";
   overallStatus: string;
   totalTests: number;
@@ -74,14 +88,14 @@ export interface AssessmentCompleteEvent {
 }
 
 // New events for real-time progress tracking
-export interface ModuleStartedEvent {
+export interface ModuleStartedEvent extends BaseEvent {
   event: "module_started";
   module: string;
   estimatedTests: number;
   toolCount: number;
 }
 
-export interface TestBatchEvent {
+export interface TestBatchEvent extends BaseEvent {
   event: "test_batch";
   module: string;
   completed: number;
@@ -90,7 +104,7 @@ export interface TestBatchEvent {
   elapsed: number;
 }
 
-export interface ModuleCompleteEvent {
+export interface ModuleCompleteEvent extends BaseEvent {
   event: "module_complete";
   module: string;
   status: "PASS" | "FAIL" | "NEED_MORE_INFO";
@@ -151,9 +165,8 @@ export interface AUPEnrichment {
 }
 
 // Real-time security vulnerability detection event
-export interface VulnerabilityFoundEvent {
+export interface VulnerabilityFoundEvent extends BaseEvent {
   event: "vulnerability_found";
-  version: string;
   tool: string;
   pattern: string;
   confidence: "high" | "medium" | "low";
@@ -164,7 +177,7 @@ export interface VulnerabilityFoundEvent {
 }
 
 // Tool annotation events for real-time annotation status reporting
-export interface AnnotationMissingEvent {
+export interface AnnotationMissingEvent extends BaseEvent {
   event: "annotation_missing";
   tool: string;
   title?: string;
@@ -177,7 +190,7 @@ export interface AnnotationMissingEvent {
   };
 }
 
-export interface AnnotationMisalignedEvent {
+export interface AnnotationMisalignedEvent extends BaseEvent {
   event: "annotation_misaligned";
   tool: string;
   title?: string;
@@ -196,7 +209,7 @@ export interface AnnotationMisalignedEvent {
  * varies by implementation context. Does not indicate a failure - just flags
  * for human review.
  */
-export interface AnnotationReviewRecommendedEvent {
+export interface AnnotationReviewRecommendedEvent extends BaseEvent {
   event: "annotation_review_recommended";
   tool: string;
   title?: string;
@@ -213,7 +226,7 @@ export interface AnnotationReviewRecommendedEvent {
 /**
  * Event emitted when tool annotations correctly match inferred behavior.
  */
-export interface AnnotationAlignedEvent {
+export interface AnnotationAlignedEvent extends BaseEvent {
   event: "annotation_aligned";
   tool: string;
   confidence: "high" | "medium" | "low";
@@ -245,10 +258,16 @@ export type JSONLEvent =
 
 /**
  * Emit a JSONL event to stderr for real-time machine parsing.
- * Automatically includes version field for compatibility checking.
+ * Automatically includes version and schemaVersion fields for compatibility checking.
  */
 export function emitJSONL(event: Record<string, unknown>): void {
-  console.error(JSON.stringify({ ...event, version: INSPECTOR_VERSION }));
+  console.error(
+    JSON.stringify({
+      ...event,
+      version: INSPECTOR_VERSION,
+      schemaVersion: SCHEMA_VERSION,
+    }),
+  );
 }
 
 /**

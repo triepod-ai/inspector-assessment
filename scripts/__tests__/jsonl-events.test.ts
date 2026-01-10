@@ -58,7 +58,14 @@ describe("JSONL Event Helpers", () => {
       emitJSONL({ event: "test" });
 
       const output = getLastEvent();
-      expect(output.version).toBe("1.20.2");
+      expect(output.version).toBeDefined();
+    });
+
+    it("includes schemaVersion field in all events", () => {
+      emitJSONL({ event: "test" });
+
+      const output = getLastEvent();
+      expect(output.schemaVersion).toBe(1);
     });
   });
 
@@ -76,7 +83,7 @@ describe("JSONL Event Helpers", () => {
         serverName: "test-server",
         transport: "http",
       });
-      expect(event.version).toBe("1.20.2");
+      expect(event.version).toBeDefined();
     });
 
     it("handles stdio transport", () => {
@@ -243,7 +250,7 @@ describe("JSONL Event Helpers", () => {
         event: "tools_discovery_complete",
         count: 17,
       });
-      expect(event.version).toBe("1.20.2");
+      expect(event.version).toBeDefined();
     });
 
     it("handles zero tools", () => {
@@ -277,7 +284,7 @@ describe("JSONL Event Helpers", () => {
         executionTime: 5000,
         outputPath: "/tmp/results.json",
       });
-      expect(event.version).toBe("1.20.2");
+      expect(event.version).toBeDefined();
     });
 
     it("includes correct overallStatus for PASS", () => {

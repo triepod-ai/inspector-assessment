@@ -18,6 +18,8 @@ interface ModuleCompleteEvent {
   module: string;
   status: "PASS" | "FAIL" | "NEED_MORE_INFO";
   score: number;
+  version?: string;
+  schemaVersion?: number;
 }
 
 /**
@@ -85,6 +87,9 @@ describe("emitModuleProgress - JSONL Progress Output", () => {
         expect(typeof event.score).toBe("number");
         expect(event.score).toBeGreaterThanOrEqual(0);
         expect(event.score).toBeLessThanOrEqual(100);
+        // Verify version and schemaVersion fields are present
+        expect(event.version).toBeDefined();
+        expect(event.schemaVersion).toBe(1);
       }
     });
 

@@ -450,3 +450,73 @@
 - Improved code maintainability and testability
 
 ---
+
+## 2026-01-10: Issue #110 - Output Injection and Blacklist Bypass Detection
+
+**Summary:** Implemented Issue #110 detection gaps for Challenge #8 (Output Injection) and Challenge #11 (Blacklist Bypass), adding 27 new tests and publishing v1.29.0.
+
+**Session Focus:** Fix detection gaps for Challenge #8 (Output Injection) and Challenge #11 (Blacklist Bypass) with A/B validation against vulnerable-mcp and hardened-mcp testbed servers.
+
+**Changes Made:**
+- `client/src/services/assessment/modules/securityTests/SecurityResponseAnalyzer.ts` - Added OutputInjectionResult interface and analyzeOutputInjectionResponse() method (+119 lines)
+- `client/src/services/assessment/modules/securityTests/SecurityPatternLibrary.ts` - Added LLM_INJECTION_MARKERS, OUTPUT_INJECTION_METADATA patterns (+82 lines)
+- `client/src/services/assessment/modules/securityTests/SafeResponseDetector.ts` - Added injection marker checks in isReflectionResponse() (+17 lines)
+- `client/src/services/assessment/modules/securityTests/SecurityPayloadTester.ts` - Integrated output injection detection (+22 lines)
+- `client/src/lib/assessment/resultTypes.ts` - Added output injection fields to SecurityTestResult (+9 lines)
+- `client/src/services/assessment/__tests__/SecurityAssessor-OutputInjection.test.ts` - New test file (15 tests)
+
+**Key Decisions:**
+- Removed overly broad "injection_patterns_detected: false" pattern that caused 159 false positives on hardened server
+- Output injection detection runs on ALL tool responses (not just specific attack types) since any tool could have vulnerabilities
+- LLM markers detected: <IMPORTANT>, [INST], <|system|>, {{SYSTEM_PROMPT}}, "ignore previous instructions"
+
+**A/B Validation Results:**
+- Challenge #8 (Output Injection): Vulnerable server 160 detections (4 LLM markers, 156 raw content) vs Hardened 0
+- Challenge #11 (Blacklist Bypass): Vulnerable server 9 detections vs Hardened 0
+
+**Next Steps:**
+- Monitor for any additional detection gaps in testbed validation
+- Consider adding more LLM injection marker patterns as discovered
+
+**Notes:**
+- Issue #110 closed with detailed implementation comment
+- npm v1.29.0 published with all changes
+- Total 27 new tests (12 blacklist bypass + 15 output injection)
+- A/B validation confirms zero false positives on hardened server
+
+---
+
+## 2026-01-10: Issue #107 - Config Schema Versioning
+
+**Summary:** Implemented Issue #107 adding configVersion field for schema migrations with 12 new tests.
+
+**Session Focus:** Config Schema Versioning implementation (Issue #107) to enable future schema migrations and provide deprecation warnings for legacy configurations.
+
+**Changes Made:**
+- `client/src/lib/assessment/configTypes.ts` - Added `configVersion?: number` field, set to 2 in all 5 presets
+- `cli/src/lib/assessment-runner/config-builder.ts` - Added deprecation warning for missing configVersion
+- `cli/src/__tests__/assessment-runner/config-builder.test.ts` - Added 5 tests for validation + updated mock
+- `client/src/lib/__tests__/configTypes.test.ts` - Created new file with 7 tests for preset compliance
+- `docs/DEPRECATION_GUIDE.md` - Added Config Schema Versioning section
+- `docs/TYPE_REFERENCE.md` - Added configVersion field documentation
+- `docs/PROGRAMMATIC_API_GUIDE.md` - Added note about configVersion in presets
+
+**Key Decisions:**
+- Version number set to 2 (post-deprecation cleanup baseline)
+- Warning uses console.warn (not structured logger) for CLI visibility
+- configVersion optional now, required in v2.0.0
+
+**Commits:**
+- 244c65e feat(config): add configVersion field for schema migrations (#107)
+- ddfeb05 docs: sync documentation with configVersion changes (#107)
+
+**Next Steps:**
+- Issue #108: Add JSONL event schema versioning
+- Issue #109: Define and document public API surface
+
+**Notes:**
+- Code review identified 2 warnings (tests missing, mock incomplete) - both addressed
+- 12 new tests added for complete coverage
+- GitHub Issue #107 closed
+
+---
