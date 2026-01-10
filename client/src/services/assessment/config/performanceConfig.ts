@@ -12,6 +12,7 @@
 
 import * as fs from "fs";
 import type { Logger } from "../lib/logger";
+import { validatePerformanceConfigWithZod } from "./performanceConfigSchemas";
 
 /**
  * Performance configuration for assessment execution.
@@ -118,6 +119,8 @@ export const PERFORMANCE_PRESETS = {
  * Validate a partial performance config.
  * Ensures values are within reasonable bounds.
  *
+ * Uses Zod schema validation under the hood (Issue #84).
+ *
  * @public
  * @param config - Partial config to validate
  * @returns Array of validation error messages (empty if valid)
@@ -125,61 +128,8 @@ export const PERFORMANCE_PRESETS = {
 export function validatePerformanceConfig(
   config: Partial<PerformanceConfig>,
 ): string[] {
-  const errors: string[] = [];
-
-  if (
-    config.batchFlushIntervalMs !== undefined &&
-    (config.batchFlushIntervalMs < 50 || config.batchFlushIntervalMs > 10000)
-  ) {
-    errors.push("batchFlushIntervalMs must be between 50 and 10000");
-  }
-
-  if (
-    config.functionalityBatchSize !== undefined &&
-    (config.functionalityBatchSize < 1 || config.functionalityBatchSize > 100)
-  ) {
-    errors.push("functionalityBatchSize must be between 1 and 100");
-  }
-
-  if (
-    config.securityBatchSize !== undefined &&
-    (config.securityBatchSize < 1 || config.securityBatchSize > 100)
-  ) {
-    errors.push("securityBatchSize must be between 1 and 100");
-  }
-
-  if (
-    config.testTimeoutMs !== undefined &&
-    (config.testTimeoutMs < 100 || config.testTimeoutMs > 300000)
-  ) {
-    errors.push("testTimeoutMs must be between 100 and 300000");
-  }
-
-  if (
-    config.securityTestTimeoutMs !== undefined &&
-    (config.securityTestTimeoutMs < 100 ||
-      config.securityTestTimeoutMs > 300000)
-  ) {
-    errors.push("securityTestTimeoutMs must be between 100 and 300000");
-  }
-
-  if (
-    config.queueWarningThreshold !== undefined &&
-    (config.queueWarningThreshold < 100 ||
-      config.queueWarningThreshold > 1000000)
-  ) {
-    errors.push("queueWarningThreshold must be between 100 and 1000000");
-  }
-
-  if (
-    config.eventEmitterMaxListeners !== undefined &&
-    (config.eventEmitterMaxListeners < 10 ||
-      config.eventEmitterMaxListeners > 1000)
-  ) {
-    errors.push("eventEmitterMaxListeners must be between 10 and 1000");
-  }
-
-  return errors;
+  // Delegate to Zod schema validation
+  return validatePerformanceConfigWithZod(config);
 }
 
 /**
