@@ -1,8 +1,12 @@
 /**
  * Zod Schemas for JSONL Event Types
  *
- * Runtime validation schemas for all 13 JSONL event types emitted during
+ * Runtime validation schemas for all 17 JSONL event types emitted during
  * CLI assessment runs. Enables type-safe parsing for external consumers.
+ *
+ * Event categories:
+ * - Core events (1-13): Connection, discovery, modules, security, annotations
+ * - Phase 7 events (14-17): Per-tool testing and phase lifecycle
  *
  * @module assessment/jsonlEventSchemas
  * @see scripts/lib/jsonl-events.ts - TypeScript interface definitions
@@ -27,6 +31,12 @@ export { ZOD_SCHEMA_VERSION, TransportTypeSchema };
  */
 export const ModuleStatusSchema = z.enum(["PASS", "FAIL", "NEED_MORE_INFO"]);
 export type ModuleStatus = z.infer<typeof ModuleStatusSchema>;
+
+/**
+ * Schema for tool test status (includes ERROR for runtime failures).
+ */
+export const ToolTestStatusSchema = z.enum(["PASS", "FAIL", "ERROR"]);
+export type ToolTestStatus = z.infer<typeof ToolTestStatusSchema>;
 
 /**
  * Schema for confidence level (lowercase).
@@ -372,11 +382,69 @@ export type AssessmentCompleteEvent = z.infer<
 >;
 
 // ============================================================================
+// Phase 7 Event Schemas (4 Additional)
+// ============================================================================
+
+/**
+ * 14. ToolTestCompleteEvent - Emitted after all tests for a single tool finish.
+ * Provides per-tool summary for real-time progress tracking.
+ */
+export const ToolTestCompleteEventSchema = BaseEventSchema.extend({
+  event: z.literal("tool_test_complete"),
+  tool: z.string(),
+  module: z.string(),
+  scenariosPassed: z.number().int().nonnegative(),
+  scenariosExecuted: z.number().int().nonnegative(),
+  confidence: ConfidenceLevelSchema,
+  status: ToolTestStatusSchema,
+  executionTime: z.number().nonnegative(),
+});
+export type ToolTestCompleteEvent = z.infer<typeof ToolTestCompleteEventSchema>;
+
+/**
+ * 15. ValidationSummaryEvent - Emitted with per-tool input validation metrics.
+ * Tracks how tools handle invalid inputs (wrong types, missing required, etc.)
+ */
+export const ValidationSummaryEventSchema = BaseEventSchema.extend({
+  event: z.literal("validation_summary"),
+  tool: z.string(),
+  wrongType: z.number().int().nonnegative(),
+  missingRequired: z.number().int().nonnegative(),
+  extraParams: z.number().int().nonnegative(),
+  nullValues: z.number().int().nonnegative(),
+  invalidValues: z.number().int().nonnegative(),
+});
+export type ValidationSummaryEvent = z.infer<
+  typeof ValidationSummaryEventSchema
+>;
+
+/**
+ * 16. PhaseStartedEvent - Emitted when an assessment phase begins.
+ * Used for high-level progress tracking (discovery, assessment, analysis).
+ */
+export const PhaseStartedEventSchema = BaseEventSchema.extend({
+  event: z.literal("phase_started"),
+  phase: z.string(),
+});
+export type PhaseStartedEvent = z.infer<typeof PhaseStartedEventSchema>;
+
+/**
+ * 17. PhaseCompleteEvent - Emitted when an assessment phase finishes.
+ * Includes duration for performance tracking.
+ */
+export const PhaseCompleteEventSchema = BaseEventSchema.extend({
+  event: z.literal("phase_complete"),
+  phase: z.string(),
+  duration: z.number().nonnegative(),
+});
+export type PhaseCompleteEvent = z.infer<typeof PhaseCompleteEventSchema>;
+
+// ============================================================================
 // Union Schema
 // ============================================================================
 
 /**
- * Union of all JSONL event schemas.
+ * Union of all JSONL event schemas (17 total).
  * Uses z.union() with z.literal() for event type discrimination.
  */
 export const JSONLEventSchema = z.union([
@@ -393,6 +461,11 @@ export const JSONLEventSchema = z.union([
   AnnotationReviewRecommendedEventSchema,
   AnnotationAlignedEventSchema,
   AssessmentCompleteEventSchema,
+  // Phase 7 events
+  ToolTestCompleteEventSchema,
+  ValidationSummaryEventSchema,
+  PhaseStartedEventSchema,
+  PhaseCompleteEventSchema,
 ]);
 
 /**

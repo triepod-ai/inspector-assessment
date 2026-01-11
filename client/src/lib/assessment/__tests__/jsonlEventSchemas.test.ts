@@ -1,7 +1,7 @@
 /**
  * Tests for JSONL Event Zod Schemas
  *
- * Comprehensive tests for all 13 JSONL event types and helper functions.
+ * Comprehensive tests for all 17 JSONL event types and helper functions.
  *
  * @module assessment/__tests__/jsonlEventSchemas
  */
@@ -12,6 +12,7 @@ import {
   ZOD_SCHEMA_VERSION,
   // Enum schemas
   ModuleStatusSchema,
+  ToolTestStatusSchema,
   ConfidenceLevelSchema,
   RiskLevelSchema,
   SeveritySchema,
@@ -26,7 +27,7 @@ import {
   AUPViolationMetricsSchema,
   AUPScannedLocationsSchema,
   BaseEventSchema,
-  // Event schemas
+  // Event schemas (1-13)
   ServerConnectedEventSchema,
   ToolDiscoveredEventSchema,
   ToolsDiscoveryCompleteEventSchema,
@@ -40,6 +41,11 @@ import {
   AnnotationReviewRecommendedEventSchema,
   AnnotationAlignedEventSchema,
   AssessmentCompleteEventSchema,
+  // Phase 7 event schemas (14-17)
+  ToolTestCompleteEventSchema,
+  ValidationSummaryEventSchema,
+  PhaseStartedEventSchema,
+  PhaseCompleteEventSchema,
   // Union schema
   JSONLEventSchema,
   // Helper functions
@@ -48,9 +54,8 @@ import {
   validateEvent,
   isEventType,
   parseEventLines,
-  // Types
-  type JSONLEventParsed,
 } from "../jsonlEventSchemas";
+import type { JSONLEventParsed } from "../jsonlEventSchemas";
 
 // ============================================================================
 // Test Fixtures
@@ -219,6 +224,39 @@ const VALID_FIXTURES = {
     executionTime: 30000,
     outputPath: "/tmp/assessment-results.json",
   },
+  // Phase 7 events
+  toolTestComplete: {
+    ...BASE_EVENT,
+    event: "tool_test_complete" as const,
+    tool: "test_tool",
+    module: "security",
+    scenariosPassed: 8,
+    scenariosExecuted: 10,
+    confidence: "high" as const,
+    status: "PASS" as const,
+    executionTime: 1500,
+  },
+  validationSummary: {
+    ...BASE_EVENT,
+    event: "validation_summary" as const,
+    tool: "test_tool",
+    wrongType: 2,
+    missingRequired: 1,
+    extraParams: 0,
+    nullValues: 3,
+    invalidValues: 1,
+  },
+  phaseStarted: {
+    ...BASE_EVENT,
+    event: "phase_started" as const,
+    phase: "security",
+  },
+  phaseComplete: {
+    ...BASE_EVENT,
+    event: "phase_complete" as const,
+    phase: "security",
+    duration: 5000,
+  },
 };
 
 // ============================================================================
@@ -231,7 +269,8 @@ describe("jsonlEventSchemas", () => {
       expect(ZOD_SCHEMA_VERSION).toBe(1);
     });
 
-    test("exports all 13 event schemas", () => {
+    test("exports all 17 event schemas", () => {
+      // Core events (1-13)
       expect(ServerConnectedEventSchema).toBeDefined();
       expect(ToolDiscoveredEventSchema).toBeDefined();
       expect(ToolsDiscoveryCompleteEventSchema).toBeDefined();
@@ -245,6 +284,11 @@ describe("jsonlEventSchemas", () => {
       expect(AnnotationReviewRecommendedEventSchema).toBeDefined();
       expect(AnnotationAlignedEventSchema).toBeDefined();
       expect(AssessmentCompleteEventSchema).toBeDefined();
+      // Phase 7 events (14-17)
+      expect(ToolTestCompleteEventSchema).toBeDefined();
+      expect(ValidationSummaryEventSchema).toBeDefined();
+      expect(PhaseStartedEventSchema).toBeDefined();
+      expect(PhaseCompleteEventSchema).toBeDefined();
     });
 
     test("exports union schema", () => {
@@ -267,6 +311,22 @@ describe("jsonlEventSchemas", () => {
     test("rejects invalid status", () => {
       expect(ModuleStatusSchema.safeParse("ERROR").success).toBe(false);
       expect(ModuleStatusSchema.safeParse("pass").success).toBe(false);
+    });
+  });
+
+  describe("ToolTestStatusSchema", () => {
+    test("accepts valid statuses", () => {
+      const validStatuses = ["PASS", "FAIL", "ERROR"];
+      for (const status of validStatuses) {
+        expect(ToolTestStatusSchema.safeParse(status).success).toBe(true);
+      }
+    });
+
+    test("rejects invalid status", () => {
+      expect(ToolTestStatusSchema.safeParse("NEED_MORE_INFO").success).toBe(
+        false,
+      );
+      expect(ToolTestStatusSchema.safeParse("pass").success).toBe(false);
     });
   });
 
@@ -871,12 +931,173 @@ describe("jsonlEventSchemas", () => {
   });
 
   // ============================================================================
+  // Phase 7 Event Schema Tests (14-17)
+  // ============================================================================
+
+  describe("ToolTestCompleteEventSchema", () => {
+    test("accepts valid event", () => {
+      const result = ToolTestCompleteEventSchema.safeParse(
+        VALID_FIXTURES.toolTestComplete,
+      );
+      expect(result.success).toBe(true);
+    });
+
+    test("accepts all status values", () => {
+      for (const status of ["PASS", "FAIL", "ERROR"]) {
+        const result = ToolTestCompleteEventSchema.safeParse({
+          ...VALID_FIXTURES.toolTestComplete,
+          status,
+        });
+        expect(result.success).toBe(true);
+      }
+    });
+
+    test("accepts all confidence levels", () => {
+      for (const confidence of ["high", "medium", "low"]) {
+        const result = ToolTestCompleteEventSchema.safeParse({
+          ...VALID_FIXTURES.toolTestComplete,
+          confidence,
+        });
+        expect(result.success).toBe(true);
+      }
+    });
+
+    test("accepts zero scenarios", () => {
+      const result = ToolTestCompleteEventSchema.safeParse({
+        ...VALID_FIXTURES.toolTestComplete,
+        scenariosPassed: 0,
+        scenariosExecuted: 0,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    test("rejects negative scenariosPassed", () => {
+      const result = ToolTestCompleteEventSchema.safeParse({
+        ...VALID_FIXTURES.toolTestComplete,
+        scenariosPassed: -1,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    test("rejects negative executionTime", () => {
+      const result = ToolTestCompleteEventSchema.safeParse({
+        ...VALID_FIXTURES.toolTestComplete,
+        executionTime: -1,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    test("rejects invalid status", () => {
+      const result = ToolTestCompleteEventSchema.safeParse({
+        ...VALID_FIXTURES.toolTestComplete,
+        status: "NEED_MORE_INFO",
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("ValidationSummaryEventSchema", () => {
+    test("accepts valid event", () => {
+      const result = ValidationSummaryEventSchema.safeParse(
+        VALID_FIXTURES.validationSummary,
+      );
+      expect(result.success).toBe(true);
+    });
+
+    test("accepts all zero counts", () => {
+      const result = ValidationSummaryEventSchema.safeParse({
+        ...VALID_FIXTURES.validationSummary,
+        wrongType: 0,
+        missingRequired: 0,
+        extraParams: 0,
+        nullValues: 0,
+        invalidValues: 0,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    test("rejects negative wrongType", () => {
+      const result = ValidationSummaryEventSchema.safeParse({
+        ...VALID_FIXTURES.validationSummary,
+        wrongType: -1,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    test("rejects negative missingRequired", () => {
+      const result = ValidationSummaryEventSchema.safeParse({
+        ...VALID_FIXTURES.validationSummary,
+        missingRequired: -1,
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("PhaseStartedEventSchema", () => {
+    test("accepts valid event", () => {
+      const result = PhaseStartedEventSchema.safeParse(
+        VALID_FIXTURES.phaseStarted,
+      );
+      expect(result.success).toBe(true);
+    });
+
+    test("accepts various phase names", () => {
+      const phases = ["discovery", "assessment", "analysis", "security"];
+      for (const phase of phases) {
+        const result = PhaseStartedEventSchema.safeParse({
+          ...VALID_FIXTURES.phaseStarted,
+          phase,
+        });
+        expect(result.success).toBe(true);
+      }
+    });
+
+    test("rejects missing phase", () => {
+      const { phase, ...rest } = VALID_FIXTURES.phaseStarted;
+      const result = PhaseStartedEventSchema.safeParse(rest);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("PhaseCompleteEventSchema", () => {
+    test("accepts valid event", () => {
+      const result = PhaseCompleteEventSchema.safeParse(
+        VALID_FIXTURES.phaseComplete,
+      );
+      expect(result.success).toBe(true);
+    });
+
+    test("accepts zero duration", () => {
+      const result = PhaseCompleteEventSchema.safeParse({
+        ...VALID_FIXTURES.phaseComplete,
+        duration: 0,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    test("rejects negative duration", () => {
+      const result = PhaseCompleteEventSchema.safeParse({
+        ...VALID_FIXTURES.phaseComplete,
+        duration: -1,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    test("rejects missing duration", () => {
+      const { duration, ...rest } = VALID_FIXTURES.phaseComplete;
+      const result = PhaseCompleteEventSchema.safeParse(rest);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  // ============================================================================
   // Union Schema Tests
   // ============================================================================
 
   describe("JSONLEventSchema (union)", () => {
-    test("accepts all 13 event types", () => {
+    test("accepts all 17 event types", () => {
       const fixtures = [
+        // Core events (1-13)
         VALID_FIXTURES.serverConnected,
         VALID_FIXTURES.toolDiscovered,
         VALID_FIXTURES.toolsDiscoveryComplete,
@@ -891,6 +1112,11 @@ describe("jsonlEventSchemas", () => {
         VALID_FIXTURES.annotationReviewRecommended,
         VALID_FIXTURES.annotationAligned,
         VALID_FIXTURES.assessmentComplete,
+        // Phase 7 events (14-17)
+        VALID_FIXTURES.toolTestComplete,
+        VALID_FIXTURES.validationSummary,
+        VALID_FIXTURES.phaseStarted,
+        VALID_FIXTURES.phaseComplete,
       ];
 
       for (const fixture of fixtures) {
