@@ -21,11 +21,50 @@ export function formatZodIssue(issue: ZodIssue): string {
 
 /**
  * Format a ZodError into a readable string.
+ * Detects union validation failures and extracts the most specific error messages.
  *
  * @param error - Zod validation error
  * @returns Formatted error messages joined by newlines
  */
 export function formatZodError(error: ZodError): string {
+  // Check if this is a union validation error (code: invalid_union)
+  const unionErrors = error.errors.filter((e) => e.code === "invalid_union");
+
+  if (unionErrors.length > 0) {
+    // Extract detailed errors from union attempts
+    const detailedErrors: string[] = [];
+
+    for (const unionError of unionErrors) {
+      // Union errors have unionErrors property with detailed failures
+      if (
+        "unionErrors" in unionError &&
+        Array.isArray(unionError.unionErrors)
+      ) {
+        for (const subError of unionError.unionErrors as ZodError[]) {
+          // Find the most specific error message (not "Required")
+          const specificErrors = subError.errors.filter(
+            (e) => e.message !== "Required" && e.code !== "invalid_type",
+          );
+
+          if (specificErrors.length > 0) {
+            detailedErrors.push(...specificErrors.map(formatZodIssue));
+          } else {
+            // Fallback to any error from this branch
+            detailedErrors.push(...subError.errors.map(formatZodIssue));
+          }
+        }
+      }
+    }
+
+    // If we found detailed errors, use them; otherwise fall back to generic message
+    if (detailedErrors.length > 0) {
+      // Deduplicate errors and return all unique errors
+      const uniqueErrors = Array.from(new Set(detailedErrors));
+      return uniqueErrors.join("\n");
+    }
+  }
+
+  // Standard formatting for non-union errors
   return error.errors.map(formatZodIssue).join("\n");
 }
 

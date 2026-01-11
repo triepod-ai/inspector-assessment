@@ -14,6 +14,14 @@
 import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import {
+  Tool,
+  CompatibilityCallToolResult,
+} from "@modelcontextprotocol/sdk/types.js";
 
 // Import shared server config loading (Issue #84 - Zod validation)
 import { loadServerConfig } from "./lib/assessment-runner/server-config.js";
@@ -85,15 +93,6 @@ function validateEnvVars(
 
   return validatedEnv;
 }
-
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import {
-  Tool,
-  CompatibilityCallToolResult,
-} from "@modelcontextprotocol/sdk/types.js";
 
 // Import from local client lib (will use package exports when published)
 import { SecurityAssessor } from "../../client/lib/services/assessment/modules/SecurityAssessor.js";
@@ -276,7 +275,7 @@ async function runSecurityAssessment(
 
   const config: AssessmentConfiguration = {
     ...DEFAULT_ASSESSMENT_CONFIG,
-    securityPatternsToTest: 17,
+    securityPatternsToTest: 30,
     reviewerMode: false,
     testTimeout: 30000,
   };
@@ -288,7 +287,7 @@ async function runSecurityAssessment(
     config,
   };
 
-  console.log(`🛡️  Running security assessment with 23 attack patterns...`);
+  console.log(`🛡️  Running security assessment with 30 attack patterns...`);
   const assessor = new SecurityAssessor(config);
   const results = await assessor.assess(context);
 
@@ -428,7 +427,7 @@ function printHelp() {
   console.log(`
 Usage: mcp-assess-security [options] [server-name]
 
-Run security assessment against an MCP server with 23 attack patterns.
+Run security assessment against an MCP server with 30 attack patterns.
 
 Options:
   --server, -s <name>    Server name (required, or pass as first positional arg)
@@ -439,12 +438,12 @@ Options:
   --verbose, -v          Enable verbose logging
   --help, -h             Show this help message
 
-Attack Patterns Tested (23 total):
+Attack Patterns Tested (30 total):
   • Command Injection, SQL Injection, Path Traversal
   • Calculator Injection, Code Execution, XXE
   • Data Exfiltration, Token Theft, NoSQL Injection
   • Unicode Bypass, Nested Injection, Package Squatting
-  • And more...
+  • Session Management, Auth Bypass, and more...
 
 Examples:
   mcp-assess-security my-server

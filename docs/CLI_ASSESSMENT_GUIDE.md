@@ -1347,6 +1347,112 @@ Or add to Claude Desktop config:
 
 ---
 
+### Issue: "Invalid server config" (Config Validation Errors)
+
+**Error:**
+
+```
+Error: Invalid server config in /tmp/config.json:
+url: url must be a valid URL
+```
+
+Or for union validation failures:
+
+```
+Error: Invalid server config in /tmp/config.json:
+url: url must be a valid URL
+command: command is required for stdio transport
+transport: Invalid enum value. Expected 'http' | 'sse' | 'stdio', received 'ws'
+```
+
+**Cause:**
+
+The config file format is invalid. As of v1.32.1, server configurations are validated with Zod schemas for runtime type safety (Issue #84). Error messages now show ALL validation failures to help diagnose configuration issues quickly.
+
+**Solution:**
+
+Check the error message for specific validation failures. Common issues:
+
+1. **Invalid URL (HTTP/SSE configs):**
+
+   ```json
+   {
+     "transport": "http",
+     "url": "invalid-url" // ❌ Must be a valid URL
+   }
+   ```
+
+   **Fix:**
+
+   ```json
+   {
+     "transport": "http",
+     "url": "http://localhost:8000/mcp" // ✅ Valid URL
+   }
+   ```
+
+2. **Missing required fields (stdio configs):**
+
+   ```json
+   {
+     "transport": "stdio"
+     // ❌ Missing "command" field
+   }
+   ```
+
+   **Fix:**
+
+   ```json
+   {
+     "transport": "stdio",
+     "command": "python3",
+     "args": ["server.py"]
+   }
+   ```
+
+3. **Invalid transport type:**
+
+   ```json
+   {
+     "transport": "websocket", // ❌ Not supported
+     "url": "ws://localhost:8000"
+   }
+   ```
+
+   **Fix:** Use `"http"`, `"sse"`, or `"stdio"` only.
+
+4. **Union validation errors** (mixed config format):
+
+   When you see multiple error messages from different transport types, it means the config doesn't match any valid transport format. Check which transport you intend to use and ensure all required fields are present.
+
+**Valid Config Examples:**
+
+```json
+// HTTP config
+{
+  "transport": "http",
+  "url": "http://localhost:8000/mcp"
+}
+
+// SSE config
+{
+  "transport": "sse",
+  "url": "http://localhost:9000/sse"
+}
+
+// STDIO config
+{
+  "transport": "stdio",
+  "command": "python3",
+  "args": ["server.py"],
+  "env": { "API_KEY": "..." }
+}
+```
+
+See [Configuration Files](#configuration-files) section for complete reference.
+
+---
+
 ### Issue: "Failed to connect to MCP server"
 
 **Error:**
