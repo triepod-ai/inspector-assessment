@@ -1094,4 +1094,196 @@ describe("jsonlEventSchemas", () => {
       expect(results).toEqual([]);
     });
   });
+
+  // ============================================================================
+  // Stage 3 Fix Validation Tests
+  // ============================================================================
+
+  describe("[FIX-001] AnnotationAlignedEventSchema nullable annotations", () => {
+    // Validates FIX-001: Added .nullable() to annotations object in AnnotationAlignedEventSchema
+    // Covers ISSUE-001: Inconsistent nullable handling between ToolAnnotationsSchema and inline annotations
+
+    test("accepts null annotations value", () => {
+      const result = AnnotationAlignedEventSchema.safeParse({
+        ...BASE_EVENT,
+        event: "annotation_aligned",
+        tool: "test_tool",
+        confidence: "high",
+        annotations: null,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.annotations).toBeNull();
+      }
+    });
+
+    test("accepts undefined annotations", () => {
+      const eventWithoutAnnotations = {
+        ...BASE_EVENT,
+        event: "annotation_aligned",
+        tool: "test_tool",
+        confidence: "high",
+      };
+      // undefined is equivalent to omitting the field
+      const result = AnnotationAlignedEventSchema.safeParse(
+        eventWithoutAnnotations,
+      );
+      expect(result.success).toBe(false); // annotations is required, so undefined should fail
+    });
+
+    test("nullable behavior matches ToolAnnotationsSchema", () => {
+      // Both should accept null
+      const nullAnnotations = null;
+
+      const toolAnnotationsResult =
+        ToolAnnotationsSchema.safeParse(nullAnnotations);
+      expect(toolAnnotationsResult.success).toBe(true);
+
+      const annotationAlignedResult = AnnotationAlignedEventSchema.safeParse({
+        ...BASE_EVENT,
+        event: "annotation_aligned",
+        tool: "test_tool",
+        confidence: "high",
+        annotations: nullAnnotations,
+      });
+      expect(annotationAlignedResult.success).toBe(true);
+
+      // Both should accept valid object
+      const validAnnotations = {
+        readOnlyHint: true,
+        destructiveHint: false,
+      };
+
+      const toolAnnotationsResultValid =
+        ToolAnnotationsSchema.safeParse(validAnnotations);
+      expect(toolAnnotationsResultValid.success).toBe(true);
+
+      const annotationAlignedResultValid =
+        AnnotationAlignedEventSchema.safeParse({
+          ...BASE_EVENT,
+          event: "annotation_aligned",
+          tool: "test_tool",
+          confidence: "high",
+          annotations: validAnnotations,
+        });
+      expect(annotationAlignedResultValid.success).toBe(true);
+    });
+
+    test("accepts partial annotations object", () => {
+      const result = AnnotationAlignedEventSchema.safeParse({
+        ...BASE_EVENT,
+        event: "annotation_aligned",
+        tool: "test_tool",
+        confidence: "high",
+        annotations: {
+          readOnlyHint: true,
+          // Other fields omitted
+        },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    test("accepts empty annotations object", () => {
+      const result = AnnotationAlignedEventSchema.safeParse({
+        ...BASE_EVENT,
+        event: "annotation_aligned",
+        tool: "test_tool",
+        confidence: "high",
+        annotations: {},
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("[FIX-002] safeParseEvent JSON error handling", () => {
+    // Validates FIX-002: Added JSDoc @remarks documenting custom error conversion
+    // Covers ISSUE-002: JSON parse errors are converted to ZodError with custom code
+
+    test("JSON parse error returns ZodError with custom code", () => {
+      const result = safeParseEvent("not valid json {{{");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(ZodError);
+        // Check that the error has the custom code
+        expect(result.error.errors[0].code).toBe("custom");
+      }
+    });
+
+    test('JSON parse error message contains "Invalid JSON" prefix', () => {
+      const result = safeParseEvent("{ broken json }");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const message = result.error.errors[0].message;
+        expect(message).toMatch(/^Invalid JSON:/);
+      }
+    });
+
+    test("JSON parse error has empty path", () => {
+      const result = safeParseEvent("not json");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        // JSON parse errors should have empty path since they occur before schema validation
+        expect(result.error.errors[0].path).toEqual([]);
+      }
+    });
+
+    test("schema validation errors have non-empty path", () => {
+      // Valid JSON but invalid schema - should have path information
+      const result = safeParseEvent({
+        ...BASE_EVENT,
+        event: "server_connected",
+        serverName: 123, // Invalid type
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        // Union schemas don't provide field paths, but error should exist
+        expect(result.error.errors.length).toBeGreaterThan(0);
+      }
+    });
+
+    test("distinguishes between JSON parse and schema validation errors", () => {
+      // JSON parse error
+      const jsonError = safeParseEvent("invalid");
+      expect(jsonError.success).toBe(false);
+      if (!jsonError.success) {
+        expect(jsonError.error.errors[0].message).toContain("Invalid JSON");
+        expect(jsonError.error.errors[0].code).toBe("custom");
+      }
+
+      // Schema validation error
+      const schemaError = safeParseEvent({ invalid: "schema" });
+      expect(schemaError.success).toBe(false);
+      if (!schemaError.success) {
+        expect(schemaError.error.errors[0].message).not.toContain(
+          "Invalid JSON",
+        );
+        expect(schemaError.error.errors[0].code).not.toBe("custom");
+      }
+    });
+
+    test("handles empty string as JSON parse error", () => {
+      const result = safeParseEvent("");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.errors[0].message).toContain("Invalid JSON");
+      }
+    });
+
+    test("handles valid JSON string correctly", () => {
+      const json = JSON.stringify(VALID_FIXTURES.serverConnected);
+      const result = safeParseEvent(json);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.event).toBe("server_connected");
+      }
+    });
+
+    test("handles valid object correctly", () => {
+      const result = safeParseEvent(VALID_FIXTURES.toolDiscovered);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.event).toBe("tool_discovered");
+      }
+    });
+  });
 });

@@ -344,12 +344,14 @@ export const AnnotationAlignedEventSchema = BaseEventSchema.extend({
   event: z.literal("annotation_aligned"),
   tool: z.string(),
   confidence: ConfidenceLevelSchema,
-  annotations: z.object({
-    readOnlyHint: z.boolean().optional(),
-    destructiveHint: z.boolean().optional(),
-    openWorldHint: z.boolean().optional(),
-    idempotentHint: z.boolean().optional(),
-  }),
+  annotations: z
+    .object({
+      readOnlyHint: z.boolean().optional(),
+      destructiveHint: z.boolean().optional(),
+      openWorldHint: z.boolean().optional(),
+      idempotentHint: z.boolean().optional(),
+    })
+    .nullable(),
 });
 export type AnnotationAlignedEvent = z.infer<
   typeof AnnotationAlignedEventSchema
@@ -431,6 +433,10 @@ export function parseEvent(input: string | unknown): JSONLEventParsed {
  *
  * @param input - Raw JSON string or parsed object
  * @returns SafeParseResult with success status and data/error
+ *
+ * @remarks
+ * JSON parse errors are converted to ZodError with code "custom" and message prefixed with "Invalid JSON:".
+ * This allows uniform error handling, but consumers should be aware that not all errors are schema validation failures.
  *
  * @example
  * ```typescript
