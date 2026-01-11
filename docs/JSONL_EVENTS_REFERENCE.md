@@ -98,6 +98,132 @@ This ensures all event emitters use the same schema version, enabling version bu
 
 ---
 
+## Zod Runtime Validation
+
+The Inspector provides Zod schemas for runtime validation of JSONL events. This enables type-safe parsing of event streams in TypeScript consumers.
+
+### Installation
+
+The schemas are exported from the `@bryan-thompson/inspector-assessment` package:
+
+```typescript
+import {
+  JSONLEventSchema,
+  parseEvent,
+  safeParseEvent,
+  validateEvent,
+  isEventType,
+  parseEventLines,
+  type JSONLEventParsed,
+} from "@bryan-thompson/inspector-assessment/lib/assessment/jsonlEventSchemas";
+```
+
+### Quick Start
+
+```typescript
+// Parse a single event line
+const line =
+  '{"event":"server_connected","serverName":"my-server","transport":"http","version":"1.29.0","schemaVersion":1}';
+
+// Safe parsing (recommended)
+const result = safeParseEvent(line);
+if (result.success) {
+  const event = result.data;
+  if (isEventType(event, "server_connected")) {
+    console.log(`Connected to ${event.serverName} via ${event.transport}`);
+  }
+} else {
+  console.error("Invalid event:", result.error.message);
+}
+
+// Throwing parse (for known-good input)
+try {
+  const event = parseEvent(line);
+  console.log(event.event);
+} catch (e) {
+  console.error("Parse failed:", e);
+}
+```
+
+### Available Schemas
+
+| Schema                                   | Description                                    |
+| ---------------------------------------- | ---------------------------------------------- |
+| `BaseEventSchema`                        | Common version fields (version, schemaVersion) |
+| `ServerConnectedEventSchema`             | Server connection event                        |
+| `ToolDiscoveredEventSchema`              | Tool discovery event                           |
+| `ToolsDiscoveryCompleteEventSchema`      | Discovery completion                           |
+| `ModulesConfiguredEventSchema`           | Module configuration                           |
+| `ModuleStartedEventSchema`               | Module start                                   |
+| `TestBatchEventSchema`                   | Progress batch                                 |
+| `ModuleCompleteEventSchema`              | Module completion (with AUP enrichment)        |
+| `VulnerabilityFoundEventSchema`          | Security vulnerability                         |
+| `AnnotationMissingEventSchema`           | Missing annotation                             |
+| `AnnotationMisalignedEventSchema`        | Misaligned annotation                          |
+| `AnnotationReviewRecommendedEventSchema` | Review recommendation                          |
+| `AnnotationAlignedEventSchema`           | Aligned annotation                             |
+| `AssessmentCompleteEventSchema`          | Assessment completion                          |
+| `JSONLEventSchema`                       | Union of all event types                       |
+
+### Helper Functions
+
+| Function                   | Description                               |
+| -------------------------- | ----------------------------------------- |
+| `parseEvent(input)`        | Parse and validate, throws on error       |
+| `safeParseEvent(input)`    | Parse and validate, returns result object |
+| `validateEvent(input)`     | Returns array of error messages           |
+| `isEventType(event, type)` | Type guard for specific event types       |
+| `parseEventLines(lines)`   | Batch parse with line numbers             |
+
+### Type Inference
+
+Types are automatically inferred from schemas:
+
+```typescript
+import type { JSONLEventParsed } from "@bryan-thompson/inspector-assessment/lib/assessment/jsonlEventSchemas";
+
+// JSONLEventParsed is the union type of all 13 events
+function handleEvent(event: JSONLEventParsed) {
+  switch (event.event) {
+    case "server_connected":
+      // event is narrowed to ServerConnectedEvent
+      console.log(event.serverName);
+      break;
+    case "vulnerability_found":
+      // event is narrowed to VulnerabilityFoundEvent
+      console.log(event.riskLevel);
+      break;
+  }
+}
+```
+
+### Batch Processing Example
+
+```typescript
+import { parseEventLines } from "@bryan-thompson/inspector-assessment/lib/assessment/jsonlEventSchemas";
+
+// Process stderr output from assessment CLI
+const lines = stderrOutput.split("\n").filter((line) => line.trim());
+const results = parseEventLines(lines);
+
+for (const { line, result } of results) {
+  if (!result.success) {
+    console.error(`Line ${line}: Parse error - ${result.error.message}`);
+    continue;
+  }
+  // result.data is typed as JSONLEventParsed
+  processEvent(result.data);
+}
+```
+
+### Source Files
+
+- **Schema definitions**: `client/src/lib/assessment/jsonlEventSchemas.ts`
+- **Tests**: `client/src/lib/assessment/__tests__/jsonlEventSchemas.test.ts`
+- **TypeScript interfaces**: `scripts/lib/jsonl-events.ts`
+
+---
+
 ## Table of Contents
 
 - [Overview](#overview)
