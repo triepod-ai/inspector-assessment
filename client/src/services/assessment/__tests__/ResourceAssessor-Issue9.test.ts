@@ -641,17 +641,25 @@ describe("ResourceAssessor - Issue #9 Enrichment Fields", () => {
   describe("Resource Template Integration", () => {
     const createTemplateContext = (
       uriTemplate: string,
-    ): Partial<AssessmentContext> => ({
-      resourceTemplates: [
-        { uriTemplate, name: "Test Template", mimeType: "text/plain" },
-      ],
-      readResource: async (uri: string) => {
-        if (uri.includes("..")) {
-          throw new Error("Path traversal blocked");
-        }
-        return "normal content";
-      },
-    });
+    ): Partial<AssessmentContext> => {
+      // Extract base pattern from template to match expected URIs
+      const templateBase = uriTemplate.replace(/\{[^}]+\}/g, "");
+      return {
+        resourceTemplates: [
+          { uriTemplate, name: "Test Template", mimeType: "text/plain" },
+        ],
+        readResource: async (uri: string) => {
+          // Reject hidden resource probes
+          if (!uri.startsWith(templateBase.split("{")[0])) {
+            throw new Error("Resource not found");
+          }
+          if (uri.includes("..")) {
+            throw new Error("Path traversal blocked");
+          }
+          return "normal content";
+        },
+      };
+    };
 
     it("should initialize enrichment fields for template results", async () => {
       const context = createTemplateContext("file:///data/{filename}");
