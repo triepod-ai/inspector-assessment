@@ -97,6 +97,78 @@ const HIDDEN_RESOURCE_PATTERNS = [
   ".aws/credentials",
 ];
 
+// Issue #127, Challenge #24: Blob DoS size payloads for resource template testing
+const DOS_SIZE_PAYLOADS = [
+  "999999999", // ~1GB request (HIGH risk)
+  "100000000", // 100MB request (HIGH risk)
+  "10000000", // 10MB request (MEDIUM risk)
+  "-1", // Negative size (invalid)
+  "0", // Zero size (edge case)
+  "NaN", // Invalid number
+  "Infinity", // Overflow attempt
+];
+
+// Issue #127, Challenge #24: Known polyglot file combinations for testing
+const POLYGLOT_COMBINATIONS: Array<{
+  baseType: string;
+  hiddenType: string;
+  description: string;
+  magicBytes: number[];
+}> = [
+  {
+    baseType: "gif",
+    hiddenType: "javascript",
+    description: "GIF89a + JS comment trick",
+    magicBytes: [0x47, 0x49, 0x46, 0x38, 0x39, 0x61],
+  },
+  {
+    baseType: "image",
+    hiddenType: "javascript",
+    description: "Generic image polyglot",
+    magicBytes: [0x47, 0x49, 0x46, 0x38, 0x39, 0x61],
+  },
+  {
+    baseType: "png",
+    hiddenType: "html",
+    description: "PNG + HTML injection",
+    magicBytes: [0x89, 0x50, 0x4e, 0x47],
+  },
+  {
+    baseType: "pdf",
+    hiddenType: "javascript",
+    description: "PDF + JS injection",
+    magicBytes: [0x25, 0x50, 0x44, 0x46, 0x2d],
+  },
+  {
+    baseType: "zip",
+    hiddenType: "html",
+    description: "ZIP + HTML injection",
+    magicBytes: [0x50, 0x4b],
+  },
+  {
+    baseType: "jpeg",
+    hiddenType: "php",
+    description: "JPEG + PHP webshell",
+    magicBytes: [0xff, 0xd8, 0xff],
+  },
+];
+
+// Issue #127, Challenge #24: MIME type magic bytes for content validation
+const MIME_MAGIC_BYTES: Record<
+  string,
+  { bytes: number[]; description: string }
+> = {
+  "image/png": { bytes: [0x89, 0x50, 0x4e, 0x47], description: "PNG" },
+  "image/gif": { bytes: [0x47, 0x49, 0x46, 0x38], description: "GIF" },
+  "image/jpeg": { bytes: [0xff, 0xd8, 0xff], description: "JPEG" },
+  "application/pdf": {
+    bytes: [0x25, 0x50, 0x44, 0x46],
+    description: "PDF",
+  },
+  "application/zip": { bytes: [0x50, 0x4b], description: "ZIP" },
+  "application/gzip": { bytes: [0x1f, 0x8b], description: "GZIP" },
+};
+
 // Sensitive content patterns in resource content
 const SENSITIVE_CONTENT_PATTERNS = [
   /-----BEGIN.*PRIVATE KEY-----/i,
@@ -316,6 +388,17 @@ export class ResourceAssessor extends BaseAssessor {
         context,
       );
       results.push(...injectionResults);
+
+      // Issue #127, Challenge #24: Test blob DoS vulnerabilities
+      const blobDosResults = await this.testBlobDoS(template, context);
+      results.push(...blobDosResults);
+
+      // Issue #127, Challenge #24: Test polyglot file vulnerabilities
+      const polyglotResults = await this.testPolyglotResources(
+        template,
+        context,
+      );
+      results.push(...polyglotResults);
     }
 
     // Issue #119, Challenge #14: Probe for hidden/undeclared resources
@@ -339,12 +422,28 @@ export class ResourceAssessor extends BaseAssessor {
     const promptInjectionVulnerabilities = results.filter(
       (r) => r.promptInjectionDetected,
     ).length;
+    // Issue #127, Challenge #24: Binary resource vulnerability metrics
+    const blobDosVulnerabilities = results.filter(
+      (r) =>
+        r.blobDosTested &&
+        r.blobDosRiskLevel &&
+        ["HIGH", "MEDIUM"].includes(r.blobDosRiskLevel),
+    ).length;
+    const polyglotVulnerabilities = results.filter(
+      (r) => r.polyglotTested && r.securityIssues.length > 0,
+    ).length;
+    const mimeValidationFailures = results.filter(
+      (r) => r.mimeTypeMismatch === true,
+    ).length;
 
     // Determine status
     const status = this.determineResourceStatus(
       pathTraversalVulnerabilities,
       sensitiveDataExposures,
       promptInjectionVulnerabilities,
+      blobDosVulnerabilities,
+      polyglotVulnerabilities,
+      mimeValidationFailures,
       securityIssuesFound,
       results.length,
     );
@@ -355,6 +454,9 @@ export class ResourceAssessor extends BaseAssessor {
       pathTraversalVulnerabilities,
       sensitiveDataExposures,
       promptInjectionVulnerabilities,
+      blobDosVulnerabilities,
+      polyglotVulnerabilities,
+      mimeValidationFailures,
     );
     const recommendations = this.generateRecommendations(results);
 
@@ -366,6 +468,9 @@ export class ResourceAssessor extends BaseAssessor {
       pathTraversalVulnerabilities,
       sensitiveDataExposures,
       promptInjectionVulnerabilities,
+      blobDosVulnerabilities,
+      polyglotVulnerabilities,
+      mimeValidationFailures,
       results,
       status,
       explanation,
@@ -382,6 +487,9 @@ export class ResourceAssessor extends BaseAssessor {
       pathTraversalVulnerabilities: 0,
       sensitiveDataExposures: 0,
       promptInjectionVulnerabilities: 0,
+      blobDosVulnerabilities: 0,
+      polyglotVulnerabilities: 0,
+      mimeValidationFailures: 0,
       results: [],
       status: "PASS",
       explanation:
@@ -475,6 +583,25 @@ export class ResourceAssessor extends BaseAssessor {
             result.promptInjectionPatterns = injectionMatches;
             result.securityIssues.push(
               `Prompt injection patterns detected: ${injectionMatches.join(", ")}`,
+            );
+          }
+        }
+
+        // Issue #127, Challenge #24: MIME type validation
+        if (content && resource.mimeType) {
+          const mimeValidation = this.validateMimeType(
+            content,
+            resource.mimeType,
+          );
+          result.mimeValidationPerformed = true;
+          result.declaredMimeType = resource.mimeType;
+          if (mimeValidation.expectedMimeType) {
+            result.expectedMimeType = mimeValidation.expectedMimeType;
+          }
+          if (mimeValidation.mismatch) {
+            result.mimeTypeMismatch = true;
+            result.securityIssues.push(
+              `MIME type mismatch: declared ${resource.mimeType} but content appears to be ${mimeValidation.expectedMimeType} (CWE-436)`,
             );
           }
         }
@@ -893,6 +1020,256 @@ export class ResourceAssessor extends BaseAssessor {
     return null; // Only return results for accessible hidden resources
   }
 
+  /**
+   * Issue #127, Challenge #24: Test blob resource templates for DoS vulnerabilities
+   * Detects arbitrary size acceptance without validation/limits (CWE-400, CWE-409)
+   */
+  private async testBlobDoS(
+    template: { uriTemplate: string; name?: string },
+    context: AssessmentContext,
+  ): Promise<ResourceTestResult[]> {
+    const results: ResourceTestResult[] = [];
+
+    // Only test blob:// templates
+    if (!template.uriTemplate.startsWith("blob://")) {
+      return results;
+    }
+
+    if (!context.readResource) {
+      return results;
+    }
+
+    const PROBE_DELAY_MS = 50;
+
+    for (const sizePayload of DOS_SIZE_PAYLOADS) {
+      this.testCount++;
+
+      // Construct URI: blob://{size}/{mime_base}/{mime_subtype}
+      const testUri = template.uriTemplate
+        .replace(/\{size\}/g, sizePayload)
+        .replace(/\{mime_base\}/g, "application")
+        .replace(/\{mime_subtype\}/g, "octet-stream");
+
+      const dosResult: ResourceTestResult = {
+        resourceUri: testUri,
+        resourceName: `${template.name || "blob"} (DoS size test: ${sizePayload})`,
+        tested: true,
+        accessible: false,
+        securityIssues: [],
+        pathTraversalVulnerable: false,
+        sensitiveDataExposed: false,
+        promptInjectionDetected: false,
+        promptInjectionPatterns: [],
+        validUri: true,
+        sensitivePatterns: [],
+        accessControls: { requiresAuth: false },
+        dataClassification: "internal",
+        blobDosTested: true,
+        blobRequestedSize: parseInt(sizePayload) || 0,
+      };
+
+      try {
+        const content = await this.executeWithTimeout(
+          context.readResource(testUri),
+          2000, // Short timeout to avoid actual DoS
+        );
+
+        if (content) {
+          dosResult.accessible = true;
+          const requestedSize = parseInt(sizePayload);
+
+          // Detect vulnerability: server accepted arbitrary large size
+          if (!isNaN(requestedSize) && requestedSize > 1024 * 1024) {
+            dosResult.blobDosRiskLevel =
+              requestedSize > 100 * 1024 * 1024 ? "HIGH" : "MEDIUM";
+            dosResult.securityIssues.push(
+              `Blob DoS vulnerability: server accepted ${this.formatBytes(requestedSize)} request without size validation (CWE-400, CWE-409)`,
+            );
+          } else if (
+            sizePayload === "-1" ||
+            sizePayload === "NaN" ||
+            sizePayload === "Infinity"
+          ) {
+            // Invalid values accepted = poor input validation
+            dosResult.securityIssues.push(
+              `Blob size validation bypass: server accepted invalid size "${sizePayload}"`,
+            );
+            dosResult.blobDosRiskLevel = "MEDIUM";
+          } else {
+            dosResult.blobDosRiskLevel = "LOW";
+          }
+        }
+      } catch {
+        // Expected - large sizes should be rejected
+        this.logger.debug(`Blob DoS test correctly rejected for ${testUri}`);
+        dosResult.blobDosRiskLevel = "NONE";
+      }
+
+      if (dosResult.securityIssues.length > 0) {
+        results.push(dosResult);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, PROBE_DELAY_MS));
+    }
+
+    return results;
+  }
+
+  /**
+   * Issue #127, Challenge #24: Test polyglot resource generation vulnerabilities
+   * Detects dual-format file injection (CWE-434, CWE-436)
+   */
+  private async testPolyglotResources(
+    template: { uriTemplate: string; name?: string },
+    context: AssessmentContext,
+  ): Promise<ResourceTestResult[]> {
+    const results: ResourceTestResult[] = [];
+
+    // Only test polyglot:// templates
+    if (!template.uriTemplate.startsWith("polyglot://")) {
+      return results;
+    }
+
+    if (!context.readResource) {
+      return results;
+    }
+
+    const PROBE_DELAY_MS = 50;
+
+    for (const combo of POLYGLOT_COMBINATIONS) {
+      this.testCount++;
+
+      const testUri = template.uriTemplate
+        .replace(/\{base_type\}/g, combo.baseType)
+        .replace(/\{hidden_type\}/g, combo.hiddenType);
+
+      const polyglotResult: ResourceTestResult = {
+        resourceUri: testUri,
+        resourceName: `${template.name || "polyglot"} (${combo.baseType}/${combo.hiddenType})`,
+        tested: true,
+        accessible: false,
+        securityIssues: [],
+        pathTraversalVulnerable: false,
+        sensitiveDataExposed: false,
+        promptInjectionDetected: false,
+        promptInjectionPatterns: [],
+        validUri: true,
+        sensitivePatterns: [],
+        accessControls: { requiresAuth: false },
+        dataClassification: "internal",
+        polyglotTested: true,
+        polyglotCombination: `${combo.baseType}/${combo.hiddenType}`,
+      };
+
+      try {
+        const content = await this.executeWithTimeout(
+          context.readResource(testUri),
+          3000,
+        );
+
+        if (content) {
+          polyglotResult.accessible = true;
+
+          // Check if response indicates polyglot generation
+          // Parse MCP response for vulnerability indicators
+          try {
+            const parsed = JSON.parse(content);
+            if (parsed.vulnerable === true || parsed.polyglot_known === true) {
+              polyglotResult.securityIssues.push(
+                `Polyglot file vulnerability: server generates ${combo.description} (CWE-434, CWE-436)`,
+              );
+            }
+          } catch {
+            // Check for magic bytes in raw content (string-based since MCP returns text)
+            const contentBytes = this.stringToBytes(content);
+            if (this.startsWithBytes(contentBytes, combo.magicBytes)) {
+              polyglotResult.securityIssues.push(
+                `Polyglot file vulnerability: response contains ${combo.baseType} magic bytes with potential ${combo.hiddenType} payload`,
+              );
+            }
+          }
+        }
+      } catch {
+        this.logger.debug(`Polyglot test correctly rejected for ${testUri}`);
+      }
+
+      if (polyglotResult.securityIssues.length > 0) {
+        results.push(polyglotResult);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, PROBE_DELAY_MS));
+    }
+
+    return results;
+  }
+
+  /**
+   * Issue #127, Challenge #24: Validate MIME type matches actual content
+   * Detects content-type confusion (CWE-436)
+   */
+  private validateMimeType(
+    content: string | Uint8Array,
+    declaredMimeType: string | undefined,
+  ): { valid: boolean; expectedMimeType?: string; mismatch: boolean } {
+    if (!declaredMimeType) {
+      return { valid: true, mismatch: false };
+    }
+
+    const bytes =
+      typeof content === "string"
+        ? this.stringToBytes(content)
+        : new Uint8Array(content);
+
+    for (const [mimeType, info] of Object.entries(MIME_MAGIC_BYTES)) {
+      if (this.startsWithBytes(bytes, info.bytes)) {
+        const mismatch =
+          declaredMimeType.toLowerCase() !== mimeType.toLowerCase();
+        return {
+          valid: !mismatch,
+          expectedMimeType: mimeType,
+          mismatch,
+        };
+      }
+    }
+
+    // No magic bytes matched - could be text or unknown binary
+    return { valid: true, mismatch: false };
+  }
+
+  /**
+   * Issue #127: Format bytes as human-readable string
+   */
+  private formatBytes(bytes: number): string {
+    if (bytes >= 1024 * 1024 * 1024)
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)}GB`;
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+    return `${bytes}B`;
+  }
+
+  /**
+   * Issue #127: Convert string to bytes for magic byte comparison
+   */
+  private stringToBytes(str: string): Uint8Array {
+    // Use raw char codes, not UTF-8 encoding, for magic byte detection
+    const bytes = new Uint8Array(str.length);
+    for (let i = 0; i < str.length; i++) {
+      bytes[i] = str.charCodeAt(i) & 0xff;
+    }
+    return bytes;
+  }
+
+  /**
+   * Issue #127: Check if content starts with expected magic bytes
+   */
+  private startsWithBytes(content: Uint8Array, pattern: number[]): boolean {
+    if (content.length < pattern.length) return false;
+    for (let i = 0; i < pattern.length; i++) {
+      if (content[i] !== pattern[i]) return false;
+    }
+    return true;
+  }
+
   private isValidUri(uri: string): boolean {
     try {
       // Check for common URI schemes
@@ -963,6 +1340,9 @@ export class ResourceAssessor extends BaseAssessor {
     pathTraversalVulnerabilities: number,
     sensitiveDataExposures: number,
     promptInjectionVulnerabilities: number,
+    blobDosVulnerabilities: number,
+    polyglotVulnerabilities: number,
+    mimeValidationFailures: number,
     securityIssuesFound: number,
     totalResources: number,
   ): AssessmentStatus {
@@ -970,8 +1350,12 @@ export class ResourceAssessor extends BaseAssessor {
     if (pathTraversalVulnerabilities > 0) return "FAIL";
     if (sensitiveDataExposures > 0) return "FAIL";
     if (promptInjectionVulnerabilities > 0) return "FAIL";
+    // Issue #127, Challenge #24: Binary resource vulnerabilities
+    if (blobDosVulnerabilities > 0) return "FAIL";
+    if (polyglotVulnerabilities > 0) return "FAIL";
 
     // Moderate issues
+    if (mimeValidationFailures > 0) return "NEED_MORE_INFO";
     if (securityIssuesFound > 0) return "NEED_MORE_INFO";
 
     // No resources tested
@@ -985,6 +1369,9 @@ export class ResourceAssessor extends BaseAssessor {
     pathTraversalVulnerabilities: number,
     sensitiveDataExposures: number,
     promptInjectionVulnerabilities: number,
+    blobDosVulnerabilities: number,
+    polyglotVulnerabilities: number,
+    mimeValidationFailures: number,
   ): string {
     const parts: string[] = [];
 
@@ -1005,6 +1392,25 @@ export class ResourceAssessor extends BaseAssessor {
     if (promptInjectionVulnerabilities > 0) {
       parts.push(
         `CRITICAL: ${promptInjectionVulnerabilities} resource(s) contain prompt injection patterns.`,
+      );
+    }
+
+    // Issue #127, Challenge #24: Binary resource vulnerability explanations
+    if (blobDosVulnerabilities > 0) {
+      parts.push(
+        `CRITICAL: ${blobDosVulnerabilities} blob DoS vulnerability(ies) detected (arbitrary size acceptance).`,
+      );
+    }
+
+    if (polyglotVulnerabilities > 0) {
+      parts.push(
+        `CRITICAL: ${polyglotVulnerabilities} polyglot file vulnerability(ies) detected (dual-format injection).`,
+      );
+    }
+
+    if (mimeValidationFailures > 0) {
+      parts.push(
+        `WARNING: ${mimeValidationFailures} MIME type validation failure(s) detected.`,
       );
     }
 
@@ -1074,6 +1480,37 @@ export class ResourceAssessor extends BaseAssessor {
     if (inaccessibleResults.length > 0) {
       recommendations.push(
         `${inaccessibleResults.length} declared resource(s) are not accessible. Verify resource paths and permissions.`,
+      );
+    }
+
+    // Issue #127, Challenge #24: Blob DoS recommendations
+    const blobDosResults = results.filter(
+      (r) =>
+        r.blobDosTested &&
+        r.blobDosRiskLevel &&
+        ["HIGH", "MEDIUM"].includes(r.blobDosRiskLevel),
+    );
+    if (blobDosResults.length > 0) {
+      recommendations.push(
+        "CRITICAL: Implement blob size limits and validation. Reject requests exceeding reasonable thresholds (e.g., 10MB max). (CWE-400, CWE-409)",
+      );
+    }
+
+    // Issue #127, Challenge #24: Polyglot file recommendations
+    const polyglotResults = results.filter(
+      (r) => r.polyglotTested && r.securityIssues.length > 0,
+    );
+    if (polyglotResults.length > 0) {
+      recommendations.push(
+        "CRITICAL: Validate binary content matches declared MIME type. Block polyglot file generation that could be used for content-type confusion attacks. (CWE-434, CWE-436)",
+      );
+    }
+
+    // Issue #127, Challenge #24: MIME validation recommendations
+    const mimeResults = results.filter((r) => r.mimeTypeMismatch === true);
+    if (mimeResults.length > 0) {
+      recommendations.push(
+        "Implement content-type validation using magic byte verification. Do not trust declared MIME types without verification. (CWE-436)",
       );
     }
 

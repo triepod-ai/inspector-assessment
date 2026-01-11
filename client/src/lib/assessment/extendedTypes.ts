@@ -604,6 +604,25 @@ export interface ResourceTestResult {
   hiddenResourceProbe?: boolean;
   /** The pattern used to probe for this hidden resource */
   probePattern?: string;
+  // Issue #127, Challenge #24: Binary resource vulnerability fields
+  /** Whether blob DoS testing was performed */
+  blobDosTested?: boolean;
+  /** DoS risk level from size analysis */
+  blobDosRiskLevel?: "HIGH" | "MEDIUM" | "LOW" | "NONE";
+  /** Requested blob size in bytes */
+  blobRequestedSize?: number;
+  /** Whether polyglot testing was performed */
+  polyglotTested?: boolean;
+  /** Polyglot combination detected (e.g., "gif/javascript") */
+  polyglotCombination?: string;
+  /** Whether MIME validation was performed */
+  mimeValidationPerformed?: boolean;
+  /** MIME type mismatch detected */
+  mimeTypeMismatch?: boolean;
+  /** Expected MIME type based on content magic bytes */
+  expectedMimeType?: string;
+  /** Declared MIME type from resource */
+  declaredMimeType?: string;
 }
 
 export interface ResourceAssessment {
@@ -614,6 +633,13 @@ export interface ResourceAssessment {
   pathTraversalVulnerabilities: number;
   sensitiveDataExposures: number;
   promptInjectionVulnerabilities: number;
+  // Issue #127, Challenge #24: Binary resource vulnerability metrics
+  /** Number of blob DoS vulnerabilities detected */
+  blobDosVulnerabilities: number;
+  /** Number of polyglot file vulnerabilities detected */
+  polyglotVulnerabilities: number;
+  /** Number of MIME validation failures detected */
+  mimeValidationFailures: number;
   results: ResourceTestResult[];
   status: AssessmentStatus;
   explanation: string;
