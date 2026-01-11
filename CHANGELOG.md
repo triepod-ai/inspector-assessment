@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Binary Resource Vulnerability Detection** (Issue #127, Challenge #24): Enhanced ResourceAssessor with binary content security checks
+  - Blob DoS detection: Flags binary payloads exceeding 100KB threshold (CWE-400, CWE-409)
+  - Polyglot file detection: Tests for dual-format files (PNG/JAR, GIF/JS) using magic byte analysis (CWE-434, CWE-436)
+  - MIME type validation: Verifies Content-Type matches actual content magic bytes (CWE-436)
+  - Detection priority: Magic bytes checked first (primary), JSON self-reporting as supplementary
+  - 10 new tests covering Uint8Array handling, magic byte priority, DoS thresholds, and edge cases
+
 ### Changed
 
 - **Improved Zod Error Messages** (Issue #84): Enhanced union validation error formatting
@@ -22,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed memoryGrowthRatio logging when value is undefined
   - Fixed variable shadowing in retryFailedTools test
   - All 7 performance tests now pass reliably
+
+- **ResourceAssessor Polyglot Detection** (Issue #127): Fixed detection order to prioritize magic bytes over JSON self-reporting
+  - Ensures polyglot content is detected even when servers don't explicitly report vulnerabilities
+  - Prevents reliance on server honesty for security detection
 
 ## [1.32.0] - 2026-01-10
 

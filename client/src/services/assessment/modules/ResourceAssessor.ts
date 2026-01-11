@@ -1170,22 +1170,28 @@ export class ResourceAssessor extends BaseAssessor {
         if (content) {
           polyglotResult.accessible = true;
 
-          // Check if response indicates polyglot generation
-          // Parse MCP response for vulnerability indicators
-          try {
-            const parsed = JSON.parse(content);
-            if (parsed.vulnerable === true || parsed.polyglot_known === true) {
-              polyglotResult.securityIssues.push(
-                `Polyglot file vulnerability: server generates ${combo.description} (CWE-434, CWE-436)`,
-              );
-            }
-          } catch {
-            // Check for magic bytes in raw content (string-based since MCP returns text)
-            const contentBytes = this.stringToBytes(content);
-            if (this.startsWithBytes(contentBytes, combo.magicBytes)) {
-              polyglotResult.securityIssues.push(
-                `Polyglot file vulnerability: response contains ${combo.baseType} magic bytes with potential ${combo.hiddenType} payload`,
-              );
+          // Check for magic bytes first (primary detection method)
+          // This ensures we detect polyglot content even if server doesn't self-report
+          const contentBytes = this.stringToBytes(content);
+          if (this.startsWithBytes(contentBytes, combo.magicBytes)) {
+            polyglotResult.securityIssues.push(
+              `Polyglot file vulnerability: response contains ${combo.baseType} magic bytes with potential ${combo.hiddenType} payload (CWE-434, CWE-436)`,
+            );
+          } else {
+            // Check if response indicates polyglot generation (supplementary detection)
+            // Only used when magic bytes aren't present but server self-reports
+            try {
+              const parsed = JSON.parse(content);
+              if (
+                parsed.vulnerable === true ||
+                parsed.polyglot_known === true
+              ) {
+                polyglotResult.securityIssues.push(
+                  `Polyglot file vulnerability: server generates ${combo.description} (CWE-434, CWE-436)`,
+                );
+              }
+            } catch {
+              // Expected for non-JSON content - no action needed
             }
           }
         }

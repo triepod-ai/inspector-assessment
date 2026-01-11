@@ -674,20 +674,31 @@ See [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) for complete
 - Validate resource URIs and metadata
 - Probe for hidden/undeclared resources (with rate limiting)
 - Test path traversal and injection vulnerabilities
+- Detect binary resource vulnerabilities (Issue #127, Challenge #24)
 
 **Resource Checks**:
 
-| Check            | Description                             |
-| ---------------- | --------------------------------------- |
-| Discovery        | List resources via resources/list       |
-| Read Success     | Attempt to read each resource           |
-| URI Format       | Validate URI structure                  |
-| Metadata         | Check resource descriptions             |
-| Error Handling   | Test invalid resource requests          |
-| Path Traversal   | Attempt directory traversal attacks     |
-| Hidden Resources | Probe undeclared resources (50ms delay) |
-| URI Injection    | Test SQL, template, and code injection  |
-| Sensitive Data   | Detect exposed secrets in resource URIs |
+| Check            | Description                                         |
+| ---------------- | --------------------------------------------------- |
+| Discovery        | List resources via resources/list                   |
+| Read Success     | Attempt to read each resource                       |
+| URI Format       | Validate URI structure                              |
+| Metadata         | Check resource descriptions                         |
+| Error Handling   | Test invalid resource requests                      |
+| Path Traversal   | Attempt directory traversal attacks                 |
+| Hidden Resources | Probe undeclared resources (50ms delay)             |
+| URI Injection    | Test SQL, template, and code injection              |
+| Sensitive Data   | Detect exposed secrets in resource URIs             |
+| Blob DoS         | Detect excessive binary payloads (CWE-400, CWE-409) |
+| Polyglot Files   | Detect dual-format files (CWE-434, CWE-436)         |
+| MIME Validation  | Verify content matches declared type (CWE-436)      |
+
+**Binary Resource Security** (Issue #127):
+
+- **Blob DoS Detection**: Flags binary payloads exceeding 100KB (configurable threshold)
+- **Polyglot Detection**: Tests for dual-format files (PNG/JAR, GIF/JS) using magic byte analysis
+- **MIME Validation**: Compares declared Content-Type with actual content magic bytes
+- **Detection Method**: Magic bytes checked first (primary), JSON self-reporting as supplementary
 
 **Rate Limiting**:
 
@@ -702,8 +713,11 @@ See [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) for complete
 - Error handling for invalid resources
 - No path traversal vulnerabilities
 - Sensitive data not exposed
+- No blob DoS vulnerabilities
+- No polyglot file vulnerabilities
+- MIME types match actual content
 
-**Implementation**: `client/src/services/assessment/modules/ResourceAssessor.ts` (Issue #119)
+**Implementation**: `client/src/services/assessment/modules/ResourceAssessor.ts` (Issue #119, Issue #127)
 
 ---
 
