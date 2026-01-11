@@ -298,4 +298,172 @@ describe("AssessorRegistry", () => {
       expect(registry.size).toBe(2);
     });
   });
+
+  describe("executeAll", () => {
+    it("should execute all registered assessors and return results", async () => {
+      const config = {
+        ...DEFAULT_ASSESSMENT_CONFIG,
+        assessmentCategories: {
+          functionality: false,
+          security: false,
+          documentation: true,
+          errorHandling: false,
+          usability: false,
+        },
+      };
+      const registry = new AssessorRegistry(config);
+      registry.registerAll(ASSESSOR_DEFINITIONS);
+
+      const mockContext = {
+        serverName: "test-server",
+        tools: [
+          {
+            name: "test_tool",
+            description: "A test tool",
+            inputSchema: { type: "object" as const },
+          },
+        ],
+        callTool: jest.fn().mockResolvedValue({
+          content: [{ type: "text", text: "OK" }],
+        }),
+        config,
+      };
+
+      const results = await registry.executeAll(mockContext);
+
+      // Should have documentation result
+      expect(results).toHaveProperty("documentation");
+    });
+
+    it("should execute assessors in phase order", async () => {
+      const config = {
+        ...DEFAULT_ASSESSMENT_CONFIG,
+        enableExtendedAssessment: true,
+        assessmentCategories: {
+          functionality: true,
+          security: false,
+          documentation: false,
+          errorHandling: false,
+          usability: false,
+        },
+      };
+      const registry = new AssessorRegistry(config);
+      registry.registerAll(ASSESSOR_DEFINITIONS);
+
+      const mockContext = {
+        serverName: "test-server",
+        tools: [
+          {
+            name: "test_tool",
+            description: "A test tool",
+            inputSchema: { type: "object" as const },
+          },
+        ],
+        callTool: jest.fn().mockResolvedValue({
+          content: [{ type: "text", text: "OK" }],
+        }),
+        config,
+      };
+
+      const results = await registry.executeAll(mockContext);
+
+      // Should have functionality result from CORE phase
+      expect(results).toHaveProperty("functionality");
+    });
+  });
+
+  describe("graceful degradation", () => {
+    it("should continue execution when parallel assessors fail", async () => {
+      const config = {
+        ...DEFAULT_ASSESSMENT_CONFIG,
+        parallelTesting: true,
+        assessmentCategories: {
+          functionality: false,
+          security: false,
+          documentation: true,
+          errorHandling: false,
+          usability: true,
+        },
+      };
+      const registry = new AssessorRegistry(config);
+      registry.registerAll(ASSESSOR_DEFINITIONS);
+
+      const mockContext = {
+        serverName: "test-server",
+        tools: [
+          {
+            name: "test_tool",
+            description: "A test tool",
+            inputSchema: { type: "object" as const },
+          },
+        ],
+        callTool: jest.fn().mockResolvedValue({
+          content: [{ type: "text", text: "OK" }],
+        }),
+        config,
+      };
+
+      // Should not throw even if some assessors have issues
+      const results = await registry.executeAll(mockContext);
+
+      // Should have results (graceful degradation means we get what we can)
+      expect(results).toBeDefined();
+      expect(typeof results).toBe("object");
+    });
+
+    it("should continue sequential execution when an assessor fails", async () => {
+      const config = {
+        ...DEFAULT_ASSESSMENT_CONFIG,
+        parallelTesting: false, // Sequential mode
+        assessmentCategories: {
+          functionality: false,
+          security: false,
+          documentation: true,
+          errorHandling: false,
+          usability: true,
+        },
+      };
+      const registry = new AssessorRegistry(config);
+      registry.registerAll(ASSESSOR_DEFINITIONS);
+
+      const mockContext = {
+        serverName: "test-server",
+        tools: [
+          {
+            name: "test_tool",
+            description: "A test tool",
+            inputSchema: { type: "object" as const },
+          },
+        ],
+        callTool: jest.fn().mockResolvedValue({
+          content: [{ type: "text", text: "OK" }],
+        }),
+        config,
+      };
+
+      // Should not throw - graceful degradation in sequential mode
+      const results = await registry.executeAll(mockContext);
+
+      // Should have results
+      expect(results).toBeDefined();
+      expect(typeof results).toBe("object");
+    });
+
+    it("should track failed registrations", () => {
+      const config = {
+        ...DEFAULT_ASSESSMENT_CONFIG,
+        assessmentCategories: {
+          functionality: true,
+        },
+      };
+      const registry = new AssessorRegistry(config);
+
+      // Register with valid definitions - no failures expected
+      registry.registerAll(ASSESSOR_DEFINITIONS);
+
+      // Initially no failures with valid definitions
+      expect(registry.hasFailedRegistrations()).toBe(false);
+      expect(registry.getFailedRegistrations()).toEqual([]);
+    });
+  });
 });

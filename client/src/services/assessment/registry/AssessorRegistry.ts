@@ -387,9 +387,21 @@ export class AssessorRegistry {
           executionTime,
         });
       } catch (error) {
-        this.logger.error(`Assessor ${definition.id} failed`, { error });
-        throw error;
+        const executionTime = Date.now() - startTime;
+        this.logger.error(
+          `Assessor ${definition.id} failed during sequential execution`,
+          { error, executionTime },
+        );
+        // Emit failure progress event (consistent with parallel execution)
+        emitModuleProgress(definition.displayName, "ERROR", null, 0);
+        // Continue with remaining assessors (graceful degradation)
       }
+    }
+
+    if (results.length < assessors.length) {
+      this.logger.warn(
+        `${assessors.length - results.length} assessor(s) failed during sequential execution`,
+      );
     }
 
     return results;
