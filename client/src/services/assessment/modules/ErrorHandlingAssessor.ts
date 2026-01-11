@@ -11,6 +11,7 @@ import {
   JSONSchema7,
 } from "@/lib/assessmentTypes";
 import { AssessmentConfiguration } from "@/lib/assessment/configTypes";
+import { ValidationSummaryProgress } from "@/lib/assessment/progressTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { createConcurrencyLimit } from "../lib/concurrencyLimit";
@@ -55,6 +56,31 @@ export class ErrorHandlingAssessor extends BaseAssessor {
             tool,
             context.callTool,
           );
+
+          // Emit per-tool validation summary for auditor UI (Phase 7)
+          if (context.onProgress) {
+            // Count failures by test type (failed = tool didn't reject invalid input)
+            const wrongType = toolTests.filter(
+              (t) => t.testType === "wrong_type" && !t.passed,
+            ).length;
+            const missingRequired = toolTests.filter(
+              (t) => t.testType === "missing_required" && !t.passed,
+            ).length;
+            const invalidValues = toolTests.filter(
+              (t) => t.testType === "invalid_values" && !t.passed,
+            ).length;
+
+            const summaryEvent: ValidationSummaryProgress = {
+              type: "validation_summary",
+              tool: tool.name,
+              wrongType,
+              missingRequired,
+              extraParams: 0, // Not tested in current implementation
+              nullValues: 0, // Not tested explicitly
+              invalidValues,
+            };
+            context.onProgress(summaryEvent);
+          }
 
           // Add delay between tests to avoid rate limiting
           if (

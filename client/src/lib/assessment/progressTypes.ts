@@ -32,7 +32,11 @@ export type ProgressEvent =
   | AnnotationMisalignedProgress
   | AnnotationReviewRecommendedProgress
   | AnnotationPoisonedProgress
-  | AnnotationAlignedProgress;
+  | AnnotationAlignedProgress
+  | ToolTestCompleteProgress
+  | ValidationSummaryProgress
+  | PhaseStartedProgress
+  | PhaseCompleteProgress;
 
 /**
  * Emitted when an assessment module begins execution.
@@ -191,4 +195,60 @@ export interface AnnotationAlignedProgress {
     openWorldHint?: boolean;
     idempotentHint?: boolean;
   };
+}
+
+// ============================================================================
+// Phase 7 Events - Per-Tool Testing & Phase Lifecycle
+// ============================================================================
+
+/**
+ * Emitted after all tests for a single tool complete.
+ * Provides per-tool summary for real-time progress in auditor UI.
+ * @public
+ */
+export interface ToolTestCompleteProgress {
+  type: "tool_test_complete";
+  tool: string;
+  module: string;
+  scenariosPassed: number;
+  scenariosExecuted: number;
+  confidence: "high" | "medium" | "low";
+  status: "PASS" | "FAIL" | "ERROR";
+  executionTime: number;
+}
+
+/**
+ * Emitted with per-tool input validation metrics.
+ * Tracks how tools handle invalid inputs (wrong types, missing required, etc.)
+ * @public
+ */
+export interface ValidationSummaryProgress {
+  type: "validation_summary";
+  tool: string;
+  wrongType: number;
+  missingRequired: number;
+  extraParams: number;
+  nullValues: number;
+  invalidValues: number;
+}
+
+/**
+ * Emitted when an assessment phase begins.
+ * Used for high-level progress tracking (discovery, assessment, analysis).
+ * @public
+ */
+export interface PhaseStartedProgress {
+  type: "phase_started";
+  phase: string;
+}
+
+/**
+ * Emitted when an assessment phase completes.
+ * Includes duration for performance tracking.
+ * @public
+ */
+export interface PhaseCompleteProgress {
+  type: "phase_complete";
+  phase: string;
+  duration: number;
 }

@@ -11,6 +11,7 @@ import {
   ProgressCallback,
   TestBatchProgress,
   VulnerabilityFoundProgress,
+  ToolTestCompleteProgress,
 } from "@/lib/assessment/progressTypes";
 import {
   CompatibilityCallToolResult,
@@ -134,6 +135,7 @@ export class SecurityPayloadTester {
       tools.map((tool) =>
         limit(async () => {
           const toolResults: SecurityTestResult[] = [];
+          const toolStartTime = Date.now();
 
           // Tools with no input parameters can't be exploited
           if (!this.payloadGenerator.hasInputParameters(tool)) {
@@ -157,6 +159,22 @@ export class SecurityPayloadTester {
                 });
               }
             }
+
+            // Emit per-tool completion event for auditor UI (Phase 7)
+            if (onProgress) {
+              const toolCompleteEvent: ToolTestCompleteProgress = {
+                type: "tool_test_complete",
+                tool: tool.name,
+                module: "security",
+                scenariosPassed: toolResults.length,
+                scenariosExecuted: toolResults.length,
+                confidence: "high",
+                status: "PASS",
+                executionTime: Date.now() - toolStartTime,
+              };
+              onProgress(toolCompleteEvent);
+            }
+
             return toolResults;
           }
 
@@ -216,6 +234,31 @@ export class SecurityPayloadTester {
                 await this.sleep(100);
               }
             }
+          }
+
+          // Emit per-tool completion event for auditor UI (Phase 7)
+          if (onProgress) {
+            const passed = toolResults.filter((r) => !r.vulnerable).length;
+            const vulnCount = toolResults.filter((r) => r.vulnerable).length;
+            const hasHighConfidence = toolResults.some(
+              (r) => r.vulnerable && r.confidence === "high",
+            );
+
+            const toolCompleteEvent: ToolTestCompleteProgress = {
+              type: "tool_test_complete",
+              tool: tool.name,
+              module: "security",
+              scenariosPassed: passed,
+              scenariosExecuted: toolResults.length,
+              confidence: hasHighConfidence
+                ? "high"
+                : vulnCount > 0
+                  ? "medium"
+                  : "high",
+              status: vulnCount > 0 ? "FAIL" : "PASS",
+              executionTime: Date.now() - toolStartTime,
+            };
+            onProgress(toolCompleteEvent);
           }
 
           return toolResults;

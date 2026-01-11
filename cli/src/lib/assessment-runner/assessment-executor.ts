@@ -33,6 +33,10 @@ import {
   emitAnnotationReviewRecommended,
   emitAnnotationAligned,
   emitModulesConfigured,
+  emitPhaseStarted,
+  emitPhaseComplete,
+  emitToolTestComplete,
+  emitValidationSummary,
 } from "../jsonl-events.js";
 
 import type { AssessmentOptions } from "../cli-parser.js";
@@ -63,6 +67,10 @@ export async function runFullAssessment(
   if (!options.jsonOnly) {
     console.log("✅ Server config loaded");
   }
+
+  // Phase 1: Discovery
+  const discoveryStart = Date.now();
+  emitPhaseStarted("discovery");
 
   const client = await connectToServer(serverConfig);
   emitServerConnected(options.serverName, serverConfig.transport || "stdio");
@@ -194,6 +202,9 @@ export async function runFullAssessment(
       console.log("💬 Prompts not supported by server");
     }
   }
+
+  // End of discovery phase
+  emitPhaseComplete("discovery", Date.now() - discoveryStart);
 
   // State management for resumable assessments
   const stateManager = new AssessmentStateManager(options.serverName);
@@ -368,8 +379,28 @@ export async function runFullAssessment(
       );
     } else if (event.type === "annotation_aligned") {
       emitAnnotationAligned(event.tool, event.confidence, event.annotations);
+    } else if (event.type === "tool_test_complete") {
+      emitToolTestComplete(
+        event.tool,
+        event.module,
+        event.scenariosPassed,
+        event.scenariosExecuted,
+        event.confidence,
+        event.status,
+        event.executionTime,
+      );
+    } else if (event.type === "validation_summary") {
+      emitValidationSummary(
+        event.tool,
+        event.wrongType,
+        event.missingRequired,
+        event.extraParams,
+        event.nullValues,
+        event.invalidValues,
+      );
     }
     // module_started and module_complete are handled by orchestrator directly
+    // phase_started and phase_complete are emitted directly (not via callback)
   };
 
   const context: AssessmentContext = {
@@ -403,7 +434,14 @@ export async function runFullAssessment(
     console.log("");
   }
 
+  // Phase 2: Assessment
+  const assessmentStart = Date.now();
+  emitPhaseStarted("assessment");
+
   const results = await orchestrator.runFullAssessment(context);
+
+  // End of assessment phase
+  emitPhaseComplete("assessment", Date.now() - assessmentStart);
 
   // Emit assessment complete event
   const defaultOutputPath = `/tmp/inspector-full-assessment-${options.serverName}.json`;

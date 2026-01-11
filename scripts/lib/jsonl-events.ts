@@ -238,6 +238,58 @@ export interface AnnotationAlignedEvent extends BaseEvent {
   };
 }
 
+// ============================================================================
+// Phase 7 Events - Per-Tool Testing & Phase Lifecycle
+// ============================================================================
+
+/**
+ * Emitted after all tests for a single tool complete.
+ * Provides per-tool summary for real-time progress in auditor UI.
+ */
+export interface ToolTestCompleteEvent extends BaseEvent {
+  event: "tool_test_complete";
+  tool: string;
+  module: string;
+  scenariosPassed: number;
+  scenariosExecuted: number;
+  confidence: "high" | "medium" | "low";
+  status: "PASS" | "FAIL" | "ERROR";
+  executionTime: number;
+}
+
+/**
+ * Emitted with per-tool input validation metrics.
+ * Tracks how tools handle invalid inputs (wrong types, missing required, etc.)
+ */
+export interface ValidationSummaryEvent extends BaseEvent {
+  event: "validation_summary";
+  tool: string;
+  wrongType: number;
+  missingRequired: number;
+  extraParams: number;
+  nullValues: number;
+  invalidValues: number;
+}
+
+/**
+ * Emitted when an assessment phase begins.
+ * Used for high-level progress tracking (discovery, assessment, analysis).
+ */
+export interface PhaseStartedEvent extends BaseEvent {
+  event: "phase_started";
+  phase: string;
+}
+
+/**
+ * Emitted when an assessment phase completes.
+ * Includes duration for performance tracking.
+ */
+export interface PhaseCompleteEvent extends BaseEvent {
+  event: "phase_complete";
+  phase: string;
+  duration: number;
+}
+
 export type JSONLEvent =
   | ServerConnectedEvent
   | ToolDiscoveredEvent
@@ -250,7 +302,11 @@ export type JSONLEvent =
   | AnnotationMissingEvent
   | AnnotationMisalignedEvent
   | AnnotationReviewRecommendedEvent
-  | AnnotationAlignedEvent;
+  | AnnotationAlignedEvent
+  | ToolTestCompleteEvent
+  | ValidationSummaryEvent
+  | PhaseStartedEvent
+  | PhaseCompleteEvent;
 
 // ============================================================================
 // Core Functions
@@ -671,6 +727,81 @@ export function emitModulesConfigured(
     enabled,
     skipped,
     reason,
+  });
+}
+
+// ============================================================================
+// Phase 7 Events - Per-Tool Testing & Phase Lifecycle
+// ============================================================================
+
+/**
+ * Emit tool_test_complete event after all tests for a single tool finish.
+ * Provides per-tool summary for real-time progress in auditor UI.
+ */
+export function emitToolTestComplete(
+  tool: string,
+  module: string,
+  scenariosPassed: number,
+  scenariosExecuted: number,
+  confidence: "high" | "medium" | "low",
+  status: "PASS" | "FAIL" | "ERROR",
+  executionTime: number,
+): void {
+  emitJSONL({
+    event: "tool_test_complete",
+    tool,
+    module,
+    scenariosPassed,
+    scenariosExecuted,
+    confidence,
+    status,
+    executionTime,
+  });
+}
+
+/**
+ * Emit validation_summary event with per-tool input validation metrics.
+ * Tracks how tools handle invalid inputs (wrong types, missing required, etc.)
+ */
+export function emitValidationSummary(
+  tool: string,
+  wrongType: number,
+  missingRequired: number,
+  extraParams: number,
+  nullValues: number,
+  invalidValues: number,
+): void {
+  emitJSONL({
+    event: "validation_summary",
+    tool,
+    wrongType,
+    missingRequired,
+    extraParams,
+    nullValues,
+    invalidValues,
+  });
+}
+
+/**
+ * Emit phase_started event when an assessment phase begins.
+ * Used for high-level progress tracking (discovery, assessment, analysis).
+ */
+export function emitPhaseStarted(phase: string): void {
+  emitJSONL({
+    event: "phase_started",
+    phase,
+  });
+}
+
+/**
+ * Emit phase_complete event when an assessment phase finishes.
+ * Includes duration for performance tracking.
+ */
+export function emitPhaseComplete(phase: string, duration: number): void {
+  emitJSONL({
+    event: "phase_complete",
+    phase,
+    duration,
   });
 }
 
