@@ -7,6 +7,7 @@ import {
   FunctionalityAssessment,
   ToolTestResult,
   TestInputMetadata,
+  JSONSchema7,
 } from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
@@ -18,6 +19,10 @@ import { cleanParams } from "@/utils/paramUtils";
 import { JsonSchemaType } from "@/utils/jsonUtils";
 import { resolveRef, normalizeUnionType } from "@/utils/schemaUtils";
 import { DEFAULT_PERFORMANCE_CONFIG } from "../config/performanceConfig";
+import {
+  Tool,
+  CompatibilityCallToolResult,
+} from "@modelcontextprotocol/sdk/types.js";
 
 export class FunctionalityAssessor extends BaseAssessor {
   private toolClassifier = new ToolClassifier();
@@ -25,7 +30,7 @@ export class FunctionalityAssessor extends BaseAssessor {
   /**
    * Select tools for testing based on configuration
    */
-  private selectToolsForTesting(tools: any[]): any[] {
+  private selectToolsForTesting(tools: Tool[]): Tool[] {
     // Prefer new selectedToolsForTesting configuration
     // Note: undefined/null means "test all" (default), empty array [] means "test none" (explicit)
     if (this.config.selectedToolsForTesting !== undefined) {
@@ -173,7 +178,7 @@ export class FunctionalityAssessor extends BaseAssessor {
     );
 
     // Map tools to include only schema-relevant fields for downstream consumers
-    const tools = context.tools.map((t: any) => ({
+    const tools = context.tools.map((t) => ({
       name: t.name,
       description: t.description,
       inputSchema: t.inputSchema,
@@ -193,8 +198,11 @@ export class FunctionalityAssessor extends BaseAssessor {
   }
 
   private async testTool(
-    tool: any,
-    callTool: (name: string, params: Record<string, unknown>) => Promise<any>,
+    tool: Tool,
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<CompatibilityCallToolResult>,
   ): Promise<ToolTestResult> {
     const startTime = Date.now();
 
@@ -289,7 +297,7 @@ export class FunctionalityAssessor extends BaseAssessor {
     }
   }
 
-  private generateMinimalParams(tool: any): {
+  private generateMinimalParams(tool: Tool): {
     params: Record<string, unknown>;
     metadata: TestInputMetadata;
   } {
@@ -312,10 +320,11 @@ export class FunctionalityAssessor extends BaseAssessor {
 
     if (!tool.inputSchema) return emptyResult;
 
-    const schema =
+    const schema = (
       typeof tool.inputSchema === "string"
         ? this.safeJsonParse(tool.inputSchema)
-        : tool.inputSchema;
+        : tool.inputSchema
+    ) as JSONSchema7 | null;
 
     if (!schema?.properties) return emptyResult;
 
@@ -326,7 +335,7 @@ export class FunctionalityAssessor extends BaseAssessor {
     // For functionality testing, only generate REQUIRED parameters
     // This avoids triggering validation errors on optional parameters with complex rules
     for (const [key, rawProp] of Object.entries(
-      schema.properties as Record<string, any>,
+      schema.properties as Record<string, JSONSchema7>,
     )) {
       // Only include required parameters for basic functionality testing
       if (required.includes(key)) {
@@ -357,7 +366,7 @@ export class FunctionalityAssessor extends BaseAssessor {
   }
 
   private generateParamValue(
-    prop: any,
+    prop: JSONSchema7,
     fieldName?: string,
     includeOptional = false,
   ): unknown {
@@ -399,15 +408,21 @@ export class FunctionalityAssessor extends BaseAssessor {
       case "array":
         // Generate array with sample items based on items schema
         if (prop.items) {
+          // Handle items as array (tuple schema) or single schema
+          let itemsSchema: JSONSchema7 = Array.isArray(prop.items)
+            ? prop.items[0]
+            : prop.items;
+
           // Resolve $ref and normalize union types for items schema
-          let itemsSchema = prop.items;
           if (itemsSchema.$ref) {
             itemsSchema = resolveRef(
               itemsSchema as JsonSchemaType,
               prop as JsonSchemaType,
-            );
+            ) as JSONSchema7;
           }
-          itemsSchema = normalizeUnionType(itemsSchema as JsonSchemaType);
+          itemsSchema = normalizeUnionType(
+            itemsSchema as JsonSchemaType,
+          ) as JSONSchema7;
 
           return [
             this.generateParamValue(itemsSchema, undefined, includeOptional),
@@ -427,12 +442,12 @@ export class FunctionalityAssessor extends BaseAssessor {
           for (const [key, rawSubProp] of Object.entries(prop.properties)) {
             if (includeOptional || requiredProps.includes(key)) {
               // Resolve $ref and normalize union types for nested properties
-              let subProp = rawSubProp;
-              if ((subProp as any).$ref) {
+              let subProp = rawSubProp as JSONSchema7;
+              if (subProp.$ref) {
                 subProp = resolveRef(
                   subProp as JsonSchemaType,
                   prop as JsonSchemaType,
-                );
+                ) as JSONSchema7;
               }
               subProp = normalizeUnionType(subProp as JsonSchemaType);
 
@@ -490,7 +505,7 @@ export class FunctionalityAssessor extends BaseAssessor {
    * Returns value, source type, and reason for downstream consumers.
    */
   private generateSmartParamValueWithMetadata(
-    prop: any,
+    prop: JSONSchema7,
     fieldName: string,
     category: ToolCategory,
   ): {
@@ -589,7 +604,7 @@ export class FunctionalityAssessor extends BaseAssessor {
 
   // Public method for testing purposes - allows tests to verify parameter generation logic
   // Always includes optional properties to test full schema
-  public generateTestInput(schema: any): unknown {
+  public generateTestInput(schema: JSONSchema7): unknown {
     return this.generateParamValue(schema, undefined, true);
   }
 

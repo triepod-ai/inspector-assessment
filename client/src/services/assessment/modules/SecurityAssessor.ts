@@ -388,7 +388,7 @@ export class SecurityAssessor extends BaseAssessor {
    * Perform additional security checks
    */
   private async performAdditionalSecurityChecks(
-    tools: any[],
+    tools: Tool[],
   ): Promise<string[]> {
     const vulnerabilities: string[] = [];
     const classifier = new ToolClassifier();

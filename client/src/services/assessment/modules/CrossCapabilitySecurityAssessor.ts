@@ -13,6 +13,7 @@ import {
   CrossCapabilitySecurityAssessment,
   CrossCapabilityTestResult,
   AssessmentStatus,
+  JSONSchema7,
 } from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import {
@@ -489,11 +490,11 @@ export class CrossCapabilitySecurityAssessor extends BaseAssessor {
   }
 
   private toolHasPathParameter(tool: Tool): boolean {
-    const schema = tool.inputSchema as any;
+    const schema = tool.inputSchema as JSONSchema7 | undefined;
     if (!schema?.properties) return false;
 
     return Object.entries(schema.properties).some(
-      ([name, prop]: [string, any]) =>
+      ([name, prop]: [string, JSONSchema7]) =>
         /path|file|uri|url|location|directory|folder/i.test(name) ||
         /path|file|uri|url|location|directory|folder/i.test(
           prop.description || "",
@@ -502,11 +503,11 @@ export class CrossCapabilitySecurityAssessor extends BaseAssessor {
   }
 
   private toolHasContentParameter(tool: Tool): boolean {
-    const schema = tool.inputSchema as any;
+    const schema = tool.inputSchema as JSONSchema7 | undefined;
     if (!schema?.properties) return false;
 
     return Object.entries(schema.properties).some(
-      ([name, prop]: [string, any]) =>
+      ([name, prop]: [string, JSONSchema7]) =>
         /content|data|body|text|message|payload/i.test(name) ||
         /content|data|body|text|message|payload/i.test(prop.description || ""),
     );

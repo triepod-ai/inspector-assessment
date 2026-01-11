@@ -15,6 +15,7 @@ import {
   MetadataHints,
   OutputSchemaCoverage,
   ToolOutputSchemaResult,
+  ServerInfo,
 } from "@/lib/assessmentTypes";
 import {
   Tool,
@@ -238,7 +239,7 @@ export class MCPSpecComplianceAssessor extends BaseAssessor {
   /**
    * Check if server info is valid and properly formatted
    */
-  private checkServerInfoValidity(serverInfo: any): boolean {
+  private checkServerInfoValidity(serverInfo: ServerInfo | undefined): boolean {
     if (!serverInfo) {
       // No server info is acceptable (optional)
       return true;

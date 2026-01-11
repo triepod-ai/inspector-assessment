@@ -8,6 +8,7 @@ import {
   ErrorHandlingMetrics,
   ErrorTestDetail,
   AssessmentStatus,
+  JSONSchema7,
 } from "@/lib/assessmentTypes";
 import { AssessmentConfiguration } from "@/lib/assessment/configTypes";
 import { BaseAssessor } from "./BaseAssessor";
@@ -15,6 +16,10 @@ import { AssessmentContext } from "../AssessmentOrchestrator";
 import { createConcurrencyLimit } from "../lib/concurrencyLimit";
 import { ExecutionArtifactDetector } from "./securityTests/ExecutionArtifactDetector";
 import { SafeResponseDetector } from "./securityTests/SafeResponseDetector";
+import {
+  Tool,
+  CompatibilityCallToolResult,
+} from "@modelcontextprotocol/sdk/types.js";
 
 export class ErrorHandlingAssessor extends BaseAssessor {
   private executionDetector: ExecutionArtifactDetector;
@@ -91,7 +96,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     };
   }
 
-  private selectToolsForTesting(tools: any[]): any[] {
+  private selectToolsForTesting(tools: Tool[]): Tool[] {
     // Prefer new selectedToolsForTesting configuration
     // Note: undefined/null means "test all" (default), empty array [] means "test none" (explicit)
     if (this.config.selectedToolsForTesting !== undefined) {
@@ -147,8 +152,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   }
 
   private async testToolErrorHandling(
-    tool: any,
-    callTool: (name: string, params: Record<string, unknown>) => Promise<any>,
+    tool: Tool,
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<CompatibilityCallToolResult>,
   ): Promise<ErrorTestDetail[]> {
     const tests: ErrorTestDetail[] = [];
 
@@ -170,8 +178,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   }
 
   private async testMissingParameters(
-    tool: any,
-    callTool: (name: string, params: Record<string, unknown>) => Promise<any>,
+    tool: Tool,
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<CompatibilityCallToolResult>,
   ): Promise<ErrorTestDetail> {
     const testInput = {}; // Empty params
 
@@ -269,8 +280,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   }
 
   private async testWrongTypes(
-    tool: any,
-    callTool: (name: string, params: Record<string, unknown>) => Promise<any>,
+    tool: Tool,
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<CompatibilityCallToolResult>,
   ): Promise<ErrorTestDetail> {
     const schema = this.getToolSchema(tool);
     const testInput = this.generateWrongTypeParams(schema);
@@ -352,8 +366,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   }
 
   private async testInvalidValues(
-    tool: any,
-    callTool: (name: string, params: Record<string, unknown>) => Promise<any>,
+    tool: Tool,
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<CompatibilityCallToolResult>,
   ): Promise<ErrorTestDetail> {
     const schema = this.getToolSchema(tool);
     const testInput = this.generateInvalidValueParams(schema);
@@ -414,8 +431,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   }
 
   private async testExcessiveInput(
-    tool: any,
-    callTool: (name: string, params: Record<string, unknown>) => Promise<any>,
+    tool: Tool,
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<CompatibilityCallToolResult>,
   ): Promise<ErrorTestDetail> {
     const largeString = "x".repeat(100000); // 100KB string
     const testInput = this.generateParamsWithValue(tool, largeString);
@@ -474,20 +494,22 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     }
   }
 
-  private getToolSchema(tool: any): any {
+  private getToolSchema(tool: Tool): JSONSchema7 {
     if (!tool.inputSchema) return {};
     return typeof tool.inputSchema === "string"
-      ? this.safeJsonParse(tool.inputSchema)
-      : tool.inputSchema;
+      ? ((this.safeJsonParse(tool.inputSchema) as JSONSchema7) ?? {})
+      : (tool.inputSchema as JSONSchema7);
   }
 
-  private generateWrongTypeParams(schema: any): Record<string, unknown> {
+  private generateWrongTypeParams(
+    schema: JSONSchema7,
+  ): Record<string, unknown> {
     const params: Record<string, unknown> = {};
 
     if (!schema?.properties) return { value: 123 }; // Default wrong type
 
     for (const [key, prop] of Object.entries(
-      schema.properties as Record<string, any>,
+      schema.properties as Record<string, JSONSchema7>,
     )) {
       // Intentionally use wrong types
       switch (prop.type) {
@@ -513,13 +535,15 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     return params;
   }
 
-  private generateInvalidValueParams(schema: any): Record<string, unknown> {
+  private generateInvalidValueParams(
+    schema: JSONSchema7,
+  ): Record<string, unknown> {
     const params: Record<string, unknown> = {};
 
     if (!schema?.properties) return { value: null };
 
     for (const [key, prop] of Object.entries(
-      schema.properties as Record<string, any>,
+      schema.properties as Record<string, JSONSchema7>,
     )) {
       if (prop.type === "string") {
         if (prop.enum) {
@@ -546,7 +570,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   }
 
   private generateParamsWithValue(
-    tool: any,
+    tool: Tool,
     value: unknown,
   ): Record<string, unknown> {
     const schema = this.getToolSchema(tool);
@@ -555,7 +579,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     if (schema?.properties) {
       // Find first string parameter
       for (const [key, prop] of Object.entries(
-        schema.properties as Record<string, any>,
+        schema.properties as Record<string, JSONSchema7>,
       )) {
         if (prop.type === "string") {
           params[key] = value;

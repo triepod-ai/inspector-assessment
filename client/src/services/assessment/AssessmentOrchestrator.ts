@@ -13,6 +13,7 @@ import {
   ManifestJsonSchema,
   ProgressCallback,
   ServerInfo,
+  PackageJson,
 } from "@/lib/assessmentTypes";
 import {
   Tool,
@@ -108,7 +109,7 @@ export interface AssessmentContext {
     params: Record<string, unknown>,
   ) => Promise<CompatibilityCallToolResult>;
   readmeContent?: string;
-  packageJson?: unknown;
+  packageJson?: PackageJson;
   packageLock?: unknown;
   privacyPolicy?: unknown;
   config: AssessmentConfiguration;
@@ -417,7 +418,7 @@ export class AssessmentOrchestrator {
     ) => Promise<CompatibilityCallToolResult>,
     serverInfo?: ServerInfo,
     readmeContent?: string,
-    packageJson?: Record<string, unknown>,
+    packageJson?: PackageJson,
   ): Promise<MCPDirectoryAssessment> {
     const context: AssessmentContext = {
       serverName,

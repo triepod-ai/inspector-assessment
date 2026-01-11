@@ -18,6 +18,7 @@ import type {
   PortabilityAssessment,
   PortabilityIssue,
   AssessmentStatus,
+  PackageJson,
 } from "@/lib/assessmentTypes";
 
 /**
@@ -182,7 +183,7 @@ export class PortabilityAssessor extends BaseAssessor {
     if (context.packageJson) {
       this.testCount++;
       scannedFiles++;
-      const packageJson = context.packageJson as any;
+      const packageJson = context.packageJson as PackageJson;
       if (packageJson.scripts) {
         const scriptsStr = JSON.stringify(packageJson.scripts);
         const scriptIssues = this.scanFile(
@@ -290,7 +291,7 @@ export class PortabilityAssessor extends BaseAssessor {
     }
 
     if (context.packageJson) {
-      const packageJson = context.packageJson as any;
+      const packageJson = context.packageJson as PackageJson;
       if (packageJson.scripts) {
         contentsToScan.push(JSON.stringify(packageJson.scripts));
       }

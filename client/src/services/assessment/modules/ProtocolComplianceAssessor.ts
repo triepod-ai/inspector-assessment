@@ -28,6 +28,7 @@ import {
   MetadataHints,
   OutputSchemaCoverage,
   ToolOutputSchemaResult,
+  ServerInfo,
 } from "@/lib/assessmentTypes";
 import type { ProtocolCheck } from "@/lib/assessment/extendedTypes";
 import {
@@ -291,7 +292,7 @@ export class ProtocolComplianceAssessor extends BaseAssessor<ProtocolComplianceA
   /**
    * Check if server info is valid and properly formatted
    */
-  private checkServerInfoValidity(serverInfo: any): boolean {
+  private checkServerInfoValidity(serverInfo: ServerInfo | undefined): boolean {
     if (!serverInfo) {
       return true; // No server info is acceptable (optional)
     }

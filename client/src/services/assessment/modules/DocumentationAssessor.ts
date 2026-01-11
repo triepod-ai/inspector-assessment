@@ -13,6 +13,7 @@ import {
 import { AssessmentConfiguration } from "@/lib/assessment/configTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 /**
  * @deprecated Use DeveloperExperienceAssessor instead. Will be removed in v2.0.0.
@@ -73,7 +74,7 @@ export class DocumentationAssessor extends BaseAssessor {
 
   private analyzeDocumentation(
     content: string,
-    tools: any[],
+    tools: Tool[],
     verbosity: "minimal" | "standard" | "verbose" = "standard",
   ): DocumentationMetrics {
     const hasReadme = content.length > 0;

@@ -21,9 +21,11 @@ import {
   ToolDocGap,
   DocumentationQualityChecks,
   DocumentationQualityScore,
+  JSONSchema7,
 } from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 /**
  * Combined Developer Experience Assessment Result
@@ -122,7 +124,7 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
 
   private analyzeDocumentation(
     content: string,
-    tools: any[],
+    tools: Tool[],
     verbosity: "minimal" | "standard" | "verbose" = "standard",
   ): DocumentationMetrics {
     const hasReadme = content.length > 0;
@@ -679,7 +681,7 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
   // Usability Analysis (from UsabilityAssessor)
   // ============================================================================
 
-  private analyzeUsability(tools: any[]): UsabilityMetrics {
+  private analyzeUsability(tools: Tool[]): UsabilityMetrics {
     const toolNamingConvention = this.analyzeNamingConvention(tools);
     const parameterClarity = this.analyzeParameterClarity(tools);
     const hasHelpfulDescriptions = this.checkDescriptions(tools);
@@ -693,7 +695,9 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
     };
   }
 
-  private analyzeNamingConvention(tools: any[]): "consistent" | "inconsistent" {
+  private analyzeNamingConvention(
+    tools: Tool[],
+  ): "consistent" | "inconsistent" {
     if (tools.length === 0) return "consistent";
 
     const namingPatterns = {
@@ -729,7 +733,9 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
     return "inconsistent";
   }
 
-  private analyzeParameterClarity(tools: any[]): "clear" | "unclear" | "mixed" {
+  private analyzeParameterClarity(
+    tools: Tool[],
+  ): "clear" | "unclear" | "mixed" {
     if (tools.length === 0) return "clear";
 
     let clearCount = 0;
@@ -767,7 +773,7 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
     return "mixed";
   }
 
-  private checkDescriptions(tools: any[]): boolean {
+  private checkDescriptions(tools: Tool[]): boolean {
     if (tools.length === 0) return false;
 
     let toolsWithDescriptions = 0;
@@ -781,7 +787,7 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
     return toolsWithDescriptions / tools.length >= 0.7;
   }
 
-  private checkBestPractices(tools: any[]): boolean {
+  private checkBestPractices(tools: Tool[]): boolean {
     const practices = {
       hasVersioning: false,
       hasErrorHandling: false,
@@ -852,12 +858,12 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
     return name.length > 3 && !/^[a-z]$/.test(name);
   }
 
-  private getToolSchema(tool: any): any {
+  private getToolSchema(tool: Tool): JSONSchema7 | null {
     if (!tool.inputSchema) return null;
 
     return typeof tool.inputSchema === "string"
-      ? this.safeJsonParse(tool.inputSchema)
-      : tool.inputSchema;
+      ? (this.safeJsonParse(tool.inputSchema) as JSONSchema7 | null)
+      : (tool.inputSchema as JSONSchema7);
   }
 
   private calculateUsabilityScore(metrics: UsabilityMetrics): number {
@@ -885,7 +891,7 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
   private generateExplanation(
     docMetrics: DocumentationMetrics,
     usabilityMetrics: UsabilityMetrics,
-    tools: any[],
+    tools: Tool[],
   ): string {
     const parts: string[] = [];
 

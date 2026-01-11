@@ -16,6 +16,7 @@ import type {
   ProhibitedLibrariesAssessment,
   ProhibitedLibraryMatch,
   AssessmentStatus,
+  PackageJson,
 } from "@/lib/assessmentTypes";
 import {
   checkPackageJsonDependencies,
@@ -46,7 +47,7 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
       this.testCount++;
       scannedFiles.push("package.json");
 
-      const packageJson = context.packageJson as any;
+      const packageJson = context.packageJson as PackageJson;
       const depMatches = checkPackageJsonDependencies(packageJson);
 
       for (const match of depMatches) {

@@ -279,3 +279,42 @@ export interface ServerInfo {
   version?: string;
   metadata?: Record<string, unknown>;
 }
+
+/**
+ * Package.json structure for assessment context.
+ * Used by PortabilityAssessor and ProhibitedLibrariesAssessor.
+ * @public
+ */
+export interface PackageJson {
+  name?: string;
+  version?: string;
+  description?: string;
+  main?: string;
+  scripts?: Record<string, string>;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  engines?: {
+    node?: string;
+    npm?: string;
+    [key: string]: string | undefined;
+  };
+  repository?:
+    | {
+        type?: string;
+        url?: string;
+      }
+    | string;
+  author?: string | { name?: string; email?: string; url?: string };
+  license?: string;
+  keywords?: string[];
+  /** Allow additional fields not explicitly typed */
+  [key: string]: unknown;
+}
+
+/**
+ * Tool input schema type - JSON Schema with object type.
+ * Maps to Tool.inputSchema from MCP SDK.
+ * @public
+ */
+export type ToolInputSchema = JSONSchema7 & { type: "object" };
