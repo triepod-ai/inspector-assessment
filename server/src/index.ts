@@ -31,8 +31,15 @@ import { findActualExecutable } from "spawn-rx";
 import mcpProxy from "./mcpProxy.js";
 import { is401Error, getHttpHeaders, updateHeadersInPlace } from "./helpers.js";
 import { randomUUID, randomBytes, timingSafeEqual } from "node:crypto";
+import { z } from "zod";
 
 const DEFAULT_MCP_PROXY_LISTEN_PORT = "6277";
+
+// Schema for /assessment/save endpoint validation (Issue #87)
+const AssessmentSaveSchema = z.object({
+  serverName: z.string().min(1).max(255),
+  assessment: z.object({}).passthrough(), // Must be object, allow any properties
+});
 
 const defaultEnvironment = {
   ...getDefaultEnvironment(),
@@ -701,11 +708,28 @@ app.post(
   express.json({ limit: "10mb" }), // Allow large JSON payloads
   async (req, res) => {
     try {
-      const { serverName, assessment } = req.body;
-      const sanitizedName = (serverName || "unknown").replace(
-        /[^a-zA-Z0-9-_]/g,
-        "_",
-      );
+      // Validate request body (Issue #87)
+      const parseResult = AssessmentSaveSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid request structure",
+          details: parseResult.error.format(),
+        });
+      }
+
+      const { serverName, assessment } = parseResult.data;
+
+      // Check assessment size (10MB limit)
+      const jsonStr = JSON.stringify(assessment, null, 2);
+      if (jsonStr.length > 10 * 1024 * 1024) {
+        return res.status(413).json({
+          success: false,
+          error: "Assessment too large (max 10MB)",
+        });
+      }
+
+      const sanitizedName = serverName.replace(/[^a-zA-Z0-9-_]/g, "_");
       const filename = `/tmp/inspector-assessment-${sanitizedName}.json`;
 
       // Delete old file if exists (cleanup)
@@ -714,7 +738,7 @@ app.post(
       }
 
       // Save new assessment
-      fs.writeFileSync(filename, JSON.stringify(assessment, null, 2));
+      fs.writeFileSync(filename, jsonStr);
 
       res.json({
         success: true,

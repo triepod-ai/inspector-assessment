@@ -122,14 +122,46 @@ describe("POST /assessment/save", () => {
     });
   });
 
-  it("should handle missing serverName gracefully", async () => {
+  it("should return 400 when serverName is missing", async () => {
     const response = await request(app)
       .post("/assessment/save")
       .set("x-mcp-proxy-auth", `Bearer ${sessionToken}`)
       .send({ assessment: { data: true } });
 
-    expect(response.status).toBe(200);
-    expect(response.body.path).toContain("unknown");
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error).toBe("Invalid request structure");
+  });
+
+  it("should return 400 when assessment is not an object", async () => {
+    const response = await request(app)
+      .post("/assessment/save")
+      .set("x-mcp-proxy-auth", `Bearer ${sessionToken}`)
+      .send({ serverName: "test", assessment: "not-an-object" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+  });
+
+  it("should return 400 when assessment is an array", async () => {
+    const response = await request(app)
+      .post("/assessment/save")
+      .set("x-mcp-proxy-auth", `Bearer ${sessionToken}`)
+      .send({ serverName: "test", assessment: [1, 2, 3] });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+  });
+
+  it("should return 400 when serverName exceeds max length", async () => {
+    const longName = "a".repeat(300);
+    const response = await request(app)
+      .post("/assessment/save")
+      .set("x-mcp-proxy-auth", `Bearer ${sessionToken}`)
+      .send({ serverName: longName, assessment: {} });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
   });
 
   it("should require authentication", async () => {
