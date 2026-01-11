@@ -73,6 +73,7 @@ describe("Assessment Performance Benchmarks", () => {
 
     // Skip in CI - this test is for local performance benchmarking only
     // It takes 3+ minutes on slow CI runners
+    // Note: Timing assertions remain for local benchmarking purposes to track scaling characteristics
     it.skip("should scale linearly with tool count", async () => {
       // Arrange - Use minimal config to isolate scaling behavior from assessment complexity
       const config = createMockAssessmentConfig();
@@ -420,7 +421,8 @@ describe("Assessment Performance Benchmarks", () => {
         Final: ${(finalMemory.heapUsed / 1024 / 1024).toFixed(2)}MB
         Increase: ${memoryIncreaseMB.toFixed(2)}MB
         Tests Run: ${result.totalTestsRun}
-        Memory per Test: ${((memoryIncreaseMB * 1024) / result.totalTestsRun).toFixed(2)}KB`);
+        Memory per Test: ${((memoryIncreaseMB * 1024) / result.totalTestsRun).toFixed(2)}KB
+        Memory Growth Ratio: ${memoryGrowthRatio.toFixed(2)}x`);
     }, 240000); // 240 second timeout for comprehensive mode memory testing
 
     it("should maintain consistent performance across multiple runs", async () => {
@@ -538,7 +540,7 @@ describe("Assessment Performance Benchmarks", () => {
 
       const stressCallTool = jest
         .fn()
-        .mockImplementation((_name: string, _params: any) => {
+        .mockImplementation((toolName: string, _params: any) => {
           // Simulate varying load conditions
           const complexity = Math.random();
           let delay: number;
@@ -559,11 +561,11 @@ describe("Assessment Performance Benchmarks", () => {
               // Occasionally fail to simulate real-world conditions
               if (Math.random() < 0.05) {
                 // 5% failure rate
-                reject(new Error(`Stress-induced failure in ${name}`));
+                reject(new Error(`Stress-induced failure in ${toolName}`));
               } else {
                 resolve(
                   createMockCallToolResponse(
-                    `Stress response from ${name}`,
+                    `Stress response from ${toolName}`,
                     false,
                   ),
                 );

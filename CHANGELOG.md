@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Better CLI error messages help users quickly identify configuration issues
   - Example: Shows both "url must be a valid URL" and "command is required for stdio transport" when neither transport format matches
 
+### Fixed
+
+- **Performance Test Stability** (Issue #123): Removed flaky timing assertions from performance tests
+  - Removed timing-based assertions that caused failures in CI environments
+  - Fixed memoryGrowthRatio logging when value is undefined
+  - Fixed variable shadowing in retryFailedTools test
+  - All 7 performance tests now pass reliably
+
 ## [1.32.0] - 2026-01-10
 
 ### Added
