@@ -512,3 +512,308 @@ describe("ResponseValidator - isBusinessLogicError", () => {
     });
   });
 });
+
+/**
+ * Issue #121: Zod Integration Tests
+ * Tests the integration between ResponseValidator and Zod schema validation
+ */
+describe("ResponseValidator - Zod Integration", () => {
+  // Helper to create a minimal valid tool for tests
+  const createTestTool = (name: string = "test_tool"): Tool => ({
+    name,
+    description: "Test tool",
+    inputSchema: { type: "object", properties: {} },
+  });
+
+  describe("safeGetContentArray() integration via extractResponseMetadata", () => {
+    it("handles malformed content array gracefully (returns empty metadata)", () => {
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          // Invalid: content is not an array
+          content: "not an array" as unknown as Array<{ type: string }>,
+        },
+      };
+
+      // Should not throw, should return empty counts
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      expect(metadata.contentTypes).toEqual([]);
+      expect(metadata.textBlockCount).toBe(0);
+      expect(metadata.imageCount).toBe(0);
+      expect(metadata.resourceCount).toBe(0);
+    });
+
+    it("handles null content gracefully", () => {
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          content: null as unknown as Array<{ type: string }>,
+        },
+      };
+
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      expect(metadata.contentTypes).toEqual([]);
+      expect(metadata.textBlockCount).toBe(0);
+    });
+
+    it("handles content array with invalid blocks gracefully", () => {
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          content: [
+            { invalid: "block" }, // Missing type
+            123, // Not an object
+          ] as unknown as Array<{ type: string }>,
+        },
+      };
+
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      // Schema validation fails, so safeGetContentArray returns undefined
+      // which means counts are 0
+      expect(metadata.textBlockCount).toBe(0);
+    });
+
+    it("processes valid text content block correctly", () => {
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          content: [
+            { type: "text", text: "Hello world" },
+            { type: "text", text: "Another text block" },
+          ],
+        },
+      };
+
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      expect(metadata.contentTypes).toContain("text");
+      expect(metadata.textBlockCount).toBe(2);
+    });
+
+    it("processes valid image content block correctly", () => {
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          content: [
+            { type: "image", data: "base64data", mimeType: "image/png" },
+          ],
+        },
+      };
+
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      expect(metadata.contentTypes).toContain("image");
+      expect(metadata.imageCount).toBe(1);
+    });
+
+    it("processes valid resource content block correctly", () => {
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          content: [
+            { type: "resource", uri: "file:///path/to/resource" },
+            {
+              type: "resource_link",
+              uri: "https://example.com/resource",
+              mimeType: "application/json",
+            },
+          ],
+        },
+      };
+
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      expect(metadata.contentTypes).toContain("resource");
+      expect(metadata.contentTypes).toContain("resource_link");
+      expect(metadata.resourceCount).toBe(2);
+    });
+  });
+
+  describe("safeGetMCPResponse() integration via extractResponseMetadata", () => {
+    it("prefers validated data for structuredContent access", () => {
+      const structuredData = { result: "success", value: 42 };
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          content: [{ type: "text", text: "Result" }],
+          structuredContent: structuredData,
+        },
+      };
+
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      expect(metadata.hasStructuredContent).toBe(true);
+    });
+
+    it("falls back to raw response when structuredContent check needed", () => {
+      // Response that passes validation but also has structuredContent via raw check
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          content: [{ type: "text", text: "OK" }],
+          structuredContent: { data: "test" },
+        },
+      };
+
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      // Both paths should detect structuredContent
+      expect(metadata.hasStructuredContent).toBe(true);
+    });
+
+    it("handles _meta property via validated response", () => {
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          content: [{ type: "text", text: "Result" }],
+          _meta: { requestId: "abc123", timestamp: Date.now() },
+        },
+      };
+
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      expect(metadata.hasMeta).toBe(true);
+    });
+
+    it("correctly reports when _meta is absent", () => {
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          content: [{ type: "text", text: "Result" }],
+        },
+      };
+
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      expect(metadata.hasMeta).toBe(false);
+    });
+  });
+
+  describe("extractResponseMetadata() full integration", () => {
+    it("extracts metadata from complex MCP response with multiple content types", () => {
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          content: [
+            { type: "text", text: "Analysis result" },
+            { type: "text", text: "Additional details" },
+            { type: "image", data: "base64imagedata", mimeType: "image/jpeg" },
+            {
+              type: "resource",
+              uri: "file:///data.json",
+              mimeType: "application/json",
+            },
+          ],
+          structuredContent: { analysis: { score: 95 } },
+          _meta: { version: "1.0" },
+        },
+      };
+
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      // Verify all content types detected
+      expect(metadata.contentTypes).toContain("text");
+      expect(metadata.contentTypes).toContain("image");
+      expect(metadata.contentTypes).toContain("resource");
+
+      // Verify counts
+      expect(metadata.textBlockCount).toBe(2);
+      expect(metadata.imageCount).toBe(1);
+      expect(metadata.resourceCount).toBe(1);
+
+      // Verify structured content and meta
+      expect(metadata.hasStructuredContent).toBe(true);
+      expect(metadata.hasMeta).toBe(true);
+    });
+
+    it("populates all metadata fields correctly for minimal response", () => {
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          content: [{ type: "text", text: "OK" }],
+        },
+      };
+
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      // All fields should be defined
+      expect(metadata.contentTypes).toBeDefined();
+      expect(typeof metadata.hasStructuredContent).toBe("boolean");
+      expect(typeof metadata.hasMeta).toBe("boolean");
+      expect(typeof metadata.textBlockCount).toBe("number");
+      expect(typeof metadata.imageCount).toBe("number");
+      expect(typeof metadata.resourceCount).toBe("number");
+
+      // Verify correct values
+      expect(metadata.contentTypes).toEqual(["text"]);
+      expect(metadata.hasStructuredContent).toBe(false);
+      expect(metadata.hasMeta).toBe(false);
+      expect(metadata.textBlockCount).toBe(1);
+      expect(metadata.imageCount).toBe(0);
+      expect(metadata.resourceCount).toBe(0);
+    });
+
+    it("handles partial validation failures gracefully", () => {
+      // Mix of valid and invalid content blocks
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          // This array has some blocks that might not match strict schemas
+          // but GenericContentBlockSchema should catch them
+          content: [
+            { type: "text", text: "Valid text" },
+            { type: "unknown_type", data: "something" }, // Unknown type
+          ],
+          structuredContent: { data: "test" },
+        },
+      };
+
+      // Should not throw
+      const metadata = ResponseValidator.extractResponseMetadata(context);
+
+      // The GenericContentBlockSchema fallback allows unknown types
+      expect(metadata.contentTypes).toContain("text");
+      expect(metadata.hasStructuredContent).toBe(true);
+    });
+
+    it("validateResponse uses extractResponseMetadata correctly", () => {
+      const context: ValidationContext = {
+        tool: createTestTool(),
+        input: {},
+        response: {
+          content: [
+            { type: "text", text: "Operation successful" },
+            { type: "image", data: "png-data", mimeType: "image/png" },
+          ],
+        },
+      };
+
+      const result = ResponseValidator.validateResponse(context);
+
+      // Result should include responseMetadata
+      expect(result.responseMetadata).toBeDefined();
+      expect(result.responseMetadata?.textBlockCount).toBe(1);
+      expect(result.responseMetadata?.imageCount).toBe(1);
+
+      // Evidence should include metadata details
+      expect(result.evidence).toContain("Response includes 1 text block(s)");
+      expect(result.evidence).toContain("Response includes 1 image(s)");
+    });
+  });
+});

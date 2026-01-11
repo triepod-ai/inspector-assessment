@@ -665,31 +665,45 @@ See [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) for complete
 
 ### 15. Resources Assessment
 
-**Purpose**: Validate MCP resource capability implementation.
+**Purpose**: Validate MCP resource capability implementation and detect security issues.
 
 **Test Approach**:
 
 - Enumerate available resources
 - Test resource read operations
 - Validate resource URIs and metadata
+- Probe for hidden/undeclared resources (with rate limiting)
+- Test path traversal and injection vulnerabilities
 
 **Resource Checks**:
 
-| Check          | Description                       |
-| -------------- | --------------------------------- |
-| Discovery      | List resources via resources/list |
-| Read Success   | Attempt to read each resource     |
-| URI Format     | Validate URI structure            |
-| Metadata       | Check resource descriptions       |
-| Error Handling | Test invalid resource requests    |
+| Check            | Description                             |
+| ---------------- | --------------------------------------- |
+| Discovery        | List resources via resources/list       |
+| Read Success     | Attempt to read each resource           |
+| URI Format       | Validate URI structure                  |
+| Metadata         | Check resource descriptions             |
+| Error Handling   | Test invalid resource requests          |
+| Path Traversal   | Attempt directory traversal attacks     |
+| Hidden Resources | Probe undeclared resources (50ms delay) |
+| URI Injection    | Test SQL, template, and code injection  |
+| Sensitive Data   | Detect exposed secrets in resource URIs |
+
+**Rate Limiting**:
+
+- Hidden resource probes: 50ms delay between attempts (prevents overwhelming servers)
+- Reduces false positives from rate-limited endpoints
+- Applies to all parameterized resource testing
 
 **Pass Criteria**:
 
 - Resources are discoverable
 - Read operations succeed for valid resources
 - Error handling for invalid resources
+- No path traversal vulnerabilities
+- Sensitive data not exposed
 
-**Implementation**: `client/src/services/assessment/modules/ResourcesAssessor.ts`
+**Implementation**: `client/src/services/assessment/modules/ResourceAssessor.ts` (Issue #119)
 
 ---
 
@@ -950,8 +964,20 @@ mcp-assess-full my-server --config http-config.json --conformance
 **When Skipped**:
 
 - Returns `NEED_MORE_INFO` status with skip reason
-- Provides recommendations for enabling HTTP/SSE transport
+- Skipped if serverUrl not available (STDIO transport)
+- Skipped if MCP conformance package not installed
+- Provides recommendations for enabling HTTP/SSE transport and installing dependencies
 - Does not fail the overall assessment
+
+**Dependencies**:
+
+The ConformanceAssessor requires the official MCP conformance package:
+
+```bash
+npm install -g @modelcontextprotocol/conformance
+```
+
+If not available, the module logs a warning and skips gracefully.
 
 **Implementation**: `client/src/services/assessment/modules/ConformanceAssessor.ts` (~420 lines)
 

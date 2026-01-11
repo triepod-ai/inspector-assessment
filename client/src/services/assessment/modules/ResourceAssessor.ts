@@ -784,7 +784,9 @@ export class ResourceAssessor extends BaseAssessor {
       baseSchemes.add("resource");
     }
 
-    // Test hidden resource patterns
+    // Test hidden resource patterns with rate limiting to avoid overwhelming target
+    const PROBE_DELAY_MS = 50; // 50ms delay between probes
+
     for (const pattern of HIDDEN_RESOURCE_PATTERNS) {
       // For patterns with their own scheme, test directly
       if (pattern.includes("://")) {
@@ -797,6 +799,8 @@ export class ResourceAssessor extends BaseAssessor {
         if (probeResult) {
           results.push(probeResult);
         }
+        // Rate limit between probes
+        await new Promise((resolve) => setTimeout(resolve, PROBE_DELAY_MS));
       } else {
         // For file paths, combine with discovered schemes
         for (const scheme of baseSchemes) {
@@ -810,6 +814,8 @@ export class ResourceAssessor extends BaseAssessor {
           if (probeResult) {
             results.push(probeResult);
           }
+          // Rate limit between probes
+          await new Promise((resolve) => setTimeout(resolve, PROBE_DELAY_MS));
         }
       }
     }

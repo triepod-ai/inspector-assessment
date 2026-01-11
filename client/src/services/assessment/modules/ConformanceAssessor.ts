@@ -77,6 +77,16 @@ export class ConformanceAssessor extends BaseAssessor<ConformanceAssessment> {
       );
     }
 
+    // Check if conformance package is available
+    if (!this.isConformancePackageAvailable()) {
+      this.logger.warn(
+        "MCP conformance package not available. Install with: npm install -g @modelcontextprotocol/conformance",
+      );
+      return this.createSkippedResult(
+        "MCP conformance package not installed. Run: npm install -g @modelcontextprotocol/conformance",
+      );
+    }
+
     this.logger.info(`Running conformance tests against: ${serverUrl}`);
 
     const scenarios: ConformanceScenario[] = [];
@@ -273,6 +283,22 @@ export class ConformanceAssessor extends BaseAssessor<ConformanceAssessment> {
         `Failed to parse checks.json: ${error instanceof Error ? error.message : String(error)}`,
       );
       return [];
+    }
+  }
+
+  /**
+   * Check if the MCP conformance package is available
+   */
+  private isConformancePackageAvailable(): boolean {
+    try {
+      execFileSync("npx", ["@modelcontextprotocol/conformance", "--version"], {
+        timeout: 30000,
+        stdio: "pipe",
+        encoding: "utf-8",
+      });
+      return true;
+    } catch {
+      return false;
     }
   }
 

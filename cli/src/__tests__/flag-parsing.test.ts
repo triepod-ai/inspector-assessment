@@ -814,3 +814,232 @@ describe("Version Flag Parsing", () => {
     });
   });
 });
+
+/**
+ * Issue #118: Zod Schema Integration Tests
+ *
+ * Tests the integration between parseArgs() and Zod schema validation.
+ * Verifies that CLI arguments are validated through Zod schemas before
+ * being accepted into the options object.
+ */
+describe("parseArgs Zod Schema Integration", () => {
+  // Store original process.exit to mock it
+  let processExitSpy: jest.SpiedFunction<typeof process.exit>;
+  let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+
+  beforeEach(() => {
+    // Use fake timers to handle setTimeout in cli-parser error paths
+    jest.useFakeTimers();
+    // Mock process.exit to prevent actual exit
+    processExitSpy = jest
+      .spyOn(process, "exit")
+      .mockImplementation((() => {}) as never);
+    // Mock console.error to capture error messages
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    // Run any pending timers and restore
+    jest.runAllTimers();
+    jest.useRealTimers();
+    processExitSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
+  describe("LogLevelSchema integration", () => {
+    it("parseArgs validates log level with LogLevelSchema", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--log-level",
+        "debug",
+      ]);
+      expect(result.logLevel).toBe("debug");
+    });
+
+    it("parseArgs rejects invalid log level via LogLevelSchema", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--log-level",
+        "invalid-level",
+      ]);
+
+      // Should set helpRequested and exit
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid log level"),
+      );
+    });
+
+    it("accepts all valid log levels: silent, error, warn, info, debug", () => {
+      const validLevels = ["silent", "error", "warn", "info", "debug"];
+
+      for (const level of validLevels) {
+        consoleErrorSpy.mockClear();
+        const result = parseArgs([
+          "test-server",
+          "--config",
+          "config.json",
+          "--log-level",
+          level,
+        ]);
+        expect(result.logLevel).toBe(level);
+        expect(result.helpRequested).toBeFalsy();
+      }
+    });
+  });
+
+  describe("ReportFormatSchema integration", () => {
+    it("parseArgs validates report format with ReportFormatSchema", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--format",
+        "markdown",
+      ]);
+      expect(result.format).toBe("markdown");
+    });
+
+    it("parseArgs accepts json format", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--format",
+        "json",
+      ]);
+      expect(result.format).toBe("json");
+    });
+
+    it("parseArgs rejects invalid format via ReportFormatSchema", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--format",
+        "xml",
+      ]);
+
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid format"),
+      );
+    });
+
+    it("accepts short flag -f for format", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "-f",
+        "json",
+      ]);
+      expect(result.format).toBe("json");
+    });
+  });
+
+  describe("AssessmentProfileNameSchema integration", () => {
+    it("parseArgs validates profile name with AssessmentProfileNameSchema", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--profile",
+        "security",
+      ]);
+      expect(result.profile).toBe("security");
+    });
+
+    it("parseArgs rejects invalid profile via AssessmentProfileNameSchema", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--profile",
+        "invalid-profile",
+      ]);
+
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid profile name"),
+      );
+    });
+
+    it("accepts all valid profiles: quick, security, compliance, full", () => {
+      const validProfiles = ["quick", "security", "compliance", "full"];
+
+      for (const profile of validProfiles) {
+        consoleErrorSpy.mockClear();
+        const result = parseArgs([
+          "test-server",
+          "--config",
+          "config.json",
+          "--profile",
+          profile,
+        ]);
+        expect(result.profile).toBe(profile);
+        expect(result.helpRequested).toBeFalsy();
+      }
+    });
+  });
+
+  describe("Module names validation via safeParseModuleNames", () => {
+    it("parseArgs validates --skip-modules with valid module names", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--skip-modules",
+        "temporal,security",
+      ]);
+      expect(result.skipModules).toContain("temporal");
+      expect(result.skipModules).toContain("security");
+    });
+
+    it("parseArgs validates --only-modules with valid module names", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--only-modules",
+        "functionality,errorHandling",
+      ]);
+      expect(result.onlyModules).toContain("functionality");
+      expect(result.onlyModules).toContain("errorHandling");
+    });
+
+    it("parseArgs rejects invalid module names with helpful error", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--skip-modules",
+        "invalid-module",
+      ]);
+
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid module name"),
+      );
+    });
+
+    it("parseArgs rejects mix of valid and invalid module names", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--only-modules",
+        "security,not-a-real-module",
+      ]);
+
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid module name"),
+      );
+    });
+  });
+});
