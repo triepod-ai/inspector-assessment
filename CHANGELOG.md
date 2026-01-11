@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Improved Zod Error Messages** (Issue #84): Enhanced union validation error formatting
+  - `zodErrorFormatter.ts` now shows up to 3 unique errors for union validation failures
+  - Provides more specific error details when server config validation fails
+  - Better CLI error messages help users quickly identify configuration issues
+  - Example: Shows both "url must be a valid URL" and "command is required for stdio transport" when neither transport format matches
+
 ## [1.32.0] - 2026-01-10
 
 ### Added

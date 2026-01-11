@@ -278,7 +278,7 @@ describe("loadServerConfig", () => {
         }),
       );
 
-      // Zod union validation returns "Invalid input" when neither http/sse nor stdio schema matches
+      // Zod union validation returns "Invalid input" when neither HTTP/SSE nor stdio schema matches
       expect(() => loadServerConfig("nourl", "/config.json")).toThrow(
         /Invalid/,
       );
@@ -296,7 +296,7 @@ describe("loadServerConfig", () => {
         }),
       );
 
-      // Zod union validation returns "Invalid input" when neither http/sse nor stdio schema matches
+      // Zod union validation returns "Invalid input" when neither HTTP/SSE nor stdio schema matches
       expect(() => loadServerConfig("nourl", "/config.json")).toThrow(
         /Invalid/,
       );
@@ -310,7 +310,7 @@ describe("loadServerConfig", () => {
         }),
       );
 
-      // Zod union validation returns "Invalid input" when neither http/sse nor stdio schema matches
+      // Zod union validation returns "Invalid input" when neither HTTP/SSE nor stdio schema matches
       expect(() => loadServerConfig("server", "/config.json")).toThrow(
         /Invalid/,
       );

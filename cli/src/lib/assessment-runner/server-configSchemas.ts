@@ -38,7 +38,10 @@ export { TransportTypeSchema };
  */
 export const HttpSseServerConfigSchema = z.object({
   transport: z.enum(["http", "sse"]).optional(),
-  url: z.string().url("url must be a valid URL"),
+  url: z
+    .string()
+    .min(1, "'url' is required for HTTP/SSE transport")
+    .url("url must be a valid URL"),
 });
 
 /**
