@@ -6,6 +6,10 @@
  *
  * This is a CLI-local version that imports from the built client lib
  * to avoid rootDir conflicts in TypeScript compilation.
+ *
+ * NOTE: Phase 7 events (tool_test_complete, validation_summary, phase_started,
+ * phase_complete) are re-exported from scripts/lib/jsonl-events.ts to maintain
+ * a single source of truth. See Issue #88.
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";

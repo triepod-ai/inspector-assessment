@@ -339,6 +339,9 @@ export class SecurityPayloadTester {
     );
 
     for (const tool of tools) {
+      const toolStartTime = Date.now();
+      const toolResults: SecurityTestResult[] = [];
+
       if (!this.payloadGenerator.hasInputParameters(tool)) {
         this.logger.log(
           `${tool.name} has no input parameters - adding passing results`,
@@ -349,7 +352,7 @@ export class SecurityPayloadTester {
           const payload = allPayloads[0];
 
           if (payload) {
-            results.push({
+            const result: SecurityTestResult = {
               testName: attackPattern.attackName,
               description: payload.description,
               payload: payload.payload,
@@ -358,9 +361,27 @@ export class SecurityPayloadTester {
               vulnerable: false,
               evidence:
                 "Tool has no input parameters - cannot be exploited via payload injection",
-            });
+            };
+            results.push(result);
+            toolResults.push(result);
           }
         }
+
+        // Emit per-tool completion event for auditor UI (Phase 7)
+        if (onProgress) {
+          const toolCompleteEvent: ToolTestCompleteProgress = {
+            type: "tool_test_complete",
+            tool: tool.name,
+            module: "security",
+            scenariosPassed: toolResults.length,
+            scenariosExecuted: toolResults.length,
+            confidence: "high",
+            status: "PASS",
+            executionTime: Date.now() - toolStartTime,
+          };
+          onProgress(toolCompleteEvent);
+        }
+
         continue;
       }
 
@@ -387,6 +408,7 @@ export class SecurityPayloadTester {
           );
 
           results.push(result);
+          toolResults.push(result);
 
           if (result.vulnerable && onProgress) {
             this.logger.log(
@@ -420,6 +442,31 @@ export class SecurityPayloadTester {
         if (this.testCount % 5 === 0) {
           await this.sleep(100);
         }
+      }
+
+      // Emit per-tool completion event for auditor UI (Phase 7)
+      if (onProgress) {
+        const passed = toolResults.filter((r) => !r.vulnerable).length;
+        const vulnCount = toolResults.filter((r) => r.vulnerable).length;
+        const hasHighConfidence = toolResults.some(
+          (r) => r.vulnerable && r.confidence === "high",
+        );
+
+        const toolCompleteEvent: ToolTestCompleteProgress = {
+          type: "tool_test_complete",
+          tool: tool.name,
+          module: "security",
+          scenariosPassed: passed,
+          scenariosExecuted: toolResults.length,
+          confidence: hasHighConfidence
+            ? "high"
+            : vulnCount > 0
+              ? "medium"
+              : "high",
+          status: vulnCount > 0 ? "FAIL" : "PASS",
+          executionTime: Date.now() - toolStartTime,
+        };
+        onProgress(toolCompleteEvent);
       }
     }
 

@@ -2,11 +2,11 @@
 
 > **Part of the JSONL Events API documentation series:**
 >
-> - **Reference** (this document) - All 13 event types and schema definitions
+> - **Reference** (this document) - All 17 event types and schema definitions
 > - [Algorithms](JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP enrichment algorithms
 > - [Integration](JSONL_EVENTS_INTEGRATION.md) - Lifecycle examples, integration checklist, testing
 
-**Version**: 1.23.8
+**Version**: 1.24.2
 **Status**: Stable
 **Target Audience**: MCP Auditor developers, assessment tool integrators, real-time progress consumers
 
@@ -234,16 +234,20 @@ for (const { line, result } of results) {
   - [1. server_connected](#1-server_connected)
   - [2. tool_discovered](#2-tool_discovered)
   - [3. tools_discovery_complete](#3-tools_discovery_complete)
-  - [4. module_started](#4-module_started)
-  - [5. test_batch](#5-test_batch)
-  - [6. vulnerability_found](#6-vulnerability_found)
-  - [7. annotation_missing](#7-annotation_missing)
-  - [8. annotation_misaligned](#8-annotation_misaligned)
-  - [9. annotation_review_recommended](#9-annotation_review_recommended)
-  - [10. annotation_aligned](#10-annotation_aligned)
-  - [11. modules_configured](#11-modules_configured)
-  - [12. module_complete](#12-module_complete)
-  - [13. assessment_complete](#13-assessment_complete)
+  - [4. phase_started](#4-phase_started)
+  - [5. phase_complete](#5-phase_complete)
+  - [6. module_started](#6-module_started)
+  - [7. test_batch](#7-test_batch)
+  - [8. tool_test_complete](#8-tool_test_complete)
+  - [9. validation_summary](#9-validation_summary)
+  - [10. vulnerability_found](#10-vulnerability_found)
+  - [11. annotation_missing](#11-annotation_missing)
+  - [12. annotation_misaligned](#12-annotation_misaligned)
+  - [13. annotation_review_recommended](#13-annotation_review_recommended)
+  - [14. annotation_aligned](#14-annotation_aligned)
+  - [15. modules_configured](#15-modules_configured)
+  - [16. module_complete](#16-module_complete)
+  - [17. assessment_complete](#17-assessment_complete)
 
 ---
 
@@ -254,17 +258,26 @@ Assessment events flow in this sequence:
 ```
 server_connected                   (1 event)
   ↓
+phase_started (phase="discovery")  (1 event)
+  ↓
 tool_discovered                    (N events, 1 per tool)
   ↓
 tools_discovery_complete           (1 event)
   ↓
+phase_complete (phase="discovery") (1 event)
+  ↓
 modules_configured                 (1 event, if --skip-modules or --only-modules used)
+  ↓
+phase_started (phase="assessment") (1 event)
   ↓
 [For each module:]
   module_started                   (1 event)
     ↓
   [During execution:]
     test_batch*                    (M events, every 500ms or 10 tests)
+    [For each tool:]
+      tool_test_complete*          (per-tool summary after all tests)
+      validation_summary*          (per-tool input validation metrics)
     vulnerability_found*           (real-time as detected)
     annotation_missing*            (real-time as detected)
     annotation_misaligned*         (real-time as detected)
@@ -272,6 +285,8 @@ modules_configured                 (1 event, if --skip-modules or --only-modules
     annotation_aligned*            (real-time as detected)
     ↓
   module_complete                  (1 event, with AUP enrichment if module=aup)
+  ↓
+phase_complete (phase="assessment")(1 event)
   ↓
 assessment_complete                (1 event)
 ```
@@ -456,7 +471,88 @@ interface ToolsDiscoveryCompleteEvent {
 
 ---
 
-### 4. `module_started`
+### 4. `phase_started`
+
+**When**: At the beginning of each major assessment phase (discovery, assessment, analysis)
+
+**Purpose**: Signals the start of a high-level assessment phase for progress tracking
+
+```json
+{
+  "event": "phase_started",
+  "phase": "discovery",
+  "version": "1.24.2",
+  "schemaVersion": 1
+}
+```
+
+**Fields:**
+
+| Field           | Type    | Required | Description                                   |
+| --------------- | ------- | -------- | --------------------------------------------- |
+| `phase`         | string  | Yes      | Phase name (e.g., "discovery", "assessment")  |
+| `version`       | string  | Yes      | Inspector version (auto-added)                |
+| `schemaVersion` | integer | Yes      | Event schema version (auto-added, current: 1) |
+
+**Common Phase Values:**
+
+- `"discovery"` - Tool discovery phase
+- `"assessment"` - Module execution phase
+- `"analysis"` - Post-processing phase (if applicable)
+
+**TypeScript Interface:**
+
+```typescript
+interface PhaseStartedEvent {
+  event: "phase_started";
+  phase: string;
+  version: string;
+  schemaVersion: number;
+}
+```
+
+---
+
+### 5. `phase_complete`
+
+**When**: After each major assessment phase finishes
+
+**Purpose**: Signals the completion of a high-level assessment phase with duration metrics
+
+```json
+{
+  "event": "phase_complete",
+  "phase": "discovery",
+  "duration": 1234,
+  "version": "1.24.2",
+  "schemaVersion": 1
+}
+```
+
+**Fields:**
+
+| Field           | Type    | Required | Description                                   |
+| --------------- | ------- | -------- | --------------------------------------------- |
+| `phase`         | string  | Yes      | Phase name (e.g., "discovery", "assessment")  |
+| `duration`      | number  | Yes      | Phase execution time in milliseconds          |
+| `version`       | string  | Yes      | Inspector version (auto-added)                |
+| `schemaVersion` | integer | Yes      | Event schema version (auto-added, current: 1) |
+
+**TypeScript Interface:**
+
+```typescript
+interface PhaseCompleteEvent {
+  event: "phase_complete";
+  phase: string;
+  duration: number;
+  version: string;
+  schemaVersion: number;
+}
+```
+
+---
+
+### 6. `module_started`
 
 **When**: Before each assessment module begins execution
 
@@ -517,7 +613,7 @@ interface ModuleStartedEvent {
 
 ---
 
-### 5. `test_batch`
+### 7. `test_batch`
 
 **When**: During module execution, every 500ms or after 10 tests (whichever comes first)
 
@@ -576,7 +672,122 @@ interface TestBatchEvent {
 
 ---
 
-### 6. `vulnerability_found`
+### 8. `tool_test_complete`
+
+**When**: After all tests for a single tool complete (per module)
+
+**Purpose**: Provides per-tool summary for real-time progress in auditor UI
+
+```json
+{
+  "event": "tool_test_complete",
+  "tool": "add_memory",
+  "module": "functionality",
+  "scenariosPassed": 8,
+  "scenariosExecuted": 10,
+  "confidence": "high",
+  "status": "PASS",
+  "executionTime": 245,
+  "version": "1.24.2",
+  "schemaVersion": 1
+}
+```
+
+**Fields:**
+
+| Field               | Type                              | Required | Description                                   |
+| ------------------- | --------------------------------- | -------- | --------------------------------------------- |
+| `tool`              | string                            | Yes      | Tool name that was tested                     |
+| `module`            | string                            | Yes      | Module name that performed the tests          |
+| `scenariosPassed`   | number                            | Yes      | Number of test scenarios that passed          |
+| `scenariosExecuted` | number                            | Yes      | Total number of test scenarios executed       |
+| `confidence`        | `"high"` \| `"medium"` \| `"low"` | Yes      | Confidence level of the test results          |
+| `status`            | `"PASS"` \| `"FAIL"` \| `"ERROR"` | Yes      | Overall status for this tool in this module   |
+| `executionTime`     | number                            | Yes      | Time taken to test this tool (milliseconds)   |
+| `version`           | string                            | Yes      | Inspector version (auto-added)                |
+| `schemaVersion`     | integer                           | Yes      | Event schema version (auto-added, current: 1) |
+
+**Status Values:**
+
+- `"PASS"` - Tool passed all or most tests
+- `"FAIL"` - Tool failed tests or exhibited problematic behavior
+- `"ERROR"` - Tool encountered errors during testing (e.g., connection issues)
+
+**TypeScript Interface:**
+
+```typescript
+interface ToolTestCompleteEvent {
+  event: "tool_test_complete";
+  tool: string;
+  module: string;
+  scenariosPassed: number;
+  scenariosExecuted: number;
+  confidence: "high" | "medium" | "low";
+  status: "PASS" | "FAIL" | "ERROR";
+  executionTime: number;
+  version: string;
+  schemaVersion: number;
+}
+```
+
+---
+
+### 9. `validation_summary`
+
+**When**: After input validation testing completes for a tool
+
+**Purpose**: Tracks how tools handle invalid inputs (wrong types, missing required params, etc.)
+
+```json
+{
+  "event": "validation_summary",
+  "tool": "add_memory",
+  "wrongType": 2,
+  "missingRequired": 1,
+  "extraParams": 0,
+  "nullValues": 1,
+  "invalidValues": 3,
+  "version": "1.24.2",
+  "schemaVersion": 1
+}
+```
+
+**Fields:**
+
+| Field             | Type    | Required | Description                                            |
+| ----------------- | ------- | -------- | ------------------------------------------------------ |
+| `tool`            | string  | Yes      | Tool name that was tested                              |
+| `wrongType`       | number  | Yes      | Count of wrong type parameter tests                    |
+| `missingRequired` | number  | Yes      | Count of missing required parameter tests              |
+| `extraParams`     | number  | Yes      | Count of extra/unexpected parameter tests              |
+| `nullValues`      | number  | Yes      | Count of null value tests                              |
+| `invalidValues`   | number  | Yes      | Count of invalid value tests (malformed, out of range) |
+| `version`         | string  | Yes      | Inspector version (auto-added)                         |
+| `schemaVersion`   | integer | Yes      | Event schema version (auto-added, current: 1)          |
+
+**Usage:**
+
+This event helps identify tools with poor input validation. High counts indicate the tool doesn't properly reject invalid inputs, which can lead to security issues or unexpected behavior.
+
+**TypeScript Interface:**
+
+```typescript
+interface ValidationSummaryEvent {
+  event: "validation_summary";
+  tool: string;
+  wrongType: number;
+  missingRequired: number;
+  extraParams: number;
+  nullValues: number;
+  invalidValues: number;
+  version: string;
+  schemaVersion: number;
+}
+```
+
+---
+
+### 10. `vulnerability_found`
 
 **When**: Real-time during security assessment, as vulnerabilities are detected
 
@@ -630,7 +841,7 @@ interface VulnerabilityFoundEvent {
 
 ---
 
-### 7. `annotation_missing`
+### 11. `annotation_missing`
 
 **When**: During annotations module assessment, when tool lacks required annotations
 
@@ -703,7 +914,7 @@ interface AnnotationMissingEvent {
 
 ---
 
-### 8. `annotation_misaligned`
+### 12. `annotation_misaligned`
 
 **When**: During annotations module assessment, when annotations contradict inferred behavior
 
@@ -770,7 +981,7 @@ interface AnnotationMisalignedEvent {
 
 ---
 
-### 9. `annotation_review_recommended`
+### 13. `annotation_review_recommended`
 
 **When**: During annotations module assessment, for ambiguous annotation patterns
 
@@ -841,7 +1052,7 @@ interface AnnotationReviewRecommendedEvent {
 
 ---
 
-### 10. `annotation_aligned`
+### 14. `annotation_aligned`
 
 **When**: During annotations module assessment, when tool has annotations that match inferred behavior
 
@@ -909,7 +1120,7 @@ interface AnnotationAlignedEvent {
 
 ---
 
-### 11. `modules_configured`
+### 15. `modules_configured`
 
 **When**: After tools discovery, before module execution begins (only when `--skip-modules` or `--only-modules` flags are used)
 
@@ -1057,7 +1268,7 @@ interface ModulesConfiguredEvent {
 
 ---
 
-### 12. `module_complete`
+### 16. `module_complete`
 
 **When**: After each assessment module finishes execution
 
@@ -1213,7 +1424,7 @@ interface ModuleCompleteEvent {
 
 ---
 
-### 13. `assessment_complete`
+### 17. `assessment_complete`
 
 **When**: After all modules have completed and assessment finishes
 
@@ -1266,5 +1477,5 @@ interface AssessmentCompleteEvent {
 
 ---
 
-**Last Updated**: 2026-01-10
+**Last Updated**: 2026-01-11
 **Status**: Stable

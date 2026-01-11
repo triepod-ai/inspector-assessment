@@ -2,6 +2,11 @@
  * JSONL Events Module Unit Tests
  *
  * Tests for JSONL event emission functions used for real-time monitoring.
+ *
+ * NOTE: This tests the cli/src/lib/jsonl-events.ts implementation.
+ * A parallel implementation exists in scripts/lib/jsonl-events.ts and is tested
+ * in scripts/__tests__/jsonl-events-phase7.test.ts. Both implementations must
+ * emit identical JSONL structure for Phase 7 events (TEST-REQ-001).
  */
 
 import {
@@ -27,8 +32,13 @@ import {
   emitAnnotationReviewRecommended,
   emitAnnotationAligned,
   emitModulesConfigured,
+  emitToolTestComplete,
+  emitValidationSummary,
+  emitPhaseStarted,
+  emitPhaseComplete,
   extractToolParams,
   type ToolParam,
+  SCHEMA_VERSION,
 } from "../lib/jsonl-events.js";
 
 describe("JSONL Event Emission", () => {
@@ -436,6 +446,284 @@ describe("JSONL Event Emission", () => {
     it("should handle default reason", () => {
       emitModulesConfigured(["security", "functionality"], [], "default");
       expect(emittedEvents[0]).toHaveProperty("reason", "default");
+    });
+  });
+
+  // ============================================================================
+  // Phase 7 Events - Per-Tool Testing & Phase Lifecycle
+  // ============================================================================
+
+  describe("emitToolTestComplete", () => {
+    it("should emit tool_test_complete with all required fields", () => {
+      emitToolTestComplete(
+        "test_calculator",
+        "security",
+        15,
+        20,
+        "high",
+        "PASS",
+        5000,
+      );
+
+      expect(emittedEvents[0]).toHaveProperty("event", "tool_test_complete");
+      expect(emittedEvents[0]).toHaveProperty("tool", "test_calculator");
+      expect(emittedEvents[0]).toHaveProperty("module", "security");
+      expect(emittedEvents[0]).toHaveProperty("scenariosPassed", 15);
+      expect(emittedEvents[0]).toHaveProperty("scenariosExecuted", 20);
+      expect(emittedEvents[0]).toHaveProperty("confidence", "high");
+      expect(emittedEvents[0]).toHaveProperty("status", "PASS");
+      expect(emittedEvents[0]).toHaveProperty("executionTime", 5000);
+    });
+
+    it("should include version and schemaVersion fields", () => {
+      emitToolTestComplete("tool", "module", 10, 10, "high", "PASS", 1000);
+
+      expect(emittedEvents[0]).toHaveProperty("version");
+      expect(emittedEvents[0]).toHaveProperty("schemaVersion", SCHEMA_VERSION);
+    });
+
+    it("should handle FAIL status", () => {
+      emitToolTestComplete(
+        "vulnerable_tool",
+        "security",
+        5,
+        20,
+        "low",
+        "FAIL",
+        3000,
+      );
+
+      expect(emittedEvents[0]).toHaveProperty("status", "FAIL");
+      expect(emittedEvents[0]).toHaveProperty("confidence", "low");
+      expect(emittedEvents[0]).toHaveProperty("scenariosPassed", 5);
+      expect(emittedEvents[0]).toHaveProperty("scenariosExecuted", 20);
+    });
+
+    it("should handle ERROR status", () => {
+      emitToolTestComplete(
+        "broken_tool",
+        "functionality",
+        0,
+        10,
+        "medium",
+        "ERROR",
+        2000,
+      );
+
+      expect(emittedEvents[0]).toHaveProperty("status", "ERROR");
+      expect(emittedEvents[0]).toHaveProperty("scenariosPassed", 0);
+    });
+
+    it("should handle different confidence levels", () => {
+      emitToolTestComplete("t1", "m1", 10, 10, "high", "PASS", 1000);
+      emitToolTestComplete("t2", "m2", 5, 10, "medium", "PASS", 1000);
+      emitToolTestComplete("t3", "m3", 2, 10, "low", "FAIL", 1000);
+
+      expect(emittedEvents[0]).toHaveProperty("confidence", "high");
+      expect(emittedEvents[1]).toHaveProperty("confidence", "medium");
+      expect(emittedEvents[2]).toHaveProperty("confidence", "low");
+    });
+
+    it("should handle zero execution time", () => {
+      emitToolTestComplete("fast_tool", "module", 10, 10, "high", "PASS", 0);
+      expect(emittedEvents[0]).toHaveProperty("executionTime", 0);
+    });
+
+    it("should handle different modules", () => {
+      emitToolTestComplete("tool1", "security", 10, 10, "high", "PASS", 1000);
+      emitToolTestComplete(
+        "tool2",
+        "functionality",
+        10,
+        10,
+        "high",
+        "PASS",
+        1000,
+      );
+      emitToolTestComplete(
+        "tool3",
+        "error_handling",
+        10,
+        10,
+        "high",
+        "PASS",
+        1000,
+      );
+
+      expect(emittedEvents[0]).toHaveProperty("module", "security");
+      expect(emittedEvents[1]).toHaveProperty("module", "functionality");
+      expect(emittedEvents[2]).toHaveProperty("module", "error_handling");
+    });
+  });
+
+  describe("emitValidationSummary", () => {
+    it("should emit validation_summary with all required fields", () => {
+      emitValidationSummary("test_tool", 5, 3, 2, 1, 4);
+
+      expect(emittedEvents[0]).toHaveProperty("event", "validation_summary");
+      expect(emittedEvents[0]).toHaveProperty("tool", "test_tool");
+      expect(emittedEvents[0]).toHaveProperty("wrongType", 5);
+      expect(emittedEvents[0]).toHaveProperty("missingRequired", 3);
+      expect(emittedEvents[0]).toHaveProperty("extraParams", 2);
+      expect(emittedEvents[0]).toHaveProperty("nullValues", 1);
+      expect(emittedEvents[0]).toHaveProperty("invalidValues", 4);
+    });
+
+    it("should include version and schemaVersion fields", () => {
+      emitValidationSummary("tool", 0, 0, 0, 0, 0);
+
+      expect(emittedEvents[0]).toHaveProperty("version");
+      expect(emittedEvents[0]).toHaveProperty("schemaVersion", SCHEMA_VERSION);
+    });
+
+    it("should handle zero validation errors", () => {
+      emitValidationSummary("perfect_tool", 0, 0, 0, 0, 0);
+
+      expect(emittedEvents[0]).toHaveProperty("wrongType", 0);
+      expect(emittedEvents[0]).toHaveProperty("missingRequired", 0);
+      expect(emittedEvents[0]).toHaveProperty("extraParams", 0);
+      expect(emittedEvents[0]).toHaveProperty("nullValues", 0);
+      expect(emittedEvents[0]).toHaveProperty("invalidValues", 0);
+    });
+
+    it("should handle high validation error counts", () => {
+      emitValidationSummary("poor_validation_tool", 100, 50, 25, 10, 75);
+
+      expect(emittedEvents[0]).toHaveProperty("wrongType", 100);
+      expect(emittedEvents[0]).toHaveProperty("missingRequired", 50);
+      expect(emittedEvents[0]).toHaveProperty("extraParams", 25);
+      expect(emittedEvents[0]).toHaveProperty("nullValues", 10);
+      expect(emittedEvents[0]).toHaveProperty("invalidValues", 75);
+    });
+
+    it("should handle only specific error types", () => {
+      emitValidationSummary("type_check_only", 10, 0, 0, 0, 0);
+      emitValidationSummary("required_check_only", 0, 5, 0, 0, 0);
+      emitValidationSummary("null_check_only", 0, 0, 0, 3, 0);
+
+      expect(emittedEvents[0]).toHaveProperty("wrongType", 10);
+      expect(emittedEvents[0]).toHaveProperty("missingRequired", 0);
+
+      expect(emittedEvents[1]).toHaveProperty("wrongType", 0);
+      expect(emittedEvents[1]).toHaveProperty("missingRequired", 5);
+
+      expect(emittedEvents[2]).toHaveProperty("nullValues", 3);
+      expect(emittedEvents[2]).toHaveProperty("wrongType", 0);
+    });
+  });
+
+  describe("emitPhaseStarted", () => {
+    it("should emit phase_started with phase name", () => {
+      emitPhaseStarted("discovery");
+
+      expect(emittedEvents[0]).toHaveProperty("event", "phase_started");
+      expect(emittedEvents[0]).toHaveProperty("phase", "discovery");
+    });
+
+    it("should include version and schemaVersion fields", () => {
+      emitPhaseStarted("assessment");
+
+      expect(emittedEvents[0]).toHaveProperty("version");
+      expect(emittedEvents[0]).toHaveProperty("schemaVersion", SCHEMA_VERSION);
+    });
+
+    it("should handle different phase names", () => {
+      emitPhaseStarted("discovery");
+      emitPhaseStarted("assessment");
+      emitPhaseStarted("analysis");
+      emitPhaseStarted("reporting");
+
+      expect(emittedEvents[0]).toHaveProperty("phase", "discovery");
+      expect(emittedEvents[1]).toHaveProperty("phase", "assessment");
+      expect(emittedEvents[2]).toHaveProperty("phase", "analysis");
+      expect(emittedEvents[3]).toHaveProperty("phase", "reporting");
+    });
+
+    it("should handle custom phase names", () => {
+      emitPhaseStarted("custom_phase");
+      expect(emittedEvents[0]).toHaveProperty("phase", "custom_phase");
+    });
+  });
+
+  describe("emitPhaseComplete", () => {
+    it("should emit phase_complete with phase name and duration", () => {
+      emitPhaseComplete("discovery", 5000);
+
+      expect(emittedEvents[0]).toHaveProperty("event", "phase_complete");
+      expect(emittedEvents[0]).toHaveProperty("phase", "discovery");
+      expect(emittedEvents[0]).toHaveProperty("duration", 5000);
+    });
+
+    it("should include version and schemaVersion fields", () => {
+      emitPhaseComplete("assessment", 10000);
+
+      expect(emittedEvents[0]).toHaveProperty("version");
+      expect(emittedEvents[0]).toHaveProperty("schemaVersion", SCHEMA_VERSION);
+    });
+
+    it("should handle zero duration", () => {
+      emitPhaseComplete("fast_phase", 0);
+      expect(emittedEvents[0]).toHaveProperty("duration", 0);
+    });
+
+    it("should handle long durations", () => {
+      emitPhaseComplete("long_phase", 120000);
+      expect(emittedEvents[0]).toHaveProperty("duration", 120000);
+    });
+
+    it("should handle different phase names", () => {
+      emitPhaseComplete("discovery", 1000);
+      emitPhaseComplete("assessment", 50000);
+      emitPhaseComplete("analysis", 3000);
+
+      expect(emittedEvents[0]).toHaveProperty("phase", "discovery");
+      expect(emittedEvents[0]).toHaveProperty("duration", 1000);
+
+      expect(emittedEvents[1]).toHaveProperty("phase", "assessment");
+      expect(emittedEvents[1]).toHaveProperty("duration", 50000);
+
+      expect(emittedEvents[2]).toHaveProperty("phase", "analysis");
+      expect(emittedEvents[2]).toHaveProperty("duration", 3000);
+    });
+  });
+
+  describe("Phase 7 Event Schema Consistency", () => {
+    it("all Phase 7 events should have consistent schema version", () => {
+      emitToolTestComplete("tool", "module", 10, 10, "high", "PASS", 1000);
+      emitValidationSummary("tool", 1, 2, 3, 4, 5);
+      emitPhaseStarted("phase");
+      emitPhaseComplete("phase", 1000);
+
+      expect(emittedEvents[0]).toHaveProperty("schemaVersion", SCHEMA_VERSION);
+      expect(emittedEvents[1]).toHaveProperty("schemaVersion", SCHEMA_VERSION);
+      expect(emittedEvents[2]).toHaveProperty("schemaVersion", SCHEMA_VERSION);
+      expect(emittedEvents[3]).toHaveProperty("schemaVersion", SCHEMA_VERSION);
+    });
+
+    it("all Phase 7 events should have version field", () => {
+      emitToolTestComplete("tool", "module", 10, 10, "high", "PASS", 1000);
+      emitValidationSummary("tool", 1, 2, 3, 4, 5);
+      emitPhaseStarted("phase");
+      emitPhaseComplete("phase", 1000);
+
+      emittedEvents.forEach((event) => {
+        expect(event).toHaveProperty("version");
+        expect(typeof event.version).toBe("string");
+      });
+    });
+
+    it("all Phase 7 events should emit valid JSON", () => {
+      emitToolTestComplete("tool", "module", 10, 10, "high", "PASS", 1000);
+      emitValidationSummary("tool", 1, 2, 3, 4, 5);
+      emitPhaseStarted("phase");
+      emitPhaseComplete("phase", 1000);
+
+      // If parsing failed, emittedEvents would be empty
+      expect(emittedEvents.length).toBe(4);
+      emittedEvents.forEach((event) => {
+        expect(event).toBeDefined();
+        expect(typeof event).toBe("object");
+      });
     });
   });
 });

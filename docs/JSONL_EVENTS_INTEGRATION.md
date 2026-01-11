@@ -50,6 +50,11 @@ npm run assess:full -- --server memory-mcp --config config.json 2>&1 | while IFS
       echo "Connected to $serverName ($transport)"
       ;;
 
+    phase_started)
+      phase=$(echo "$line" | jq -r '.phase')
+      echo "Phase started: $phase"
+      ;;
+
     tool_discovered)
       name=$(echo "$line" | jq -r '.name')
       params=$(echo "$line" | jq '.params | length')
@@ -59,6 +64,12 @@ npm run assess:full -- --server memory-mcp --config config.json 2>&1 | while IFS
     tools_discovery_complete)
       count=$(echo "$line" | jq -r '.count')
       echo "Discovery complete: $count tools"
+      ;;
+
+    phase_complete)
+      phase=$(echo "$line" | jq -r '.phase')
+      duration=$(echo "$line" | jq -r '.duration')
+      echo "Phase complete: $phase (${duration}ms)"
       ;;
 
     module_started)
@@ -73,6 +84,22 @@ npm run assess:full -- --server memory-mcp --config config.json 2>&1 | while IFS
       total=$(echo "$line" | jq -r '.total')
       percent=$((completed * 100 / total))
       echo "  $module: $percent% ($completed/$total)"
+      ;;
+
+    tool_test_complete)
+      tool=$(echo "$line" | jq -r '.tool')
+      module=$(echo "$line" | jq -r '.module')
+      status=$(echo "$line" | jq -r '.status')
+      passed=$(echo "$line" | jq -r '.scenariosPassed')
+      total=$(echo "$line" | jq -r '.scenariosExecuted')
+      echo "  $tool ($module): $status ($passed/$total)"
+      ;;
+
+    validation_summary)
+      tool=$(echo "$line" | jq -r '.tool')
+      wrongType=$(echo "$line" | jq -r '.wrongType')
+      missing=$(echo "$line" | jq -r '.missingRequired')
+      echo "  Validation: $tool (wrongType:$wrongType, missing:$missing)"
       ;;
 
     vulnerability_found)
@@ -253,6 +280,12 @@ def consume_assessment_events(server_name, config_path):
             if event["event"] == "server_connected":
                 print(f"Connected to {event['serverName']} via {event['transport']}")
 
+            elif event["event"] == "phase_started":
+                print(f"\n=== Phase: {event['phase']} ===")
+
+            elif event["event"] == "phase_complete":
+                print(f"=== Phase {event['phase']} complete ({event['duration']}ms) ===\n")
+
             elif event["event"] == "tool_discovered":
                 print(f"  Found: {event['name']} ({len(event['params'])} params)")
 
@@ -263,6 +296,15 @@ def consume_assessment_events(server_name, config_path):
                 percent = (event["completed"] / event["total"]) * 100
                 module_progress[event["module"]] = percent
                 print(f"  {event['module']}: {percent:.1f}% ({event['completed']}/{event['total']})")
+
+            elif event["event"] == "tool_test_complete":
+                status_icon = "✓" if event["status"] == "PASS" else "✗"
+                print(f"  {status_icon} {event['tool']} ({event['module']}): {event['scenariosPassed']}/{event['scenariosExecuted']}")
+
+            elif event["event"] == "validation_summary":
+                total_issues = event["wrongType"] + event["missingRequired"] + event["extraParams"] + event["nullValues"] + event["invalidValues"]
+                if total_issues > 0:
+                    print(f"  Validation issues in {event['tool']}: {total_issues} total")
 
             elif event["event"] == "vulnerability_found":
                 vulnerabilities.append(event)
@@ -305,15 +347,21 @@ Use this checklist when integrating JSONL events into MCP Auditor:
 
 - [ ] Listen to stderr for JSONL events
 - [ ] Parse `server_connected` to show server name and transport
+- [ ] Track `phase_started` event for discovery phase
 - [ ] Accumulate `tool_discovered` events in a list
 - [ ] When `tools_discovery_complete` arrives, show total tool count
+- [ ] Track `phase_complete` event for discovery phase with duration
 
 ### Phase 2: Real-Time Progress
 
+- [ ] Track `phase_started` event for assessment phase
 - [ ] For each `module_started`, initialize progress bar (0%)
 - [ ] As `test_batch` events arrive, update progress = (completed / total) \* 100
 - [ ] Display current module name, test counts, elapsed time
 - [ ] Show estimated time remaining based on completion rate
+- [ ] Track `tool_test_complete` events for per-tool status (PASS/FAIL/ERROR)
+- [ ] Accumulate `validation_summary` events to track input validation issues per tool
+- [ ] Track `phase_complete` event for assessment phase with duration
 
 ### Phase 3: Security Alerts
 
@@ -436,23 +484,27 @@ if (event.event === "module_complete" && event.module === "aup") {
 
 **Typical Event Volumes (per 20-tool assessment):**
 
-| Event Type                 | Count    | Notes                                      |
-| -------------------------- | -------- | ------------------------------------------ |
-| `server_connected`         | 1        | Once per assessment                        |
-| `tool_discovered`          | 20       | One per tool                               |
-| `tools_discovery_complete` | 1        | Once after discovery                       |
-| `module_started`           | 18       | Once per module (16 core + 2 optional)     |
-| `test_batch`               | 200-500  | Every 10 tests or 500ms (varies by module) |
-| `vulnerability_found`      | 0-50     | Only if vulnerabilities detected           |
-| `annotation_*`             | 0-100    | Only if annotation issues detected         |
-| `module_complete`          | 18       | One per module                             |
-| `assessment_complete`      | 1        | Once at end                                |
-| **Total JSONL lines**      | ~500-700 | Depends on findings                        |
+| Event Type                 | Count     | Notes                                                  |
+| -------------------------- | --------- | ------------------------------------------------------ |
+| `server_connected`         | 1         | Once per assessment                                    |
+| `phase_started`            | 2-3       | Once per phase (discovery, assessment, analysis)       |
+| `tool_discovered`          | 20        | One per tool                                           |
+| `tools_discovery_complete` | 1         | Once after discovery                                   |
+| `phase_complete`           | 2-3       | Once per phase with duration                           |
+| `module_started`           | 18        | Once per module (16 core + 2 optional)                 |
+| `test_batch`               | 200-500   | Every 10 tests or 500ms (varies by module)             |
+| `tool_test_complete`       | 20-360    | One per tool per module (depends on which modules run) |
+| `validation_summary`       | 0-20      | One per tool if validation tests run                   |
+| `vulnerability_found`      | 0-50      | Only if vulnerabilities detected                       |
+| `annotation_*`             | 0-100     | Only if annotation issues detected                     |
+| `module_complete`          | 18        | One per module                                         |
+| `assessment_complete`      | 1         | Once at end                                            |
+| **Total JSONL lines**      | ~600-1200 | Depends on findings and modules enabled                |
 
 **Bandwidth & Storage:**
 
 - Average event size: 300-500 bytes
-- Total output per assessment: 150-350 KB
+- Total output per assessment: 180-600 KB
 - Recommended buffer for pipe: 64 KB (handles bursts)
 - Safe to capture to file for analysis
 
@@ -604,6 +656,6 @@ try {
 
 ---
 
-**Last Updated**: 2025-12-31
+**Last Updated**: 2026-01-11
 **Status**: Stable
 **Maintainer**: MCP Inspector Team
