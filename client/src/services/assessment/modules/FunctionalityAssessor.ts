@@ -449,7 +449,9 @@ export class FunctionalityAssessor extends BaseAssessor {
                   prop as JsonSchemaType,
                 ) as JSONSchema7;
               }
-              subProp = normalizeUnionType(subProp as JsonSchemaType);
+              subProp = normalizeUnionType(
+                subProp as JsonSchemaType,
+              ) as JSONSchema7;
 
               obj[key] = this.generateParamValue(subProp, key, includeOptional);
             }

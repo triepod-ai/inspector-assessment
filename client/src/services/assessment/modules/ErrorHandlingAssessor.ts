@@ -494,15 +494,15 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     }
   }
 
-  private getToolSchema(tool: Tool): JSONSchema7 {
-    if (!tool.inputSchema) return {};
+  private getToolSchema(tool: Tool): JSONSchema7 | null {
+    if (!tool.inputSchema) return null;
     return typeof tool.inputSchema === "string"
-      ? ((this.safeJsonParse(tool.inputSchema) as JSONSchema7) ?? {})
+      ? (this.safeJsonParse(tool.inputSchema) as JSONSchema7 | null)
       : (tool.inputSchema as JSONSchema7);
   }
 
   private generateWrongTypeParams(
-    schema: JSONSchema7,
+    schema: JSONSchema7 | null,
   ): Record<string, unknown> {
     const params: Record<string, unknown> = {};
 
@@ -536,7 +536,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   }
 
   private generateInvalidValueParams(
-    schema: JSONSchema7,
+    schema: JSONSchema7 | null,
   ): Record<string, unknown> {
     const params: Record<string, unknown> = {};
 
