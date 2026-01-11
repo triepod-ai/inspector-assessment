@@ -50,6 +50,11 @@ export function calculateModuleScore(result: unknown): number | null {
     const violationCount = r.violations.length;
     return violationCount === 0 ? 100 : Math.max(0, 100 - violationCount * 10);
   }
+  // DeveloperExperience module (Issue #124) - uses pre-computed score
+  // Also handles any module with a direct score field
+  if (typeof r.score === "number") {
+    return Math.round(r.score);
+  }
   // Default: derive from status field
   return r.status === "PASS" ? 100 : r.status === "FAIL" ? 0 : 50;
 }

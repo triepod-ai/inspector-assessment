@@ -1017,3 +1017,35 @@ export interface ConformanceAssessment {
   /** Reason for skipping if applicable */
   skipReason?: string;
 }
+
+// ============================================================================
+// Developer Experience Assessment Types (Issue #124)
+// Combined documentation + usability assessment for v2.0.0 transition
+// ============================================================================
+
+// Import result types for composition (circular import avoided via import type)
+import type {
+  DocumentationAssessment,
+  UsabilityAssessment,
+} from "./resultTypes";
+
+/**
+ * Combined Developer Experience Assessment
+ * Merges documentation and usability assessments into a single logical grouping.
+ *
+ * Added in v1.32.0 for backward-compatible transition.
+ * In v2.0.0, this will replace the separate `documentation` and `usability` keys
+ * in MCPDirectoryAssessment.
+ *
+ * @since 1.32.0
+ */
+export interface DeveloperExperienceAssessment {
+  /** Documentation assessment results */
+  documentation: DocumentationAssessment;
+  /** Usability assessment results */
+  usability: UsabilityAssessment;
+  /** Overall status based on both assessments */
+  status: AssessmentStatus;
+  /** Combined score (average of documentation and usability scores, 0-100) */
+  score: number;
+}

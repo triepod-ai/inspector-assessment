@@ -134,6 +134,65 @@ Protected logging methods in `BaseAssessor`:
 | `this.log(message: string)`                       | `this.logger.info(message)`            | Protected method |
 | `this.logError(message: string, error?: unknown)` | `this.logger.error(message, context?)` | Protected method |
 
+### 4. Deprecated Output Keys (4 keys) - Issue #124
+
+**Added**: v1.32.0
+**Removal**: v2.0.0
+
+JSON output keys in `MCPDirectoryAssessment` that are being consolidated:
+
+| Deprecated Key        | New Key                             | Strategy                           |
+| --------------------- | ----------------------------------- | ---------------------------------- |
+| `documentation`       | `developerExperience.documentation` | Nested under combined DX module    |
+| `usability`           | `developerExperience.usability`     | Nested under combined DX module    |
+| `mcpSpecCompliance`   | `protocolCompliance`                | Renamed (same structure)           |
+| `protocolConformance` | `protocolCompliance`                | Merged into unified compliance key |
+
+**Dual-key output**: During the transition period (v1.32.0 to v1.x), the assessment output contains **both** old and new keys simultaneously. This allows consumers to migrate at their own pace.
+
+**Example output (v1.32.0+)**:
+
+```json
+{
+  "documentation": {
+    /* DocumentationAssessment */
+  },
+  "usability": {
+    /* UsabilityAssessment */
+  },
+  "developerExperience": {
+    "documentation": {
+      /* same as above */
+    },
+    "usability": {
+      /* same as above */
+    },
+    "status": "PASS",
+    "score": 85
+  },
+  "mcpSpecCompliance": {
+    /* MCPSpecComplianceAssessment */
+  },
+  "protocolCompliance": {
+    /* same as mcpSpecCompliance */
+  }
+}
+```
+
+**Migration for consumers**:
+
+```typescript
+// OLD (v1.31.x and earlier)
+const docResult = assessment.documentation;
+const usabilityResult = assessment.usability;
+const protocolResult = assessment.mcpSpecCompliance;
+
+// NEW (v1.32.0+, required in v2.0.0)
+const docResult = assessment.developerExperience?.documentation;
+const usabilityResult = assessment.developerExperience?.usability;
+const protocolResult = assessment.protocolCompliance;
+```
+
 ---
 
 ## Detailed Migrations

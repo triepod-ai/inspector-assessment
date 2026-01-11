@@ -25,6 +25,7 @@ import type {
   ProtocolConformanceAssessment,
   FileModularizationAssessment,
   ConformanceAssessment,
+  DeveloperExperienceAssessment,
 } from "./extendedTypes";
 
 // ============================================================================
@@ -818,12 +819,23 @@ export interface MCPDirectoryAssessment {
   // Core assessment areas (Original 5)
   functionality: FunctionalityAssessment;
   security: SecurityAssessment;
+  /** @deprecated Use `developerExperience.documentation` instead. Will be removed in v2.0.0. */
   documentation: DocumentationAssessment;
   errorHandling: ErrorHandlingAssessment;
+  /** @deprecated Use `developerExperience.usability` instead. Will be removed in v2.0.0. */
   usability: UsabilityAssessment;
 
+  // NEW: Combined developer experience assessment (v1.32.0+, Issue #124)
+  /** Combined documentation + usability assessment. Replaces separate documentation/usability keys in v2.0.0. */
+  developerExperience?: DeveloperExperienceAssessment;
+
   // Extended assessment areas (MCP Spec Compliance)
+  /** @deprecated Use `protocolCompliance` instead. Will be removed in v2.0.0. */
   mcpSpecCompliance?: MCPSpecComplianceAssessment;
+
+  // NEW: Unified protocol compliance (v1.32.0+, Issue #124)
+  /** Unified protocol compliance assessment. Replaces mcpSpecCompliance in v2.0.0. */
+  protocolCompliance?: MCPSpecComplianceAssessment;
 
   // New assessment areas (MCP Directory Compliance Gaps)
   aupCompliance?: AUPComplianceAssessment;
@@ -844,7 +856,10 @@ export interface MCPDirectoryAssessment {
   crossCapability?: CrossCapabilitySecurityAssessment;
 
   // Protocol conformance assessment
-  /** MCP protocol-level compliance (error format, content types, initialization handshake) */
+  /**
+   * MCP protocol-level compliance (error format, content types, initialization handshake)
+   * @deprecated Merged into `protocolCompliance`. Will be removed in v2.0.0.
+   */
   protocolConformance?: ProtocolConformanceAssessment;
 
   // Code quality assessors
