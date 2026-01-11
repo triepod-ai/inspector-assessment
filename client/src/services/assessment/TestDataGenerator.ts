@@ -13,6 +13,11 @@ import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { ClaudeCodeBridge } from "./lib/claudeCodeBridge";
 import type { Logger } from "./lib/logger";
 import { JSONSchema7 } from "@/lib/assessmentTypes";
+import {
+  REALISTIC_DATA,
+  TOOL_CATEGORY_DATA,
+  SPECIFIC_FIELD_PATTERNS,
+} from "./testdata";
 
 export interface TestScenario {
   name: string;
@@ -28,6 +33,14 @@ export class TestDataGenerator {
   private static claudeBridge: ClaudeCodeBridge | null = null;
   // Optional logger for diagnostic output
   private static logger: Logger | null = null;
+
+  /**
+   * Re-exported REALISTIC_DATA for backward compatibility.
+   * Data is now defined in ./testdata/realistic-values.ts
+   * Accessed via (TestDataGenerator as any).REALISTIC_DATA in tests.
+   * @internal
+   */
+  protected static readonly REALISTIC_DATA = REALISTIC_DATA;
 
   /**
    * Set the Claude Code bridge for intelligent test generation
@@ -54,99 +67,6 @@ export class TestDataGenerator {
       this.claudeBridge.isFeatureEnabled("intelligentTestGeneration")
     );
   }
-  // Realistic data pools for different types - using values that are more likely to exist
-  private static readonly REALISTIC_DATA = {
-    urls: [
-      "https://www.google.com", // Public, always accessible
-      "https://api.github.com/users/octocat", // Public API endpoint that exists
-      "https://jsonplaceholder.typicode.com/posts/1", // Test API that always works
-      "https://httpbin.org/get", // HTTP testing service
-      "https://example.com", // RFC 2606 reserved domain for examples
-      "https://www.wikipedia.org", // Public, stable site
-      "https://api.openweathermap.org/data/2.5/weather?q=London", // Public API
-    ],
-    emails: [
-      "admin@example.com", // Common admin email
-      "support@example.com", // Common support email
-      "info@example.com", // Common info email
-      "test@test.com", // Generic test email
-      "user@domain.com", // Generic user email
-      "noreply@example.com", // Common no-reply format
-      "hello@world.com", // Simple, memorable
-    ],
-    names: [
-      "Default", // Common default name
-      "Admin", // Common admin user
-      "Test User", // Clear test user
-      "Sample Item", // Generic sample
-      "Example Project", // Clear example
-      "Demo Application", // Common demo name
-      "Main", // Common main/primary name
-    ],
-    ids: [
-      "1", // Simple numeric ID that often exists
-      "123", // Common test ID
-      "550e8400-e29b-41d4-a716-446655440000", // Valid UUID v4 (replaces "test")
-      "default", // Common default ID
-      "main", // Common main ID
-      "264051cd-48ab-80ff-864e-d1aa9bc41429", // Valid UUID from realistic data
-      "00000000-0000-0000-0000-000000000000", // Nil UUID (often used as placeholder)
-      "admin", // Common admin ID
-      "user1", // Common user ID pattern
-    ],
-    paths: [
-      "/tmp/test.txt", // Common temp file path (usually writable)
-      "/home", // Common home directory
-      "./README.md", // Often exists in projects
-      "./package.json", // Common in Node projects
-      "./src", // Common source directory
-      "./test", // Common test directory
-      "./config", // Common config directory
-      "/var/log", // Common log directory (readable)
-      "/etc", // Common config directory (readable)
-    ],
-    queries: [
-      "test", // Simple search term
-      "hello", // Common greeting
-      "*", // Wildcard that matches everything
-      "name", // Common field name
-      "id:1", // Common ID search
-      "status:active", // Common status filter
-      "type:user", // Common type filter
-      "limit:10", // Common pagination
-      '{"match_all": {}}', // Elasticsearch match all
-    ],
-    numbers: [0, 1, 10, 100, 1000, 5, 50, 200, 404, 500],
-    booleans: [true, false],
-    jsonObjects: [
-      { message: "Hello World" }, // Simple message object
-      { status: "ok", code: 200 }, // Common status response
-      { data: [], total: 0 }, // Empty result set
-      { id: 1, name: "Test" }, // Simple entity
-      { success: true }, // Common success response
-      { error: false }, // Common no-error response
-      { results: [] }, // Common empty results
-      {}, // Empty object (often valid)
-    ],
-    arrays: [
-      [], // Empty array (often valid)
-      [1], // Single item
-      ["a", "b", "c"], // Simple string array
-      [1, 2, 3], // Simple number array
-      [{ id: 1 }, { id: 2 }], // Simple object array
-      ["test"], // Single test item
-      [true, false], // Boolean array
-    ],
-    timestamps: [
-      new Date().toISOString(), // Current time (always valid)
-      new Date(Date.now() - 86400000).toISOString(), // Yesterday
-      new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-      "2024-01-01T00:00:00Z", // New Year 2024
-      "2023-12-31T23:59:59Z", // End of 2023
-      new Date(0).toISOString(), // Unix epoch
-      "2024-06-15T12:00:00Z", // Midday mid-year
-    ],
-  };
 
   /**
    * Generate multiple test scenarios for a tool
@@ -518,8 +438,8 @@ export class TestDataGenerator {
               ? "https://very-long-domain-name-for-testing-maximum-length.example.com/path/to/resource?param1=value1&param2=value2"
               : variant === "special"
                 ? "https://example.com/path?special=!@#$%^&*()"
-                : this.REALISTIC_DATA.urls[
-                    Math.floor(Math.random() * this.REALISTIC_DATA.urls.length)
+                : REALISTIC_DATA.urls[
+                    Math.floor(Math.random() * REALISTIC_DATA.urls.length)
                   ];
         }
 
@@ -533,10 +453,8 @@ export class TestDataGenerator {
               ? "very.long.email.address.for.testing@subdomain.example-company.co.uk"
               : variant === "special"
                 ? "user+tag@example.com"
-                : this.REALISTIC_DATA.emails[
-                    Math.floor(
-                      Math.random() * this.REALISTIC_DATA.emails.length,
-                    )
+                : REALISTIC_DATA.emails[
+                    Math.floor(Math.random() * REALISTIC_DATA.emails.length)
                   ];
         }
 
@@ -552,8 +470,8 @@ export class TestDataGenerator {
               ? "/very/long/path/to/deeply/nested/directory/structure/for/testing/file.txt"
               : variant === "special"
                 ? "./path/with spaces/and-special#chars.txt"
-                : this.REALISTIC_DATA.paths[
-                    Math.floor(Math.random() * this.REALISTIC_DATA.paths.length)
+                : REALISTIC_DATA.paths[
+                    Math.floor(Math.random() * REALISTIC_DATA.paths.length)
                   ];
         }
 
@@ -568,10 +486,8 @@ export class TestDataGenerator {
               ? "very long search query with many terms for testing maximum input length handling"
               : variant === "special"
                 ? 'search with "quotes" and special: characters!'
-                : this.REALISTIC_DATA.queries[
-                    Math.floor(
-                      Math.random() * this.REALISTIC_DATA.queries.length,
-                    )
+                : REALISTIC_DATA.queries[
+                    Math.floor(Math.random() * REALISTIC_DATA.queries.length)
                   ];
         }
 
@@ -608,8 +524,8 @@ export class TestDataGenerator {
             ? "1" // Minimal non-empty ID to avoid creating invalid entities
             : variant === "maximum"
               ? "very_long_identifier_string_for_testing_maximum_length_handling_in_system"
-              : this.REALISTIC_DATA.ids[
-                  Math.floor(Math.random() * this.REALISTIC_DATA.ids.length)
+              : REALISTIC_DATA.ids[
+                  Math.floor(Math.random() * REALISTIC_DATA.ids.length)
                 ];
         }
 
@@ -624,8 +540,8 @@ export class TestDataGenerator {
               ? "Very Long Name For Testing Maximum String Length Handling In The System"
               : variant === "special"
                 ? "Name with Special™ Characters® and Émojis 🎉"
-                : this.REALISTIC_DATA.names[
-                    Math.floor(Math.random() * this.REALISTIC_DATA.names.length)
+                : REALISTIC_DATA.names[
+                    Math.floor(Math.random() * REALISTIC_DATA.names.length)
                   ];
         }
 
@@ -633,7 +549,7 @@ export class TestDataGenerator {
           lowerFieldName.includes("date") ||
           lowerFieldName.includes("time")
         ) {
-          return variant === "empty" ? "" : this.REALISTIC_DATA.timestamps[0];
+          return variant === "empty" ? "" : REALISTIC_DATA.timestamps[0];
         }
 
         // Default string value - try to be contextual
@@ -746,14 +662,14 @@ export class TestDataGenerator {
           return ["id_1", "id_2", "id_3"];
         }
 
-        return this.REALISTIC_DATA.arrays[1];
+        return REALISTIC_DATA.arrays[1];
 
       case "object":
         // Don't return empty object for "empty" variant
         // Let it fall through to generate minimal object properties
         // This avoids creating objects with no required fields
         if (variant === "maximum") {
-          return this.REALISTIC_DATA.jsonObjects[4]; // deeply nested
+          return REALISTIC_DATA.jsonObjects[4]; // deeply nested
         }
 
         // Context-aware object generation
@@ -786,9 +702,7 @@ export class TestDataGenerator {
             : { status: "active", type: "user", limit: 10 };
         }
 
-        return variant === "empty"
-          ? { id: 1 }
-          : this.REALISTIC_DATA.jsonObjects[0];
+        return variant === "empty" ? { id: 1 } : REALISTIC_DATA.jsonObjects[0];
 
       default:
         // Return safe default instead of null to prevent tool crashes
@@ -880,55 +794,10 @@ export class TestDataGenerator {
   // ============================================================================
 
   /**
-   * Tool category-specific data pools for when field name doesn't help identify
-   * the expected input type. Used as fallback after field-name detection.
+   * Re-exported TOOL_CATEGORY_DATA for backward compatibility.
+   * Data is now defined in ./testdata/tool-category-data.ts
    */
-  static readonly TOOL_CATEGORY_DATA: Record<string, Record<string, string[]>> =
-    {
-      // Keys must match ToolClassifier category names (lowercase)
-      calculator: {
-        default: ["2+2", "10*5", "100/4", "sqrt(16)", "15-7"],
-      },
-      search_retrieval: {
-        default: [
-          "hello world",
-          "example query",
-          "recent changes",
-          "find documents",
-        ],
-      },
-      system_exec: {
-        default: ["echo hello", "pwd", "date", "whoami"],
-      },
-      url_fetcher: {
-        default: [
-          "https://api.github.com",
-          "https://httpbin.org/get",
-          "https://jsonplaceholder.typicode.com/posts/1",
-        ],
-      },
-    };
-
-  /**
-   * Field names that indicate specific data types regardless of tool category.
-   * These take precedence over category-specific generation.
-   */
-  private static readonly SPECIFIC_FIELD_PATTERNS = [
-    /url/i,
-    /endpoint/i,
-    /link/i,
-    /email/i,
-    /mail/i,
-    /path/i,
-    /file/i,
-    /directory/i,
-    /folder/i,
-    /uuid/i,
-    /page_id/i,
-    /database_id/i,
-    /user_id/i,
-    /block_id/i,
-  ];
+  static readonly TOOL_CATEGORY_DATA = TOOL_CATEGORY_DATA;
 
   /**
    * Generate a value using tool category as hint.
@@ -948,7 +817,7 @@ export class TestDataGenerator {
   ): unknown {
     // Specific field names (url, email, path, etc.) take precedence over category
     // These indicate explicit data type requirements regardless of tool category
-    const isSpecificFieldName = this.SPECIFIC_FIELD_PATTERNS.some((pattern) =>
+    const isSpecificFieldName = SPECIFIC_FIELD_PATTERNS.some((pattern) =>
       pattern.test(fieldName),
     );
     if (isSpecificFieldName) {
@@ -957,7 +826,7 @@ export class TestDataGenerator {
 
     // For specific tool categories (not GENERIC), use category-specific test values
     // This ensures calculator tools get math expressions, search tools get search queries, etc.
-    const categoryData = this.TOOL_CATEGORY_DATA[category];
+    const categoryData = TOOL_CATEGORY_DATA[category];
     if (categoryData?.default) {
       return categoryData.default[0];
     }
