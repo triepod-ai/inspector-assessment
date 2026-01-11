@@ -1,19 +1,21 @@
-import { CodeReviewClient } from './anthropic-client.js';
-import { GitHubClient } from './github-client.js';
+import { CodeReviewClient } from "./anthropic-client.js";
+import { GitHubClient } from "./github-client.js";
 
 async function main(): Promise<void> {
   // Validate environment variables
   const requiredEnvVars = [
-    'ANTHROPIC_API_KEY',
-    'GITHUB_TOKEN',
-    'PR_NUMBER',
-    'REPO_OWNER',
-    'REPO_NAME'
+    "ANTHROPIC_API_KEY",
+    "GITHUB_TOKEN",
+    "PR_NUMBER",
+    "REPO_OWNER",
+    "REPO_NAME",
   ];
 
-  const missingVars = requiredEnvVars.filter(v => !process.env[v]);
+  const missingVars = requiredEnvVars.filter((v) => !process.env[v]);
   if (missingVars.length > 0) {
-    throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+    throw new Error(
+      `Missing required environment variables: ${missingVars.join(", ")}`,
+    );
   }
 
   const prNumber = parseInt(process.env.PR_NUMBER!, 10);
@@ -21,12 +23,12 @@ async function main(): Promise<void> {
     throw new Error(`Invalid PR_NUMBER: ${process.env.PR_NUMBER}`);
   }
 
-  console.log('='.repeat(60));
-  console.log('AI Code Review');
-  console.log('='.repeat(60));
+  console.log("=".repeat(60));
+  console.log("AI Code Review");
+  console.log("=".repeat(60));
   console.log(`Repository: ${process.env.REPO_OWNER}/${process.env.REPO_NAME}`);
   console.log(`PR Number: #${prNumber}`);
-  console.log('='.repeat(60));
+  console.log("=".repeat(60));
 
   // Initialize clients
   const anthropicClient = new CodeReviewClient(process.env.ANTHROPIC_API_KEY!);
@@ -34,24 +36,26 @@ async function main(): Promise<void> {
     process.env.GITHUB_TOKEN!,
     process.env.REPO_OWNER!,
     process.env.REPO_NAME!,
-    prNumber
+    prNumber,
   );
 
   try {
     // Get PR diff
-    console.log('\n[1/3] Fetching PR diff...');
+    console.log("\n[1/3] Fetching PR diff...");
     const diff = await githubClient.getPRDiff();
-    console.log(`      Found ${diff.files.length} files (+${diff.totalAdditions}/-${diff.totalDeletions})`);
+    console.log(
+      `      Found ${diff.files.length} files (+${diff.totalAdditions}/-${diff.totalDeletions})`,
+    );
 
     // Skip if no changes
     if (diff.files.length === 0) {
-      console.log('      No files to review. Skipping.');
+      console.log("      No files to review. Skipping.");
       return;
     }
 
     // List files
-    console.log('\n      Files:');
-    diff.files.slice(0, 10).forEach(f => {
+    console.log("\n      Files:");
+    diff.files.slice(0, 10).forEach((f) => {
       console.log(`        - ${f.filename} (${f.status})`);
     });
     if (diff.files.length > 10) {
@@ -59,38 +63,43 @@ async function main(): Promise<void> {
     }
 
     // Run code review
-    console.log('\n[2/3] Running AI code review...');
+    console.log("\n[2/3] Running AI code review...");
     const startTime = Date.now();
     const result = await anthropicClient.reviewDiff(diff);
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
     console.log(`      Completed in ${duration}s`);
-    console.log(`      Tokens used: ${result.tokensUsed.total.toLocaleString()}`);
-    console.log(`      Findings: ${result.criticalCount} critical, ${result.warningCount} warnings, ${result.suggestionCount} suggestions`);
+    console.log(
+      `      Tokens used: ${result.tokensUsed.total.toLocaleString()}`,
+    );
+    console.log(
+      `      Findings: ${result.criticalCount} critical, ${result.warningCount} warnings, ${result.suggestionCount} suggestions`,
+    );
 
     // Post results to PR
-    console.log('\n[3/3] Posting review comment...');
+    console.log("\n[3/3] Posting review comment...");
     await githubClient.postReviewComment(result);
 
     // Summary
-    console.log('\n' + '='.repeat(60));
-    console.log('Review Summary');
-    console.log('='.repeat(60));
+    console.log("\n" + "=".repeat(60));
+    console.log("Review Summary");
+    console.log("=".repeat(60));
     console.log(`Critical (P0): ${result.criticalCount}`);
     console.log(`Warnings (P1): ${result.warningCount}`);
     console.log(`Suggestions:   ${result.suggestionCount}`);
-    console.log('='.repeat(60));
+    console.log("=".repeat(60));
 
     // Log findings for workflow output
     if (result.criticalCount > 0) {
-      console.log(`\n::warning::Found ${result.criticalCount} critical issue(s) that should be addressed`);
+      console.log(
+        `\n::warning::Found ${result.criticalCount} critical issue(s) that should be addressed`,
+      );
     }
 
-    console.log('\nCode review completed successfully!');
-
+    console.log("\nCode review completed successfully!");
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('\nCode review failed:', errorMessage);
+    console.error("\nCode review failed:", errorMessage);
 
     // Try to post failure comment
     try {
@@ -101,18 +110,18 @@ async function main(): Promise<void> {
         suggestionCount: 0,
         findings: [],
         tokensUsed: { input: 0, output: 0, total: 0 },
-        modelUsed: 'N/A',
-        reviewedAt: new Date().toISOString()
+        modelUsed: "N/A",
+        reviewedAt: new Date().toISOString(),
       });
     } catch {
-      console.error('Failed to post error comment to PR');
+      console.error("Failed to post error comment to PR");
     }
 
     throw error;
   }
 }
 
-main().catch(error => {
+main().catch((error) => {
   console.error(error);
   process.exit(1);
 });

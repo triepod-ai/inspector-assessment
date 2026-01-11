@@ -1,5 +1,5 @@
-import { Octokit } from '@octokit/rest';
-import type { PRDiff, DiffFile, ReviewResult, ReviewFinding } from './types.js';
+import { Octokit } from "@octokit/rest";
+import type { PRDiff, DiffFile, ReviewResult, ReviewFinding } from "./types.js";
 
 export class GitHubClient {
   private octokit: Octokit;
@@ -19,21 +19,21 @@ export class GitHubClient {
       owner: this.owner,
       repo: this.repo,
       pull_number: this.prNumber,
-      per_page: 100  // Max allowed
+      per_page: 100, // Max allowed
     });
 
-    const diffFiles: DiffFile[] = files.map(f => ({
+    const diffFiles: DiffFile[] = files.map((f) => ({
       filename: f.filename,
-      status: f.status as DiffFile['status'],
+      status: f.status as DiffFile["status"],
       additions: f.additions,
       deletions: f.deletions,
-      patch: f.patch  // Unified diff
+      patch: f.patch, // Unified diff
     }));
 
     return {
       files: diffFiles,
       totalAdditions: diffFiles.reduce((sum, f) => sum + f.additions, 0),
-      totalDeletions: diffFiles.reduce((sum, f) => sum + f.deletions, 0)
+      totalDeletions: diffFiles.reduce((sum, f) => sum + f.deletions, 0),
     };
   }
 
@@ -44,12 +44,13 @@ export class GitHubClient {
     const { data: comments } = await this.octokit.issues.listComments({
       owner: this.owner,
       repo: this.repo,
-      issue_number: this.prNumber
+      issue_number: this.prNumber,
     });
 
-    const existingComment = comments.find(c =>
-      c.user?.login === 'github-actions[bot]' &&
-      c.body?.startsWith('## AI Code Review')
+    const existingComment = comments.find(
+      (c) =>
+        c.user?.login === "github-actions[bot]" &&
+        c.body?.startsWith("## AI Code Review"),
     );
 
     if (existingComment) {
@@ -58,7 +59,7 @@ export class GitHubClient {
         owner: this.owner,
         repo: this.repo,
         comment_id: existingComment.id,
-        body
+        body,
       });
       console.log(`Updated existing comment #${existingComment.id}`);
     } else {
@@ -67,7 +68,7 @@ export class GitHubClient {
         owner: this.owner,
         repo: this.repo,
         issue_number: this.prNumber,
-        body
+        body,
       });
       console.log(`Created new comment #${newComment.id}`);
     }
@@ -75,10 +76,10 @@ export class GitHubClient {
 
   private formatReviewComment(result: ReviewResult): string {
     const severityEmoji: Record<string, string> = {
-      P0: ':rotating_light:',
-      P1: ':warning:',
-      P2: ':bulb:',
-      P3: ':memo:'
+      P0: ":rotating_light:",
+      P1: ":warning:",
+      P2: ":bulb:",
+      P3: ":memo:",
     };
 
     let body = `## AI Code Review
@@ -96,10 +97,10 @@ ${result.summary}
 
     // Group findings by severity
     const groupedFindings: Record<string, ReviewFinding[]> = {
-      P0: result.findings.filter(f => f.severity === 'P0'),
-      P1: result.findings.filter(f => f.severity === 'P1'),
-      P2: result.findings.filter(f => f.severity === 'P2'),
-      P3: result.findings.filter(f => f.severity === 'P3')
+      P0: result.findings.filter((f) => f.severity === "P0"),
+      P1: result.findings.filter((f) => f.severity === "P1"),
+      P2: result.findings.filter((f) => f.severity === "P2"),
+      P3: result.findings.filter((f) => f.severity === "P3"),
     };
 
     // Critical Issues (P0)
