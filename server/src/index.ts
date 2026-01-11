@@ -37,7 +37,7 @@ const DEFAULT_MCP_PROXY_LISTEN_PORT = "6277";
 
 // Schema for /assessment/save endpoint validation (Issue #87)
 const AssessmentSaveSchema = z.object({
-  serverName: z.string().min(1).max(255),
+  serverName: z.string().min(1).max(255).optional().default("unknown"),
   assessment: z.object({}).passthrough(), // Must be object, allow any properties
 });
 

@@ -122,15 +122,14 @@ describe("POST /assessment/save", () => {
     });
   });
 
-  it("should return 400 when serverName is missing", async () => {
+  it("should handle missing serverName gracefully", async () => {
     const response = await request(app)
       .post("/assessment/save")
       .set("x-mcp-proxy-auth", `Bearer ${sessionToken}`)
       .send({ assessment: { data: true } });
 
-    expect(response.status).toBe(400);
-    expect(response.body.success).toBe(false);
-    expect(response.body.error).toBe("Invalid request structure");
+    expect(response.status).toBe(200);
+    expect(response.body.path).toContain("unknown");
   });
 
   it("should return 400 when assessment is not an object", async () => {
