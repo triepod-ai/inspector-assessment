@@ -22,7 +22,8 @@
     "src/lib/assessmentTypes.ts",
     "src/lib/aupPatterns.ts",
     "src/lib/policyMapping.ts",
-    "src/lib/reportFormatters/**/*.ts"
+    "src/lib/reportFormatters/**/*.ts",
+    "src/lib/assessment/**/*.ts"
   ],
   "exclude": ["node_modules", "**/*.test.ts", "**/__tests__/**"]
 }

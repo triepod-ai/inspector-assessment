@@ -278,12 +278,13 @@ describe("loadServerConfig", () => {
         }),
       );
 
+      // Zod union validation returns "Invalid input" when neither http/sse nor stdio schema matches
       expect(() => loadServerConfig("nourl", "/config.json")).toThrow(
-        /'url' is missing/,
+        /Invalid/,
       );
     });
 
-    it('should throw "url is missing" when transport=sse but no url', () => {
+    it("should throw validation error when transport=sse but no url", () => {
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue(
         JSON.stringify({
@@ -295,12 +296,13 @@ describe("loadServerConfig", () => {
         }),
       );
 
+      // Zod union validation returns "Invalid input" when neither http/sse nor stdio schema matches
       expect(() => loadServerConfig("nourl", "/config.json")).toThrow(
-        /'url' is missing/,
+        /Invalid/,
       );
     });
 
-    it('should throw "url is missing" for root-level transport:http without url', () => {
+    it("should throw validation error for root-level transport:http without url", () => {
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue(
         JSON.stringify({
@@ -308,8 +310,9 @@ describe("loadServerConfig", () => {
         }),
       );
 
+      // Zod union validation returns "Invalid input" when neither http/sse nor stdio schema matches
       expect(() => loadServerConfig("server", "/config.json")).toThrow(
-        /'url' is missing/,
+        /Invalid/,
       );
     });
 

@@ -2,6 +2,7 @@
  * Server Configuration Loading
  *
  * Handles loading MCP server configuration from Claude Code settings.
+ * Uses Zod schemas for runtime validation (Issue #84).
  *
  * @module cli/lib/assessment-runner/server-config
  */
@@ -11,6 +12,13 @@ import * as path from "path";
 import * as os from "os";
 
 import type { ServerConfig } from "../cli-parser.js";
+import {
+  ServerEntrySchema,
+  isHttpSseConfig,
+  isStdioConfig,
+  type ServerEntry,
+} from "./server-configSchemas.js";
+import { formatZodError } from "../zodErrorFormatter.js";
 
 /**
  * Load server configuration from Claude Code's MCP settings
@@ -32,69 +40,72 @@ export function loadServerConfig(
   for (const tryPath of possiblePaths) {
     if (!fs.existsSync(tryPath)) continue;
 
-    let config;
+    let rawConfig: unknown;
     try {
-      config = JSON.parse(fs.readFileSync(tryPath, "utf-8"));
+      rawConfig = JSON.parse(fs.readFileSync(tryPath, "utf-8"));
     } catch (e) {
       throw new Error(
         `Invalid JSON in config file: ${tryPath}\n${e instanceof Error ? e.message : String(e)}`,
       );
     }
 
-    if (config.mcpServers && config.mcpServers[serverName]) {
-      const serverConfig = config.mcpServers[serverName];
+    // Determine which config entry to validate
+    let serverEntry: unknown;
+    let configSource: string;
 
-      // Check if serverConfig specifies http/sse transport
-      if (
-        serverConfig.url ||
-        serverConfig.transport === "http" ||
-        serverConfig.transport === "sse"
-      ) {
-        if (!serverConfig.url) {
-          throw new Error(
-            `Invalid server config: transport is '${serverConfig.transport}' but 'url' is missing`,
-          );
-        }
-        return {
-          transport: serverConfig.transport || "http",
-          url: serverConfig.url,
-        };
-      }
-
-      // Default to stdio transport
-      return {
-        transport: "stdio",
-        command: serverConfig.command,
-        args: serverConfig.args || [],
-        env: serverConfig.env || {},
-        cwd: serverConfig.cwd,
-      };
-    }
-
+    // Check for Claude Desktop format (mcpServers object)
     if (
-      config.url ||
-      config.transport === "http" ||
-      config.transport === "sse"
+      typeof rawConfig === "object" &&
+      rawConfig !== null &&
+      "mcpServers" in rawConfig &&
+      typeof (rawConfig as Record<string, unknown>).mcpServers === "object"
     ) {
-      if (!config.url) {
-        throw new Error(
-          `Invalid server config: transport is '${config.transport}' but 'url' is missing`,
-        );
+      const mcpServers = (rawConfig as { mcpServers: Record<string, unknown> })
+        .mcpServers;
+      if (mcpServers && serverName in mcpServers) {
+        serverEntry = mcpServers[serverName];
+        configSource = `${tryPath} (mcpServers.${serverName})`;
+      } else {
+        continue; // Server not in this file, try next path
       }
+    } else {
+      // Standalone config format
+      serverEntry = rawConfig;
+      configSource = tryPath;
+    }
+
+    // Validate server entry with Zod schema
+    const validationResult = ServerEntrySchema.safeParse(serverEntry);
+    if (!validationResult.success) {
+      throw new Error(
+        `Invalid server config in ${configSource}:\n${formatZodError(validationResult.error)}`,
+      );
+    }
+
+    const validatedEntry: ServerEntry = validationResult.data;
+
+    // Convert to ServerConfig using type guards
+    if (isHttpSseConfig(validatedEntry)) {
       return {
-        transport: config.transport || "http",
-        url: config.url,
+        transport: validatedEntry.transport || "http",
+        url: validatedEntry.url,
       };
     }
 
-    if (config.command) {
+    if (isStdioConfig(validatedEntry)) {
       return {
         transport: "stdio",
-        command: config.command,
-        args: config.args || [],
-        env: config.env || {},
+        command: validatedEntry.command,
+        args: validatedEntry.args || [],
+        env: validatedEntry.env || {},
+        cwd: validatedEntry.cwd,
       };
     }
+
+    // This should never happen due to schema validation, but TypeScript needs it
+    throw new Error(
+      `Unable to determine transport type for config: ${configSource}`,
+    );
   }
 
   throw new Error(

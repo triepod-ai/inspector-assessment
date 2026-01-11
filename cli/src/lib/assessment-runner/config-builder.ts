@@ -14,6 +14,7 @@ import {
 } from "../../../../client/lib/lib/assessmentTypes.js";
 import { FULL_CLAUDE_CODE_CONFIG } from "../../../../client/lib/services/assessment/lib/claudeCodeBridge.js";
 import { loadPerformanceConfig } from "../../../../client/lib/services/assessment/config/performanceConfig.js";
+import { safeParseAssessmentConfig } from "../../../../client/lib/lib/assessment/configSchemas.js";
 
 import {
   getProfileModules,
@@ -180,6 +181,16 @@ export function buildConfig(
         "This will be required in v2.0.0. " +
         "See docs/DEPRECATION_GUIDE.md for migration info.",
     );
+  }
+
+  // Validate built config with Zod schema (Issue #84)
+  // Warning only - maintains backward compatibility with existing configs
+  const validation = safeParseAssessmentConfig(config);
+  if (!validation.success) {
+    const issues = validation.error.issues
+      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .join(", ");
+    console.warn(`⚠️  Config validation warning: ${issues}`);
   }
 
   return config;

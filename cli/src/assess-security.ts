@@ -13,8 +13,11 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
 import { execSync } from "child_process";
+
+// Import shared server config loading (Issue #84 - Zod validation)
+import { loadServerConfig } from "./lib/assessment-runner/server-config.js";
+import type { ServerConfig } from "./lib/cli-parser.js";
 
 /**
  * Validate that a command is safe to execute
@@ -83,18 +86,6 @@ function validateEnvVars(
   return validatedEnv;
 }
 
-/**
- * Safely parse JSON with error handling
- */
-function safeJsonParse<T>(content: string, filePath: string): T {
-  try {
-    return JSON.parse(content) as T;
-  } catch (error) {
-    throw new Error(
-      `Failed to parse JSON from ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-}
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
@@ -114,39 +105,6 @@ import {
 import { AssessmentContext } from "../../client/lib/services/assessment/AssessmentOrchestrator.js";
 import { loadPerformanceConfig } from "../../client/lib/services/assessment/config/performanceConfig.js";
 
-interface ServerConfig {
-  transport?: "stdio" | "http" | "sse";
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-  url?: string;
-}
-
-/**
- * Config file structure for Claude Desktop format
- */
-interface ClaudeDesktopConfigFile {
-  mcpServers?: Record<
-    string,
-    {
-      command?: string;
-      args?: string[];
-      env?: Record<string, string>;
-    }
-  >;
-}
-
-/**
- * Config file structure for direct config format
- */
-interface DirectConfigFile {
-  transport?: "stdio" | "http" | "sse";
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-  url?: string;
-}
-
 interface AssessmentOptions {
   serverName: string;
   serverConfigPath?: string;
@@ -156,83 +114,6 @@ interface AssessmentOptions {
   helpRequested?: boolean;
   /** Path to performance configuration JSON (Issue #37) */
   performanceConfigPath?: string;
-}
-
-/**
- * Load server configuration from Claude Code's MCP settings
- */
-function loadServerConfig(
-  serverName: string,
-  configPath?: string,
-): ServerConfig {
-  const possiblePaths = [
-    configPath,
-    path.join(os.homedir(), ".config", "mcp", "servers", `${serverName}.json`),
-    path.join(os.homedir(), ".config", "claude", "claude_desktop_config.json"),
-  ].filter(Boolean) as string[];
-
-  for (const tryPath of possiblePaths) {
-    if (!fs.existsSync(tryPath)) continue;
-
-    const rawConfig = safeJsonParse<unknown>(
-      fs.readFileSync(tryPath, "utf-8"),
-      tryPath,
-    );
-
-    // Type guard: check if it's a Claude Desktop config with mcpServers
-    if (
-      rawConfig &&
-      typeof rawConfig === "object" &&
-      "mcpServers" in rawConfig
-    ) {
-      const desktopConfig = rawConfig as ClaudeDesktopConfigFile;
-      const serverConfig = desktopConfig.mcpServers?.[serverName];
-      if (serverConfig) {
-        return {
-          transport: "stdio",
-          command: serverConfig.command,
-          args: serverConfig.args || [],
-          env: serverConfig.env || {},
-        };
-      }
-    }
-
-    // Type guard: check if it's a direct config file
-    if (rawConfig && typeof rawConfig === "object") {
-      const directConfig = rawConfig as DirectConfigFile;
-
-      // Check for HTTP/SSE transport
-      if (
-        directConfig.url ||
-        directConfig.transport === "http" ||
-        directConfig.transport === "sse"
-      ) {
-        if (!directConfig.url) {
-          throw new Error(
-            `Invalid server config: transport is '${directConfig.transport}' but 'url' is missing`,
-          );
-        }
-        return {
-          transport: directConfig.transport || "http",
-          url: directConfig.url,
-        };
-      }
-
-      // Check for stdio transport
-      if (directConfig.command) {
-        return {
-          transport: "stdio",
-          command: directConfig.command,
-          args: directConfig.args || [],
-          env: directConfig.env || {},
-        };
-      }
-    }
-  }
-
-  throw new Error(
-    `Server config not found for: ${serverName}\nTried: ${possiblePaths.join(", ")}`,
-  );
 }
 
 /**
