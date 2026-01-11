@@ -455,3 +455,33 @@
 - Security improvements: ReDoS prevention, Zod runtime validation, structured error handling
 
 ---
+
+## 2026-01-11: Fix Issue #126 - URI-Aware Test Mocks for ResourceAssessor
+
+**Summary:** Fixed Issue #126 by making test mocks URI-aware to prevent hidden resource discovery from inflating vulnerability counts.
+
+**Session Focus:** Resolving ResourceAssessor test failures reported in Issue #126
+
+**Changes Made:**
+- Modified: `client/src/services/assessment/__tests__/ResourceAssessor.test.ts` - Fixed timeout and assertion mismatch tests with URI-aware mocks
+- Modified: `client/src/services/assessment/__tests__/ResourceAssessor-Issue9.test.ts` - Fixed template context to reject hidden resource probes
+- Modified: `client/src/services/assessment/modules/ResourceAssessor.test.ts` - Added createUriAwareMock/createMultiUriMock helpers, converted all mockResolvedValue to URI-aware mocks
+
+**Key Decisions:**
+- Created URI-aware mock pattern that rejects hidden resource probes with "Resource not found" errors
+- Added helper functions (createUriAwareMock, createMultiUriMock) for cleaner, reusable mock creation
+- Only committed Issue #126 fixes separately from Issue #127 binary resource changes
+
+**Commits:**
+- 8b1150e2 - Contains the URI-aware mock fix
+
+**Next Steps:**
+- Address Issue #127 binary resource test failures (5 tests in ResourceAssessor-BinaryResources.test.ts)
+- Consider adding documentation about URI-aware mock pattern for future test development
+
+**Notes:**
+- Root cause was testHiddenResourceDiscovery feature probing 22 patterns with 50ms delays
+- When mocks returned content for ALL URIs, probes caused timeouts and inflated vulnerability counts
+- The URI-aware pattern ensures only expected URIs return valid content, others get "Resource not found"
+
+---
