@@ -168,7 +168,7 @@ case "string":
 | `maximum` | Very long URL with many parameters            | Length boundary testing    |
 | `special` | `https://example.com/path?special=!@#$%^&*()` | Special character handling |
 
-**Realistic Data Pools** (lines 42-134):
+**Realistic Data Pools** (defined in `testdata/realistic-values.ts`):
 
 ```typescript
 urls: [
@@ -591,28 +591,28 @@ All boundary test results are stored with:
 
 ### REALISTIC_DATA Pool
 
-The generator maintains a pool of real, stable test values:
+The generator uses a pool of real, stable test values defined in `testdata/realistic-values.ts`:
 
 ```typescript
-private static readonly REALISTIC_DATA = {
+export const REALISTIC_DATA = {
   urls: [
-    "https://www.google.com",        // Always accessible
+    "https://www.google.com", // Always accessible
     "https://api.github.com/users/octocat", // Public API endpoint
     "https://jsonplaceholder.typicode.com/posts/1", // Test API
-    "https://httpbin.org/get",       // HTTP testing service
-    "https://example.com",           // RFC 2606 reserved domain
-    "https://www.wikipedia.org",     // Public, stable site
+    "https://httpbin.org/get", // HTTP testing service
+    "https://example.com", // RFC 2606 reserved domain
+    "https://www.wikipedia.org", // Public, stable site
     "https://api.openweathermap.org/data/2.5/weather?q=London", // Public API
   ],
 
   emails: [
-    "admin@example.com",             // Common admin pattern
-    "support@example.com",           // Common support pattern
-    "info@example.com",              // Common info pattern
-    "test@test.com",                 // Generic test email
-    "user@domain.com",               // Generic user email
-    "noreply@example.com",           // Common no-reply format
-    "hello@world.com",               // Simple, memorable
+    "admin@example.com", // Common admin pattern
+    "support@example.com", // Common support pattern
+    "info@example.com", // Common info pattern
+    "test@test.com", // Generic test email
+    "user@domain.com", // Generic user email
+    "noreply@example.com", // Common no-reply format
+    "hello@world.com", // Simple, memorable
   ],
 
   names: [
@@ -626,49 +626,49 @@ private static readonly REALISTIC_DATA = {
   ],
 
   ids: [
-    "1",                             // Simple numeric ID
-    "123",                           // Common test ID
+    "1", // Simple numeric ID
+    "123", // Common test ID
     "550e8400-e29b-41d4-a716-446655440000", // Valid UUID v4
-    "default",                       // Common default ID
-    "main",                          // Common main ID
+    "default", // Common default ID
+    "main", // Common main ID
     "264051cd-48ab-80ff-864e-d1aa9bc41429", // Valid UUID
     "00000000-0000-0000-0000-000000000000", // Nil UUID
-    "admin",                         // Common admin ID
-    "user1",                         // Common user ID pattern
+    "admin", // Common admin ID
+    "user1", // Common user ID pattern
   ],
 
   paths: [
-    "/tmp/test.txt",                 // Common temp file (usually writable)
-    "/home",                         // Common home directory
-    "./README.md",                   // Often exists in projects
-    "./package.json",                // Common in Node projects
-    "./src",                         // Common source directory
-    "./test",                        // Common test directory
-    "./config",                      // Common config directory
-    "/var/log",                      // Common log directory (readable)
-    "/etc",                          // Common config directory (readable)
+    "/tmp/test.txt", // Common temp file (usually writable)
+    "/home", // Common home directory
+    "./README.md", // Often exists in projects
+    "./package.json", // Common in Node projects
+    "./src", // Common source directory
+    "./test", // Common test directory
+    "./config", // Common config directory
+    "/var/log", // Common log directory (readable)
+    "/etc", // Common config directory (readable)
   ],
 
   timestamps: [
-    new Date().toISOString(),        // Current time (always valid)
+    new Date().toISOString(), // Current time (always valid)
     new Date(Date.now() - 86400000).toISOString(), // Yesterday
     new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-    "2024-01-01T00:00:00Z",          // New Year 2024
-    "2023-12-31T23:59:59Z",          // End of 2023
-    new Date(0).toISOString(),       // Unix epoch
-    "2024-06-15T12:00:00Z",          // Midday mid-year
+    "2024-01-01T00:00:00Z", // New Year 2024
+    "2023-12-31T23:59:59Z", // End of 2023
+    new Date(0).toISOString(), // Unix epoch
+    "2024-06-15T12:00:00Z", // Midday mid-year
   ],
 
   queries: [
-    "test",                          // Simple search term
-    "hello",                         // Common greeting
-    "*",                             // Wildcard matching everything
-    "name",                          // Common field name
-    "id:1",                          // Common ID search
-    "status:active",                 // Common status filter
-    "type:user",                     // Common type filter
-    "limit:10",                      // Common pagination
-    '{"match_all": {}}',             // Elasticsearch match all
+    "test", // Simple search term
+    "hello", // Common greeting
+    "*", // Wildcard matching everything
+    "name", // Common field name
+    "id:1", // Common ID search
+    "status:active", // Common status filter
+    "type:user", // Common type filter
+    "limit:10", // Common pagination
+    '{"match_all": {}}', // Elasticsearch match all
   ],
 
   // ... more pools

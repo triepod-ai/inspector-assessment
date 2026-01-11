@@ -669,7 +669,7 @@ export class TestDataGenerator {
         // Let it fall through to generate minimal object properties
         // This avoids creating objects with no required fields
         if (variant === "maximum") {
-          return REALISTIC_DATA.jsonObjects[4]; // deeply nested
+          return REALISTIC_DATA.jsonObjects[4]; // Common success response
         }
 
         // Context-aware object generation

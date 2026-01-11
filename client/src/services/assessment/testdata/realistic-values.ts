@@ -160,16 +160,16 @@ export function generateRealisticTimestamps(): string[] {
  * Used by TestDataGenerator for backward compatibility.
  */
 export const REALISTIC_DATA = {
-  urls: REALISTIC_URLS as unknown as string[],
-  emails: REALISTIC_EMAILS as unknown as string[],
-  names: REALISTIC_NAMES as unknown as string[],
-  ids: REALISTIC_IDS as unknown as string[],
-  paths: REALISTIC_PATHS as unknown as string[],
-  queries: REALISTIC_QUERIES as unknown as string[],
-  numbers: REALISTIC_NUMBERS as unknown as number[],
-  booleans: REALISTIC_BOOLEANS as unknown as boolean[],
-  jsonObjects: REALISTIC_JSON_OBJECTS as unknown as Record<string, unknown>[],
-  arrays: REALISTIC_ARRAYS as unknown as unknown[][],
+  urls: [...REALISTIC_URLS],
+  emails: [...REALISTIC_EMAILS],
+  names: [...REALISTIC_NAMES],
+  ids: [...REALISTIC_IDS],
+  paths: [...REALISTIC_PATHS],
+  queries: [...REALISTIC_QUERIES],
+  numbers: [...REALISTIC_NUMBERS],
+  booleans: [...REALISTIC_BOOLEANS],
+  jsonObjects: [...REALISTIC_JSON_OBJECTS],
+  arrays: [...REALISTIC_ARRAYS],
   timestamps: generateRealisticTimestamps(),
 } as const;
 

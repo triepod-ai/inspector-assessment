@@ -227,6 +227,22 @@ describe("TestDataGenerator - Type Handlers", () => {
       expect(result.success).toBe(true);
     });
 
+    // TEST-001: Validate FIX-001 - Comment accuracy for REALISTIC_DATA.jsonObjects[4]
+    it("should return common success response (not deeply nested) for maximum variant", () => {
+      const result = generateRealisticValue(
+        "data",
+        { type: "object" },
+        "maximum",
+      ) as Record<string, unknown>;
+
+      // Verify it returns the simple success response (REALISTIC_DATA.jsonObjects[4])
+      expect(result).toEqual({ success: true });
+
+      // Verify it's NOT deeply nested (no nested objects or arrays)
+      expect(Object.keys(result).length).toBe(1);
+      expect(typeof result.success).toBe("boolean");
+    });
+
     it("should return minimal object for unknown field with empty variant", () => {
       const result = generateRealisticValue(
         "unknownObject",

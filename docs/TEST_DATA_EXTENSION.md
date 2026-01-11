@@ -121,10 +121,11 @@ private static generateValueFromSchema(
 
 #### Step 5: Add a Data Pool (if needed)
 
-If you're generating many instances, add a data pool:
+If you're generating many instances, add a data pool in `testdata/realistic-values.ts`:
 
 ```typescript
-private static readonly REALISTIC_DATA = {
+// testdata/realistic-values.ts
+export const REALISTIC_DATA = {
   // ... existing pools
 
   // NEW POOL

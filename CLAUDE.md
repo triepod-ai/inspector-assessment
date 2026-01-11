@@ -463,6 +463,7 @@ All events extend `BaseEvent` interface with `version` and `schemaVersion` field
 - `client/src/services/assessment/TestScenarioEngine.ts` - Multi-scenario testing orchestration
 - `client/src/services/assessment/ResponseValidator.ts` - Business logic error detection
 - `client/src/services/assessment/TestDataGenerator.ts` - Context-aware test data
+- `client/src/services/assessment/testdata/` - Test data constants (realistic values, tool categories)
 - `client/src/services/assessment/modules/SecurityAssessor.ts` - Domain-specific security testing
 - `client/src/services/assessment/modules/ErrorHandlingAssessor.ts` - MCP protocol compliance
 - `client/src/services/assessment/modules/ProtocolComplianceAssessor.ts` - Unified protocol compliance checks
