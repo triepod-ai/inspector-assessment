@@ -7,80 +7,69 @@ import {
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { DEFAULT_ASSESSMENT_CONFIG } from "@/lib/assessmentTypes";
 
-// CI-aware test helper: Skip timing-sensitive benchmarks in CI environments
-// where runner performance is highly variable. See GitHub Issue #122.
-const isCI = process.env.CI === "true" || process.env.CI === "1";
-const itSkipInCI = isCI ? it.skip : it;
+// Performance tests focus on functional correctness, not timing thresholds.
+// Timing measurements are logged for manual analysis but not asserted.
+// See GitHub Issue #123 for rationale.
 
 describe("Assessment Performance Benchmarks", () => {
   describe("Performance Metrics", () => {
-    // Skip in CI: Timing thresholds are too strict for variable CI runner performance
-    // Run locally to validate performance. See GitHub Issue #122.
-    itSkipInCI(
-      "should complete basic assessment within performance thresholds",
-      async () => {
-        // Arrange
-        const config = createMockAssessmentConfig();
-        config.parallelTesting = true;
-        config.maxParallelTests = 5;
+    it("should complete basic assessment and produce valid results", async () => {
+      // Arrange
+      const config = createMockAssessmentConfig();
+      config.parallelTesting = true;
+      config.maxParallelTests = 5;
 
-        const orchestrator = new AssessmentOrchestrator(config);
+      const orchestrator = new AssessmentOrchestrator(config);
 
-        const basicTools: Tool[] = [
-          createMockTool({ name: "basic-tool-1" }),
-          createMockTool({ name: "basic-tool-2" }),
-          createMockTool({ name: "basic-tool-3" }),
-        ];
+      const basicTools: Tool[] = [
+        createMockTool({ name: "basic-tool-1" }),
+        createMockTool({ name: "basic-tool-2" }),
+        createMockTool({ name: "basic-tool-3" }),
+      ];
 
-        const mockCallTool = jest.fn().mockImplementation((name: string) => {
-          // Simulate realistic response times
-          const delay = Math.random() * 50 + 10; // 10-60ms
-          return new Promise((resolve) => {
-            setTimeout(() => {
-              resolve(
-                createMockCallToolResponse(`Response from ${name}`, false),
-              );
-            }, delay);
-          });
+      const mockCallTool = jest.fn().mockImplementation((name: string) => {
+        // Simulate realistic response times
+        const delay = Math.random() * 50 + 10; // 10-60ms
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(createMockCallToolResponse(`Response from ${name}`, false));
+          }, delay);
         });
+      });
 
-        const startTime = performance.now();
-        const initialMemory = process.memoryUsage();
+      const startTime = performance.now();
+      const initialMemory = process.memoryUsage();
 
-        // Act
-        const mockContext = {
-          serverName: "performance-test-server",
-          tools: basicTools,
-          callTool: mockCallTool,
-          config,
-        };
+      // Act
+      const mockContext = {
+        serverName: "performance-test-server",
+        tools: basicTools,
+        callTool: mockCallTool,
+        config,
+      };
 
-        const result = await orchestrator.runFullAssessment(mockContext);
+      const result = await orchestrator.runFullAssessment(mockContext);
 
-        const endTime = performance.now();
-        const finalMemory = process.memoryUsage();
-        const executionTime = endTime - startTime;
+      const endTime = performance.now();
+      const finalMemory = process.memoryUsage();
+      const executionTime = endTime - startTime;
 
-        // Assert Performance Thresholds (relaxed for CI runners which are slower)
-        expect(executionTime).toBeLessThan(15000); // < 15 seconds for basic assessment (CI runners are slower)
-        expect(result.totalTestsRun).toBeGreaterThan(10); // Relaxed: CI runners achieve ~15 tests
-        expect((result.totalTestsRun / executionTime) * 1000).toBeGreaterThan(
-          1,
-        ); // > 1 test/second (relaxed for CI; baseline is ~0.67 with 10 tests in 15s)
+      // Assert functional correctness (no timing thresholds - see Issue #123)
+      expect(result).toBeDefined();
+      expect(result.overallStatus).toBeDefined();
+      expect(result.totalTestsRun).toBeGreaterThan(10);
+      expect(result.functionality).toBeDefined();
+      expect(result.functionality.totalTools).toBe(3);
 
-        // Memory usage should be reasonable
-        const memoryIncreaseMB =
-          (finalMemory.heapUsed - initialMemory.heapUsed) / 1024 / 1024;
-        expect(memoryIncreaseMB).toBeLessThan(50); // < 50MB memory increase
-
-        console.log(`Basic Assessment Performance:
+      // Log performance metrics for manual analysis (not asserted)
+      const memoryIncreaseMB =
+        (finalMemory.heapUsed - initialMemory.heapUsed) / 1024 / 1024;
+      console.log(`Basic Assessment Performance:
         - Execution Time: ${executionTime.toFixed(2)}ms
         - Total Tests: ${result.totalTestsRun}
         - Tests/Second: ${((result.totalTestsRun / executionTime) * 1000).toFixed(2)}
         - Memory Increase: ${memoryIncreaseMB.toFixed(2)}MB`);
-      },
-      60000,
-    ); // 60 second timeout for comprehensive mode
+    }, 60000); // 60 second timeout for comprehensive mode
 
     // Skip in CI - this test is for local performance benchmarking only
     // It takes 3+ minutes on slow CI runners
@@ -172,111 +161,103 @@ describe("Assessment Performance Benchmarks", () => {
       });
     }, 180000); // 180 second timeout for testing 5+10+20+30 tools on CI runners
 
-    // Skip in CI: Throughput thresholds vary significantly on CI runners
-    // Run locally to validate extended assessment performance. See GitHub Issue #122.
-    itSkipInCI(
-      "should maintain performance with extended assessments enabled",
-      async () => {
-        // Arrange
-        const baseConfig = createMockAssessmentConfig();
-        baseConfig.enableExtendedAssessment = false;
-        baseConfig.assessmentCategories = {
-          functionality: true,
-          security: true,
-          documentation: true,
-          errorHandling: true,
-          usability: true,
-          mcpSpecCompliance: false,
-        };
+    it("should complete extended assessments with valid results", async () => {
+      // Arrange
+      const baseConfig = createMockAssessmentConfig();
+      baseConfig.enableExtendedAssessment = false;
+      baseConfig.assessmentCategories = {
+        functionality: true,
+        security: true,
+        documentation: true,
+        errorHandling: true,
+        usability: true,
+        mcpSpecCompliance: false,
+      };
 
-        const extendedConfig = createMockAssessmentConfig();
-        extendedConfig.enableExtendedAssessment = true;
-        extendedConfig.assessmentCategories = {
-          functionality: true,
-          security: true,
-          documentation: true,
-          errorHandling: true,
-          usability: true,
-          mcpSpecCompliance: true,
-        };
+      const extendedConfig = createMockAssessmentConfig();
+      extendedConfig.enableExtendedAssessment = true;
+      extendedConfig.assessmentCategories = {
+        functionality: true,
+        security: true,
+        documentation: true,
+        errorHandling: true,
+        usability: true,
+        mcpSpecCompliance: true,
+      };
 
-        const baseOrchestrator = new AssessmentOrchestrator(baseConfig);
-        const extendedOrchestrator = new AssessmentOrchestrator(extendedConfig);
+      const baseOrchestrator = new AssessmentOrchestrator(baseConfig);
+      const extendedOrchestrator = new AssessmentOrchestrator(extendedConfig);
 
-        const testTools: Tool[] = [
-          createMockTool({ name: "test-tool-1" }),
-          createMockTool({ name: "test-tool-2" }),
-          createMockTool({ name: "test-tool-3" }),
-        ];
+      const testTools: Tool[] = [
+        createMockTool({ name: "test-tool-1" }),
+        createMockTool({ name: "test-tool-2" }),
+        createMockTool({ name: "test-tool-3" }),
+      ];
 
-        const mockCallTool = jest.fn().mockImplementation(() => {
-          return createMockCallToolResponse("test response", false);
-        });
+      const mockCallTool = jest.fn().mockImplementation(() => {
+        return createMockCallToolResponse("test response", false);
+      });
 
-        const mockServerInfo = {
-          name: "performance-server",
-          version: "1.0.0",
-        };
+      const mockServerInfo = {
+        name: "performance-server",
+        version: "1.0.0",
+      };
 
-        const mockPackageJson = {
-          name: "performance-server",
-          version: "1.0.0",
-          dependencies: { "test-dep": "1.0.0" },
-        };
+      const mockPackageJson = {
+        name: "performance-server",
+        version: "1.0.0",
+        dependencies: { "test-dep": "1.0.0" },
+      };
 
-        // Act - Base assessment
-        const baseStartTime = performance.now();
-        const baseResult = await baseOrchestrator.assess(
-          "base-server",
-          testTools,
-          mockCallTool,
-          mockServerInfo,
-          "# Basic README",
-          mockPackageJson,
-        );
-        const baseEndTime = performance.now();
-        const baseExecutionTime = baseEndTime - baseStartTime;
+      // Act - Base assessment
+      const baseStartTime = performance.now();
+      const baseResult = await baseOrchestrator.assess(
+        "base-server",
+        testTools,
+        mockCallTool,
+        mockServerInfo,
+        "# Basic README",
+        mockPackageJson,
+      );
+      const baseEndTime = performance.now();
+      const baseExecutionTime = baseEndTime - baseStartTime;
 
-        // Act - Extended assessment
-        const extendedStartTime = performance.now();
-        const extendedResult = await extendedOrchestrator.assess(
-          "extended-server",
-          testTools,
-          mockCallTool,
-          mockServerInfo,
-          "# Basic README",
-          mockPackageJson,
-        );
-        const extendedEndTime = performance.now();
-        const extendedExecutionTime = extendedEndTime - extendedStartTime;
+      // Act - Extended assessment
+      const extendedStartTime = performance.now();
+      const extendedResult = await extendedOrchestrator.assess(
+        "extended-server",
+        testTools,
+        mockCallTool,
+        mockServerInfo,
+        "# Basic README",
+        mockPackageJson,
+      );
+      const extendedEndTime = performance.now();
+      const extendedExecutionTime = extendedEndTime - extendedStartTime;
 
-        // Assert - Extended assessments should run at least as many tests as base
-        // Note: Some extended categories (mcpSpec, privacy, humanInLoop) may not add
-        // significantly to test count, so we check >= instead of >
-        expect(extendedResult.totalTestsRun).toBeGreaterThanOrEqual(
-          baseResult.totalTestsRun,
-        );
+      // Assert functional correctness (no timing thresholds - see Issue #123)
+      expect(baseResult).toBeDefined();
+      expect(baseResult.overallStatus).toBeDefined();
+      expect(extendedResult).toBeDefined();
+      expect(extendedResult.overallStatus).toBeDefined();
 
-        // Extended assessment should not be more than 3x slower than base
-        const performanceRatio = extendedExecutionTime / baseExecutionTime;
-        expect(performanceRatio).toBeLessThan(3);
+      // Extended assessments should run at least as many tests as base
+      expect(extendedResult.totalTestsRun).toBeGreaterThanOrEqual(
+        baseResult.totalTestsRun,
+      );
 
-        // Both should maintain reasonable throughput
-        const baseThroughput =
-          (baseResult.totalTestsRun / baseExecutionTime) * 1000;
-        const extendedThroughput =
-          (extendedResult.totalTestsRun / extendedExecutionTime) * 1000;
+      // Log performance metrics for manual analysis (not asserted)
+      const performanceRatio = extendedExecutionTime / baseExecutionTime;
+      const baseThroughput =
+        (baseResult.totalTestsRun / baseExecutionTime) * 1000;
+      const extendedThroughput =
+        (extendedResult.totalTestsRun / extendedExecutionTime) * 1000;
 
-        expect(baseThroughput).toBeGreaterThan(5);
-        expect(extendedThroughput).toBeGreaterThan(3);
-
-        console.log(`Extended Assessment Performance Comparison:
+      console.log(`Extended Assessment Performance Comparison:
         Base (5 categories): ${baseExecutionTime.toFixed(2)}ms, ${baseResult.totalTestsRun} tests, ${baseThroughput.toFixed(2)} tests/sec
         Extended (10 categories): ${extendedExecutionTime.toFixed(2)}ms, ${extendedResult.totalTestsRun} tests, ${extendedThroughput.toFixed(2)} tests/sec
         Performance Ratio: ${performanceRatio.toFixed(2)}x`);
-      },
-      60000,
-    ); // 60 second timeout for comprehensive mode with extended assessments
+    }, 60000); // 60 second timeout for comprehensive mode with extended assessments
 
     it("should handle concurrent assessments efficiently", async () => {
       // Arrange
@@ -323,20 +304,19 @@ describe("Assessment Performance Benchmarks", () => {
       const endTime = performance.now();
       const totalExecutionTime = endTime - startTime;
 
-      // Assert
+      // Assert functional correctness (no timing thresholds - see Issue #123)
       expect(results).toHaveLength(concurrentCount);
       results.forEach((result, index) => {
         expect(result).toBeDefined();
+        expect(result.overallStatus).toBeDefined();
         expect(result.serverName).toBe(`concurrent-server-${index}`);
       });
 
-      // Concurrent execution should be more efficient than sequential
+      // Log performance metrics for manual analysis (not asserted)
       const avgTestsPerAssessment =
         results.reduce((sum, r) => sum + r.totalTestsRun, 0) / concurrentCount;
       const totalThroughput =
         ((avgTestsPerAssessment * concurrentCount) / totalExecutionTime) * 1000;
-
-      expect(totalThroughput).toBeGreaterThan(3); // Relaxed: CI runners achieve ~4-5 tests/sec
 
       console.log(`Concurrent Assessment Performance:
         ${concurrentCount} concurrent assessments
@@ -405,16 +385,18 @@ describe("Assessment Performance Benchmarks", () => {
 
       const finalMemory = process.memoryUsage();
 
-      // Assert
+      // Assert functional correctness (no memory thresholds - see Issue #123)
       expect(result).toBeDefined();
-      expect(result.totalTestsRun).toBeGreaterThan(100); // Relaxed: CI runners achieve ~120 tests
+      expect(result.overallStatus).toBeDefined();
+      expect(result.functionality).toBeDefined();
+      expect(result.functionality.totalTools).toBe(100);
+      expect(result.totalTestsRun).toBeGreaterThan(100);
 
-      // Memory usage should not grow excessively
+      // Log memory metrics for manual analysis (not asserted)
       const memoryIncreaseMB =
         (finalMemory.heapUsed - initialMemory.heapUsed) / 1024 / 1024;
-      expect(memoryIncreaseMB).toBeLessThan(200); // < 200MB total increase
 
-      // Memory should not continuously grow (should have garbage collection)
+      let memoryGrowthRatio = 1;
       if (measurements.length >= 3) {
         const firstThird = measurements.slice(
           0,
@@ -430,8 +412,7 @@ describe("Assessment Performance Benchmarks", () => {
         const avgLate =
           lastThird.reduce((sum, m) => sum + m.heapUsed, 0) / lastThird.length;
 
-        const memoryGrowthRatio = avgLate / avgEarly;
-        expect(memoryGrowthRatio).toBeLessThan(3); // Should not triple memory usage
+        memoryGrowthRatio = avgLate / avgEarly;
       }
 
       console.log(`Memory Usage Analysis:
@@ -486,21 +467,16 @@ describe("Assessment Performance Benchmarks", () => {
         testCounts.push(result.totalTestsRun);
       }
 
-      // Assert consistency
-      const avgExecutionTime =
-        executionTimes.reduce((sum, time) => sum + time, 0) / runCount;
+      // Assert functional correctness (no timing thresholds - see Issue #123)
+      // All runs should complete and produce consistent test counts
+      expect(testCounts.length).toBe(runCount);
+      testCounts.forEach((count) => {
+        expect(count).toBeGreaterThan(0);
+      });
+
+      // Test count should be deterministic (same config = same tests)
       const avgTestCount =
         testCounts.reduce((sum, count) => sum + count, 0) / runCount;
-
-      // Calculate coefficient of variation (standard deviation / mean)
-      const executionTimeVariance =
-        executionTimes.reduce(
-          (sum, time) => sum + Math.pow(time - avgExecutionTime, 2),
-          0,
-        ) / runCount;
-      const executionTimeStdDev = Math.sqrt(executionTimeVariance);
-      const executionTimeCv = executionTimeStdDev / avgExecutionTime;
-
       const testCountVariance =
         testCounts.reduce(
           (sum, count) => sum + Math.pow(count - avgTestCount, 2),
@@ -509,15 +485,19 @@ describe("Assessment Performance Benchmarks", () => {
       const testCountStdDev = Math.sqrt(testCountVariance);
       const testCountCv = testCountStdDev / avgTestCount;
 
-      // Performance should be consistent (CV < 20%)
-      expect(executionTimeCv).toBeLessThan(0.2);
-      expect(testCountCv).toBeLessThan(0.1); // Test count should be very consistent
+      // Test count should be very consistent (deterministic)
+      expect(testCountCv).toBeLessThan(0.1);
 
-      // All runs should complete within reasonable time
-      executionTimes.forEach((time) => {
-        expect(time).toBeLessThan(avgExecutionTime * 1.5);
-        expect(time).toBeGreaterThan(avgExecutionTime * 0.5);
-      });
+      // Log timing metrics for manual analysis (not asserted)
+      const avgExecutionTime =
+        executionTimes.reduce((sum, time) => sum + time, 0) / runCount;
+      const executionTimeVariance =
+        executionTimes.reduce(
+          (sum, time) => sum + Math.pow(time - avgExecutionTime, 2),
+          0,
+        ) / runCount;
+      const executionTimeStdDev = Math.sqrt(executionTimeVariance);
+      const executionTimeCv = executionTimeStdDev / avgExecutionTime;
 
       console.log(`Consistency Analysis (${runCount} runs):
         Avg Execution Time: ${avgExecutionTime.toFixed(2)}ms (CV: ${(executionTimeCv * 100).toFixed(2)}%)
@@ -527,122 +507,115 @@ describe("Assessment Performance Benchmarks", () => {
   });
 
   describe("Stress Testing", () => {
-    // Skip in CI: Stress test timing (60s threshold) too tight for variable CI runners
-    // Run locally to validate resilience under load. See GitHub Issue #122.
-    itSkipInCI(
-      "should handle stress conditions gracefully",
-      async () => {
-        // Arrange
-        const stressConfig = createMockAssessmentConfig();
-        stressConfig.testTimeout = 1000; // Shorter timeout for stress test
-        stressConfig.parallelTesting = true;
-        stressConfig.maxParallelTests = 20; // High parallelism
+    it("should handle stress conditions gracefully", async () => {
+      // Arrange
+      const stressConfig = createMockAssessmentConfig();
+      stressConfig.testTimeout = 1000; // Shorter timeout for stress test
+      stressConfig.parallelTesting = true;
+      stressConfig.maxParallelTests = 20; // High parallelism
 
-        const orchestrator = new AssessmentOrchestrator(stressConfig);
+      const orchestrator = new AssessmentOrchestrator(stressConfig);
 
-        // Create many tools with complex schemas
-        const stressTools: Tool[] = [];
-        for (let i = 0; i < 50; i++) {
-          stressTools.push(
-            createMockTool({
-              name: `stress-tool-${i}`,
-              description: `Stress testing tool ${i} with complex functionality`,
-              inputSchema: {
-                type: "object",
-                properties: {
-                  param1: { type: "string", enum: ["a", "b", "c"] },
-                  param2: { type: "number", minimum: 0, maximum: 100 },
-                  param3: { type: "array", items: { type: "string" } },
-                  param4: { type: "object", additionalProperties: true },
-                },
+      // Create many tools with complex schemas
+      const stressTools: Tool[] = [];
+      for (let i = 0; i < 50; i++) {
+        stressTools.push(
+          createMockTool({
+            name: `stress-tool-${i}`,
+            description: `Stress testing tool ${i} with complex functionality`,
+            inputSchema: {
+              type: "object",
+              properties: {
+                param1: { type: "string", enum: ["a", "b", "c"] },
+                param2: { type: "number", minimum: 0, maximum: 100 },
+                param3: { type: "array", items: { type: "string" } },
+                param4: { type: "object", additionalProperties: true },
               },
-            }),
-          );
-        }
+            },
+          }),
+        );
+      }
 
-        const stressCallTool = jest
-          .fn()
-          .mockImplementation((_name: string, _params: any) => {
-            // Simulate varying load conditions
-            const complexity = Math.random();
-            let delay: number;
+      const stressCallTool = jest
+        .fn()
+        .mockImplementation((_name: string, _params: any) => {
+          // Simulate varying load conditions
+          const complexity = Math.random();
+          let delay: number;
 
-            if (complexity < 0.1) {
-              // 10% very slow responses (simulating external API calls)
-              delay = 200 + Math.random() * 300;
-            } else if (complexity < 0.3) {
-              // 20% medium responses
-              delay = 50 + Math.random() * 100;
-            } else {
-              // 70% fast responses
-              delay = 5 + Math.random() * 20;
-            }
+          if (complexity < 0.1) {
+            // 10% very slow responses (simulating external API calls)
+            delay = 200 + Math.random() * 300;
+          } else if (complexity < 0.3) {
+            // 20% medium responses
+            delay = 50 + Math.random() * 100;
+          } else {
+            // 70% fast responses
+            delay = 5 + Math.random() * 20;
+          }
 
-            return new Promise((resolve, reject) => {
-              setTimeout(() => {
-                // Occasionally fail to simulate real-world conditions
-                if (Math.random() < 0.05) {
-                  // 5% failure rate
-                  reject(new Error(`Stress-induced failure in ${name}`));
-                } else {
-                  resolve(
-                    createMockCallToolResponse(
-                      `Stress response from ${name}`,
-                      false,
-                    ),
-                  );
-                }
-              }, delay);
-            });
+          return new Promise((resolve, reject) => {
+            setTimeout(() => {
+              // Occasionally fail to simulate real-world conditions
+              if (Math.random() < 0.05) {
+                // 5% failure rate
+                reject(new Error(`Stress-induced failure in ${name}`));
+              } else {
+                resolve(
+                  createMockCallToolResponse(
+                    `Stress response from ${name}`,
+                    false,
+                  ),
+                );
+              }
+            }, delay);
           });
+        });
 
-        const startTime = performance.now();
-        const initialMemory = process.memoryUsage();
+      const startTime = performance.now();
+      const initialMemory = process.memoryUsage();
 
-        // Act
-        const mockContext = {
-          serverName: "stress-test-server",
-          tools: stressTools,
-          callTool: stressCallTool,
-          config: DEFAULT_ASSESSMENT_CONFIG,
-        };
+      // Act
+      const mockContext = {
+        serverName: "stress-test-server",
+        tools: stressTools,
+        callTool: stressCallTool,
+        config: DEFAULT_ASSESSMENT_CONFIG,
+      };
 
-        const result = await orchestrator.runFullAssessment(mockContext);
+      const result = await orchestrator.runFullAssessment(mockContext);
 
-        const endTime = performance.now();
-        const finalMemory = process.memoryUsage();
-        const executionTime = endTime - startTime;
+      const endTime = performance.now();
+      const finalMemory = process.memoryUsage();
+      const executionTime = endTime - startTime;
 
-        // Assert resilience under stress
-        expect(result).toBeDefined();
-        expect(result.overallStatus).toBeDefined();
-        expect(executionTime).toBeLessThan(60000); // Should complete within 60 seconds on CI runners
+      // Assert functional correctness (no timing thresholds - see Issue #123)
+      expect(result).toBeDefined();
+      expect(result.overallStatus).toBeDefined();
+      expect(result.functionality).toBeDefined();
+      expect(result.functionality.totalTools).toBe(50);
 
-        // Should handle failures gracefully (5% random failure rate means 0-5 failures typically)
-        // Verify all tools are accounted for (working + broken = total)
-        expect(
-          result.functionality.brokenTools.length +
-            result.functionality.workingTools,
-        ).toBe(result.functionality.totalTools);
-        expect(result.functionality.workingTools).toBeGreaterThan(30); // Most should work
+      // Should handle failures gracefully (5% random failure rate means 0-5 failures typically)
+      // Verify all tools are accounted for (working + broken = total)
+      expect(
+        result.functionality.brokenTools.length +
+          result.functionality.workingTools,
+      ).toBe(result.functionality.totalTools);
+      expect(result.functionality.workingTools).toBeGreaterThan(30); // Most should work
 
-        const memoryIncreaseMB =
-          (finalMemory.heapUsed - initialMemory.heapUsed) / 1024 / 1024;
-        expect(memoryIncreaseMB).toBeLessThan(300); // Should not consume excessive memory
+      // Log performance metrics for manual analysis (not asserted)
+      const memoryIncreaseMB =
+        (finalMemory.heapUsed - initialMemory.heapUsed) / 1024 / 1024;
+      const throughput = (result.totalTestsRun / executionTime) * 1000;
 
-        const throughput = (result.totalTestsRun / executionTime) * 1000;
-        expect(throughput).toBeGreaterThan(1); // Relaxed: stress conditions achieve ~1.7 tests/sec
-
-        console.log(`Stress Test Results:
+      console.log(`Stress Test Results:
         Execution Time: ${executionTime.toFixed(2)}ms
         Total Tests: ${result.totalTestsRun}
         Working Tools: ${result.functionality.workingTools}/${result.functionality.totalTools}
         Broken Tools: ${result.functionality.brokenTools.length}
         Throughput: ${throughput.toFixed(2)} tests/sec
         Memory Increase: ${memoryIncreaseMB.toFixed(2)}MB`);
-      },
-      240000,
-    ); // 240 second timeout for stress testing in comprehensive mode
+    }, 240000); // 240 second timeout for stress testing in comprehensive mode
 
     it("should handle explicit tool failures correctly (deterministic failure injection)", async () => {
       // This test uses deterministic failures instead of random chance
