@@ -30,7 +30,7 @@ export {
 } from "./AssessorDefinitions";
 
 // Registry
-export { AssessorRegistry } from "./AssessorRegistry";
+export { AssessorRegistry, type FailedRegistration } from "./AssessorRegistry";
 
 // Estimators
 export {

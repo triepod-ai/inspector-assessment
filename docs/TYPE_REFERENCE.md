@@ -333,12 +333,21 @@ interface MCPDirectoryAssessment {
   // Core assessment results (Original 5)
   functionality: FunctionalityAssessment;
   security: SecurityAssessment;
+  /** @deprecated Use `developerExperience.documentation` instead. Will be removed in v2.0.0. */
   documentation: DocumentationAssessment;
   errorHandling: ErrorHandlingAssessment;
+  /** @deprecated Use `developerExperience.usability` instead. Will be removed in v2.0.0. */
   usability: UsabilityAssessment;
 
+  // NEW: Combined developer experience (v1.32.0+)
+  /** Combined documentation + usability assessment. Replaces separate documentation/usability keys in v2.0.0. */
+  developerExperience?: DeveloperExperienceAssessment;
+
   // Extended assessment results (Optional)
+  /** @deprecated Use `protocolCompliance` instead. Will be removed in v2.0.0. */
   mcpSpecCompliance?: MCPSpecComplianceAssessment;
+  /** NEW: Unified protocol compliance (v1.32.0+). Replaces mcpSpecCompliance and protocolConformance. */
+  protocolCompliance?: MCPSpecComplianceAssessment;
   aupCompliance?: AUPComplianceAssessment;
   toolAnnotations?: ToolAnnotationAssessment;
   prohibitedLibraries?: ProhibitedLibrariesAssessment;
@@ -352,6 +361,12 @@ interface MCPDirectoryAssessment {
   resources?: ResourceAssessment;
   prompts?: PromptAssessment;
   crossCapability?: CrossCapabilitySecurityAssessment;
+
+  // Code quality assessment
+  fileModularization?: FileModularizationAssessment;
+
+  // Official MCP conformance tests
+  conformance?: ConformanceAssessment;
 
   // Overall assessment
   overallStatus: AssessmentStatus;
@@ -433,6 +448,23 @@ interface UsabilityAssessment {
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
+}
+```
+
+#### DeveloperExperienceAssessment
+
+NEW in v1.32.0: Combined documentation and usability assessment. Replaces separate documentation/usability keys in v2.0.0.
+
+```typescript
+interface DeveloperExperienceAssessment {
+  /** Documentation quality assessment results */
+  documentation: DocumentationAssessment;
+  /** Usability quality assessment results */
+  usability: UsabilityAssessment;
+  /** Combined status of both documentation and usability */
+  status: AssessmentStatus;
+  /** Unified developer experience quality score (0-100), calculated as average of documentation and usability scores */
+  score: number;
 }
 ```
 

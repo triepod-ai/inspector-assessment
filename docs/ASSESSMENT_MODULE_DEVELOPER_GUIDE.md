@@ -4,12 +4,68 @@ A comprehensive guide for understanding, extending, and maintaining the MCP Insp
 
 ## Table of Contents
 
-1. [Module Anatomy Overview](#module-anatomy-overview)
-2. [Existing Modules Reference](#existing-modules-reference)
-3. [Adding a New Module](#adding-a-new-module)
-4. [Testing Assessment Modules](#testing-assessment-modules)
-5. [Module Scoring Integration](#module-scoring-integration)
-6. [Advanced Patterns](#advanced-patterns)
+1. [Registry Pattern Overview](#registry-pattern-overview)
+2. [Module Anatomy Overview](#module-anatomy-overview)
+3. [Existing Modules Reference](#existing-modules-reference)
+4. [Adding a New Module](#adding-a-new-module)
+5. [Testing Assessment Modules](#testing-assessment-modules)
+6. [Module Scoring Integration](#module-scoring-integration)
+7. [Advanced Patterns](#advanced-patterns)
+
+---
+
+## Registry Pattern Overview
+
+The MCP Inspector uses a registry pattern (Issue #91) to manage assessor instantiation, execution phases, and configuration. This architecture replaced 1149+ lines of imperative code in AssessmentOrchestrator with a declarative, modular system.
+
+### Architecture Components
+
+**Location**: `client/src/services/assessment/registry/`
+
+| Module                   | Purpose                                                                                               |
+| ------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `types.ts`               | Core interfaces: `AssessorDefinition`, `AssessmentPhase`, `AssessorConfigFlags`, `RegisteredAssessor` |
+| `AssessorRegistry.ts`    | Central registry managing instance lifecycle, execution phases, and Claude bridge wiring              |
+| `AssessorDefinitions.ts` | Declarative config for all 19 assessors - single source of truth                                      |
+| `estimators.ts`          | Test count estimation functions for progress events                                                   |
+| `index.ts`               | Public API exports                                                                                    |
+
+### How It Works
+
+1. **Definition**: Each assessor is declared once in `AssessorDefinitions.ts` with:
+   - Assessor class and constructor
+   - Configuration flags (primary + deprecated for BC)
+   - Execution phase (0-5)
+   - Test count estimator
+   - Optional custom setup function
+
+2. **Registration**: `AssessorRegistry.registerAll()` instantiates enabled assessors based on config:
+   - Skips disabled assessors
+   - Runs custom setup (e.g., pattern compilation for ToolAnnotationAssessor)
+   - Wires Claude bridge if enabled
+   - Tracks failed registrations for resilience reporting
+
+3. **Execution**: `AssessorRegistry.executeAll()` runs assessors in phase order:
+   - Phase 0 (PRE): Always sequential for baseline capture
+   - Phases 1-5: Parallel or sequential based on `config.parallelTesting`
+   - Uses `Promise.allSettled()` for graceful degradation (P1 fix)
+   - Emits progress events for each assessor
+
+### Key Benefits
+
+- **Modularity**: Assessor logic isolated from orchestration
+- **Declarative**: Single source of truth for all assessor config
+- **Testability**: Registry and assessors tested independently
+- **Resilience**: Failed assessor doesn't block others (graceful degradation)
+- **Discoverability**: New developers can see all assessors at a glance
+
+### Important API Notes
+
+- **`updateConfig()`**: Only updates config for future operations, does NOT re-register assessors
+- **Failed Registration Tracking**: Use `getFailedRegistrations()` to report partial results
+- **Phase Ordering**: Phase 0 always runs first and sequentially; other phases respect `parallelTesting` config
+
+For implementation details, see `AssessorRegistry` class documentation in the source.
 
 ---
 

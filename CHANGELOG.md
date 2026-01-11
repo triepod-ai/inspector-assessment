@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.32.0] - 2026-01-10
+
+### Added
+
+- **Dual-Key Output for v2.0.0 Transition** (Issue #124): Output consolidation with backward compatibility
+  - New `developerExperience` key combines `documentation` and `usability` assessments
+  - New `protocolCompliance` key replaces `mcpSpecCompliance` and `protocolConformance`
+  - During transition (v1.32.0-v1.x), both old and new keys output simultaneously
+  - `DeveloperExperienceAssessment` interface with nested documentation/usability + status/score fields
+  - Score calculated as average of documentation and usability module scores
+  - See [DEPRECATION_GUIDE.md](docs/DEPRECATION_GUIDE.md) Section 4 for migration examples
+
+- **Extended Types Module** (`client/src/lib/assessment/extendedTypes.ts`): New DeveloperExperienceAssessment interface
+  - Composite assessment combining documentation and usability
+  - Includes `score` field for unified developer experience quality metric
+
+### Changed
+
+- **resultTypes.ts**: Added @deprecated annotations to 4 keys (documentation, usability, mcpSpecCompliance, protocolConformance)
+- **AssessmentOrchestrator.ts**: Dual-key output logic ensures backward compatibility during transition period
+- **moduleScoring.ts**: Added score field handling for DeveloperExperienceAssessment type
+
+### Testing
+
+- Added 6 new integration tests for dual-key output scenarios
+- Validates both old and new keys are populated simultaneously
+- Tests score calculation logic for combined developer experience
+
 ## [1.31.0] - 2026-01-10
 
 ### Added

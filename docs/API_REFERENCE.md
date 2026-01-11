@@ -582,7 +582,12 @@ The extended assessment results structure has been reorganized in v1.25.0 to use
 | `portability`         | `PortabilityAssessment?`             | Portability analysis                                                     | Tier 4      |
 | `externalAPIScanner`  | `ExternalAPIScannerAssessment?`      | External API detection                                                   | Tier 4      |
 
-**Backward Compatibility Note**: Fields `documentation` and `usability` are deprecated in favor of `developerExperience`. Fields `mcpSpecCompliance` and `protocolConformance` are deprecated in favor of `protocolCompliance`.
+**Backward Compatibility Note** (v1.32.0+): During the transition to v2.0.0, assessments output both old and new keys simultaneously:
+
+- Old keys `documentation` and `usability` remain in output alongside new `developerExperience` key
+- Old keys `mcpSpecCompliance` and `protocolConformance` remain alongside new `protocolCompliance` key
+- Consumers can migrate at their own pace using the examples in [DEPRECATION_GUIDE.md](DEPRECATION_GUIDE.md)
+- All old keys will be removed in v2.0.0
 
 ### Overall Assessment
 

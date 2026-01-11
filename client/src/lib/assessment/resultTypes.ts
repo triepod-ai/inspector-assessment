@@ -858,7 +858,7 @@ export interface MCPDirectoryAssessment {
   // Protocol conformance assessment
   /**
    * MCP protocol-level compliance (error format, content types, initialization handshake)
-   * @deprecated Merged into `protocolCompliance`. Will be removed in v2.0.0.
+   * @deprecated Use `protocolCompliance` instead. Merged with mcpSpecCompliance. Will be removed in v2.0.0.
    */
   protocolConformance?: ProtocolConformanceAssessment;
 

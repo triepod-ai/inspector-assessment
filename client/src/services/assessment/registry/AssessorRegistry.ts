@@ -37,11 +37,20 @@ import {
  * 4. Test count aggregation from all assessors
  * 5. Backward-compatible property access via getAssessor()
  */
+/**
+ * Information about a failed assessor registration.
+ */
+export interface FailedRegistration {
+  id: string;
+  error: string;
+}
+
 export class AssessorRegistry {
   private config: AssessmentConfiguration;
   private logger: Logger;
   private assessors: Map<string, RegisteredAssessor> = new Map();
   private claudeBridge?: ClaudeCodeBridge;
+  private failedRegistrations: FailedRegistration[] = [];
 
   constructor(config: AssessmentConfiguration) {
     this.config = config;
@@ -98,6 +107,11 @@ export class AssessorRegistry {
     } catch (error) {
       this.logger.error(`Failed to register assessor: ${definition.id}`, {
         error,
+      });
+      // Track failed registrations for summary reporting (P1 fix)
+      this.failedRegistrations.push({
+        id: definition.id,
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -266,7 +280,8 @@ export class AssessorRegistry {
   }
 
   /**
-   * Execute assessors in parallel.
+   * Execute assessors in parallel with graceful degradation.
+   * Uses Promise.allSettled to continue execution even if some assessors fail.
    */
   private async executeParallel(
     assessors: RegisteredAssessor[],
@@ -282,33 +297,54 @@ export class AssessorRegistry {
 
       // Execute
       const startTime = Date.now();
-      try {
-        const result = await instance.assess(context);
-        const executionTime = Date.now() - startTime;
+      const result = await instance.assess(context);
+      const executionTime = Date.now() - startTime;
 
-        // Emit progress event (writes to stderr)
-        // Result should have a 'status' property
-        const status = this.extractStatus(result);
-        emitModuleProgress(
-          definition.displayName,
-          status,
-          result,
-          instance.getTestCount(),
-        );
+      // Emit progress event (writes to stderr)
+      const status = this.extractStatus(result);
+      emitModuleProgress(
+        definition.displayName,
+        status,
+        result,
+        instance.getTestCount(),
+      );
 
-        return {
-          id: definition.id,
-          resultField: definition.resultField,
-          result,
-          executionTime,
-        };
-      } catch (error) {
-        this.logger.error(`Assessor ${definition.id} failed`, { error });
-        throw error;
-      }
+      return {
+        id: definition.id,
+        resultField: definition.resultField,
+        result,
+        executionTime,
+      };
     });
 
-    return Promise.all(promises);
+    // Use Promise.allSettled for graceful degradation (P1 fix)
+    const settledResults = await Promise.allSettled(promises);
+    const successResults: AssessorExecutionResult[] = [];
+
+    for (let i = 0; i < settledResults.length; i++) {
+      const settledResult = settledResults[i];
+      if (settledResult.status === "fulfilled") {
+        successResults.push(settledResult.value);
+      } else {
+        const definition = assessors[i].definition;
+        this.logger.error(
+          `Assessor ${definition.id} failed during parallel execution`,
+          {
+            error: settledResult.reason,
+          },
+        );
+        // Emit failure progress event
+        emitModuleProgress(definition.displayName, "ERROR", null, 0);
+      }
+    }
+
+    if (successResults.length < assessors.length) {
+      this.logger.warn(
+        `${assessors.length - successResults.length} assessor(s) failed during parallel execution`,
+      );
+    }
+
+    return successResults;
   }
 
   /**
@@ -423,9 +459,44 @@ export class AssessorRegistry {
   }
 
   /**
-   * Update configuration (e.g., for dynamic config changes).
+   * Update configuration for future operations.
+   *
+   * **Important**: This does NOT re-register assessors. Assessors are registered
+   * once during construction based on the initial config. To change which
+   * assessors are enabled, create a new AssessorRegistry instance.
+   *
+   * @param config - New configuration to use
    */
   updateConfig(config: AssessmentConfiguration): void {
     this.config = config;
+  }
+
+  /**
+   * Reset test counts for all registered assessors.
+   * Called at the start of each assessment run.
+   */
+  resetAllTestCounts(): void {
+    for (const registered of this.assessors.values()) {
+      registered.instance.resetTestCount();
+    }
+  }
+
+  /**
+   * Get list of assessors that failed to register.
+   * Useful for reporting partial assessment results.
+   *
+   * @returns Array of failed registration info (id and error message)
+   */
+  getFailedRegistrations(): FailedRegistration[] {
+    return [...this.failedRegistrations];
+  }
+
+  /**
+   * Check if any assessors failed to register.
+   *
+   * @returns true if at least one assessor failed registration
+   */
+  hasFailedRegistrations(): boolean {
+    return this.failedRegistrations.length > 0;
   }
 }

@@ -6,6 +6,78 @@
 
 ---
 
+## 2026-01-11: Registry Pattern Refactoring (Issue #91)
+
+**Summary:** Refactored AssessmentOrchestrator using registry pattern for modular assessor management and graceful degradation.
+
+**Architecture:**
+- Extracted registry pattern into `client/src/services/assessment/registry/` with 5 focused modules:
+  - `types.ts` - AssessorDefinition, AssessorRegistry interfaces (AssessmentPhase enum, configFlags pattern)
+  - `AssessorRegistry.ts` - Central registry managing assessor instances, execution phases, and Claude bridge wiring
+  - `AssessorDefinitions.ts` - Declarative config for all 19 assessors (single source of truth)
+  - `estimators.ts` - Test count estimation functions for progress events
+  - `index.ts` - Public API exports
+
+**Key Improvements:**
+- Assessor management: Lazy instantiation, phase-ordered execution, claude bridge wiring
+- Graceful degradation: `Promise.allSettled()` in parallel execution allows some assessors to fail without blocking others
+- Failed registration tracking: `getFailedRegistrations()` and `hasFailedRegistrations()` methods for resilience reporting
+- Reduced AssessmentOrchestrator: 1149 lines → 457 lines (60% reduction)
+
+**Execution Phases:**
+- Phase 0 (PRE): Temporal (baseline capture - always sequential)
+- Phase 1 (CORE): Functionality, Security, Documentation, ErrorHandling, Usability
+- Phase 2 (PROTOCOL): ProtocolCompliance
+- Phase 3 (COMPLIANCE): AUP, Annotations, Libraries, Manifest, Portability, APIs, Auth
+- Phase 4 (CAPABILITY): Resources, Prompts, CrossCapability
+- Phase 5 (QUALITY): FileModularization, Conformance
+
+**Important API Limitation:**
+- `updateConfig()` only updates config for future assessor operations, does NOT re-register assessors
+- To enable/disable different assessors, create a new AssessorRegistry instance with updated config
+
+**Testing:**
+- Registry initialization and phase ordering tests
+- Parallel execution with failure scenarios (Promise.allSettled graceful degradation)
+- Failed registration tracking and reporting
+- All existing orchestrator tests refactored to use registry API
+
+**Notes:**
+- No breaking changes to public API (orchestrator interface unchanged)
+- Module isolation enables independent testing and future enhancements
+- Declarative definitions improve maintainability and discoverability
+
+---
+
+## 2026-01-10: Dual-Key Output Implementation (Issue #124)
+
+**Summary:** Implemented dual-key assessment output for v2.0.0 transition with backward compatibility.
+
+**Changes Made:**
+- `client/src/lib/assessment/extendedTypes.ts` - Added DeveloperExperienceAssessment interface (composite documentation + usability)
+- `client/src/lib/assessment/resultTypes.ts` - Added developerExperience and protocolCompliance keys with @deprecated annotations on old keys
+- `client/src/services/assessment/AssessmentOrchestrator.ts` - Implemented dual-key output logic
+- `client/src/lib/moduleScoring.ts` - Added score field handling for DeveloperExperienceAssessment
+- `docs/DEPRECATION_GUIDE.md` - Updated with Section 4 documenting the 4 deprecated output keys and migration examples
+
+**Impact:**
+- Output consolidation: 4 deprecated keys consolidated into 2 new keys (developerExperience, protocolCompliance)
+- Developer experience score: Calculated as average of documentation and usability module scores
+- Backward compatibility: Old keys remain in output during transition (v1.32.0 through v1.x)
+- Migration path: Clear deprecation guidance with example code for updating consumers
+
+**Testing:**
+- 6 new AssessmentOrchestrator integration tests for dual-key output scenarios
+- Tests validate both old and new keys are populated simultaneously
+- Score calculation tests ensure proper averaging of module scores
+
+**Notes:**
+- CHANGELOG.md updated with v1.32.0 entry (47 lines total for this feature)
+- No API breaking changes - consumers can migrate at their own pace
+- DEPRECATION_GUIDE.md Section 4 already documents the migration strategy
+
+---
+
 ## 2026-01-10: Rate Limiting & Package Availability Checks
 
 **Summary:** Added rate limiting to ResourceAssessor hidden resource probing and conformance package availability detection.
@@ -255,5 +327,102 @@
 - All 4 packages published: @bryan-thompson/inspector-assessment, -client, -server, -cli
 - GitHub tag v1.31.0 pushed
 - Verified with `bunx @bryan-thompson/inspector-assessment --help`
+
+---
+
+## 2026-01-10: Completed Zod Integration Testing Issues
+
+**Summary:** Completed Zod integration testing issues #118, #120, #121 with 37 new tests, fixed P1 code review issues, and created issue #123 for flaky performance benchmarks.
+
+**Session Focus:** Zod validation testing and code review fixes
+
+**Changes Made:**
+- cli/src/__tests__/flag-parsing.test.ts - Added 14 Zod schema integration tests
+- client/src/services/assessment/__tests__/ResponseValidator.test.ts - Added 14 Zod helper integration tests
+- client/src/utils/__tests__/configUtils.test.ts - Added 9 validation fallback tests
+- client/src/services/assessment/modules/ResourceAssessor.ts - Added 50ms rate limiting
+- client/src/services/assessment/modules/ConformanceAssessor.ts - Added package availability check
+- docs/ASSESSMENT_CATALOG.md - Updated with rate limiting documentation
+
+**Key Decisions:**
+- Used fake timers in CLI tests to handle setTimeout cleanup
+- 50ms delay chosen for rate limiting (balances thoroughness vs speed)
+- Created separate issue #123 for performance test flakiness rather than fixing inline
+
+**Next Steps:**
+- Fix flaky performance.test.ts benchmarks (Issue #123)
+- Consider ResourceAssessor tests for new URI injection features (code review suggestion)
+
+**Notes:**
+- All 3 Zod testing issues closed: #118, #120, #121
+- No P0 issues found in code review
+- 2 P1 issues fixed (rate limiting, package check)
+- Commit: a658949f pushed to main
+
+---
+
+## 2026-01-10: v2.0.0 Readiness Assessment and Cross-Project Coordination
+
+**Summary:** Analyzed v2.0.0 readiness and identified downstream coordination needs with mcp-auditor
+
+**Session Focus:** v2.0.0 readiness assessment and downstream consumer impact analysis
+
+**Changes Made:**
+- Created inspector-assessment issue #124 (output key transition planning)
+- Created mcp-auditor issue #103 (migration prep for new output keys)
+- Updated issue #48 with readiness findings and new dependencies
+
+**Key Decisions:**
+- Output JSON keys will need a transition period with dual-key output in v1.32.0
+- mcp-auditor must be coordinated with before v2.0.0 release
+- All 5 prerequisites for v2.0.0 are complete (issues #105-#109)
+
+**Next Steps:**
+- Implement dual-key output in v1.32.0 (issue #124)
+- mcp-auditor team to update types for new keys (issue #103)
+- Complete remaining 6 pre-release tasks before v2.0.0
+
+**Notes:**
+- Current version: 1.31.0
+- v2.0.0 target: Q2 2026
+- Progress: ~60% toward v2.0.0 release (5 of 11 tasks complete)
+- Breaking change identified: camelCase output keys require downstream updates
+
+---
+
+## 2026-01-10: Issue #124 Dual-Key Output Implementation for v2.0.0 Transition
+
+**Summary:** Implemented Issue #124 dual-key output for v2.0.0 transition with P1 fixes and documentation sync.
+
+**Session Focus:** Issue #124 implementation - Adding dual-key output to MCPDirectoryAssessment for backward-compatible v2.0.0 transition
+
+**Changes Made:**
+- client/src/lib/assessment/extendedTypes.ts - Added DeveloperExperienceAssessment interface (+32 lines)
+- client/src/lib/assessment/resultTypes.ts - Added developerExperience/protocolCompliance keys, @deprecated annotations (+17 lines)
+- client/src/services/assessment/AssessmentOrchestrator.ts - Dual-key output logic and deprecation warnings (+52 lines)
+- client/src/lib/moduleScoring.ts - Score field handling for DeveloperExperienceAssessment (+5 lines)
+- client/src/services/assessment/__tests__/AssessmentOrchestrator.test.ts - 6 new tests for dual-key output (+178 lines)
+- docs/DEPRECATION_GUIDE.md - Section 4 output key migration documentation (+59 lines)
+- CHANGELOG.md - v1.32.0 release entry (+27 lines)
+- docs/API_REFERENCE.md - Updated backward compatibility note (+5 lines)
+- docs/TYPE_REFERENCE.md - Added DeveloperExperienceAssessment type definition (+30 lines)
+
+**Key Decisions:**
+- Use dual-key output during transition (both old and new keys present)
+- DeveloperExperienceAssessment combines documentation + usability with averaged score
+- protocolCompliance mirrors mcpSpecCompliance (same data, new key name)
+- Deprecation warnings emitted at runtime when outputting deprecated keys
+
+**Next Steps:**
+- Monitor mcp-auditor migration to new keys
+- Plan v2.0.0 release to remove deprecated keys
+- Consider registry pattern tests (P2 suggestion from code review)
+
+**Notes:**
+- P1-1 Fixed: Added 6 new tests for dual-key output (was critical test gap)
+- P1-2 Fixed: Standardized JSDoc deprecation comment for protocolConformance
+- All 6 new tests passing
+- Build passes
+- v1.32.0 already published with dual-key output feature
 
 ---

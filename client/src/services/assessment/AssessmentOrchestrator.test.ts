@@ -682,18 +682,18 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       // Act
       const skipOrchestrator = new AssessmentOrchestrator(config);
 
-      // Assert - Access private properties via type assertion
-      const orchAny = skipOrchestrator as any;
+      // Assert - Use registry to check assessor registration (Issue #91)
+      const registry = (skipOrchestrator as any).registry;
 
-      // Verify skipped assessors are undefined
-      expect(orchAny.functionalityAssessor).toBeUndefined();
-      expect(orchAny.errorHandlingAssessor).toBeUndefined();
-      expect(orchAny.usabilityAssessor).toBeUndefined();
-      expect(orchAny.mcpSpecAssessor).toBeUndefined();
+      // Verify skipped assessors are not registered
+      expect(registry.isRegistered("functionality")).toBe(false);
+      expect(registry.isRegistered("errorHandling")).toBe(false);
+      expect(registry.isRegistered("usability")).toBe(false);
+      expect(registry.isRegistered("protocolCompliance")).toBe(false);
 
-      // Verify enabled assessors are instantiated
-      expect(orchAny.securityAssessor).toBeDefined();
-      expect(orchAny.documentationAssessor).toBeDefined();
+      // Verify enabled assessors are registered
+      expect(registry.isRegistered("security")).toBe(true);
+      expect(registry.isRegistered("documentation")).toBe(true);
     });
 
     it("should skip execution of disabled assessors", async () => {
@@ -748,9 +748,10 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       const skipOrchestrator = new AssessmentOrchestrator(config);
 
-      // Act & Assert - Should not throw when calling resetAllTestCounts
+      // Act & Assert - Should not throw when calling registry.resetAllTestCounts
+      // (Issue #91: resetAllTestCounts moved to registry)
       expect(() => {
-        (skipOrchestrator as any).resetAllTestCounts();
+        (skipOrchestrator as any).registry.resetAllTestCounts();
       }).not.toThrow();
     });
 
@@ -798,17 +799,18 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       // Act
       const whitelistOrchestrator = new AssessmentOrchestrator(config);
-      const orchAny = whitelistOrchestrator as any;
+      const registry = (whitelistOrchestrator as any).registry;
 
-      // Assert - Only security and documentation should be instantiated
-      expect(orchAny.securityAssessor).toBeDefined();
-      expect(orchAny.documentationAssessor).toBeDefined();
+      // Assert - Only security and documentation should be registered
+      // (Issue #91: Use registry.isRegistered() instead of direct property access)
+      expect(registry.isRegistered("security")).toBe(true);
+      expect(registry.isRegistered("documentation")).toBe(true);
 
-      // All others should be undefined
-      expect(orchAny.functionalityAssessor).toBeUndefined();
-      expect(orchAny.errorHandlingAssessor).toBeUndefined();
-      expect(orchAny.usabilityAssessor).toBeUndefined();
-      expect(orchAny.mcpSpecAssessor).toBeUndefined();
+      // All others should not be registered
+      expect(registry.isRegistered("functionality")).toBe(false);
+      expect(registry.isRegistered("errorHandling")).toBe(false);
+      expect(registry.isRegistered("usability")).toBe(false);
+      expect(registry.isRegistered("protocolCompliance")).toBe(false);
     });
   });
 });
