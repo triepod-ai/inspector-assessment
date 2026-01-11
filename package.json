@@ -61,6 +61,10 @@
     "./security": {
       "types": "./client/lib/services/assessment/modules/securityTests/index.d.ts",
       "default": "./client/lib/services/assessment/modules/securityTests/index.js"
+    },
+    "./jsonl-schemas": {
+      "types": "./client/lib/lib/assessment/jsonlEventSchemas.d.ts",
+      "default": "./client/lib/lib/assessment/jsonlEventSchemas.js"
     }
   },
   "bin": {
