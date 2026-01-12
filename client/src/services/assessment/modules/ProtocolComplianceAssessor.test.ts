@@ -53,7 +53,6 @@ describe("ProtocolComplianceAssessor", () => {
     const config = createConfig();
     assessor = new ProtocolComplianceAssessor(config);
     mockContext = createMockAssessmentContext();
-    jest.clearAllMocks();
   });
 
   afterEach(() => {

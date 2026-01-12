@@ -26,7 +26,6 @@ const { loadServerConfig } = await import("../run-security-assessment.js");
 
 describe("loadServerConfig", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
     // Default: config file exists
     mockExistsSync.mockReturnValue(true);
   });

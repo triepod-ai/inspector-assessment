@@ -42,7 +42,6 @@ describe("loadSourceFiles", () => {
   const mockReaddirSync = fs.readdirSync as jest.Mock;
 
   beforeEach(() => {
-    jest.clearAllMocks();
     mockExistsSync.mockReturnValue(false);
     mockReaddirSync.mockReturnValue([]);
   });

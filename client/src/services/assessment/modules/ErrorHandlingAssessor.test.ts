@@ -15,7 +15,6 @@ describe("ErrorHandlingAssessor", () => {
     const config = createMockAssessmentConfig();
     assessor = new ErrorHandlingAssessor(config);
     mockContext = createMockAssessmentContext();
-    jest.clearAllMocks();
   });
 
   afterEach(() => {

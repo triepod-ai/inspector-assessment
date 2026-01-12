@@ -26,9 +26,7 @@ describe("Sync Workspace Versions", () => {
   const rootDir = "/fake/project";
   const workspaces = ["client", "server", "cli"];
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  beforeEach(() => {});
 
   afterEach(() => {
     jest.clearAllMocks();

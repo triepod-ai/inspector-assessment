@@ -20,9 +20,7 @@ const baseMetadata = {
 };
 
 describe("discoverScopes", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  beforeEach(() => {});
 
   afterEach(() => {
     jest.clearAllMocks();

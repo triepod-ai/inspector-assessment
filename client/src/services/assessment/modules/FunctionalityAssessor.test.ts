@@ -15,7 +15,6 @@ describe("FunctionalityAssessor", () => {
     const config = createMockAssessmentConfig();
     assessor = new FunctionalityAssessor(config);
     mockContext = createMockAssessmentContext();
-    jest.clearAllMocks();
   });
 
   afterEach(() => {

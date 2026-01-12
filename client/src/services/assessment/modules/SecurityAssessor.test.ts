@@ -18,7 +18,6 @@ describe("SecurityAssessor", () => {
     const config = createMockAssessmentConfig();
     assessor = new SecurityAssessor(config);
     mockContext = createMockAssessmentContext();
-    jest.clearAllMocks();
   });
 
   afterEach(() => {

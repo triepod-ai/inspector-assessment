@@ -14,7 +14,6 @@ describe("MCPSpecComplianceAssessor", () => {
     const config = createMockAssessmentConfig();
     assessor = new MCPSpecComplianceAssessor(config);
     mockContext = createMockAssessmentContext();
-    jest.clearAllMocks();
   });
 
   afterEach(() => {

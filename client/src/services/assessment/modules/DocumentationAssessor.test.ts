@@ -16,7 +16,6 @@ describe("DocumentationAssessor", () => {
     const config = createMockAssessmentConfig();
     assessor = new DocumentationAssessor(config);
     mockContext = createMockAssessmentContext();
-    jest.clearAllMocks();
   });
 
   afterEach(() => {

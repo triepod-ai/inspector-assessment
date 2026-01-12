@@ -32,7 +32,6 @@ describe("Stage 3 Type Safety Fixes", () => {
       const config = createMockAssessmentConfig();
       assessor = new FunctionalityAssessor(config);
       mockContext = createMockAssessmentContext();
-      jest.clearAllMocks();
     });
 
     afterEach(() => {
@@ -263,7 +262,6 @@ describe("Stage 3 Type Safety Fixes", () => {
       });
       assessor = new ErrorHandlingAssessor(config);
       mockContext = createMockAssessmentContext();
-      jest.clearAllMocks();
     });
 
     it("should return null for tool with null inputSchema", async () => {
@@ -465,7 +463,6 @@ describe("Stage 3 Type Safety Fixes", () => {
       const config = createMockAssessmentConfig();
       assessor = new FunctionalityAssessor(config);
       mockContext = createMockAssessmentContext();
-      jest.clearAllMocks();
     });
 
     it("should generate parameters for complex real-world schema with mixed union types", async () => {
@@ -620,7 +617,6 @@ describe("Stage 3 Type Safety Fixes", () => {
       const config = createMockAssessmentConfig();
       assessor = new FunctionalityAssessor(config);
       mockContext = createMockAssessmentContext();
-      jest.clearAllMocks();
     });
 
     it("should handle malformed anyOf schema gracefully", async () => {

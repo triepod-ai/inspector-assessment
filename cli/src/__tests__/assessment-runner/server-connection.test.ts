@@ -55,7 +55,6 @@ const { connectToServer } =
 
 describe("connectToServer", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
     mockConnect.mockResolvedValue(undefined);
     mockStdioTransport.stderr.on.mockClear();
   });

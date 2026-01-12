@@ -14,7 +14,6 @@ describe("UsabilityAssessor", () => {
     const config = createMockAssessmentConfig();
     assessor = new UsabilityAssessor(config);
     mockContext = createMockAssessmentContext();
-    jest.clearAllMocks();
   });
 
   afterEach(() => {

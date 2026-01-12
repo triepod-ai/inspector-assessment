@@ -50,7 +50,6 @@ describe("ResourceAssessor", () => {
     const config = createMockAssessmentConfig();
     assessor = new ResourceAssessor(config);
     mockContext = createMockAssessmentContext();
-    jest.clearAllMocks();
   });
 
   afterEach(() => {
