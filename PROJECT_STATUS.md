@@ -324,3 +324,88 @@
 - GitHub Issue #135 closed
 
 ---
+
+## 2026-01-12: Issue #138 - Manifest v0.3 Nested Path Validation Fix
+
+**Summary:** Fixed Issue #138 - Manifest validation now recognizes mcp_config when nested under server object in v0.3 format.
+
+**Session Focus:** Bug fix for manifest v0.3 nested path validation
+
+**Changes Made:**
+- client/src/lib/assessment/extendedTypes.ts - Added McpConfigSchema and ManifestServerSchema interfaces for v0.3 support
+- client/src/services/assessment/modules/ManifestValidationAssessor.ts - Added getMcpConfig() helper, updated validation logic
+- client/src/services/assessment/modules/ManifestValidationAssessor.test.ts - Added 6 new tests for nested path support
+
+**Key Decisions:**
+- Root-level mcp_config takes precedence when both root and server.mcp_config are present
+- Error message explicitly indicates both paths were checked when mcp_config is missing
+- Created separate McpConfigSchema type for reuse
+
+**Next Steps:**
+- Monitor for any additional v0.3 manifest format issues
+- Consider documenting supported manifest structures in MANIFEST_REQUIREMENTS.md
+
+**Notes:**
+- Issue discovered via Stage A/B comparison audit on Microsoft Clarity MCP Server
+- All 24 ManifestValidationAssessor tests passing
+- Commit: fc49212e, pushed to origin/main, Issue #138 closed
+
+---
+
+## 2026-01-12: Issue #140 - Manifest vs Server Tool Name Validation
+
+**Summary:** Implemented Issue #140 manifest vs server tool name validation with Levenshtein suggestions, then code review fixed 2 P1 issues and added 24 new tests.
+
+**Session Focus:** Issue #140 implementation and code review improvements
+
+**Changes Made:**
+- client/src/lib/assessment/extendedTypes.ts - Added ManifestToolDeclaration interface and tools field
+- client/src/services/assessment/modules/ManifestValidationAssessor.ts - Added validation with Levenshtein distance, optimized algorithm to O(min(n,m)), added fetchWithRetry
+- client/src/services/assessment/modules/ManifestValidationAssessor.test.ts - Added 6 tool validation tests
+- client/src/services/assessment/modules/__tests__/ManifestValidation-UnitTests.test.ts - Created with 24 unit tests
+- CHANGELOG.md - Documented performance and reliability improvements
+
+**Key Decisions:**
+- Used Levenshtein distance with 40%/10-char threshold for "did you mean?" suggestions
+- Optimized algorithm from O(n*m) matrix to O(min(n,m)) two-row for performance
+- Added exponential backoff retry (2 retries, 100ms/200ms) for network resilience
+
+**Commits:**
+- e5b75e2b feat: Add manifest vs server tool name validation (Issue #140)
+- decd1f65 perf: Optimize Levenshtein algorithm and add retry logic (Issue #140)
+
+**Next Steps:**
+- Consider extracting Levenshtein to shared utility (P2 suggestion)
+- Address remaining open issues (#139, #141, #146)
+
+**Notes:**
+- Code review identified P1 issues: missing early return and network failure handling
+- 30 total new tests added (6 integration + 24 unit)
+- Issue #140 closed
+
+---
+
+## 2026-01-12: Issue #148 - Memory Leak Investigation and Test Cleanup Tracking
+
+**Summary:** Investigated memory leaks in test suite and created GitHub issue #148 for broader cleanup.
+
+**Session Focus:** Memory leak investigation in test suite
+
+**Changes Made:**
+- Verified timeoutUtils.test.ts event listener fixes already in place (commit decd1f65)
+- Created GitHub issue #148: "Add afterEach cleanup hooks to test files missing them"
+
+**Key Decisions:**
+- Used { once: true } pattern for AbortSignal event listeners (already implemented)
+- Identified 80 test files needing afterEach cleanup hooks as future work
+
+**Next Steps:**
+- Address Issue #148: Add afterEach hooks to priority files (ToolClassifier.test.ts, SecurityAssessor-ReflectionFalsePositives.test.ts, SecurityAssessor-APIWrapperFalsePositives.test.ts)
+- Consider adding detectOpenHandles to Jest config
+
+**Notes:**
+- All 21 timeoutUtils tests pass
+- Memory leak fixes were already committed in decd1f65 from earlier session
+- Issue #148 tracks broader cleanup for 80 test files
+
+---
