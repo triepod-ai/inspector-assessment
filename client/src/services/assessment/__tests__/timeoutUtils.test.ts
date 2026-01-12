@@ -169,9 +169,13 @@ describe("timeoutUtils", () => {
       try {
         await executeWithTimeoutAndSignal(
           async (signal) => {
-            signal.addEventListener("abort", () => {
-              signalAborted = true;
-            });
+            signal.addEventListener(
+              "abort",
+              () => {
+                signalAborted = true;
+              },
+              { once: true },
+            );
             await new Promise((resolve) => setTimeout(resolve, 100));
             return "too late";
           },
@@ -190,11 +194,15 @@ describe("timeoutUtils", () => {
           async (signal) => {
             // Simulate fetch-like behavior that throws AbortError
             await new Promise<never>((_, reject) => {
-              signal.addEventListener("abort", () => {
-                const error = new Error("Aborted");
-                error.name = "AbortError";
-                reject(error);
-              });
+              signal.addEventListener(
+                "abort",
+                () => {
+                  const error = new Error("Aborted");
+                  error.name = "AbortError";
+                  reject(error);
+                },
+                { once: true },
+              );
             });
           },
           { timeoutMs: 10 },
@@ -207,11 +215,15 @@ describe("timeoutUtils", () => {
         executeWithTimeoutAndSignal(
           async (signal) => {
             await new Promise<never>((_, reject) => {
-              signal.addEventListener("abort", () => {
-                const error = new Error("Aborted");
-                error.name = "AbortError";
-                reject(error);
-              });
+              signal.addEventListener(
+                "abort",
+                () => {
+                  const error = new Error("Aborted");
+                  error.name = "AbortError";
+                  reject(error);
+                },
+                { once: true },
+              );
             });
           },
           { timeoutMs: 10, errorMessage: "Custom abort message" },

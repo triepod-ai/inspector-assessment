@@ -26,6 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **ManifestValidation Performance Optimization** (Issue #140): Improved Levenshtein distance algorithm
+  - Optimized from O(n\*m) matrix to O(min(n,m)) two-row algorithm
+  - Added early termination with maxDist parameter for faster rejection
+  - Improves tool name suggestion performance for manifest validation
+
+- **ManifestValidation Retry Logic** (Issue #140): Enhanced privacy policy URL validation reliability
+  - Added fetchWithRetry method with exponential backoff (2 retries)
+  - Delays: 100ms first retry, 200ms second retry
+  - Handles transient network failures gracefully
+  - 5-second timeout per attempt with AbortController
+
 - **Performance Test Stability** (Issue #123): Removed flaky timing assertions from performance tests
   - Removed timing-based assertions that caused failures in CI environments
   - Fixed memoryGrowthRatio logging when value is undefined

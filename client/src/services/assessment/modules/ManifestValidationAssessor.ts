@@ -29,33 +29,49 @@ const CURRENT_MANIFEST_VERSION = "0.3";
 
 /**
  * Calculate Levenshtein distance between two strings
+ * Uses space-optimized two-row algorithm for O(min(n,m)) memory
  * Used for "did you mean?" suggestions on mismatched tool names (Issue #140)
  */
-function levenshteinDistance(a: string, b: string): number {
-  const matrix: number[][] = [];
+function levenshteinDistance(a: string, b: string, maxDist?: number): number {
+  // Early termination optimizations
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
 
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i];
+  // If length difference exceeds max distance, no need to compute
+  if (maxDist && Math.abs(a.length - b.length) > maxDist) {
+    return maxDist + 1;
   }
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j;
+
+  // Ensure a is the shorter string (optimize space)
+  if (a.length > b.length) {
+    [a, b] = [b, a];
   }
+
+  // Two-row algorithm: only keep previous and current row
+  let prev = Array.from({ length: a.length + 1 }, (_, i) => i);
+  let curr = new Array(a.length + 1);
 
   for (let i = 1; i <= b.length; i++) {
+    curr[0] = i;
+
     for (let j = 1; j <= a.length; j++) {
       if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
+        curr[j] = prev[j - 1];
       } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1, // insertion
-          matrix[i - 1][j] + 1, // deletion
+        curr[j] = Math.min(
+          prev[j - 1] + 1, // substitution
+          curr[j - 1] + 1, // insertion
+          prev[j] + 1, // deletion
         );
       }
     }
+
+    // Swap rows
+    [prev, curr] = [curr, prev];
   }
 
-  return matrix[b.length][a.length];
+  return prev[a.length];
 }
 
 /**
@@ -76,6 +92,7 @@ function findClosestMatch(
     const dist = levenshteinDistance(
       name.toLowerCase(),
       candidate.toLowerCase(),
+      maxDist, // Pass max distance for early termination
     );
     if (dist < minDist && dist <= maxDist) {
       minDist = dist;
@@ -693,6 +710,47 @@ export class ManifestValidationAssessor extends BaseAssessor {
   }
 
   /**
+   * Fetch with retry logic for transient network failures
+   */
+  private async fetchWithRetry(
+    url: string,
+    method: "HEAD" | "GET",
+    retries = 2,
+    backoffMs = 100,
+  ): Promise<Response> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(url, {
+          method,
+          signal: controller.signal,
+          redirect: "follow",
+        });
+
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Don't retry on last attempt
+        if (attempt < retries) {
+          // Exponential backoff
+          await new Promise((resolve) =>
+            setTimeout(resolve, backoffMs * Math.pow(2, attempt)),
+          );
+        }
+      }
+    }
+
+    // All retries exhausted
+    throw lastError;
+  }
+
+  /**
    * Validate privacy policy URLs are accessible
    */
   private async validatePrivacyPolicyUrls(
@@ -719,17 +777,8 @@ export class ManifestValidationAssessor extends BaseAssessor {
       }
 
       try {
-        // Use HEAD request for efficiency, fallback to GET if needed
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-        const response = await fetch(url, {
-          method: "HEAD",
-          signal: controller.signal,
-          redirect: "follow",
-        });
-
-        clearTimeout(timeoutId);
+        // Use HEAD request for efficiency with retry logic
+        const response = await this.fetchWithRetry(url, "HEAD");
 
         results.push({
           url,
@@ -744,16 +793,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
             headError instanceof Error ? headError.message : String(headError),
         });
         try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-          const response = await fetch(url, {
-            method: "GET",
-            signal: controller.signal,
-            redirect: "follow",
-          });
-
-          clearTimeout(timeoutId);
+          const response = await this.fetchWithRetry(url, "GET");
 
           results.push({
             url,
