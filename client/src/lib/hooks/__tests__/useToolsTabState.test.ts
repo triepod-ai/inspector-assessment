@@ -28,8 +28,6 @@ describe("useToolsTabState", () => {
     ...overrides,
   });
 
-  beforeEach(() => {});
-
   afterEach(() => {
     jest.clearAllMocks();
   });
