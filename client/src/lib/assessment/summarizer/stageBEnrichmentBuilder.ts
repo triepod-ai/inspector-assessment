@@ -68,14 +68,16 @@ function testToCorrelation(test: SecurityTestResult): PayloadCorrelation {
  * Convert test result to finding evidence.
  */
 function testToEvidence(test: SecurityTestResult): FindingEvidence {
+  const contextSource = test.evidence || test.response;
+  const location = test.evidence
+    ? "evidence"
+    : test.response
+      ? "response"
+      : "unknown";
   return {
     raw: truncate(test.payload, MAX_RESPONSE_LENGTH),
-    context: truncate(test.evidence || test.response, MAX_CONTEXT_WINDOW),
-    location: test.response
-      ? "response"
-      : test.evidence
-        ? "evidence"
-        : "unknown",
+    context: truncate(contextSource, MAX_CONTEXT_WINDOW),
+    location,
   };
 }
 

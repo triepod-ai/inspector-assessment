@@ -154,6 +154,7 @@ export const AssessmentOptionsSchema = z
     listModules: z.boolean().optional(),
     outputFormat: OutputFormatSchema.optional(),
     autoTier: z.boolean().optional(),
+    stageBVerbose: z.boolean().optional(),
   })
   .refine(
     (data) =>

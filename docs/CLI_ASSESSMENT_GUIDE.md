@@ -189,11 +189,22 @@ npm run assess -- --server my-server --config config.json --claude
 # Specify custom mcp-auditor URL
 npm run assess -- --server my-server --config config.json --claude --mcp-auditor-url http://auditor.example.com:8085
 
+# Enable verbose Stage B enrichment for detailed evidence (Issue #137)
+npm run assess -- --server my-server --config config.json --claude --stage-b-verbose
+
 # Via environment variables (useful for CI/CD)
 export INSPECTOR_CLAUDE=true
 export INSPECTOR_MCP_AUDITOR_URL=http://custom:8085
 npm run assess -- --server my-server --config config.json
 ```
+
+**Stage B Enrichment (Issue #137):**
+
+The `--stage-b-verbose` flag enhances Claude semantic analysis with additional evidence details:
+
+- **Evidence samples**: Includes actual tool responses that triggered detections
+- **Payload correlations**: Maps attack payloads to their detection patterns
+- **Confidence breakdowns**: Shows per-test confidence scores and reasoning
 
 **How Claude Reduces False Positives:** Pattern-based detection runs first for speed. Claude semantic analysis then validates medium/low confidence findings by examining tool behavior, reducing false positives while maintaining detection accuracy.
 

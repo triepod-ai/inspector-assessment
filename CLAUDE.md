@@ -109,6 +109,7 @@ INSPECTOR_MCP_AUDITOR_URL=http://custom:8085 npm run assess -- --server my-serve
 
 - `--claude` - Enable Claude semantic analysis (requires mcp-auditor at http://localhost:8085 by default)
 - `--mcp-auditor-url <url>` - Custom mcp-auditor URL (default: http://localhost:8085)
+- `--stage-b-verbose` - Add evidence samples and confidence breakdowns to Stage B enrichment (Issue #137)
 - `INSPECTOR_CLAUDE=true` - Environment variable to enable Claude
 - `INSPECTOR_MCP_AUDITOR_URL` - Environment variable for custom URL
 
