@@ -131,6 +131,7 @@ export async function runFullAssessment(
     mimeType?: string;
   }[] = [];
   try {
+    // Get static resources from resources/list
     const resourcesResponse = await client.listResources();
     resources = (resourcesResponse.resources || []).map((r) => ({
       uri: r.uri,
@@ -138,25 +139,23 @@ export async function runFullAssessment(
       description: r.description,
       mimeType: r.mimeType,
     }));
-    // resourceTemplates may be typed as unknown in some SDK versions
-    const templates = (
-      resourcesResponse as {
-        resourceTemplates?: Array<{
-          uriTemplate: string;
-          name?: string;
-          description?: string;
-          mimeType?: string;
-        }>;
-      }
-    ).resourceTemplates;
-    if (templates) {
+
+    // Get resource templates from resources/templates/list (Issue #131)
+    // This is a SEPARATE MCP endpoint - templates are NOT included in resources/list
+    try {
+      const templatesResponse = await client.listResourceTemplates();
+      const templates = templatesResponse.resourceTemplates || [];
       resourceTemplates = templates.map((rt) => ({
         uriTemplate: rt.uriTemplate,
         name: rt.name,
         description: rt.description,
         mimeType: rt.mimeType,
       }));
+    } catch {
+      // Server may not support resource templates - that's okay
+      resourceTemplates = [];
     }
+
     if (
       !options.jsonOnly &&
       (resources.length > 0 || resourceTemplates.length > 0)
