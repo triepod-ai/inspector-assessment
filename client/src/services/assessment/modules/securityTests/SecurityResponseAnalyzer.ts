@@ -35,6 +35,9 @@ import {
   CHAIN_VULNERABLE_THRESHOLD,
   CHAIN_SAFE_THRESHOLD,
   detectVulnerabilityCategories,
+  // Issue #144: Excessive permissions scope patterns (Challenge #22)
+  SCOPE_VIOLATION_PATTERNS,
+  SCOPE_ENFORCED_PATTERNS,
 } from "./SecurityPatternLibrary";
 
 // Re-export types for backward compatibility
@@ -140,6 +143,25 @@ export interface CryptoFailureResult {
     | "WEAK_KDF"
     | "WEAK_KEY_LENGTH"
     | "UNKNOWN";
+  cweIds: string[];
+  evidence?: string;
+}
+
+/**
+ * Result of excessive permissions scope analysis (Issue #144, Challenge #22)
+ * Detects when tools exceed their declared annotation scope:
+ * - CWE-250: Execution with Unnecessary Privileges (scope violation)
+ * - CWE-269: Improper Privilege Management (scope escalation)
+ */
+export interface ExcessivePermissionsScopeResult {
+  detected: boolean;
+  violationType:
+    | "SCOPE_VIOLATION" // Tool performed write/delete/execute despite readOnlyHint=True
+    | "SCOPE_ESCALATION" // Keyword triggered hidden admin mode
+    | "SAFE" // Tool properly enforced scope restrictions
+    | "UNKNOWN";
+  actualScope?: string; // e.g., "write", "delete", "execute", "network"
+  triggerPayload?: string; // e.g., "admin", "write_file"
   cweIds: string[];
   evidence?: string;
 }
@@ -1594,6 +1616,99 @@ export class SecurityResponseAnalyzer {
 
     // Fall back to injection response analysis
     return this.analyzeInjectionResponse(response);
+  }
+
+  // ============================================================================
+  // Issue #144: Excessive Permissions Scope Analysis (Challenge #22)
+  // ============================================================================
+
+  /**
+   * Analyze response for excessive permissions scope violations (Issue #144, Challenge #22)
+   * Detects when tools exceed their declared annotation scope:
+   * - scope_violation: Tool performed privileged action despite restrictive annotations
+   * - scope_escalation: Keyword triggered hidden admin/privilege mode
+   * - scope_enforced: Tool properly blocked the privileged action (safe)
+   *
+   * CWE-250: Execution with Unnecessary Privileges
+   * CWE-269: Improper Privilege Management
+   */
+  analyzeExcessivePermissionsResponse(
+    response: CompatibilityCallToolResult,
+  ): ExcessivePermissionsScopeResult {
+    const responseText = this.extractResponseContent(response);
+    const cweIds: string[] = [];
+
+    // Check for safe/hardened patterns first (scope enforced)
+    for (const { pattern, evidence } of SCOPE_ENFORCED_PATTERNS) {
+      if (pattern.test(responseText)) {
+        return {
+          detected: false,
+          violationType: "SAFE",
+          cweIds: [],
+          evidence,
+        };
+      }
+    }
+
+    // Check for scope violation patterns
+    for (const { pattern, evidence } of SCOPE_VIOLATION_PATTERNS) {
+      if (pattern.test(responseText)) {
+        // Determine specific violation type based on pattern
+        if (/"scope_escalation"\s*:\s*true/i.test(responseText)) {
+          // Scope escalation - keyword-triggered privilege escalation
+          cweIds.push("CWE-269");
+
+          // Extract trigger keyword if present
+          const keywordMatch = responseText.match(
+            /"trigger_keyword"\s*:\s*"([^"]+)"/i,
+          );
+          const triggerPayload = keywordMatch?.[1];
+
+          return {
+            detected: true,
+            violationType: "SCOPE_ESCALATION",
+            triggerPayload,
+            cweIds,
+            evidence,
+          };
+        }
+
+        if (/"scope_violation"\s*:\s*true/i.test(responseText)) {
+          // Scope violation - action exceeded declared scope
+          cweIds.push("CWE-250", "CWE-269");
+
+          // Extract actual scope if present
+          const scopeMatch = responseText.match(
+            /"actual_scope"\s*:\s*"([^"]+)"/i,
+          );
+          const actualScope = scopeMatch?.[1];
+
+          return {
+            detected: true,
+            violationType: "SCOPE_VIOLATION",
+            actualScope,
+            cweIds,
+            evidence,
+          };
+        }
+
+        // Generic detection (privileged_data, system_secrets, admin_mode_activated)
+        cweIds.push("CWE-250", "CWE-269");
+        return {
+          detected: true,
+          violationType: "SCOPE_VIOLATION",
+          cweIds,
+          evidence,
+        };
+      }
+    }
+
+    // No scope violation or enforcement detected
+    return {
+      detected: false,
+      violationType: "UNKNOWN",
+      cweIds: [],
+    };
   }
 
   /**

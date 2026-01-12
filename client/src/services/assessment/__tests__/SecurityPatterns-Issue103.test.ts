@@ -63,8 +63,8 @@ describe("Issue #103 - Detection Patterns", () => {
   }
 
   describe("Pattern Registration", () => {
-    it("should have 31 attack patterns total", () => {
-      expect(SECURITY_ATTACK_PATTERNS.length).toBe(31);
+    it("should have 32 attack patterns total", () => {
+      expect(SECURITY_ATTACK_PATTERNS.length).toBe(32);
     });
 
     it("should have Tool Output Injection pattern (#27)", () => {
@@ -89,6 +89,14 @@ describe("Issue #103 - Detection Patterns", () => {
       );
       expect(pattern).toBeDefined();
       expect(pattern!.payloads.length).toBe(9);
+    });
+
+    it("should have Excessive Permissions Scope pattern (#32)", () => {
+      const pattern = SECURITY_ATTACK_PATTERNS.find(
+        (p) => p.attackName === "Excessive Permissions Scope",
+      );
+      expect(pattern).toBeDefined();
+      expect(pattern!.payloads.length).toBe(10);
     });
   });
 

@@ -203,6 +203,20 @@ export interface SecurityTestResult {
     | "UNKNOWN";
   cryptoCweIds?: string[]; // e.g., ["CWE-328", "CWE-916"]
   cryptoFailureEvidence?: string; // Evidence text that triggered detection
+  // Issue #144: Excessive permissions scope detection fields for Challenge #22
+  // CWE-250: Execution with Unnecessary Privileges
+  // CWE-269: Improper Privilege Management
+  excessivePermissionsDetected?: boolean; // Whether scope violation was detected
+  scopeViolationType?:
+    | "SCOPE_VIOLATION" // Tool performed write/delete/execute despite readOnlyHint=True
+    | "SCOPE_ESCALATION" // Keyword triggered hidden admin mode
+    | "SAFE" // Tool properly enforced scope restrictions
+    | "UNKNOWN";
+  scopeDeclared?: string; // e.g., "readOnlyHint=True, destructiveHint=False"
+  scopeActual?: string; // e.g., "write", "delete", "execute", "network"
+  scopeTriggerPayload?: string; // e.g., "admin", "sudo", "write_file"
+  scopeCweIds?: string[]; // e.g., ["CWE-250", "CWE-269"]
+  excessivePermissionsEvidence?: string; // Evidence text that triggered detection
 }
 
 // ============================================================================

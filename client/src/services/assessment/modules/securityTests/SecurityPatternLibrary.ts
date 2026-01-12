@@ -1084,6 +1084,118 @@ export const OUTPUT_INJECTION_PATTERNS = {
 } as const;
 
 // =============================================================================
+// EXCESSIVE PERMISSIONS SCOPE PATTERNS (Issue #144, Challenge #22)
+// =============================================================================
+
+/**
+ * Patterns indicating scope violation in tool response
+ * Detects when tools exceed their declared annotations at runtime
+ * CWE-250: Execution with Unnecessary Privileges
+ * CWE-269: Improper Privilege Management
+ */
+export const SCOPE_VIOLATION_PATTERNS = [
+  {
+    pattern: /"scope_violation"\s*:\s*true/i,
+    evidence: "scope_violation: true (tool exceeded declared scope)",
+  },
+  {
+    pattern: /"scope_escalation"\s*:\s*true/i,
+    evidence: "scope_escalation: true (privilege escalation via input)",
+  },
+  {
+    pattern: /"actual_scope"\s*:\s*"(write|delete|execute|network)"/i,
+    evidence: "actual_scope indicates privileged operation",
+  },
+  {
+    pattern: /"privileged_data"\s*:/i,
+    evidence: "privileged_data exposed in response",
+  },
+  {
+    pattern: /"system_secrets"\s*:/i,
+    evidence: "system_secrets leaked in response",
+  },
+  {
+    pattern: /admin[\s_-]?mode[\s_-]?activated/i,
+    evidence: "Admin mode activated via keyword trigger",
+  },
+] as const;
+
+/**
+ * Patterns indicating safe scope enforcement (hardened behavior)
+ * Used to confirm tools properly reject privileged actions
+ */
+export const SCOPE_ENFORCED_PATTERNS = [
+  {
+    pattern: /"scope_enforced"\s*:\s*true/i,
+    evidence: "scope_enforced: true (safe)",
+  },
+  {
+    pattern: /"blocked"\s*:\s*true/i,
+    evidence: "Action blocked by allowlist",
+  },
+  {
+    pattern: /action.*not.*in.*allowlist/i,
+    evidence: "Allowlist enforcement",
+  },
+  {
+    pattern: /"rejection_reason"\s*:\s*"action_not_in_allowlist"/i,
+    evidence: "Explicit rejection: action not in allowlist",
+  },
+  {
+    pattern: /"escalation_attempted"\s*:\s*false/i,
+    evidence: "No escalation attempted (safe)",
+  },
+  {
+    pattern: /"allowed_actions"\s*:\s*\[/i,
+    evidence: "Allowlist defined and enforced",
+  },
+] as const;
+
+/**
+ * Privileged actions that should be blocked by readOnlyHint=True tools
+ */
+export const PRIVILEGED_ACTIONS = [
+  "write",
+  "write_file",
+  "delete",
+  "delete_data",
+  "execute",
+  "execute_command",
+  "network",
+  "network_request",
+  "modify",
+  "modify_config",
+  "admin",
+  "environment_access",
+] as const;
+
+/**
+ * Escalation keywords that may trigger hidden privilege escalation
+ */
+export const ESCALATION_KEYWORDS = [
+  "admin",
+  "sudo",
+  "elevate",
+  "root",
+  "superuser",
+  "privilege",
+] as const;
+
+/**
+ * Check if response contains scope violation indicators (Issue #144)
+ */
+export function hasScopeViolation(text: string): boolean {
+  return SCOPE_VIOLATION_PATTERNS.some(({ pattern }) => pattern.test(text));
+}
+
+/**
+ * Check if response contains scope enforcement indicators (Issue #144)
+ */
+export function hasScopeEnforcement(text: string): boolean {
+  return SCOPE_ENFORCED_PATTERNS.some(({ pattern }) => pattern.test(text));
+}
+
+// =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
 

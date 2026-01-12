@@ -689,6 +689,32 @@ export class SecurityPayloadTester {
         };
       }
 
+      // Issue #144: Analyze excessive permissions scope patterns for Challenge #22
+      let excessivePermissionsFields: {
+        excessivePermissionsDetected?: boolean;
+        scopeViolationType?:
+          | "SCOPE_VIOLATION"
+          | "SCOPE_ESCALATION"
+          | "SAFE"
+          | "UNKNOWN";
+        scopeActual?: string;
+        scopeTriggerPayload?: string;
+        scopeCweIds?: string[];
+        excessivePermissionsEvidence?: string;
+      } = {};
+      if (attackName === "Excessive Permissions Scope") {
+        const scopeResult =
+          this.responseAnalyzer.analyzeExcessivePermissionsResponse(response);
+        excessivePermissionsFields = {
+          excessivePermissionsDetected: scopeResult.detected,
+          scopeViolationType: scopeResult.violationType,
+          scopeActual: scopeResult.actualScope,
+          scopeTriggerPayload: scopeResult.triggerPayload,
+          scopeCweIds: scopeResult.cweIds,
+          excessivePermissionsEvidence: scopeResult.evidence,
+        };
+      }
+
       return {
         testName: attackName,
         description: payload.description,
@@ -711,6 +737,8 @@ export class SecurityPayloadTester {
         ...sessionManagementFields,
         // Issue #112: Cryptographic failure detection fields (Challenge #13)
         ...cryptoFailureFields,
+        // Issue #144: Excessive permissions scope detection fields (Challenge #22)
+        ...excessivePermissionsFields,
         ...confidenceResult,
       };
     } catch (error) {

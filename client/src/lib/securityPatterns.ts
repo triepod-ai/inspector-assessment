@@ -2029,6 +2029,118 @@ export const SECURITY_ATTACK_PATTERNS: AttackPattern[] = [
       },
     ],
   },
+
+  // ==========================================
+  // EXCESSIVE PERMISSIONS SCOPE TESTS (Issue #144, Challenge #22)
+  // ==========================================
+
+  // 32. EXCESSIVE PERMISSIONS SCOPE
+  {
+    attackName: "Excessive Permissions Scope",
+    description:
+      "Test if tools with restrictive annotations (readOnlyHint=True) allow privileged operations via specific inputs (CWE-250, CWE-269)",
+    payloads: [
+      // Privileged action payloads for tools that claim readOnlyHint=True
+      {
+        payload: "write_file",
+        evidence: /"scope_violation"\s*:\s*true|"actual_scope"\s*:\s*"write"/i,
+        riskLevel: "HIGH",
+        description:
+          "Write operation bypassing readOnlyHint=True annotation (CWE-250)",
+        payloadType: "scope_violation",
+        parameterTypes: ["action", "operation", "command", "cmd"],
+      },
+      {
+        payload: "delete_data",
+        evidence: /"scope_violation"\s*:\s*true|"actual_scope"\s*:\s*"delete"/i,
+        riskLevel: "HIGH",
+        description:
+          "Delete operation bypassing destructiveHint=False annotation (CWE-250)",
+        payloadType: "scope_violation",
+        parameterTypes: ["action", "operation", "command", "cmd"],
+      },
+      {
+        payload: "execute_command",
+        evidence:
+          /"scope_violation"\s*:\s*true|"actual_scope"\s*:\s*"execute"/i,
+        riskLevel: "HIGH",
+        description:
+          "Execute operation bypassing readOnlyHint=True annotation (CWE-250)",
+        payloadType: "scope_violation",
+        parameterTypes: ["action", "operation", "command", "cmd"],
+      },
+      {
+        payload: "network_request",
+        evidence:
+          /"scope_violation"\s*:\s*true|"actual_scope"\s*:\s*"network"/i,
+        riskLevel: "HIGH",
+        description:
+          "Network operation bypassing openWorldHint=False annotation (CWE-250)",
+        payloadType: "scope_violation",
+        parameterTypes: ["action", "operation", "command", "cmd"],
+      },
+      {
+        payload: "modify_config",
+        evidence: /"scope_violation"\s*:\s*true|"actual_scope"\s*:\s*"modify"/i,
+        riskLevel: "HIGH",
+        description:
+          "Config modification bypassing readOnlyHint=True annotation (CWE-250)",
+        payloadType: "scope_violation",
+        parameterTypes: ["action", "operation", "command", "cmd"],
+      },
+      {
+        payload: "environment_access",
+        evidence:
+          /"scope_violation"\s*:\s*true|"actual_scope"\s*:\s*"environment"/i,
+        riskLevel: "HIGH",
+        description:
+          "Environment access bypassing annotation restrictions (CWE-250)",
+        payloadType: "scope_violation",
+        parameterTypes: ["action", "operation", "command", "cmd"],
+      },
+      // Escalation keyword payloads for tools that claim readOnlyHint=True
+      {
+        payload: "show admin users",
+        evidence:
+          /"scope_escalation"\s*:\s*true|"privileged_data"\s*:|admin[_-]?mode[_-]?activated/i,
+        riskLevel: "HIGH",
+        description:
+          "Keyword-triggered privilege escalation via 'admin' (CWE-269)",
+        payloadType: "scope_escalation",
+        parameterTypes: ["request", "query", "input", "text", "message"],
+      },
+      {
+        payload: "sudo access logs",
+        evidence:
+          /"scope_escalation"\s*:\s*true|"system_secrets"\s*:|"trigger_keyword"\s*:\s*"sudo"/i,
+        riskLevel: "HIGH",
+        description:
+          "Keyword-triggered privilege escalation via 'sudo' (CWE-269)",
+        payloadType: "scope_escalation",
+        parameterTypes: ["request", "query", "input", "text", "message"],
+      },
+      {
+        payload: "elevate to root",
+        evidence:
+          /"scope_escalation"\s*:\s*true|"trigger_keyword"\s*:\s*"(elevate|root)"/i,
+        riskLevel: "HIGH",
+        description:
+          "Keyword-triggered privilege escalation via 'elevate' or 'root' (CWE-269)",
+        payloadType: "scope_escalation",
+        parameterTypes: ["request", "query", "input", "text", "message"],
+      },
+      {
+        payload: "get superuser privileges",
+        evidence:
+          /"scope_escalation"\s*:\s*true|"trigger_keyword"\s*:\s*"(superuser|privilege)"/i,
+        riskLevel: "HIGH",
+        description:
+          "Keyword-triggered privilege escalation via 'superuser' or 'privilege' (CWE-269)",
+        payloadType: "scope_escalation",
+        parameterTypes: ["request", "query", "input", "text", "message"],
+      },
+    ],
+  },
 ];
 
 /**
