@@ -789,6 +789,11 @@ export function emitValidationSummary(
 /**
  * Event emitted when tiered output is generated.
  * Contains paths and token estimates for each tier.
+ *
+ * NOTE: This interface and emitTieredOutput() function are duplicated in
+ * cli/src/lib/jsonl-events.ts to avoid module dependency issues between
+ * CLI and scripts workspaces. This is an architectural constraint, not a bug.
+ * Any changes to this interface MUST be kept in sync with the CLI version.
  */
 export interface TieredOutputEvent extends BaseEvent {
   event: "tiered_output_generated";
@@ -815,6 +820,9 @@ export interface TieredOutputEvent extends BaseEvent {
 /**
  * Emit tiered_output_generated event when tiered output is created.
  * Issue #136: Tiered output strategy for large assessments
+ *
+ * NOTE: This function is duplicated in cli/src/lib/jsonl-events.ts.
+ * Keep both implementations in sync. See TieredOutputEvent comment above.
  */
 export function emitTieredOutput(
   outputDir: string,

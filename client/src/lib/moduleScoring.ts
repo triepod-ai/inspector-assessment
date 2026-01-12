@@ -78,5 +78,6 @@ export const INSPECTOR_VERSION = packageJson.version;
  * Version History:
  * - v1: Initial schema
  * - v2: Added TestValidityWarningEvent (Issue #134)
+ * - v3: Added Stage B enrichment for Claude semantic analysis (Issue #137)
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;

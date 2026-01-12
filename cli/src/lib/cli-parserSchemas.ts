@@ -152,6 +152,8 @@ export const AssessmentOptionsSchema = z
     profile: AssessmentProfileNameSchema.optional(),
     logLevel: LogLevelSchema.optional(),
     listModules: z.boolean().optional(),
+    outputFormat: OutputFormatSchema.optional(),
+    autoTier: z.boolean().optional(),
   })
   .refine(
     (data) =>

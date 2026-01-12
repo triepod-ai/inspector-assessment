@@ -94,6 +94,8 @@ export interface AssessmentOptions {
   outputFormat?: OutputFormat;
   /** Auto-enable tiered output when results exceed token threshold */
   autoTier?: boolean;
+  /** Enable Stage B enrichment for Claude semantic analysis (Issue #137) */
+  stageBVerbose?: boolean;
 }
 
 /**
@@ -343,6 +345,10 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
         // Issue #136: Auto-enable tiered output when results exceed token threshold
         options.autoTier = true;
         break;
+      case "--stage-b-verbose":
+        // Issue #137: Stage B enrichment for Claude semantic analysis
+        options.stageBVerbose = true;
+        break;
       case "--profile": {
         const profileValue = args[++i];
         if (!profileValue) {
@@ -537,6 +543,9 @@ Options:
                          tiered: Directory with executive-summary.json, tool-summaries.json, tools/
                          summary-only: Executive summary + tool summaries (no per-tool details)
   --auto-tier            Auto-enable tiered output when results exceed 100K tokens
+  --stage-b-verbose      Enable Stage B enrichment for Claude semantic analysis
+                         Adds evidence samples, payload correlations, and confidence
+                         breakdowns to tiered output (Tier 2 + Tier 3)
   --skip-modules <list>  Skip specific modules (comma-separated)
   --only-modules <list>  Run only specific modules (comma-separated)
   --json                 Output only JSON path (no console summary)

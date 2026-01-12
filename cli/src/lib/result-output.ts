@@ -98,7 +98,10 @@ export function saveTieredResults(
   results: MCPDirectoryAssessment,
   options: AssessmentOptions,
 ): TieredOutput {
-  const summarizer = new AssessmentSummarizer();
+  // Issue #137: Pass stageBVerbose option to summarizer for Stage B enrichment
+  const summarizer = new AssessmentSummarizer({
+    stageBVerbose: options.stageBVerbose,
+  });
 
   // Determine output directory
   const defaultDir = `/tmp/inspector-full-assessment-${serverName}`;
@@ -217,7 +220,10 @@ export function saveSummaryOnly(
   results: MCPDirectoryAssessment,
   options: AssessmentOptions,
 ): string {
-  const summarizer = new AssessmentSummarizer();
+  // Issue #137: Pass stageBVerbose option to summarizer for Stage B enrichment
+  const summarizer = new AssessmentSummarizer({
+    stageBVerbose: options.stageBVerbose,
+  });
 
   // Determine output directory
   const defaultDir = `/tmp/inspector-full-assessment-${serverName}`;

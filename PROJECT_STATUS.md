@@ -295,3 +295,32 @@
 - All 4147 tests passing
 
 ---
+
+## 2026-01-12: Issue #135 - Enhanced TestValidityWarning for Stage B (v1.35.0)
+
+**Summary:** Implemented Issue #135 adding enhanced TestValidityWarning data for Stage B Claude analysis with Shannon entropy, attack correlation, and sample pairs.
+
+**Session Focus:** Issue #135 - Enhanced TestValidityWarning for Stage B semantic analysis
+
+**Changes Made:**
+- client/src/lib/assessment/resultTypes.ts - Extended TestValidityWarning with 5 new optional fields
+- client/src/services/assessment/modules/securityTests/TestValidityAnalyzer.ts - Added 6 new methods (entropy calculation, distribution builder, attack pattern correlation, sample pairs collection, response metadata)
+- client/src/services/assessment/__tests__/TestValidityAnalyzer.test.ts - Added 14 new test cases (44 total)
+- docs/TYPE_REFERENCE.md - Added TestValidityWarning documentation
+
+**Key Decisions:**
+- Enhanced data always included when warning triggers (no opt-in flag needed)
+- Progress event types kept compact for real-time CLI streaming
+- New config options: maxSamplePairs (default: 10), maxDistributionEntries (default: 5)
+
+**Next Steps:**
+- Re-run Qdrant audit with v1.35.0 to verify enhanced data populates correctly
+- Consider Issue #136 for additional TestValidityWarning enhancements if needed
+
+**Notes:**
+- Commit: a339feb0
+- Version: 1.35.0
+- Published to npm: @bryan-thompson/inspector-assessment@1.35.0
+- GitHub Issue #135 closed
+
+---

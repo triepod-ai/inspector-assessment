@@ -24,6 +24,10 @@ import {
   type SummarizerConfig,
   DEFAULT_SUMMARIZER_CONFIG,
 } from "./types";
+import {
+  buildToolSummaryStageBEnrichment,
+  buildToolDetailStageBEnrichment,
+} from "./stageBEnrichmentBuilder";
 
 // ============================================================================
 // Assessment Summarizer Class
@@ -385,6 +389,16 @@ export class AssessmentSummarizer {
       annotationStatus: annotationInfo.status,
     };
 
+    // Issue #137: Add Stage B enrichment if enabled
+    if (this.config.stageBVerbose) {
+      const allTests = results.security?.promptInjectionTests ?? [];
+      summary.stageBEnrichment = buildToolSummaryStageBEnrichment(
+        toolName,
+        allTests,
+        3, // Max samples for Tier 2
+      );
+    }
+
     summary.estimatedTokens = estimateTokens(summary);
 
     return summary;
@@ -547,7 +561,7 @@ export class AssessmentSummarizer {
       (r) => r.toolName === toolName,
     );
 
-    return {
+    const detail: Record<string, unknown> = {
       toolName,
       extractedAt: new Date().toISOString(),
       security: {
@@ -563,6 +577,21 @@ export class AssessmentSummarizer {
         annotations: annotationResult,
       }),
     };
+
+    // Issue #137: Add Stage B enrichment for Tier 3 if enabled
+    if (this.config.stageBVerbose) {
+      const allTests = results.security?.promptInjectionTests ?? [];
+      const aupViolations = results.aupCompliance?.violations;
+      detail.stageBEnrichment = buildToolDetailStageBEnrichment(
+        toolName,
+        allTests,
+        annotationResult,
+        aupViolations,
+        50, // Max correlations for Tier 3
+      );
+    }
+
+    return detail;
   }
 
   /**

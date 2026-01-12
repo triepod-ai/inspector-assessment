@@ -386,6 +386,11 @@ export function emitPhaseComplete(phase: string, duration: number): void {
 /**
  * Event emitted when tiered output files are generated.
  * See Issue #136 for tiered output strategy documentation.
+ *
+ * NOTE: This interface and emitTieredOutput() function are duplicated in
+ * scripts/lib/jsonl-events.ts to avoid module dependency issues between
+ * CLI and scripts workspaces. This is an architectural constraint, not a bug.
+ * Any changes to this interface MUST be kept in sync with the scripts version.
  */
 export interface TieredOutputEvent {
   event: "tiered_output_generated";
@@ -412,6 +417,9 @@ export interface TieredOutputEvent {
 /**
  * Emit tiered_output_generated event when tiered output files are created.
  * Includes paths and token estimates for each tier.
+ *
+ * NOTE: This function is duplicated in scripts/lib/jsonl-events.ts.
+ * Keep both implementations in sync. See TieredOutputEvent comment above.
  */
 export function emitTieredOutput(
   outputDir: string,

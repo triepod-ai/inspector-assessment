@@ -10,6 +10,7 @@
  */
 
 import type { AssessmentStatus } from "../coreTypes";
+import type { ToolSummaryStageBEnrichment } from "./stageBTypes";
 
 // ============================================================================
 // Output Format Types
@@ -143,6 +144,9 @@ export interface ToolSummary {
 
   /** Annotation alignment status if available */
   annotationStatus?: "ALIGNED" | "MISALIGNED" | "MISSING";
+
+  /** Stage B enrichment for Claude semantic analysis (Issue #137) */
+  stageBEnrichment?: ToolSummaryStageBEnrichment;
 }
 
 /**
@@ -245,6 +249,9 @@ export interface SummarizerConfig {
 
   /** Whether to include tool detail files (Tier 3) */
   includeToolDetails?: boolean;
+
+  /** Enable Stage B enrichment for Claude semantic analysis (Issue #137) */
+  stageBVerbose?: boolean;
 }
 
 /**
@@ -255,4 +262,5 @@ export const DEFAULT_SUMMARIZER_CONFIG: Required<SummarizerConfig> = {
   maxPatternsPerTool: 5,
   autoTierThreshold: 100_000,
   includeToolDetails: true,
+  stageBVerbose: false,
 };
