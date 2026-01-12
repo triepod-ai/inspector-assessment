@@ -14,22 +14,11 @@ import { SecurityAssessor } from "../modules/SecurityAssessor";
 import {
   createMockAssessmentContext,
   createMockAssessmentConfig,
+  expectSecureStatus,
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { SecurityAssessment } from "@/lib/assessment/resultTypes";
-
-/**
- * Helper to check status allows for NEED_MORE_INFO when test validity is compromised.
- * Issue #134: Test validity warning can trigger NEED_MORE_INFO with uniform mocked responses.
- */
-function expectSecureStatus(result: SecurityAssessment): void {
-  if (result.status === "NEED_MORE_INFO") {
-    expect(result.testValidityWarning).toBeDefined();
-  } else {
-    expect(result.status).toBe("PASS");
-  }
-}
 
 describe("SecurityAssessor - Validation False Positives Fix", () => {
   let assessor: SecurityAssessor;

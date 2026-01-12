@@ -44,9 +44,10 @@ All JSONL events include two versioning fields:
 
 **Schema Version History:**
 
-| schemaVersion | Date       | Changes                             |
-| ------------- | ---------- | ----------------------------------- |
-| 1             | 2026-01-10 | Initial schema version (Issue #108) |
+| schemaVersion | Date       | Changes                                                                    |
+| ------------- | ---------- | -------------------------------------------------------------------------- |
+| 1             | 2026-01-10 | Initial schema version (Issue #108)                                        |
+| 2             | 2026-01-12 | Added `testValidityWarning` field to TestValidityWarningEvent (Issue #134) |
 
 **Consumer Guidance:**
 
@@ -80,7 +81,7 @@ export interface BaseEvent {
 
 **Single Source of Truth:**
 
-The `SCHEMA_VERSION` constant (currently `1`) is defined in `/client/src/lib/moduleScoring.ts` and imported by:
+The `SCHEMA_VERSION` constant (currently `2`) is defined in `/client/src/lib/moduleScoring.ts` and imported by:
 
 - `scripts/lib/jsonl-events.ts` - CLI event emission
 - `cli/src/lib/jsonl-events.ts` - CLI interface helpers

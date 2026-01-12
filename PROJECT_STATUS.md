@@ -4,319 +4,29 @@
 
 - **Version**: 1.26.7 (published to npm as "@bryan-thompson/inspector-assessment")
 
-**Key Decisions:**
-- Used fake timers in CLI tests to handle setTimeout cleanup
-- 50ms delay chosen for rate limiting (balances thoroughness vs speed)
-- Created separate issue #123 for performance test flakiness (fixed in 2026-01-11)
+## 2026-01-12: Test Infrastructure Improvements (Issue #134)
 
-**Next Steps:**
-- Consider ResourceAssessor tests for new URI injection features (code review suggestion)
-
-**Notes:**
-- All 3 Zod testing issues closed: #118, #120, #121
-- No P0 issues found in code review
-- 2 P1 issues fixed (rate limiting, package check)
-- Commit: a658949f pushed to main
-
----
-
-## 2026-01-10: v2.0.0 Readiness Assessment and Cross-Project Coordination
-
-**Summary:** Analyzed v2.0.0 readiness and identified downstream coordination needs with mcp-auditor
-
-**Session Focus:** v2.0.0 readiness assessment and downstream consumer impact analysis
+**Summary:** Centralized test validity warning handling and incremented SCHEMA_VERSION for TestValidityWarningEvent changes.
 
 **Changes Made:**
-- Created inspector-assessment issue #124 (output key transition planning)
-- Created mcp-auditor issue #103 (migration prep for new output keys)
-- Updated issue #48 with readiness findings and new dependencies
+- `client/src/test/utils/testUtils.ts`: Added `expectSecureStatus()` helper function for centralized test validity warning assertions
+- `client/src/services/assessment/__tests__/*.test.ts`: Removed 4 duplicate `expectSecureStatus` implementations, imported shared helper
+- `client/src/lib/moduleScoring.ts`: Incremented `SCHEMA_VERSION` from 1 to 2 (reflects TestValidityWarningEvent schema evolution)
+- `client/src/services/assessment/__tests__/Stage3-Fixes-Validation.test.ts`: Added 20 new tests validating helper and schema version
+- `client/src/services/assessment/__tests__/emitModuleProgress.test.ts`: Updated schemaVersion expectation to 2
+
+**Documentation Updates:**
+- `docs/JSONL_EVENTS_REFERENCE.md`: Added SCHEMA_VERSION 2 to history table, updated current version reference
+- `docs/TEST_UTILITIES_REFERENCE.md`: Documented `expectSecureStatus()` helper in new Security Testing Utilities section
 
 **Key Decisions:**
-- Output JSON keys will need a transition period with dual-key output in v1.32.0
-- mcp-auditor must be coordinated with before v2.0.0 release
-- All 5 prerequisites for v2.0.0 are complete (issues #105-#109)
-
-**Next Steps:**
-- Implement dual-key output in v1.32.0 (issue #124)
-- mcp-auditor team to update types for new keys (issue #103)
-- Complete remaining 6 pre-release tasks before v2.0.0
-
-**Notes:**
-- Current version: 1.31.0
-- v2.0.0 target: Q2 2026
-- Progress: ~60% toward v2.0.0 release (5 of 11 tasks complete)
-- Breaking change identified: camelCase output keys require downstream updates
-
----
-
-## 2026-01-10: Issue #124 Dual-Key Output Implementation for v2.0.0 Transition
-
-**Summary:** Implemented Issue #124 dual-key output for v2.0.0 transition with P1 fixes and documentation sync.
-
-**Session Focus:** Issue #124 implementation - Adding dual-key output to MCPDirectoryAssessment for backward-compatible v2.0.0 transition
-
-**Changes Made:**
-- client/src/lib/assessment/extendedTypes.ts - Added DeveloperExperienceAssessment interface (+32 lines)
-- client/src/lib/assessment/resultTypes.ts - Added developerExperience/protocolCompliance keys, @deprecated annotations (+17 lines)
-- client/src/services/assessment/AssessmentOrchestrator.ts - Dual-key output logic and deprecation warnings (+52 lines)
-- client/src/lib/moduleScoring.ts - Score field handling for DeveloperExperienceAssessment (+5 lines)
-- client/src/services/assessment/__tests__/AssessmentOrchestrator.test.ts - 6 new tests for dual-key output (+178 lines)
-- docs/DEPRECATION_GUIDE.md - Section 4 output key migration documentation (+59 lines)
-- CHANGELOG.md - v1.32.0 release entry (+27 lines)
-- docs/API_REFERENCE.md - Updated backward compatibility note (+5 lines)
-- docs/TYPE_REFERENCE.md - Added DeveloperExperienceAssessment type definition (+30 lines)
-
-**Key Decisions:**
-- Use dual-key output during transition (both old and new keys present)
-- DeveloperExperienceAssessment combines documentation + usability with averaged score
-- protocolCompliance mirrors mcpSpecCompliance (same data, new key name)
-- Deprecation warnings emitted at runtime when outputting deprecated keys
-
-**Next Steps:**
-- Monitor mcp-auditor migration to new keys
-- Plan v2.0.0 release to remove deprecated keys
-- Consider registry pattern tests (P2 suggestion from code review)
-
-**Notes:**
-- P1-1 Fixed: Added 6 new tests for dual-key output (was critical test gap)
-- P1-2 Fixed: Standardized JSDoc deprecation comment for protocolConformance
-- All 6 new tests passing
-- Build passes
-- v1.32.0 already published with dual-key output feature
-
----
-
-## 2026-01-11: v1.32.2 Code Review, Test Automation, and P2 Warning Fixes
-
-**Summary:** Completed v1.32.2 with 15 new tests covering dual-key output (Issue #124) and P2 warning fixes for graceful degradation.
-
-**Session Focus:** Code review, test automation, P2 warning fixes
-
-**Changes Made:**
-- Created: client/src/services/assessment/__tests__/DualKeyOutput.test.ts (10 tests for Issue #124)
-- Modified: client/src/services/assessment/registry/AssessorRegistry.ts (graceful degradation in executeSequential)
-- Modified: client/src/services/assessment/__tests__/AssessorRegistry.test.ts (+5 execution tests)
-
-**Key Decisions:**
-- Sequential execution now uses graceful degradation consistent with parallel execution
-- DualKeyOutput tests verify backward compatibility for v2.0.0 transition
-
-**Next Steps:**
-- Publish v1.32.2 to npm
-- Push to origin
-
-**Notes:**
-- Code review found 0 P0, 2 P2 warnings (both fixed)
-- Test count: 22 AssessorRegistry tests, 10 DualKeyOutput tests
-
----
-
-## 2026-01-11: Code Review Workflow for Zod Validation Refactoring (#84)
-
-**Summary:** Ran 5-stage code review on Issue #84, fixed 2 P1 issues (import ordering, union error formatting), added 4 new tests.
-
-**Session Focus:** Code review workflow (/review-my-code) for Issue #84 Zod validation refactoring - quality assurance and fixes.
-
-**Changes Made:**
-- cli/src/assess-security.ts - Fixed import ordering (P1), updated security pattern count to 30
-- cli/src/lib/zodErrorFormatter.ts - Enhanced union error handling to return ALL errors
-- cli/src/__tests__/lib/zodErrorFormatter.test.ts - NEW: 923 lines, comprehensive union validation tests
-- cli/src/__tests__/lib/server-configSchemas.test.ts - NEW: 395 lines, schema validation tests
-- docs/CLI_ASSESSMENT_GUIDE.md - Added troubleshooting section for config validation
-
-**Key Decisions:**
-- Return ALL unique union errors instead of truncating to 3 (better UX)
-- Move test files to cli/src/__tests__/lib/ for consistent organization
-- Deferred P2/P3 issues (test assertion specificity, type guard improvements) for manual review
-
-**Next Steps:**
-- Push commit 926033a1 to origin
-- Consider addressing P2/P3 suggestions in future PR
-- Run full test suite validation
-
-**Notes:**
-- 5-stage workflow: code-reviewer-pro -> qa-expert -> debugger -> test-automator -> docs-sync
-- All 28 zodErrorFormatter tests passing
-- Commit: 926033a1 "fix: Improve Zod validation error formatting and import ordering (#84)"
-
----
-
-## 2026-01-11: Code Review Workflow - Union Error Handling & Test Consolidation
-
-**Summary:** Completed comprehensive code review workflow for Zod validation improvements, fixing union error handling and adding 33 new tests.
-
-**Session Focus:** Code review workflow execution on Issue #91/84 (Registry pattern + Zod runtime validation)
-
-**Changes Made:**
-- cli/src/lib/zodErrorFormatter.ts - Fixed union error handling to return all unique errors (not just first)
-- cli/src/lib/__tests__/zodErrorFormatter.test.ts - DELETED duplicate test file
-- cli/src/__tests__/lib/server-configSchemas.test.ts - NEW: 27 tests for type guards
-- cli/src/__tests__/lib/zodErrorFormatter.test.ts - Added 6 union error multi-error handling tests, fixed test expectations
-- CHANGELOG.md - Added entry for improved Zod error formatting
-- docs/CLI_ASSESSMENT_GUIDE.md - Added troubleshooting section for config validation errors
-- PROJECT_STATUS.md - Updated with development activity
-
-**Key Decisions:**
-- Fixed test expectations to match actual Zod union validation behavior (Zod matches to first applicable branch, doesn't validate both branches simultaneously)
-- Kept zodErrorFormatter.test.ts at cli/src/__tests__/lib/ location (more comprehensive), deleted duplicate at cli/src/lib/__tests__/
-
-**Next Steps:**
-- Consider Issue #125 (Add Zod schemas for JSONL events)
-
-**Notes:**
-- 2 commits pushed: fix for error formatting + docs update
-- All 55 tests in affected suites passing
-- Code review workflow verdict: PASS
-
----
-
-## 2026-01-11: Fixed Flaky Performance Tests (#123)
-
-**Summary:** Fixed flaky performance tests by removing timing assertions and applying code review fixes.
-
-**Session Focus:** Issue #123 - Flaky performance.test.ts benchmarks causing CI failures
-
-**Changes Made:**
-- client/src/services/assessment/performance.test.ts - Removed 18 timing assertions, converted to functional tests, fixed 3 P1 issues
-- CHANGELOG.md - Added entry for Issue #123 fix
-- PROJECT_STATUS.md - Updated with performance test stability fix
-
-**Key Decisions:**
-- Option C chosen: Remove timing tests entirely rather than adaptive thresholds or CI skip
-- Performance metrics logged for manual analysis but not asserted
-- Variable shadowing fix: renamed `_name` to `toolName` for clarity
+- DRY principle: Single source of truth for common test assertion pattern
+- Schema versioning: Increment reflects structural changes to event fields (added `testValidityWarning`)
 
 **Commits:**
-- d05c7658 fix: Remove flaky timing assertions from performance tests (#123)
-- e96193c3 fix: Address code review findings for performance tests (#123)
-
-**Issues Closed:**
-- #91 (registry pattern - was already complete)
-- #123 (flaky performance tests)
-
-**Next Steps:**
-- 5 open issues remaining: #125, #88, #87, #82, #48
-- Consider adding performance monitoring dashboard (since timing assertions removed)
-
-**Notes:**
-- Code review workflow caught 3 additional P1 issues that were fixed in follow-up commit
-- All 7 performance tests now pass reliably regardless of system load
+- (pending - documentation sync)
 
 ---
-
-## 2026-01-11: Zod Schemas for JSONL Events (#125)
-
-**Summary:** Implemented Zod schemas for all 13 JSONL event types enabling runtime validation for external consumers, completed 6-stage code review workflow, and closed GitHub issue #125.
-
-**Session Focus:** Issue #125 - Add Zod schemas for JSONL events (external consumers)
-
-**Changes Made:**
-- `client/src/lib/assessment/jsonlEventSchemas.ts` - 13 event schemas, supporting schemas (ToolParam, AUP types), helper functions (parseEvent, safeParseEvent, validateEvent, isEventType, parseEventLines), union schema with z.literal() pattern
-- `client/src/lib/assessment/__tests__/jsonlEventSchemas.test.ts` - 111 comprehensive tests covering all schemas, helpers, and edge cases
-- `docs/JSONL_EVENTS_REFERENCE.md` - Added Zod Runtime Validation section with import examples, quick start, schema reference table
-- Fixed P1 issues from code review: Added `.nullable()` to AnnotationAlignedEventSchema annotations, added JSDoc @remarks documenting custom ZodError behavior for JSON parse errors
-
-**Key Decisions:**
-- Used z.union() with z.literal() pattern (not z.discriminatedUnion) to match existing codebase patterns
-- Reused TransportTypeSchema and ZOD_SCHEMA_VERSION from sharedSchemas.ts
-- JSON parse errors converted to ZodError with custom code for uniform error handling
-
-**Commits:**
-- 92fe1ba7 - feat: Add Zod schemas for JSONL events (#125)
-- 6e84bda8 - fix: Address code review findings for Zod schemas (#125)
-
-**Next Steps:**
-- External consumers can now use Zod schemas for runtime validation of JSONL events
-- Consider addressing P2/P3 code review suggestions in future iterations
-
-**Notes:**
-- Code review workflow completed all 6 stages (code-reviewer-pro, qa-expert, debugger, test-automator, docs-sync, verification)
-- Issue #125 closed on GitHub with completion summary
-
----
-
-## 2026-01-11: Test Data Extraction (#82)
-
-**Summary:** Completed Issue #82 test data extraction with full code review workflow, fixing 2 P1 issues and adding 35 new tests.
-
-**Session Focus:** Test data module extraction and code quality improvement
-
-**Changes Made:**
-- Created `client/src/services/assessment/testdata/` directory with 3 files:
-  - `realistic-values.ts` - Extracted REALISTIC_DATA pools
-  - `tool-category-data.ts` - Extracted TOOL_CATEGORY_DATA and SPECIFIC_FIELD_PATTERNS
-  - `index.ts` - Barrel exports
-- Created `testdata/__tests__/` with 2 test files (35 tests)
-- Modified `TestDataGenerator.ts` to import from testdata module
-- Updated `docs/TEST_DATA_ARCHITECTURE.md` with testdata/ references
-- Updated `docs/TEST_DATA_EXTENSION.md` with new file locations
-- Updated `CLAUDE.md` with testdata/ in Key Technical Implementations
-
-**Key Decisions:**
-- Used spread operator `[...array]` instead of `as unknown as` for type safety
-- Made REALISTIC_DATA `protected static` for backward compatibility with reflection-based tests
-- Kept re-exports in TestDataGenerator for external consumers
-
-**Commits:**
-- 73d359e3 - refactor: Extract test data to separate files (#82)
-- fa7e91da - fix: Address code review findings for test data extraction (#82)
-
-**Issues Closed:**
-- #82 (test data extraction)
-
-**Next Steps:**
-- Continue with remaining open issues (#83, #108, #123, #125)
-- Consider similar extraction for other large inline data structures
-
-**Notes:**
-- Issue #82 auto-closed via commit message
-- All 197 testdata-related tests passing
-- 6-stage code review workflow validated changes and caught 2 P1 issues that were fixed
-
----
-
-## 2026-01-11: Zod Input Validation for /assessment/save Endpoint (#87)
-
-**Summary:** Implemented Zod input validation on /assessment/save endpoint with backward compatibility for issue #87.
-
-**Session Focus:** Security hardening - Adding input validation to the /assessment/save endpoint
-
-**Changes Made:**
-- `server/src/index.ts`: Added Zod schema (AssessmentSaveSchema) and validation logic
-- `server/src/__tests__/routes.test.ts`: Added 4 new validation test cases
-
-**Key Decisions:**
-- Made serverName optional with default "unknown" to preserve backward compatibility
-- Used Zod's `.passthrough()` for assessment object to allow any properties while ensuring it's an object
-- Assessment validation rejects arrays and primitives (returns 400)
-- Added explicit 10MB size limit check with 413 response (in addition to express body parser limit)
-
-**Commits:**
-- 6f3b42ae - fix: Add input validation on /assessment/save endpoint (#87)
-- c04d3793 - fix: Make serverName optional with default for backward compatibility (#87)
-
-**Issues Closed:**
-- #87 (input validation)
-
-**Next Steps:**
-- Monitor for any issues from external integrations using this endpoint
-- Consider adding more specific assessment structure validation in future if needed
-
-**Notes:**
-- Issue #87 closed on GitHub
-- All 76 server tests passing
-- No breaking changes due to backward compatibility fix
-
----
-
-## 2026-01-11: Issue #88 Type Refactoring - 36 to 0 'any' Types
-
-**Summary:** Completed Issue #88 type refactoring (36 to 0 'any' types) plus code review fixes and 18 new tests.
-
-**Session Focus:** TypeScript type safety improvements in assessment modules
-
-**Changes Made:**
-- `client/src/services/assessment/coreTypes.ts`: Added PackageJson interface and ToolInputSchema type
 - Replaced all 36 'any' types across 12 assessment module files with proper types:
   - Tool (from @modelcontextprotocol/sdk/types.js)
   - CompatibilityCallToolResult (from @modelcontextprotocol/sdk/types.js)
@@ -483,5 +193,62 @@
 - Root cause was testHiddenResourceDiscovery feature probing 22 patterns with 50ms delays
 - When mocks returned content for ALL URIs, probes caused timeouts and inflated vulnerability counts
 - The URI-aware pattern ensures only expected URIs return valid content, others get "Resource not found"
+
+---
+
+## 2026-01-12: Verify Issue #131 and #127 Fixes, Publish v1.34.1
+
+**Summary:** Verified Issue #131 and #127 fixes, confirmed A/B test results, and published v1.34.1 to npm.
+
+**Session Focus:** Verification of resource template detection and binary resource vulnerability detection fixes
+
+**Changes Made:**
+- Added verification comment to GitHub Issue #131
+- Bumped version from 1.34.0 to 1.34.1
+- Published all npm packages (@bryan-thompson/inspector-assessment-*)
+- Pushed v1.34.1 tag to GitHub
+
+**Key Decisions:**
+- Confirmed resources module has `defaultEnabled: false` in AssessorDefinitions.ts (by design for Phase 4 CAPABILITY modules)
+- Verified Issue #131 fix correctly calls `client.listResourceTemplates()` separately per MCP protocol
+
+**A/B Test Results:**
+| Server | Resource Templates | Blob DoS | Polyglot | Status |
+|--------|-------------------|----------|----------|--------|
+| vulnerable-mcp | 9 | 6 | 6 | FAIL |
+| hardened-mcp | 0 | 0 | 0 | PASS |
+
+**Next Steps:**
+- Consider enabling resources module by default in future release
+- Continue testing other Phase 4 capability modules (prompts, crossCapability)
+
+**Notes:**
+- Issue #131 was already closed; added verification comment
+- All 4 npm packages published successfully to registry
+
+---
+
+## 2026-01-12: Validated and Closed Issue #127 (Binary Resource Detection)
+
+**Summary:** Validated and closed Issue #127 (binary resource vulnerability detection) with A/B testbed results.
+
+**Session Focus:** Issue #127 validation and closure with documented test evidence
+
+**Changes Made:**
+- Posted validation comment to GitHub Issue #127 with A/B test results
+- Closed Issue #127 as completed
+
+**Key Decisions:**
+- Used assess:full CLI with --only-modules resources (resources module not exposed in quick CLI)
+- Validated against both vulnerable-mcp (9 templates, 6 blob DoS, 6 polyglot = FAIL) and hardened-mcp (0 vulnerabilities = PASS)
+
+**Next Steps:**
+- Consider enabling resources module in quick CLI (npm run assess)
+- Continue testing other Phase 4 capability modules (prompts, crossCapability)
+
+**Notes:**
+- Issue #127 implementation was already complete in v1.34.1; just needed validation evidence posted
+- A/B test confirms pure behavior-based detection: same tool names, different implementations
+- GitHub comment: https://github.com/triepod-ai/inspector-assessment/issues/127#issuecomment-3738395647
 
 ---

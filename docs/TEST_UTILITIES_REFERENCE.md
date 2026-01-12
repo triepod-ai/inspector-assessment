@@ -25,6 +25,7 @@ import {
 
 - [Core Mock Factories](#core-mock-factories)
 - [MCP Directory Compliance Utilities](#mcp-directory-compliance-utilities)
+- [Security Testing Utilities](#security-testing-utilities)
 - [Temporal Assessment Utilities](#temporal-assessment-utilities)
 - [Convenience Aliases](#convenience-aliases)
 - [Usage Examples](#usage-examples)
@@ -350,6 +351,42 @@ function createMockReadmeWithAUPViolation(
 ```
 
 **Use Case**: Testing AUP compliance detection.
+
+---
+
+## Security Testing Utilities
+
+### expectSecureStatus
+
+Helper function to validate security assessment results with test validity warnings.
+
+```typescript
+function expectSecureStatus(result: {
+  status: string;
+  testValidityWarning?: string;
+}): void;
+```
+
+**Parameters**:
+
+- `result` - Security assessment result with status and optional testValidityWarning
+
+**Behavior**:
+
+- If `status === "NEED_MORE_INFO"`: Expects `testValidityWarning` to be defined
+- Otherwise: Expects `status === "PASS"`
+
+**Purpose**: Handles the common pattern where uniform mock responses trigger test validity warnings in security assessments. This prevents false negatives in tests when a tool is secure but the test data was insufficient.
+
+**Example**:
+
+```typescript
+import { expectSecureStatus } from "@/test/utils/testUtils";
+
+const result = await assessor.assess(context);
+expectSecureStatus(result);
+// Passes if result.status is PASS, or if NEED_MORE_INFO with testValidityWarning
+```
 
 ---
 

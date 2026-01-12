@@ -74,5 +74,9 @@ export const INSPECTOR_VERSION = packageJson.version;
  * - scripts/lib/jsonl-events.ts
  * - cli/src/lib/jsonl-events.ts
  * - client/src/services/assessment/orchestratorHelpers.ts
+ *
+ * Version History:
+ * - v1: Initial schema
+ * - v2: Added TestValidityWarningEvent (Issue #134)
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;

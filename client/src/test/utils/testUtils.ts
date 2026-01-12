@@ -273,6 +273,33 @@ Fraudulent transaction processing.
 }
 
 // ============================================
+// Security Test Utilities
+// ============================================
+
+/**
+ * Helper function to handle test validity warning in mocked scenarios.
+ * When all mocked responses are identical, the TestValidityAnalyzer (Issue #134)
+ * may trigger a warning that changes status from PASS to NEED_MORE_INFO.
+ * This is expected behavior - the tests are still valid as long as no vulnerabilities are found.
+ *
+ * Import from SecurityAssessment type:
+ * @example
+ * import { SecurityAssessment } from "@/lib/assessment/resultTypes";
+ * expectSecureStatus(result);
+ */
+export function expectSecureStatus(result: {
+  status: string;
+  testValidityWarning?: string;
+}): void {
+  if (result.status === "NEED_MORE_INFO") {
+    // When mocked responses are uniform, testValidityWarning may be triggered
+    expect(result.testValidityWarning).toBeDefined();
+  } else {
+    expect(result.status).toBe("PASS");
+  }
+}
+
+// ============================================
 // Temporal Assessor Test Utilities
 // ============================================
 

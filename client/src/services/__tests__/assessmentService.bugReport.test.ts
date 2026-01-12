@@ -26,21 +26,7 @@
 import { MCPAssessmentService } from "../assessmentService";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { SecurityAssessment } from "@/lib/assessment/resultTypes";
-
-/**
- * Helper function to handle test validity warning in mocked scenarios.
- * When all mocked responses are identical, the TestValidityAnalyzer (Issue #134)
- * may trigger a warning that changes status from PASS to NEED_MORE_INFO.
- * This is expected behavior - the tests are still valid as long as no vulnerabilities are found.
- */
-function expectSecureStatus(result: SecurityAssessment): void {
-  if (result.status === "NEED_MORE_INFO") {
-    // When mocked responses are uniform, testValidityWarning may be triggered
-    expect(result.testValidityWarning).toBeDefined();
-  } else {
-    expect(result.status).toBe("PASS");
-  }
-}
+import { expectSecureStatus } from "@/test/utils/testUtils";
 
 describe("Security Detection Validation - Assessment Service", () => {
   // Increase timeout for full assessment tests
