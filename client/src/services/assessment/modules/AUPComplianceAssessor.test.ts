@@ -26,7 +26,6 @@ describe("AUPComplianceAssessor", () => {
     });
     assessor = new AUPComplianceAssessor(config);
     mockContext = createMockAssessmentContext({ config });
-    jest.clearAllMocks();
   });
 
   afterEach(() => {

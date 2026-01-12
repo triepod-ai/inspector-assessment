@@ -12,97 +12,97 @@ describe("aupPatterns - Financial Services context detection (Issue #139)", () =
 
   describe("isAnalyticsContext", () => {
     it.each([
-      ["Microsoft Clarity analytics dashboard", true],
-      ["filter by productPrice", true],
-      ["trading volume metrics", true],
-      ["investment performance report", true],
-      ["session recording and heatmaps", true],
-      ["conversion rate tracking", true],
-      ["google analytics integration", true],
-      ["mixpanel event tracking", true],
-      ["amplitude user analytics", true],
-      ["hotjar session replay", true],
-      ["query user sessions", true],
-      ["monitor website traffic", true],
-      ["search for products", true],
-      ["filter by transactionCount", true],
-      ["orderValue metrics", true],
-      ["sales data report", true],
-      ["revenue metric dashboard", true],
-    ])('isAnalyticsContext("%s") should be true', (text, expected) => {
-      expect(isAnalyticsContext(text)).toBe(expected);
+      "Microsoft Clarity analytics dashboard",
+      "filter by productPrice",
+      "trading volume metrics",
+      "investment performance report",
+      "session recording and heatmaps",
+      "conversion rate tracking",
+      "google analytics integration",
+      "mixpanel event tracking",
+      "amplitude user analytics",
+      "hotjar session replay",
+      "query user sessions",
+      "monitor website traffic",
+      "search for products",
+      "filter by transactionCount",
+      "orderValue metrics",
+      "sales data report",
+      "revenue metric dashboard",
+    ])('isAnalyticsContext("%s") should be true', (text) => {
+      expect(isAnalyticsContext(text)).toBe(true);
     });
 
     it.each([
-      ["process payment transaction", false],
-      ["transfer funds to account", false],
-      ["execute trade order", false],
-      ["withdraw from savings", false],
-      ["deposit into checking", false],
-      ["buy stock shares", false],
-      ["sell cryptocurrency", false],
-      ["charge customer card", false],
-      ["wire transfer service", false],
+      "process payment transaction",
+      "transfer funds to account",
+      "execute trade order",
+      "withdraw from savings",
+      "deposit into checking",
+      "buy stock shares",
+      "sell cryptocurrency",
+      "charge customer card",
+      "wire transfer service",
     ])(
       'isAnalyticsContext("%s") should be false (no analytics context)',
-      (text, expected) => {
-        expect(isAnalyticsContext(text)).toBe(expected);
+      (text) => {
+        expect(isAnalyticsContext(text)).toBe(false);
       },
     );
   });
 
   describe("hasFinancialActions", () => {
     it.each([
-      ["process payment", true],
-      ["submit payment", true],
-      ["initiate transaction", true],
-      ["charge customer card", true],
-      ["charge account", true],
-      ["create payment", true],
-      ["create invoice", true],
-      ["transfer funds", true],
-      ["transfer money", true],
-      ["send money", true],
-      ["wire transfer", true],
-      ["withdrawal from account", true],
-      ["deposit funds", true],
-      ["debit account", true],
-      ["credit account balance", true],
-      ["execute trade", true],
-      ["place order", true],
-      ["submit trade", true],
-      ["buy stock", true],
-      ["buy shares", true],
-      ["buy crypto", true],
-      ["sell stock", true],
-      ["sell asset", true],
-      ["market order", true],
-      ["limit order", true],
-      ["invest in bonds", true],
-      ["allocate funds", true],
-      ["allocate capital", true],
-      ["rebalance portfolio", true],
-      ["mint token", true],
-      ["mint nft", true],
-      ["swap token", true],
-      ["swap crypto", true],
-      ["stake tokens", true],
-    ])('hasFinancialActions("%s") should be true', (text, expected) => {
-      expect(hasFinancialActions(text)).toBe(expected);
+      "process payment",
+      "submit payment",
+      "initiate transaction",
+      "charge customer card",
+      "charge account",
+      "create payment",
+      "create invoice",
+      "transfer funds",
+      "transfer money",
+      "send money",
+      "wire transfer",
+      "withdrawal from account",
+      "deposit funds",
+      "debit account",
+      "credit account balance",
+      "execute trade",
+      "place order",
+      "submit trade",
+      "buy stock",
+      "buy shares",
+      "buy crypto",
+      "sell stock",
+      "sell asset",
+      "market order",
+      "limit order",
+      "invest in bonds",
+      "allocate funds",
+      "allocate capital",
+      "rebalance portfolio",
+      "mint token",
+      "mint nft",
+      "swap token",
+      "swap crypto",
+      "stake tokens",
+    ])('hasFinancialActions("%s") should be true', (text) => {
+      expect(hasFinancialActions(text)).toBe(true);
     });
 
     it.each([
-      ["view payment metrics", false],
-      ["filter by trading volume", false],
-      ["investment analytics dashboard", false],
-      ["track transactions", false],
-      ["report on payments", false],
-      ["banking sector analysis", false],
-      ["financial data visualization", false],
+      "view payment metrics",
+      "filter by trading volume",
+      "investment analytics dashboard",
+      "track transactions",
+      "report on payments",
+      "banking sector analysis",
+      "financial data visualization",
     ])(
       'hasFinancialActions("%s") should be false (no financial actions)',
-      (text, expected) => {
-        expect(hasFinancialActions(text)).toBe(expected);
+      (text) => {
+        expect(hasFinancialActions(text)).toBe(false);
       },
     );
   });
