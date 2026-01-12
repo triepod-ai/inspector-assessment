@@ -89,7 +89,7 @@ describe("emitModuleProgress - JSONL Progress Output", () => {
         expect(event.score).toBeLessThanOrEqual(100);
         // Verify version and schemaVersion fields are present
         expect(event.version).toBeDefined();
-        expect(event.schemaVersion).toBe(2); // Updated to 2 for TestValidityWarning event (Issue #134)
+        expect(event.schemaVersion).toBe(3); // v2 for TestValidityWarning (Issue #134), v3 for tiered output (Issue #136)
       }
     });
 

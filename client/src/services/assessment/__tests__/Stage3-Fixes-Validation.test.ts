@@ -83,9 +83,9 @@ describe("Stage 3 Fixes Validation", () => {
   });
 
   describe("[TEST-002] SCHEMA_VERSION Constant (FIX-002)", () => {
-    it("should have SCHEMA_VERSION equal to 2 after TestValidityWarningEvent addition", () => {
-      // Validate that SCHEMA_VERSION was incremented from 1 to 2
-      expect(SCHEMA_VERSION).toBe(2);
+    it("should have SCHEMA_VERSION equal to 3 after tiered output support", () => {
+      // Validate that SCHEMA_VERSION was incremented: 1→2 (TestValidityWarning), 2→3 (tiered output)
+      expect(SCHEMA_VERSION).toBe(3);
     });
 
     it("should export SCHEMA_VERSION from moduleScoring.ts", () => {
@@ -381,7 +381,7 @@ describe("Stage 3 Fixes Validation", () => {
 
     it("should validate event schema version matches SCHEMA_VERSION constant", () => {
       // Events emitted should use SCHEMA_VERSION for consistency
-      expect(SCHEMA_VERSION).toBe(2);
+      expect(SCHEMA_VERSION).toBe(3);
 
       // This validates the relationship documented in Issue #108
       // All events extending BaseEvent should use this version
