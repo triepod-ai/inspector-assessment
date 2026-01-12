@@ -12,9 +12,8 @@ import type {
   SecurityRiskLevel,
   InferenceConfidence,
   AlignmentStatus,
+  NamespaceDetectionResult,
 } from "./coreTypes";
-
-import type { NamespaceDetectionResult } from "./resultTypes";
 
 // ============================================================================
 // AUP (Acceptable Use Policy) Compliance Types

@@ -7,7 +7,14 @@
  * @module assessment/resultTypes
  */
 
-import type { AssessmentStatus, SecurityRiskLevel } from "./coreTypes";
+import type {
+  AssessmentStatus,
+  SecurityRiskLevel,
+  NamespaceDetectionResult,
+} from "./coreTypes";
+
+// Re-export NamespaceDetectionResult for backward compatibility (moved to coreTypes.ts in Issue #147)
+export type { NamespaceDetectionResult };
 
 // Import extended types for MCPDirectoryAssessment composition
 import type {
@@ -463,30 +470,9 @@ export interface DiscoveredTool {
 
 // ============================================================================
 // Namespace Detection Types (Issue #142)
+// NOTE: NamespaceDetectionResult moved to coreTypes.ts (Issue #147)
+// Re-exported above for backward compatibility
 // ============================================================================
-
-/**
- * Result of namespace/prefix detection for tool naming.
- * Used to identify when tools share a common namespace (e.g., calc_add, calc_subtract).
- * This helps downstream analyzers (like mcp-auditor) understand intentional naming patterns
- * and reduces false positives for "naming conflicts".
- */
-export interface NamespaceDetectionResult {
-  /** Whether a namespace was detected */
-  detected: boolean;
-  /** The detected namespace/prefix (e.g., "calc" from calc_add, calc_subtract) */
-  namespace?: string;
-  /** Confidence level of the detection */
-  confidence: "high" | "medium" | "low";
-  /** Number of tools that match this namespace */
-  toolsCovered: number;
-  /** Total number of tools analyzed */
-  totalTools: number;
-  /** How the namespace was detected */
-  matchPattern?: "prefix" | "serverName" | "none";
-  /** Sample tool names showing the pattern */
-  evidence?: string[];
-}
 
 // ============================================================================
 // Core Assessment Types
