@@ -338,4 +338,188 @@ describe("ManifestValidationAssessor", () => {
       expect(result.hasManifest).toBe(true);
     });
   });
+
+  describe("mcp_config nested path support (Issue #138)", () => {
+    it("should accept mcp_config at root level (legacy format)", async () => {
+      // Arrange - root-level mcp_config (existing behavior)
+      mockContext.manifestJson = {
+        manifest_version: "0.3",
+        name: "test-server",
+        version: "1.0.0",
+        mcp_config: {
+          command: "node",
+          args: ["index.js"],
+        },
+        icon: "icon.png",
+      };
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.status).toBe("PASS");
+      expect(result.hasRequiredFields).toBe(true);
+      expect(result.missingFields).not.toContain("mcp_config");
+    });
+
+    it("should accept mcp_config nested under server object (v0.3 format)", async () => {
+      // Arrange - nested mcp_config under server (Issue #138)
+      mockContext.manifestJson = {
+        manifest_version: "0.3",
+        name: "clarity-mcp-server",
+        version: "2.0.0",
+        server: {
+          type: "node",
+          entry_point: "dist/index.js",
+          mcp_config: {
+            command: "node",
+            args: ["${__dirname}/dist/index.js"],
+            env: { CLARITY_API_TOKEN: "${user_config.api_token}" },
+          },
+        },
+        icon: "icon.png",
+      };
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.status).toBe("PASS");
+      expect(result.hasRequiredFields).toBe(true);
+      expect(result.missingFields).not.toContain("mcp_config");
+
+      // Verify mcp_config validation passed
+      const mcpConfigResult = result.validationResults.find(
+        (r) => r.field === "mcp_config" && r.severity === "INFO",
+      );
+      expect(mcpConfigResult).toBeDefined();
+      expect(mcpConfigResult?.valid).toBe(true);
+    });
+
+    it("should prefer root-level mcp_config when both are present", async () => {
+      // Arrange - both root and nested mcp_config
+      mockContext.manifestJson = {
+        manifest_version: "0.3",
+        name: "test-server",
+        version: "1.0.0",
+        mcp_config: {
+          command: "node",
+          args: ["root-index.js"],
+        },
+        server: {
+          type: "node",
+          mcp_config: {
+            command: "python",
+            args: ["nested-index.py"],
+          },
+        },
+        icon: "icon.png",
+      };
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.status).toBe("PASS");
+      expect(result.hasRequiredFields).toBe(true);
+
+      // Verify root mcp_config was used (node, not python)
+      const mcpConfigResult = result.validationResults.find(
+        (r) => r.field === "mcp_config" && r.severity === "INFO",
+      );
+      expect(mcpConfigResult).toBeDefined();
+      expect((mcpConfigResult?.value as { command: string })?.command).toBe(
+        "node",
+      );
+    });
+
+    it("should fail when mcp_config missing from both root and server.mcp_config", async () => {
+      // Arrange - no mcp_config anywhere
+      mockContext.manifestJson = {
+        manifest_version: "0.3",
+        name: "test-server",
+        version: "1.0.0",
+        server: {
+          type: "node",
+          entry_point: "dist/index.js",
+          // Note: no mcp_config here
+        },
+        icon: "icon.png",
+      };
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.status).toBe("FAIL");
+      expect(result.hasRequiredFields).toBe(false);
+      expect(result.missingFields).toContain("mcp_config");
+
+      // Verify error message mentions both paths checked
+      const mcpConfigError = result.validationResults.find(
+        (r) => r.field === "mcp_config" && r.valid === false,
+      );
+      expect(mcpConfigError).toBeDefined();
+      expect(mcpConfigError?.issue).toContain("root");
+      expect(mcpConfigError?.issue).toContain("server.mcp_config");
+    });
+
+    it("should validate nested mcp_config structure correctly", async () => {
+      // Arrange - nested mcp_config with ${BUNDLE_ROOT} anti-pattern
+      mockContext.manifestJson = {
+        manifest_version: "0.3",
+        name: "test-server",
+        version: "1.0.0",
+        server: {
+          type: "node",
+          mcp_config: {
+            command: "node",
+            args: ["${BUNDLE_ROOT}/dist/index.js"], // Anti-pattern
+          },
+        },
+        icon: "icon.png",
+      };
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - should detect BUNDLE_ROOT anti-pattern even in nested config
+      expect(result.validationResults).toContainEqual(
+        expect.objectContaining({
+          field: "mcp_config",
+          valid: false,
+          issue: expect.stringContaining("BUNDLE_ROOT"),
+        }),
+      );
+    });
+
+    it("should validate nested mcp_config.command is required", async () => {
+      // Arrange - nested mcp_config missing command
+      mockContext.manifestJson = {
+        manifest_version: "0.3",
+        name: "test-server",
+        version: "1.0.0",
+        server: {
+          type: "node",
+          mcp_config: {
+            args: ["index.js"],
+            // Note: no command
+          } as any,
+        },
+        icon: "icon.png",
+      };
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.validationResults).toContainEqual(
+        expect.objectContaining({
+          field: "mcp_config.command",
+          valid: false,
+          severity: "ERROR",
+        }),
+      );
+    });
+  });
 });

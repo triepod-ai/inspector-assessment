@@ -251,6 +251,25 @@ export interface ProhibitedLibrariesAssessment {
 // Based on manifest_version 0.3 spec
 // ============================================================================
 
+/**
+ * MCP Config structure (used in both root-level and nested server.mcp_config)
+ */
+export interface McpConfigSchema {
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+
+/**
+ * Server object structure for v0.3 nested format (Issue #138)
+ * mcp_config can be nested under server object instead of at root level
+ */
+export interface ManifestServerSchema {
+  type?: string;
+  entry_point?: string;
+  mcp_config?: McpConfigSchema;
+}
+
 export interface ManifestJsonSchema {
   manifest_version: string;
   name: string;
@@ -259,11 +278,8 @@ export interface ManifestJsonSchema {
   author?: string;
   repository?: string;
   license?: string;
-  mcp_config: {
-    command: string;
-    args?: string[];
-    env?: Record<string, string>;
-  };
+  mcp_config?: McpConfigSchema; // Root level (legacy) - now optional
+  server?: ManifestServerSchema; // v0.3 nested format (Issue #138)
   icon?: string;
   homepage?: string;
   keywords?: string[];

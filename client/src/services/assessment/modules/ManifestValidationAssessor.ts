@@ -17,6 +17,7 @@ import type {
   ManifestValidationAssessment,
   ManifestValidationResult,
   ManifestJsonSchema,
+  McpConfigSchema,
   AssessmentStatus,
   PrivacyPolicyValidation,
 } from "@/lib/assessmentTypes";
@@ -26,6 +27,27 @@ const RECOMMENDED_FIELDS = ["description", "author", "repository"] as const;
 const CURRENT_MANIFEST_VERSION = "0.3";
 
 export class ManifestValidationAssessor extends BaseAssessor {
+  /**
+   * Get mcp_config from manifest (supports both root and nested v0.3 format)
+   * Issue #138: Manifest v0.3 places mcp_config under server object
+   *
+   * @param manifest - The parsed manifest JSON
+   * @returns The mcp_config object or undefined if not found in either location
+   */
+  private getMcpConfig(
+    manifest: ManifestJsonSchema,
+  ): McpConfigSchema | undefined {
+    // Check root level first (legacy format)
+    if (manifest.mcp_config) {
+      return manifest.mcp_config;
+    }
+    // Check nested under server (v0.3 format)
+    if (manifest.server?.mcp_config) {
+      return manifest.server.mcp_config;
+    }
+    return undefined;
+  }
+
   /**
    * Run manifest validation assessment
    */
@@ -75,11 +97,34 @@ export class ManifestValidationAssessor extends BaseAssessor {
     // Validate required fields
     for (const field of REQUIRED_FIELDS) {
       this.testCount++;
-      const result = this.validateRequiredField(manifest, field);
-      validationResults.push(result);
-      if (!result.valid) {
-        hasRequiredFields = false;
-        missingFields.push(field);
+      // Special handling for mcp_config - can be nested under server (Issue #138)
+      if (field === "mcp_config") {
+        const mcpConfig = this.getMcpConfig(manifest);
+        if (!mcpConfig) {
+          validationResults.push({
+            field: "mcp_config",
+            valid: false,
+            issue:
+              "Missing required field: mcp_config (checked root and server.mcp_config)",
+            severity: "ERROR",
+          });
+          hasRequiredFields = false;
+          missingFields.push(field);
+        } else {
+          validationResults.push({
+            field: "mcp_config",
+            valid: true,
+            value: mcpConfig,
+            severity: "INFO",
+          });
+        }
+      } else {
+        const result = this.validateRequiredField(manifest, field);
+        validationResults.push(result);
+        if (!result.valid) {
+          hasRequiredFields = false;
+          missingFields.push(field);
+        }
       }
     }
 
@@ -89,10 +134,11 @@ export class ManifestValidationAssessor extends BaseAssessor {
       validationResults.push(this.validateRecommendedField(manifest, field));
     }
 
-    // Validate mcp_config structure
-    if (manifest.mcp_config) {
+    // Validate mcp_config structure (using helper to support both root and nested paths)
+    const mcpConfig = this.getMcpConfig(manifest);
+    if (mcpConfig) {
       this.testCount++;
-      validationResults.push(this.validateMcpConfig(manifest.mcp_config));
+      validationResults.push(this.validateMcpConfig(mcpConfig));
     }
 
     // Check for icon
@@ -349,7 +395,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
    * Validate mcp_config structure
    */
   private validateMcpConfig(
-    mcpConfig: ManifestJsonSchema["mcp_config"],
+    mcpConfig: McpConfigSchema,
   ): ManifestValidationResult {
     if (!mcpConfig.command) {
       return {
