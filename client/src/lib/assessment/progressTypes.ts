@@ -28,6 +28,7 @@ export type ProgressEvent =
   | TestBatchProgress
   | ModuleCompleteProgress
   | VulnerabilityFoundProgress
+  | TestValidityWarningProgress
   | AnnotationMissingProgress
   | AnnotationMisalignedProgress
   | AnnotationReviewRecommendedProgress
@@ -90,6 +91,29 @@ export interface VulnerabilityFoundProgress {
   riskLevel: "HIGH" | "MEDIUM" | "LOW";
   requiresReview: boolean;
   payload?: string;
+}
+
+/**
+ * Emitted when test validity analysis detects uniform responses.
+ * Warns that security tests may not have reached security-relevant code.
+ * Issue #134: Detect identical security test responses
+ * @public
+ */
+export interface TestValidityWarningProgress {
+  type: "test_validity_warning";
+  module: "security";
+  identicalResponseCount: number;
+  totalResponses: number;
+  percentageIdentical: number;
+  detectedPattern:
+    | "configuration_error"
+    | "connection_error"
+    | "timeout"
+    | "empty_response"
+    | "generic_error"
+    | "unknown";
+  warningLevel: "warning" | "critical";
+  recommendedConfidence: "high" | "medium" | "low";
 }
 
 /**

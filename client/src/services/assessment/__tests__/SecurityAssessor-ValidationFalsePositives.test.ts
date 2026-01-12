@@ -17,6 +17,19 @@ import {
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { SecurityAssessment } from "@/lib/assessment/resultTypes";
+
+/**
+ * Helper to check status allows for NEED_MORE_INFO when test validity is compromised.
+ * Issue #134: Test validity warning can trigger NEED_MORE_INFO with uniform mocked responses.
+ */
+function expectSecureStatus(result: SecurityAssessment): void {
+  if (result.status === "NEED_MORE_INFO") {
+    expect(result.testValidityWarning).toBeDefined();
+  } else {
+    expect(result.status).toBe("PASS");
+  }
+}
 
 describe("SecurityAssessor - Validation False Positives Fix", () => {
   let assessor: SecurityAssessor;
@@ -66,7 +79,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
 
       // Should NOT be flagged as vulnerable
       expect(result.vulnerabilities.length).toBe(0);
-      expect(result.status).toBe("PASS");
+      expectSecureStatus(result);
 
       // All tests should pass with validation rejection evidence
       const vulnerableTests = result.promptInjectionTests.filter(
@@ -121,7 +134,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
 
       // Should be marked as PASS (all tools properly validated)
       expect(result.vulnerabilities.length).toBe(0);
-      expect(result.status).toBe("PASS");
+      expectSecureStatus(result);
     });
 
     it("should recognize schema validation errors as secure", async () => {
@@ -152,7 +165,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
       const result = await assessor.assess(mockContext);
 
       expect(result.vulnerabilities.length).toBe(0);
-      expect(result.status).toBe("PASS");
+      expectSecureStatus(result);
     });
 
     it("should recognize URL validation errors as secure", async () => {
@@ -183,7 +196,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
       const result = await assessor.assess(mockContext);
 
       expect(result.vulnerabilities.length).toBe(0);
-      expect(result.status).toBe("PASS");
+      expectSecureStatus(result);
     });
   });
 
@@ -224,7 +237,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
 
       // ALL tests should pass - no vulnerabilities
       expect(result.vulnerabilities.length).toBe(0);
-      expect(result.status).toBe("PASS");
+      expectSecureStatus(result);
 
       // Verify no tests are flagged as vulnerable
       const vulnerableTests = result.promptInjectionTests.filter(
@@ -433,7 +446,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
 
       // Should be marked as PASS (tool properly validated empty input)
       expect(result.vulnerabilities.length).toBe(0);
-      expect(result.status).toBe("PASS");
+      expectSecureStatus(result);
 
       // Verify the specific test
       const boundaryTests = result.promptInjectionTests.filter(
@@ -479,7 +492,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
       const result = await assessor.assess(mockContext);
 
       expect(result.vulnerabilities.length).toBe(0);
-      expect(result.status).toBe("PASS");
+      expectSecureStatus(result);
     });
   });
 
@@ -514,7 +527,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
 
       // Should still recognize validation error from message patterns
       expect(result.vulnerabilities.length).toBe(0);
-      expect(result.status).toBe("PASS");
+      expectSecureStatus(result);
     });
 
     it("should handle mixed secure and vulnerable tools correctly", async () => {
@@ -626,7 +639,7 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
         (t) => t.vulnerable && t.toolName === "validate_input_tool",
       );
       expect(vulnerableTests.length).toBe(0);
-      expect(result.status).toBe("PASS");
+      expectSecureStatus(result);
     });
 
     it("should recognize error=true as safe rejection", async () => {

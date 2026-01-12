@@ -74,7 +74,12 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
 
       // Should NOT be flagged as vulnerable
       expect(result.vulnerabilities.length).toBe(0);
-      expect(result.status).toBe("PASS");
+      // Status can be PASS or NEED_MORE_INFO (if test validity warning triggered by uniform mocked responses)
+      if (result.status === "NEED_MORE_INFO") {
+        expect(result.testValidityWarning).toBeDefined();
+      } else {
+        expect(result.status).toBe("PASS");
+      }
 
       // Verify no tests are marked as vulnerable
       const vulnerableTests = result.promptInjectionTests.filter(
@@ -1205,7 +1210,12 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       );
       expect(vulnerableTests.length).toBe(0);
       expect(result.vulnerabilities.length).toBe(0);
-      expect(result.status).toBe("PASS");
+      // Status can be PASS or NEED_MORE_INFO (if test validity warning triggered by uniform mocked responses)
+      if (result.status === "NEED_MORE_INFO") {
+        expect(result.testValidityWarning).toBeDefined();
+      } else {
+        expect(result.status).toBe("PASS");
+      }
     });
 
     it('should still detect actual "ls -la" output with permissions', async () => {

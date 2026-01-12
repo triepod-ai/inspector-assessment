@@ -294,6 +294,41 @@ export type VulnerabilityFoundEvent = z.infer<
 >;
 
 /**
+ * Test validity detected pattern categories
+ */
+const TestValidityPatternSchema = z.enum([
+  "configuration_error",
+  "connection_error",
+  "timeout",
+  "empty_response",
+  "generic_error",
+  "unknown",
+]);
+
+/**
+ * Test validity warning levels
+ */
+const TestValidityWarningLevelSchema = z.enum(["warning", "critical"]);
+
+/**
+ * 8b. TestValidityWarningEvent - Emitted when response uniformity detected.
+ * Issue #134: Detect identical security test responses (test validity masking)
+ */
+export const TestValidityWarningEventSchema = BaseEventSchema.extend({
+  event: z.literal("test_validity_warning"),
+  module: z.literal("security"),
+  identicalResponseCount: z.number().int().nonnegative(),
+  totalResponses: z.number().int().nonnegative(),
+  percentageIdentical: z.number().min(0).max(100),
+  detectedPattern: TestValidityPatternSchema,
+  warningLevel: TestValidityWarningLevelSchema,
+  recommendedConfidence: ConfidenceLevelSchema,
+});
+export type TestValidityWarningEvent = z.infer<
+  typeof TestValidityWarningEventSchema
+>;
+
+/**
  * 9. AnnotationMissingEvent - Emitted when tool lacks annotations.
  */
 export const AnnotationMissingEventSchema = BaseEventSchema.extend({
@@ -444,7 +479,7 @@ export type PhaseCompleteEvent = z.infer<typeof PhaseCompleteEventSchema>;
 // ============================================================================
 
 /**
- * Union of all JSONL event schemas (17 total).
+ * Union of all JSONL event schemas (18 total).
  * Uses z.union() with z.literal() for event type discrimination.
  */
 export const JSONLEventSchema = z.union([
@@ -456,6 +491,7 @@ export const JSONLEventSchema = z.union([
   TestBatchEventSchema,
   ModuleCompleteEventSchema,
   VulnerabilityFoundEventSchema,
+  TestValidityWarningEventSchema, // Issue #134
   AnnotationMissingEventSchema,
   AnnotationMisalignedEventSchema,
   AnnotationReviewRecommendedEventSchema,

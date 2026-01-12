@@ -43,3 +43,9 @@ export {
   type ChainExecutionTesterConfig,
   type ChainTestReason,
 } from "./ChainExecutionTester";
+
+export {
+  TestValidityAnalyzer,
+  type TestValidityConfig,
+  type TestValidityResult,
+} from "./TestValidityAnalyzer";

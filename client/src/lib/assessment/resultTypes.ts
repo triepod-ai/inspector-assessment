@@ -478,6 +478,32 @@ export interface FunctionalityAssessment {
   tools?: DiscoveredTool[];
 }
 
+/**
+ * Test validity warning when responses are suspiciously uniform.
+ * Indicates tests may not have reached security-relevant code paths.
+ * Issue #134: Detect identical security test responses
+ */
+export interface TestValidityWarning {
+  /** Number of responses that match the most common pattern */
+  identicalResponseCount: number;
+  /** Total number of test responses analyzed */
+  totalResponses: number;
+  /** Percentage of identical responses (0-100) */
+  percentageIdentical: number;
+  /** Sample of the most common response (truncated) */
+  sampleResponse: string;
+  /** Detected pattern category */
+  detectedPattern:
+    | "configuration_error"
+    | "connection_error"
+    | "timeout"
+    | "empty_response"
+    | "generic_error"
+    | "unknown";
+  /** Human-readable explanation */
+  explanation: string;
+}
+
 export interface SecurityAssessment {
   promptInjectionTests: SecurityTestResult[];
   vulnerabilities: string[];
@@ -491,6 +517,10 @@ export interface SecurityAssessment {
     failClosedCount: number;
     unknownCount: number;
   };
+  // Issue #134: Test validity warning for response uniformity detection
+  testValidityWarning?: TestValidityWarning;
+  /** Overall confidence level (may be reduced by test validity issues) */
+  overallConfidence?: "high" | "medium" | "low";
 }
 
 export interface DocumentationAssessment {

@@ -37,12 +37,16 @@ import {
   SecurityPayloadGenerator,
   CrossToolStateTester,
   ChainExecutionTester,
+  TestValidityAnalyzer,
   type PayloadTestConfig,
   type TestLogger,
   type ChainExecutionTestResult,
 } from "./securityTests";
 import { ToolClassifier, ToolCategory } from "../ToolClassifier";
-import { VulnerabilityFoundProgress } from "@/lib/assessment/progressTypes";
+import {
+  VulnerabilityFoundProgress,
+  TestValidityWarningProgress,
+} from "@/lib/assessment/progressTypes";
 import {
   ClaudeCodeBridge,
   SecurityAnalysisContext,
@@ -317,20 +321,58 @@ export class SecurityAssessor extends BaseAssessor {
     );
 
     // Determine status (pass validTests array to check confidence levels, not allTests)
-    const status = this.determineSecurityStatus(
+    let status = this.determineSecurityStatus(
       validTests,
       vulnerabilities.length,
       validTests.length,
       connectionErrors.length,
     );
 
+    // Issue #134: Analyze test validity (detect uniform responses)
+    const validityAnalyzer = new TestValidityAnalyzer();
+    const validityResult = validityAnalyzer.analyze(validTests);
+
+    // Adjust status if test validity is compromised
+    let overallConfidence: "high" | "medium" | "low" | undefined;
+    if (validityResult.isCompromised) {
+      overallConfidence = validityResult.recommendedConfidence;
+
+      // If tests are compromised and reporting PASS, change to NEED_MORE_INFO
+      if (status === "PASS" && validityResult.warningLevel === "critical") {
+        status = "NEED_MORE_INFO";
+        this.logger.info(
+          `⚠️ Security status changed to NEED_MORE_INFO due to ${validityResult.warning?.percentageIdentical}% identical responses`,
+        );
+      }
+
+      // Emit test validity warning event
+      if (context.onProgress && validityResult.warning) {
+        const validityWarningEvent: TestValidityWarningProgress = {
+          type: "test_validity_warning",
+          module: "security",
+          identicalResponseCount: validityResult.warning.identicalResponseCount,
+          totalResponses: validityResult.warning.totalResponses,
+          percentageIdentical: validityResult.warning.percentageIdentical,
+          detectedPattern: validityResult.warning.detectedPattern,
+          warningLevel: validityResult.warningLevel as "warning" | "critical",
+          recommendedConfidence: validityResult.recommendedConfidence,
+        };
+        context.onProgress(validityWarningEvent);
+      }
+    }
+
     // Generate explanation (pass both validTests and connectionErrors)
-    const explanation = this.generateSecurityExplanation(
+    let explanation = this.generateSecurityExplanation(
       validTests,
       connectionErrors,
       vulnerabilities,
       overallRiskLevel,
     );
+
+    // Prepend validity warning to explanation if compromised
+    if (validityResult.isCompromised && validityResult.warning) {
+      explanation = `⚠️ TEST VALIDITY WARNING: ${validityResult.warning.explanation}\n\n${explanation}`;
+    }
 
     // Issue #75: Aggregate auth bypass detection results
     const authBypassSummary = this.aggregateAuthBypassResults(allTests);
@@ -342,6 +384,9 @@ export class SecurityAssessor extends BaseAssessor {
       status,
       explanation,
       authBypassSummary,
+      // Issue #134: Test validity warning for response uniformity detection
+      testValidityWarning: validityResult.warning,
+      overallConfidence,
     };
   }
 

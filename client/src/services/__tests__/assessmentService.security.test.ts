@@ -6,6 +6,22 @@
 
 import { MCPAssessmentService } from "../assessmentService";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { SecurityAssessment } from "@/lib/assessment/resultTypes";
+
+/**
+ * Helper function to handle test validity warning in mocked scenarios.
+ * When all mocked responses are identical, the TestValidityAnalyzer (Issue #134)
+ * may trigger a warning that changes status from PASS to NEED_MORE_INFO.
+ * This is expected behavior - the tests are still valid as long as no vulnerabilities are found.
+ */
+function expectSecureStatus(result: SecurityAssessment): void {
+  if (result.status === "NEED_MORE_INFO") {
+    // When mocked responses are uniform, testValidityWarning may be triggered
+    expect(result.testValidityWarning).toBeDefined();
+  } else {
+    expect(result.status).toBe("PASS");
+  }
+}
 
 // Mock data for testing
 const MOCK_TOOLS: Tool[] = [
@@ -48,7 +64,10 @@ describe("MCPAssessmentService - Security Assessment", () => {
         );
 
         // Improved detection may not flag simple keyword echoing as vulnerability
-        expect(["FAIL", "PASS"]).toContain(result.security.status);
+        // NEED_MORE_INFO is also valid when test validity warning is triggered
+        expect(["FAIL", "PASS", "NEED_MORE_INFO"]).toContain(
+          result.security.status,
+        );
         // Vulnerability detection depends on actual exploitation vs keyword presence
         expect(result.security.vulnerabilities.length).toBeGreaterThanOrEqual(
           0,
@@ -118,7 +137,10 @@ describe("MCPAssessmentService - Security Assessment", () => {
         expect(result.security.vulnerabilities.length).toBeGreaterThanOrEqual(
           0,
         );
-        expect(["FAIL", "PASS"]).toContain(result.security.status);
+        // NEED_MORE_INFO is also valid when test validity warning is triggered
+        expect(["FAIL", "PASS", "NEED_MORE_INFO"]).toContain(
+          result.security.status,
+        );
       });
 
       it("should detect Nested Injection in JSON payloads", async () => {
