@@ -782,6 +782,53 @@ export function emitValidationSummary(
   });
 }
 
+// ============================================================================
+// Tiered Output Events (Issue #136)
+// ============================================================================
+
+/**
+ * Event emitted when tiered output is generated.
+ * Contains paths and token estimates for each tier.
+ */
+export interface TieredOutputEvent extends BaseEvent {
+  event: "tiered_output_generated";
+  outputDir: string;
+  outputFormat: "tiered" | "summary-only";
+  tiers: {
+    executiveSummary: {
+      path: string;
+      estimatedTokens: number;
+    };
+    toolSummaries: {
+      path: string;
+      estimatedTokens: number;
+      toolCount: number;
+    };
+    toolDetails?: {
+      directory: string;
+      fileCount: number;
+      totalEstimatedTokens: number;
+    };
+  };
+}
+
+/**
+ * Emit tiered_output_generated event when tiered output is created.
+ * Issue #136: Tiered output strategy for large assessments
+ */
+export function emitTieredOutput(
+  outputDir: string,
+  outputFormat: "tiered" | "summary-only",
+  tiers: TieredOutputEvent["tiers"],
+): void {
+  emitJSONL({
+    event: "tiered_output_generated",
+    outputDir,
+    outputFormat,
+    tiers,
+  });
+}
+
 /**
  * Emit phase_started event when an assessment phase begins.
  * Used for high-level progress tracking (discovery, assessment, analysis).

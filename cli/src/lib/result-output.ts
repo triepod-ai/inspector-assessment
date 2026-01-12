@@ -8,6 +8,7 @@
  */
 
 import * as fs from "fs";
+import * as path from "path";
 
 import {
   MCPDirectoryAssessment,
@@ -15,6 +16,13 @@ import {
 } from "../../../client/lib/lib/assessmentTypes.js";
 import { createFormatter } from "../../../client/lib/lib/reportFormatters/index.js";
 import { generatePolicyComplianceReport } from "../../../client/lib/services/assessment/PolicyComplianceGenerator.js";
+import {
+  AssessmentSummarizer,
+  estimateTokens,
+  type TieredOutput,
+  type ToolDetailReference,
+} from "../../../client/lib/lib/assessment/summarizer/index.js";
+import { emitTieredOutput } from "./jsonl-events.js";
 
 import type { AssessmentOptions } from "./cli-parser.js";
 
@@ -72,6 +80,199 @@ export function saveResults(
   }
 
   return finalPath;
+}
+
+/**
+ * Save results in tiered format for LLM consumption.
+ * Creates a directory with executive summary, tool summaries, and per-tool details.
+ *
+ * Issue #136: Tiered output strategy for large assessments
+ *
+ * @param serverName - Server name for output directory
+ * @param results - Full assessment results
+ * @param options - Assessment options
+ * @returns Path to output directory
+ */
+export function saveTieredResults(
+  serverName: string,
+  results: MCPDirectoryAssessment,
+  options: AssessmentOptions,
+): TieredOutput {
+  const summarizer = new AssessmentSummarizer();
+
+  // Determine output directory
+  const defaultDir = `/tmp/inspector-full-assessment-${serverName}`;
+  const outputDir = options.outputPath || defaultDir;
+
+  // Create directory structure
+  fs.mkdirSync(outputDir, { recursive: true });
+  fs.mkdirSync(path.join(outputDir, "tools"), { recursive: true });
+
+  // Tier 1: Executive Summary
+  const executiveSummary = summarizer.generateExecutiveSummary(results);
+  const executivePath = path.join(outputDir, "executive-summary.json");
+  fs.writeFileSync(executivePath, JSON.stringify(executiveSummary, null, 2));
+
+  // Tier 2: Tool Summaries
+  const toolSummaries = summarizer.generateToolSummaries(results);
+  const toolSummariesPath = path.join(outputDir, "tool-summaries.json");
+  fs.writeFileSync(toolSummariesPath, JSON.stringify(toolSummaries, null, 2));
+
+  // Tier 3: Per-Tool Details
+  const toolDetailRefs: ToolDetailReference[] = [];
+  const toolNames = summarizer.getAllToolNames(results);
+
+  for (const toolName of toolNames) {
+    const detail = summarizer.extractToolDetail(toolName, results);
+    const safeFileName = toolName.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const relativePath = `tools/${safeFileName}.json`;
+    const absolutePath = path.join(outputDir, relativePath);
+
+    fs.writeFileSync(absolutePath, JSON.stringify(detail, null, 2));
+
+    const stats = fs.statSync(absolutePath);
+    toolDetailRefs.push({
+      toolName,
+      relativePath,
+      absolutePath,
+      fileSizeBytes: stats.size,
+      estimatedTokens: estimateTokens(detail),
+    });
+  }
+
+  // Create index file with all paths
+  const tieredOutput: TieredOutput = {
+    executiveSummary,
+    toolSummaries,
+    toolDetailRefs,
+    outputDir,
+    paths: {
+      executiveSummary: executivePath,
+      toolSummaries: toolSummariesPath,
+      toolDetailsDir: path.join(outputDir, "tools"),
+    },
+  };
+
+  // Save index file
+  const indexPath = path.join(outputDir, "index.json");
+  fs.writeFileSync(
+    indexPath,
+    JSON.stringify(
+      {
+        timestamp: new Date().toISOString(),
+        serverName,
+        outputFormat: "tiered",
+        paths: tieredOutput.paths,
+        toolCount: toolDetailRefs.length,
+        totalEstimatedTokens: {
+          executiveSummary: executiveSummary.estimatedTokens,
+          toolSummaries: toolSummaries.estimatedTokens,
+          toolDetails: toolDetailRefs.reduce(
+            (sum, r) => sum + r.estimatedTokens,
+            0,
+          ),
+        },
+      },
+      null,
+      2,
+    ),
+  );
+
+  // Emit JSONL event for tiered output (Issue #136)
+  emitTieredOutput(outputDir, "tiered", {
+    executiveSummary: {
+      path: executivePath,
+      estimatedTokens: executiveSummary.estimatedTokens,
+    },
+    toolSummaries: {
+      path: toolSummariesPath,
+      estimatedTokens: toolSummaries.estimatedTokens,
+      toolCount: toolSummaries.tools.length,
+    },
+    toolDetails: {
+      directory: path.join(outputDir, "tools"),
+      fileCount: toolDetailRefs.length,
+      totalEstimatedTokens: toolDetailRefs.reduce(
+        (sum, r) => sum + r.estimatedTokens,
+        0,
+      ),
+    },
+  });
+
+  return tieredOutput;
+}
+
+/**
+ * Save results in summary-only format (Tier 1 + Tier 2, no per-tool details).
+ *
+ * Issue #136: Tiered output strategy for large assessments
+ *
+ * @param serverName - Server name for output
+ * @param results - Full assessment results
+ * @param options - Assessment options
+ * @returns Path to output directory
+ */
+export function saveSummaryOnly(
+  serverName: string,
+  results: MCPDirectoryAssessment,
+  options: AssessmentOptions,
+): string {
+  const summarizer = new AssessmentSummarizer();
+
+  // Determine output directory
+  const defaultDir = `/tmp/inspector-full-assessment-${serverName}`;
+  const outputDir = options.outputPath || defaultDir;
+
+  // Create directory
+  fs.mkdirSync(outputDir, { recursive: true });
+
+  // Tier 1: Executive Summary
+  const executiveSummary = summarizer.generateExecutiveSummary(results);
+  const executivePath = path.join(outputDir, "executive-summary.json");
+  fs.writeFileSync(executivePath, JSON.stringify(executiveSummary, null, 2));
+
+  // Tier 2: Tool Summaries
+  const toolSummaries = summarizer.generateToolSummaries(results);
+  const toolSummariesPath = path.join(outputDir, "tool-summaries.json");
+  fs.writeFileSync(toolSummariesPath, JSON.stringify(toolSummaries, null, 2));
+
+  // Create index file
+  const indexPath = path.join(outputDir, "index.json");
+  fs.writeFileSync(
+    indexPath,
+    JSON.stringify(
+      {
+        timestamp: new Date().toISOString(),
+        serverName,
+        outputFormat: "summary-only",
+        paths: {
+          executiveSummary: executivePath,
+          toolSummaries: toolSummariesPath,
+        },
+        totalEstimatedTokens: {
+          executiveSummary: executiveSummary.estimatedTokens,
+          toolSummaries: toolSummaries.estimatedTokens,
+        },
+      },
+      null,
+      2,
+    ),
+  );
+
+  // Emit JSONL event for summary-only output (Issue #136)
+  emitTieredOutput(outputDir, "summary-only", {
+    executiveSummary: {
+      path: executivePath,
+      estimatedTokens: executiveSummary.estimatedTokens,
+    },
+    toolSummaries: {
+      path: toolSummariesPath,
+      estimatedTokens: toolSummaries.estimatedTokens,
+      toolCount: toolSummaries.tools.length,
+    },
+  });
+
+  return outputDir;
 }
 
 // ============================================================================

@@ -68,6 +68,21 @@ export const ReportFormatSchema = z.enum(["json", "markdown"]);
  */
 export type ReportFormat = z.infer<typeof ReportFormatSchema>;
 
+/**
+ * Schema for tiered output format.
+ * Issue #136: Tiered output strategy for large assessments
+ *
+ * - "full": Complete JSON output (default, existing behavior)
+ * - "tiered": Directory structure with executive summary, tool summaries, per-tool details
+ * - "summary-only": Only executive summary and tool summaries (no per-tool detail files)
+ */
+export const OutputFormatSchema = z.enum(["full", "tiered", "summary-only"]);
+
+/**
+ * Inferred output format type.
+ */
+export type OutputFormat = z.infer<typeof OutputFormatSchema>;
+
 // ============================================================================
 // Validation Range Constants
 // ============================================================================

@@ -28,7 +28,9 @@ import {
   safeParseModuleNames,
   LogLevelSchema,
   ReportFormatSchema,
+  OutputFormatSchema,
   AssessmentProfileNameSchema,
+  type OutputFormat,
 } from "./cli-parserSchemas.js";
 
 // ============================================================================
@@ -88,6 +90,10 @@ export interface AssessmentOptions {
   listModules?: boolean;
   /** Enable official MCP conformance tests (requires HTTP/SSE transport) */
   conformanceEnabled?: boolean;
+  /** Output format for tiered output strategy (Issue #136) */
+  outputFormat?: OutputFormat;
+  /** Auto-enable tiered output when results exceed token threshold */
+  autoTier?: boolean;
 }
 
 /**
@@ -312,6 +318,31 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
         // Enable official MCP conformance tests (requires HTTP/SSE transport with serverUrl)
         options.conformanceEnabled = true;
         break;
+      case "--output-format": {
+        // Issue #136: Tiered output strategy for large assessments
+        const outputFormatValue = args[++i];
+        if (!outputFormatValue) {
+          console.error("Error: --output-format requires a format");
+          console.error("Valid formats: full, tiered, summary-only");
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        const parseResult = OutputFormatSchema.safeParse(outputFormatValue);
+        if (!parseResult.success) {
+          console.error(`Error: Invalid output format: ${outputFormatValue}`);
+          console.error("Valid formats: full, tiered, summary-only");
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        options.outputFormat = parseResult.data;
+        break;
+      }
+      case "--auto-tier":
+        // Issue #136: Auto-enable tiered output when results exceed token threshold
+        options.autoTier = true;
+        break;
       case "--profile": {
         const profileValue = args[++i];
         if (!profileValue) {
@@ -501,6 +532,11 @@ Options:
   --temporal-invocations <n>  Number of invocations per tool for rug pull detection (default: 25)
   --skip-temporal        Skip temporal/rug pull testing (faster assessment)
   --conformance          Enable official MCP conformance tests (experimental, requires HTTP/SSE transport)
+  --output-format <fmt>  Output format: full (default), tiered, summary-only
+                         full: Complete JSON output (existing behavior)
+                         tiered: Directory with executive-summary.json, tool-summaries.json, tools/
+                         summary-only: Executive summary + tool summaries (no per-tool details)
+  --auto-tier            Auto-enable tiered output when results exceed 100K tokens
   --skip-modules <list>  Skip specific modules (comma-separated)
   --only-modules <list>  Run only specific modules (comma-separated)
   --json                 Output only JSON path (no console summary)

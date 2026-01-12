@@ -1,8 +1,8 @@
 # MCP Inspector CLI Assessment Guide
 
-**Version**: 1.24.2
+**Version**: 1.35.0
 **Status**: Stable
-**Last Updated**: 2026-01-07
+**Last Updated**: 2026-01-12
 **Target Audience**: MCP developers, CI/CD engineers, automated testing systems
 
 ---
@@ -36,10 +36,11 @@ mcp-assess-full --server memory-mcp --config /tmp/config.json
 2. [Configuration Files](#configuration-files)
 3. [Logging & Diagnostics](#logging--diagnostics)
 4. [Output & Results](#output--results)
-5. [Common Use Cases](#common-use-cases)
-6. [JSONL Event Streaming](#jsonl-event-streaming)
-7. [Troubleshooting](#troubleshooting)
-8. [Advanced Options](#advanced-options)
+5. [Tiered Output for LLM Consumption](#tiered-output-for-llm-consumption)
+6. [Common Use Cases](#common-use-cases)
+7. [JSONL Event Streaming](#jsonl-event-streaming)
+8. [Troubleshooting](#troubleshooting)
+9. [Advanced Options](#advanced-options)
 
 ---
 
@@ -806,6 +807,236 @@ mcp-assess-full --server my-server || {
   exit 1
 }
 echo "All checks passed!"
+```
+
+---
+
+## Tiered Output for LLM Consumption
+
+**Version**: 1.35.0+
+**Issue**: [#136](https://github.com/triepod-ai/inspector-assessment/issues/136)
+
+Assessment outputs can exceed LLM context windows for real-world MCP servers:
+
+- Single tool: ~34K tokens (166KB)
+- 57 tools: ~2.4M tokens (~9.5MB) - 12x over Claude's 200K limit
+
+The tiered output strategy splits results into manageable chunks optimized for LLM consumption.
+
+### Output Formats
+
+Three output formats are available via `--output-format`:
+
+| Format         | Description                     | Token Size      | Use Case                     |
+| -------------- | ------------------------------- | --------------- | ---------------------------- |
+| `full`         | Complete JSON (default)         | Full size       | Programmatic processing      |
+| `tiered`       | Directory with split files      | ~5K + on-demand | LLM analysis, chat workflows |
+| `summary-only` | Executive + tool summaries only | ~5K-15K tokens  | Quick overview, monitoring   |
+
+### Usage
+
+```bash
+# Full output (default)
+mcp-assess-full --server my-server --config config.json
+
+# Tiered output for LLM consumption
+mcp-assess-full --server my-server --config config.json --output-format tiered
+
+# Summary-only (smallest output)
+mcp-assess-full --server my-server --config config.json --output-format summary-only
+
+# Auto-tier: Automatically switch to tiered when results exceed 100K tokens
+mcp-assess-full --server my-server --config config.json --auto-tier
+```
+
+### Tiered Output Directory Structure
+
+When using `--output-format tiered`, results are saved to a directory:
+
+```
+/tmp/inspector-full-assessment-{server}/
+├── index.json                 # Metadata and paths
+├── executive-summary.json     # Tier 1: ~5K tokens
+├── tool-summaries.json        # Tier 2: ~500 tokens per tool
+└── tools/                     # Tier 3: Full detail per tool
+    ├── vulnerable_calculator_tool.json
+    ├── vulnerable_system_exec_tool.json
+    └── ...
+```
+
+### Tier 1: Executive Summary (~5K tokens)
+
+High-level overview always fits in context:
+
+```json
+{
+  "serverName": "my-server",
+  "overallStatus": "PASS",
+  "overallScore": 85,
+  "toolCount": 12,
+  "testCount": 1440,
+  "executionTime": 47823,
+  "criticalFindings": {
+    "securityVulnerabilities": 2,
+    "aupViolations": 0,
+    "brokenTools": 1,
+    "missingAnnotations": 3
+  },
+  "toolRiskDistribution": {
+    "high": 1,
+    "medium": 2,
+    "low": 3,
+    "safe": 6
+  },
+  "modulesSummary": {
+    "functionality": { "status": "PASS", "score": 100 },
+    "security": { "status": "FAIL", "score": 75 }
+  },
+  "recommendations": [
+    "Fix command injection vulnerability in system_exec tool",
+    "Add readOnlyHint annotations to query tools"
+  ],
+  "estimatedTokens": 4800,
+  "generatedAt": "2026-01-12T15:30:45.123Z"
+}
+```
+
+### Tier 2: Tool Summaries (~500 tokens/tool)
+
+Per-tool digest for risk assessment without full test details:
+
+```json
+{
+  "totalTools": 12,
+  "aggregate": {
+    "totalVulnerabilities": 3,
+    "misalignedAnnotations": 2,
+    "averagePassRate": 87
+  },
+  "tools": [
+    {
+      "toolName": "system_exec",
+      "riskLevel": "HIGH",
+      "vulnerabilityCount": 2,
+      "topPatterns": ["command_injection", "shell_escape"],
+      "testCount": 120,
+      "passRate": 65,
+      "hasAnnotations": false,
+      "annotationStatus": "MISSING",
+      "recommendations": ["Add input validation", "Implement allowlist"]
+    },
+    {
+      "toolName": "get_data",
+      "riskLevel": "SAFE",
+      "vulnerabilityCount": 0,
+      "topPatterns": [],
+      "testCount": 120,
+      "passRate": 100,
+      "hasAnnotations": true,
+      "annotationStatus": "ALIGNED"
+    }
+  ],
+  "estimatedTokens": 6000
+}
+```
+
+### Tier 3: Per-Tool Details (Full Data)
+
+Complete test results for deep-dive analysis. Access on-demand:
+
+```bash
+# Read specific tool detail
+cat /tmp/inspector-full-assessment-my-server/tools/system_exec.json | jq
+```
+
+### Using Tiered Output with LLMs
+
+**Recommended Workflow:**
+
+1. **Start with executive summary** - Always fits in context
+
+   ```bash
+   cat /tmp/inspector-full-assessment-my-server/executive-summary.json
+   ```
+
+2. **Review tool summaries** - Identify high-risk tools
+
+   ```bash
+   cat /tmp/inspector-full-assessment-my-server/tool-summaries.json | \
+     jq '.tools[] | select(.riskLevel == "HIGH")'
+   ```
+
+3. **Deep-dive specific tools** - Load details as needed
+
+   ```bash
+   cat /tmp/inspector-full-assessment-my-server/tools/system_exec.json
+   ```
+
+**Token Budget Planning:**
+
+| Server Size | Executive | Tool Summaries | Total (Tiers 1+2) |
+| ----------- | --------- | -------------- | ----------------- |
+| 5 tools     | ~5K       | ~2.5K          | ~7.5K             |
+| 20 tools    | ~5K       | ~10K           | ~15K              |
+| 50 tools    | ~5K       | ~25K           | ~30K              |
+| 100 tools   | ~5K       | ~50K           | ~55K              |
+
+### Auto-Tier Mode
+
+The `--auto-tier` flag automatically switches to tiered output when results exceed 100K tokens:
+
+```bash
+# Automatically tier large assessments
+mcp-assess-full --server large-server --config config.json --auto-tier
+
+# Output message when auto-tiering activates:
+# 📊 Auto-tiering enabled: 245,000 tokens (tiered output recommended)
+```
+
+### JSONL Event for Tiered Output
+
+When tiered output is generated, a JSONL event is emitted:
+
+```json
+{
+  "event": "tiered_output_generated",
+  "outputDir": "/tmp/inspector-full-assessment-my-server",
+  "outputFormat": "tiered",
+  "tiers": {
+    "executiveSummary": {
+      "path": "/tmp/inspector-full-assessment-my-server/executive-summary.json",
+      "estimatedTokens": 4800
+    },
+    "toolSummaries": {
+      "path": "/tmp/inspector-full-assessment-my-server/tool-summaries.json",
+      "estimatedTokens": 6000,
+      "toolCount": 12
+    },
+    "toolDetails": {
+      "directory": "/tmp/inspector-full-assessment-my-server/tools",
+      "fileCount": 12,
+      "totalEstimatedTokens": 150000
+    }
+  }
+}
+```
+
+### Combining with Other Options
+
+Tiered output works with all other CLI options:
+
+```bash
+# Tiered output with policy compliance
+mcp-assess-full --server my-server --config config.json \
+  --output-format tiered --include-policy
+
+# Summary-only for quick CI checks
+mcp-assess-full --server my-server --config config.json \
+  --output-format summary-only --json
+
+# Auto-tier with custom output directory
+mcp-assess-full --server my-server --config config.json \
+  --auto-tier --output ./results/my-server
 ```
 
 ---
@@ -2244,7 +2475,7 @@ mcp-assess-full --server my-server --config config.json \
 
 ---
 
-**Version**: 1.23.1
-**Last Updated**: 2026-01-04
+**Version**: 1.35.0
+**Last Updated**: 2026-01-12
 **Status**: Stable
 **Maintainer**: Bryan Thompson (triepod-ai)

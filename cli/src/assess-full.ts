@@ -16,11 +16,20 @@ import { ScopedListenerConfig } from "./lib/event-config.js";
 // Import from extracted modules
 import { parseArgs } from "./lib/cli-parser.js";
 import { runFullAssessment } from "./lib/assessment-runner.js";
-import { saveResults, displaySummary } from "./lib/result-output.js";
+import {
+  saveResults,
+  saveTieredResults,
+  saveSummaryOnly,
+  displaySummary,
+} from "./lib/result-output.js";
 import {
   handleComparison,
   displayComparisonSummary,
 } from "./lib/comparison-handler.js";
+import {
+  shouldAutoTier,
+  formatTokenEstimate,
+} from "../../client/lib/lib/assessment/summarizer/index.js";
 
 // ============================================================================
 // Main Entry Point
@@ -81,13 +90,69 @@ async function main() {
       displaySummary(results);
     }
 
-    // Save results to file
-    const outputPath = saveResults(options.serverName, results, options);
+    // Determine output format (Issue #136: Tiered output strategy)
+    let effectiveFormat = options.outputFormat || "full";
 
-    if (options.jsonOnly) {
-      console.log(outputPath);
+    // Auto-tier if requested and results exceed threshold
+    if (
+      effectiveFormat === "full" &&
+      options.autoTier &&
+      shouldAutoTier(results)
+    ) {
+      effectiveFormat = "tiered";
+      if (!options.jsonOnly) {
+        const estimate = formatTokenEstimate(
+          Math.ceil(JSON.stringify(results).length / 4),
+        );
+        console.log(
+          `\n📊 Auto-tiering enabled: ${estimate.tokens} tokens (${estimate.recommendation})`,
+        );
+      }
+    }
+
+    // Save results in appropriate format
+    let outputPath: string;
+
+    if (effectiveFormat === "tiered") {
+      const tieredOutput = saveTieredResults(
+        options.serverName,
+        results,
+        options,
+      );
+      outputPath = tieredOutput.outputDir;
+
+      if (options.jsonOnly) {
+        console.log(outputPath);
+      } else {
+        console.log(`\n📁 Tiered output saved to: ${outputPath}/`);
+        console.log(`   📋 Executive Summary: executive-summary.json`);
+        console.log(`   📋 Tool Summaries: tool-summaries.json`);
+        console.log(
+          `   📋 Tool Details: tools/ (${tieredOutput.toolDetailRefs.length} files)`,
+        );
+        console.log(
+          `   📊 Total tokens: ~${tieredOutput.executiveSummary.estimatedTokens + tieredOutput.toolSummaries.estimatedTokens} (summaries only)\n`,
+        );
+      }
+    } else if (effectiveFormat === "summary-only") {
+      outputPath = saveSummaryOnly(options.serverName, results, options);
+
+      if (options.jsonOnly) {
+        console.log(outputPath);
+      } else {
+        console.log(`\n📁 Summary output saved to: ${outputPath}/`);
+        console.log(`   📋 Executive Summary: executive-summary.json`);
+        console.log(`   📋 Tool Summaries: tool-summaries.json\n`);
+      }
     } else {
-      console.log(`📄 Results saved to: ${outputPath}\n`);
+      // Default: full output
+      outputPath = saveResults(options.serverName, results, options);
+
+      if (options.jsonOnly) {
+        console.log(outputPath);
+      } else {
+        console.log(`📄 Results saved to: ${outputPath}\n`);
+      }
     }
 
     // Exit with appropriate code

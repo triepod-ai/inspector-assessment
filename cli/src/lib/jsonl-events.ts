@@ -378,3 +378,50 @@ export function emitPhaseComplete(phase: string, duration: number): void {
     duration,
   });
 }
+
+// ============================================================================
+// Tiered Output Events - Issue #136
+// ============================================================================
+
+/**
+ * Event emitted when tiered output files are generated.
+ * See Issue #136 for tiered output strategy documentation.
+ */
+export interface TieredOutputEvent {
+  event: "tiered_output_generated";
+  outputDir: string;
+  outputFormat: "tiered" | "summary-only";
+  tiers: {
+    executiveSummary: {
+      path: string;
+      estimatedTokens: number;
+    };
+    toolSummaries: {
+      path: string;
+      estimatedTokens: number;
+      toolCount: number;
+    };
+    toolDetails?: {
+      directory: string;
+      fileCount: number;
+      totalEstimatedTokens: number;
+    };
+  };
+}
+
+/**
+ * Emit tiered_output_generated event when tiered output files are created.
+ * Includes paths and token estimates for each tier.
+ */
+export function emitTieredOutput(
+  outputDir: string,
+  outputFormat: "tiered" | "summary-only",
+  tiers: TieredOutputEvent["tiers"],
+): void {
+  emitJSONL({
+    event: "tiered_output_generated",
+    outputDir,
+    outputFormat,
+    tiers,
+  });
+}

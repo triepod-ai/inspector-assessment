@@ -13,15 +13,22 @@ import { z } from "zod";
 import {
   LogLevelSchema,
   ReportFormatSchema,
+  OutputFormatSchema,
   TransportTypeSchema,
   ZOD_SCHEMA_VERSION,
 } from "../../../client/lib/lib/assessment/sharedSchemas.js";
 
 // Re-export shared schemas for backwards compatibility
-export { LogLevelSchema, ReportFormatSchema, TransportTypeSchema };
+export {
+  LogLevelSchema,
+  ReportFormatSchema,
+  OutputFormatSchema,
+  TransportTypeSchema,
+};
 export type {
   LogLevel,
   ReportFormat,
+  OutputFormat,
   TransportType,
 } from "../../../client/lib/lib/assessment/sharedSchemas.js";
 
