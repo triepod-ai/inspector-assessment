@@ -31,8 +31,13 @@ const CURRENT_MANIFEST_VERSION = "0.3";
  * Calculate Levenshtein distance between two strings
  * Uses space-optimized two-row algorithm for O(min(n,m)) memory
  * Used for "did you mean?" suggestions on mismatched tool names (Issue #140)
+ * Exported for testing (Issue #141 - ISSUE-002)
  */
-function levenshteinDistance(a: string, b: string, maxDist?: number): number {
+export function levenshteinDistance(
+  a: string,
+  b: string,
+  maxDist?: number,
+): number {
   // Early termination optimizations
   if (a === b) return 0;
   if (a.length === 0) return b.length;
@@ -721,10 +726,10 @@ export class ManifestValidationAssessor extends BaseAssessor {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
+      try {
         const response = await fetch(url, {
           method,
           signal: controller.signal,
@@ -734,6 +739,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
         clearTimeout(timeoutId);
         return response;
       } catch (error) {
+        clearTimeout(timeoutId);
         lastError = error instanceof Error ? error : new Error(String(error));
 
         // Don't retry on last attempt

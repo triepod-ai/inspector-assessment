@@ -7,59 +7,16 @@
  * TEST-003: Validates FIX-002 (fetchWithRetry exponential backoff)
  */
 
-import { ManifestValidationAssessor } from "../ManifestValidationAssessor";
+import {
+  ManifestValidationAssessor,
+  levenshteinDistance,
+} from "../ManifestValidationAssessor";
 import {
   createMockAssessmentContext,
   createMockAssessmentConfig,
   createMockManifestJson,
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../../AssessmentOrchestrator";
-
-// Copy of the levenshteinDistance implementation for direct unit testing
-function testLevenshteinDistance(
-  a: string,
-  b: string,
-  maxDist?: number,
-): number {
-  // Early termination optimizations
-  if (a === b) return 0;
-  if (a.length === 0) return b.length;
-  if (b.length === 0) return a.length;
-
-  if (maxDist && Math.abs(a.length - b.length) > maxDist) {
-    return maxDist + 1;
-  }
-
-  // Ensure a is the shorter string (optimize space)
-  if (a.length > b.length) {
-    [a, b] = [b, a];
-  }
-
-  // Two-row algorithm: only keep previous and current row
-  let prev = Array.from({ length: a.length + 1 }, (_, i) => i);
-  let curr = new Array(a.length + 1);
-
-  for (let i = 1; i <= b.length; i++) {
-    curr[0] = i;
-
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        curr[j] = prev[j - 1];
-      } else {
-        curr[j] = Math.min(
-          prev[j - 1] + 1, // substitution
-          curr[j - 1] + 1, // insertion
-          prev[j] + 1, // deletion
-        );
-      }
-    }
-
-    // Swap rows
-    [prev, curr] = [curr, prev];
-  }
-
-  return prev[a.length];
-}
 
 describe("ManifestValidationAssessor - Unit Tests (Stage 3 Fixes)", () => {
   let assessor: ManifestValidationAssessor;
@@ -86,58 +43,58 @@ describe("ManifestValidationAssessor - Unit Tests (Stage 3 Fixes)", () => {
   describe("levenshteinDistance (TEST-001)", () => {
     describe("happy path scenarios", () => {
       it("should return 0 for identical strings", () => {
-        expect(testLevenshteinDistance("abc", "abc")).toBe(0);
-        expect(testLevenshteinDistance("test", "test")).toBe(0);
-        expect(testLevenshteinDistance("", "")).toBe(0);
+        expect(levenshteinDistance("abc", "abc")).toBe(0);
+        expect(levenshteinDistance("test", "test")).toBe(0);
+        expect(levenshteinDistance("", "")).toBe(0);
       });
 
       it("should return 1 for single substitution", () => {
-        expect(testLevenshteinDistance("abc", "abd")).toBe(1);
-        expect(testLevenshteinDistance("cat", "bat")).toBe(1);
+        expect(levenshteinDistance("abc", "abd")).toBe(1);
+        expect(levenshteinDistance("cat", "bat")).toBe(1);
       });
 
       it("should return 1 for single insertion", () => {
-        expect(testLevenshteinDistance("abc", "abcd")).toBe(1);
-        expect(testLevenshteinDistance("test", "tests")).toBe(1);
+        expect(levenshteinDistance("abc", "abcd")).toBe(1);
+        expect(levenshteinDistance("test", "tests")).toBe(1);
       });
 
       it("should return 1 for single deletion", () => {
-        expect(testLevenshteinDistance("abcd", "abc")).toBe(1);
-        expect(testLevenshteinDistance("tests", "test")).toBe(1);
+        expect(levenshteinDistance("abcd", "abc")).toBe(1);
+        expect(levenshteinDistance("tests", "test")).toBe(1);
       });
 
       it("should calculate distance for multiple operations", () => {
-        expect(testLevenshteinDistance("kitten", "sitting")).toBe(3);
+        expect(levenshteinDistance("kitten", "sitting")).toBe(3);
         // k->s (sub), e->i (sub), insert g
-        expect(testLevenshteinDistance("saturday", "sunday")).toBe(3);
+        expect(levenshteinDistance("saturday", "sunday")).toBe(3);
         // remove a, remove t, remove r
       });
     });
 
     describe("edge cases", () => {
       it("should handle empty strings", () => {
-        expect(testLevenshteinDistance("", "abc")).toBe(3);
-        expect(testLevenshteinDistance("abc", "")).toBe(3);
-        expect(testLevenshteinDistance("", "")).toBe(0);
+        expect(levenshteinDistance("", "abc")).toBe(3);
+        expect(levenshteinDistance("abc", "")).toBe(3);
+        expect(levenshteinDistance("", "")).toBe(0);
       });
 
       it("should handle single character strings", () => {
-        expect(testLevenshteinDistance("a", "a")).toBe(0);
-        expect(testLevenshteinDistance("a", "b")).toBe(1);
-        expect(testLevenshteinDistance("a", "ab")).toBe(1);
-        expect(testLevenshteinDistance("ab", "a")).toBe(1);
+        expect(levenshteinDistance("a", "a")).toBe(0);
+        expect(levenshteinDistance("a", "b")).toBe(1);
+        expect(levenshteinDistance("a", "ab")).toBe(1);
+        expect(levenshteinDistance("ab", "a")).toBe(1);
       });
 
       it("should handle completely different strings", () => {
-        expect(testLevenshteinDistance("abc", "xyz")).toBe(3);
-        expect(testLevenshteinDistance("hello", "world")).toBe(4);
+        expect(levenshteinDistance("abc", "xyz")).toBe(3);
+        expect(levenshteinDistance("hello", "world")).toBe(4);
       });
 
       it("should handle Unicode characters", () => {
-        expect(testLevenshteinDistance("café", "cafe")).toBe(1);
-        expect(testLevenshteinDistance("你好", "你好")).toBe(0);
-        expect(testLevenshteinDistance("🎉", "🎊")).toBe(1);
-        expect(testLevenshteinDistance("test🎉", "test🎊")).toBe(1);
+        expect(levenshteinDistance("café", "cafe")).toBe(1);
+        expect(levenshteinDistance("你好", "你好")).toBe(0);
+        expect(levenshteinDistance("🎉", "🎊")).toBe(1);
+        expect(levenshteinDistance("test🎉", "test🎊")).toBe(1);
       });
     });
 
@@ -147,7 +104,7 @@ describe("ManifestValidationAssessor - Unit Tests (Stage 3 Fixes)", () => {
         const longString2 = "a".repeat(99) + "b";
 
         const start = Date.now();
-        const distance = testLevenshteinDistance(longString1, longString2);
+        const distance = levenshteinDistance(longString1, longString2);
         const duration = Date.now() - start;
 
         expect(distance).toBe(1);
@@ -162,7 +119,7 @@ describe("ManifestValidationAssessor - Unit Tests (Stage 3 Fixes)", () => {
         // Comparing "abc" to "aaa...a" (1000 a's)
         // First 'a' matches, then need 'b' and 'c' substituted, plus 997 deletions
         // Total: 999 operations
-        expect(testLevenshteinDistance(short, long)).toBe(999);
+        expect(levenshteinDistance(short, long)).toBe(999);
       });
 
       it("should optimize with maxDist parameter", () => {
@@ -170,7 +127,7 @@ describe("ManifestValidationAssessor - Unit Tests (Stage 3 Fixes)", () => {
         const b = "xyz";
 
         // With maxDist, should terminate early
-        const distWithMax = testLevenshteinDistance(a, b, 2);
+        const distWithMax = levenshteinDistance(a, b, 2);
         expect(distWithMax).toBeGreaterThan(2);
       });
 
@@ -179,15 +136,15 @@ describe("ManifestValidationAssessor - Unit Tests (Stage 3 Fixes)", () => {
         const long = "abcdefghij";
 
         // Length difference is 7, maxDist is 3
-        const dist = testLevenshteinDistance(short, long, 3);
+        const dist = levenshteinDistance(short, long, 3);
         expect(dist).toBe(4); // maxDist + 1
       });
     });
 
     describe("case sensitivity", () => {
       it("should be case sensitive by default", () => {
-        expect(testLevenshteinDistance("ABC", "abc")).toBe(3);
-        expect(testLevenshteinDistance("Test", "test")).toBe(1);
+        expect(levenshteinDistance("ABC", "abc")).toBe(3);
+        expect(levenshteinDistance("Test", "test")).toBe(1);
       });
     });
   });
