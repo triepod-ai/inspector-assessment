@@ -36,6 +36,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Ensures polyglot content is detected even when servers don't explicitly report vulnerabilities
   - Prevents reliance on server honesty for security detection
 
+## [1.35.2] - 2026-01-12
+
+### Fixed
+
+- **SCHEMA_VERSION Test Expectations** (Issue #145): Updated test expectations from version 2 to 3
+  - `Stage3-Fixes-Validation.test.ts`: Updated expectations at lines 88, 384
+  - `emitModuleProgress.test.ts`: Updated expectation at line 92
+  - SCHEMA_VERSION was incremented to 3 for tiered output support in Issue #136
+
+## [1.35.1] - 2026-01-12
+
+### Fixed
+
+- **Manifest v0.3 Nested Path Support** (Issue #138): Support `server.mcp_config` nested path in manifest validation
+  - ManifestValidationAssessor now correctly resolves MCP config from nested server paths
+  - Fixes validation for manifest_version 0.3 servers with nested configuration
+
+- **Stage B Enrichment Code Review Fixes** (Issue #137): Code quality improvements for Stage B enrichment
+  - Addressed code review findings for semantic analysis integration
+
+## [1.35.0] - 2026-01-11
+
+### Added
+
+- **Stage B Enrichment for Claude Semantic Analysis** (Issue #137): Enhanced Claude integration for false positive reduction
+  - New `stageBEnrichmentBuilder.ts` module for building enrichment data
+  - `stageBTypes.ts` with TypeScript interfaces for Stage B data structures
+  - `--stage-b-verbose` CLI flag adds evidence samples and confidence breakdowns
+  - Integrates with mcp-auditor for semantic analysis of assessment results
+
+- **Enhanced TestValidityWarning Data** (Issue #135): Improved data for Stage B analysis
+  - Extended TestValidityWarning event with additional context for Claude analysis
+  - Better support for identifying false positives through semantic understanding
+
+### Fixed
+
+- **Tiered Output Build Fixes** (Issue #136): Build and documentation fixes for tiered output strategy
+  - Schema validation for `outputFormat` and `autoTier` options in AssessmentOptionsSchema
+  - Documentation updates for JSONL events including `tiered_output_generated` event (#18)
+
+## [1.34.2] - 2026-01-11
+
+### Fixed
+
+- **TestValidityAnalyzer Code Review Fixes** (Issue #134): Quality improvements for identical response detection
+
+## [1.34.1] - 2026-01-11
+
+### Fixed
+
+- **Template Detection** (Issue #134): Call resources/templates/list separately for proper template detection
+
+## [1.34.0] - 2026-01-10
+
+### Added
+
+- **Identical Security Response Detection** (Issue #134): Detect when servers return identical responses to all security tests
+  - New TestValidityAnalyzer module identifies uniform response patterns
+  - TestValidityWarning event emitted when identical responses detected
+  - Helps identify servers that may be ignoring test payloads
+
+### Fixed
+
+- **Polyglot Detection Improvements** (Issue #127): Enhanced binary content detection
+  - Improved polyglot file detection with comprehensive test coverage
+  - Fixed ResourceAssessor test failures (Issue #126)
+
+## [1.33.3] - 2026-01-10
+
+### Fixed
+
+- Phase 7 event schema fixes and test improvements
+
+## [1.33.2] - 2026-01-10
+
+### Fixed
+
+- **Missing Phase 7 Event Schemas**: Added missing event schemas to JSONL schema export
+
+## [1.33.1] - 2026-01-10
+
+### Added
+
+- **JSONL Schema Export**: New `./jsonl-schemas` export path for mcp-auditor integration
+
+## [1.33.0] - 2026-01-10
+
+### Added
+
+- **Phase 7 JSONL Events** (Issue #88): Complete event schema coverage for assessment lifecycle
+  - All assessment events now properly typed and exported
+  - Integration with mcp-auditor for comprehensive audit workflows
+
 ## [1.32.0] - 2026-01-10
 
 ### Added
