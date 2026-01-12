@@ -22,6 +22,7 @@ import {
   DocumentationQualityChecks,
   DocumentationQualityScore,
   JSONSchema7,
+  NamespaceDetectionResult,
 } from "@/lib/assessmentTypes";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
@@ -47,6 +48,8 @@ export interface DeveloperExperienceAssessment {
     usability: number;
     overall: number;
   };
+  /** Namespace detection results (Issue #142) */
+  namespaceDetection?: NamespaceDetectionResult;
 }
 
 export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienceAssessment> {
@@ -83,6 +86,12 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
     const usabilityMetrics = this.analyzeUsability(context.tools);
     const usabilityScore = this.calculateUsabilityScore(usabilityMetrics);
 
+    // Issue #142: Detect namespace/prefix patterns in tool names
+    const namespaceDetection = this.detectNamespace(
+      context.tools,
+      context.serverInfo?.name,
+    );
+
     // Calculate overall score (weighted average: 60% docs, 40% usability)
     const overallScore = Math.round(
       documentationScore * 0.6 + usabilityScore * 0.4,
@@ -102,7 +111,7 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
       usabilityMetrics,
     );
 
-    this.testCount = 15; // Documentation (5) + Quality (6) + Usability (4) checks
+    this.testCount = 16; // Documentation (5) + Quality (6) + Usability (4) + Namespace (1) checks
 
     return {
       documentation: documentationMetrics,
@@ -115,6 +124,7 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
         usability: usabilityScore,
         overall: overallScore,
       },
+      namespaceDetection,
     };
   }
 
@@ -876,6 +886,199 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
     if (metrics.followsBestPractices) score++;
 
     return Math.round((score / maxScore) * 100);
+  }
+
+  // ============================================================================
+  // Namespace Detection (Issue #142)
+  // ============================================================================
+
+  /**
+   * Detect namespace/prefix patterns in tool names.
+   * This helps identify intentional naming conventions like:
+   * - calc_add, calc_subtract -> namespace "calc"
+   * - fileRead, fileWrite -> namespace "file"
+   * - myserver_tool1, myserver_tool2 -> matches server name
+   */
+  private detectNamespace(
+    tools: Tool[],
+    serverName?: string,
+  ): NamespaceDetectionResult {
+    const toolNames = tools.map((t) => t.name);
+    const totalTools = toolNames.length;
+
+    // Need at least 2 tools to detect a namespace
+    if (totalTools < 2) {
+      return {
+        detected: false,
+        confidence: "low",
+        toolsCovered: 0,
+        totalTools,
+        matchPattern: "none",
+      };
+    }
+
+    // Try server name prefix first (highest priority)
+    if (serverName) {
+      const serverNameResult = this.checkServerNamePrefix(
+        toolNames,
+        serverName,
+      );
+      if (
+        serverNameResult.matches >= 2 &&
+        serverNameResult.matches / totalTools >= 0.5
+      ) {
+        return {
+          detected: true,
+          namespace: this.normalizeServerName(serverName),
+          confidence: "high",
+          toolsCovered: serverNameResult.matches,
+          totalTools,
+          matchPattern: "serverName",
+          evidence: serverNameResult.matchedTools.slice(0, 5),
+        };
+      }
+    }
+
+    // Try common prefix detection
+    const prefixResult = this.findCommonPrefix(toolNames);
+    if (prefixResult) {
+      const coverageRatio = prefixResult.count / totalTools;
+      const confidence: "high" | "medium" | "low" =
+        coverageRatio >= 0.5 ? "high" : coverageRatio >= 0.3 ? "medium" : "low";
+
+      if (prefixResult.count >= 2 && coverageRatio >= 0.3) {
+        return {
+          detected: true,
+          namespace: prefixResult.prefix,
+          confidence,
+          toolsCovered: prefixResult.count,
+          totalTools,
+          matchPattern: "prefix",
+          evidence: prefixResult.matchedTools.slice(0, 5),
+        };
+      }
+    }
+
+    // No namespace detected
+    return {
+      detected: false,
+      confidence: "low",
+      toolsCovered: 0,
+      totalTools,
+      matchPattern: "none",
+    };
+  }
+
+  /**
+   * Find common prefix among tool names.
+   * Handles both snake_case (calc_add) and camelCase (calcAdd) conventions.
+   */
+  private findCommonPrefix(
+    toolNames: string[],
+  ): { prefix: string; count: number; matchedTools: string[] } | null {
+    if (toolNames.length < 2) return null;
+
+    // Build prefix frequency map
+    const prefixCounts = new Map<string, string[]>();
+
+    for (const name of toolNames) {
+      // Extract prefix using snake_case separator
+      const snakeMatch = name.match(/^([a-z]+)_/);
+      if (snakeMatch && snakeMatch[1].length >= 3) {
+        const prefix = snakeMatch[1];
+        if (!prefixCounts.has(prefix)) {
+          prefixCounts.set(prefix, []);
+        }
+        prefixCounts.get(prefix)!.push(name);
+      }
+
+      // Extract prefix using camelCase pattern
+      const camelMatch = name.match(/^([a-z]+)[A-Z]/);
+      if (camelMatch && camelMatch[1].length >= 3) {
+        const prefix = camelMatch[1];
+        if (!prefixCounts.has(prefix)) {
+          prefixCounts.set(prefix, []);
+        }
+        // Avoid double-counting if snake_case already found this name
+        const existing = prefixCounts.get(prefix)!;
+        if (!existing.includes(name)) {
+          existing.push(name);
+        }
+      }
+    }
+
+    // Find the prefix with the most matches
+    let bestPrefix: string | null = null;
+    let bestCount = 0;
+    let bestTools: string[] = [];
+
+    for (const [prefix, tools] of prefixCounts) {
+      if (tools.length > bestCount) {
+        bestPrefix = prefix;
+        bestCount = tools.length;
+        bestTools = tools;
+      }
+    }
+
+    if (bestPrefix && bestCount >= 2) {
+      return {
+        prefix: bestPrefix,
+        count: bestCount,
+        matchedTools: bestTools,
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Check if tool names use the server name as a prefix.
+   * Normalizes server name to match common patterns.
+   */
+  private checkServerNamePrefix(
+    toolNames: string[],
+    serverName: string,
+  ): { matches: number; matchedTools: string[] } {
+    const normalizedServerName = this.normalizeServerName(serverName);
+    const matchedTools: string[] = [];
+
+    for (const name of toolNames) {
+      const nameLower = name.toLowerCase();
+
+      // Check snake_case prefix (e.g., myserver_tool)
+      if (nameLower.startsWith(normalizedServerName + "_")) {
+        matchedTools.push(name);
+        continue;
+      }
+
+      // Check camelCase prefix (e.g., myserverTool)
+      if (
+        nameLower.startsWith(normalizedServerName) &&
+        name.length > normalizedServerName.length &&
+        /[A-Z]/.test(name[normalizedServerName.length])
+      ) {
+        matchedTools.push(name);
+        continue;
+      }
+
+      // Check kebab-case prefix (e.g., myserver-tool)
+      if (nameLower.startsWith(normalizedServerName + "-")) {
+        matchedTools.push(name);
+      }
+    }
+
+    return {
+      matches: matchedTools.length,
+      matchedTools,
+    };
+  }
+
+  /**
+   * Normalize server name for prefix matching.
+   * Converts "My-Server" -> "myserver", "my_server" -> "myserver"
+   */
+  private normalizeServerName(serverName: string): string {
+    return serverName.toLowerCase().replace(/[-_\s]/g, "");
   }
 
   // ============================================================================

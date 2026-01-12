@@ -14,6 +14,8 @@ import type {
   AlignmentStatus,
 } from "./coreTypes";
 
+import type { NamespaceDetectionResult } from "./resultTypes";
+
 // ============================================================================
 // AUP (Acceptable Use Policy) Compliance Types
 // Based on Anthropic's 14 AUP categories (A-N)
@@ -1090,4 +1092,6 @@ export interface DeveloperExperienceAssessment {
   status: AssessmentStatus;
   /** Combined score (average of documentation and usability scores, 0-100) */
   score: number;
+  /** Namespace detection results (Issue #142) - helps identify intentional naming patterns */
+  namespaceDetection?: NamespaceDetectionResult;
 }
