@@ -522,4 +522,118 @@ describe("ManifestValidationAssessor", () => {
       );
     });
   });
+
+  describe("tool name validation (Issue #140)", () => {
+    it("should pass when manifest tools match server tools", async () => {
+      mockContext.manifestJson = createMockManifestJson({
+        tools: [{ name: "tool_a" }, { name: "tool_b" }],
+        icon: "icon.png",
+      });
+      mockContext.tools = [
+        { name: "tool_a", inputSchema: { type: "object" } },
+        { name: "tool_b", inputSchema: { type: "object" } },
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      const toolResult = result.validationResults.find(
+        (r) => r.field === "tools (manifest vs server)",
+      );
+      expect(toolResult?.valid).toBe(true);
+      expect(toolResult?.severity).toBe("INFO");
+    });
+
+    it("should warn when manifest declares tools not on server", async () => {
+      mockContext.manifestJson = createMockManifestJson({
+        tools: [{ name: "missing_tool" }],
+        icon: "icon.png",
+      });
+      mockContext.tools = [
+        { name: "other_tool", inputSchema: { type: "object" } },
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      const toolResult = result.validationResults.find(
+        (r) => r.field === "tools (manifest vs server)",
+      );
+      expect(toolResult?.valid).toBe(false);
+      expect(toolResult?.severity).toBe("WARNING");
+      expect(toolResult?.issue).toContain("Manifest declares tools not found");
+    });
+
+    it("should report undeclared server tools as INFO", async () => {
+      mockContext.manifestJson = createMockManifestJson({
+        tools: [{ name: "tool_a" }],
+        icon: "icon.png",
+      });
+      mockContext.tools = [
+        { name: "tool_a", inputSchema: { type: "object" } },
+        { name: "tool_b", inputSchema: { type: "object" } },
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      const undeclaredResult = result.validationResults.find(
+        (r) => r.field === "tools (undeclared)",
+      );
+      expect(undeclaredResult?.valid).toBe(false);
+      expect(undeclaredResult?.severity).toBe("INFO");
+      expect(undeclaredResult?.issue).toContain(
+        "Server has tools not declared",
+      );
+    });
+
+    it("should skip validation when manifest has no tools field", async () => {
+      mockContext.manifestJson = createMockManifestJson({
+        icon: "icon.png",
+      });
+      mockContext.tools = [
+        { name: "some_tool", inputSchema: { type: "object" } },
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      const toolResult = result.validationResults.find((r) =>
+        r.field.includes("tools"),
+      );
+      expect(toolResult).toBeUndefined();
+    });
+
+    it("should suggest closest match for mismatched tool names", async () => {
+      mockContext.manifestJson = createMockManifestJson({
+        tools: [{ name: "query-documentation-data" }],
+        icon: "icon.png",
+      });
+      mockContext.tools = [
+        {
+          name: "query-documentation-resources",
+          inputSchema: { type: "object" },
+        },
+      ];
+
+      const result = await assessor.assess(mockContext);
+
+      const toolResult = result.validationResults.find(
+        (r) => r.field === "tools (manifest vs server)",
+      );
+      expect(toolResult?.issue).toContain("did you mean");
+      expect(toolResult?.issue).toContain("query-documentation-resources");
+    });
+
+    it("should skip validation when server has no tools", async () => {
+      mockContext.manifestJson = createMockManifestJson({
+        tools: [{ name: "tool_a" }],
+        icon: "icon.png",
+      });
+      mockContext.tools = [];
+
+      const result = await assessor.assess(mockContext);
+
+      const toolResult = result.validationResults.find((r) =>
+        r.field.includes("tools"),
+      );
+      expect(toolResult).toBeUndefined();
+    });
+  });
 });

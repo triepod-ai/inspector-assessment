@@ -272,6 +272,15 @@ export interface ManifestServerSchema {
   mcp_config?: McpConfigSchema;
 }
 
+/**
+ * Tool declaration in manifest.json
+ * Used for manifest vs server tool name validation (Issue #140)
+ */
+export interface ManifestToolDeclaration {
+  name: string;
+  description?: string;
+}
+
 export interface ManifestJsonSchema {
   manifest_version: string;
   name: string;
@@ -286,6 +295,7 @@ export interface ManifestJsonSchema {
   homepage?: string;
   keywords?: string[];
   privacy_policies?: string[]; // URLs to privacy policy documents
+  tools?: ManifestToolDeclaration[]; // Tool declarations for validation (Issue #140)
 }
 
 /**

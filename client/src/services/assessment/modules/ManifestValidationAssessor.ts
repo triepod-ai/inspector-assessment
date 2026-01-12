@@ -13,6 +13,7 @@
 
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type {
   ManifestValidationAssessment,
   ManifestValidationResult,
@@ -25,6 +26,65 @@ import type {
 const REQUIRED_FIELDS = ["name", "version", "mcp_config"] as const;
 const RECOMMENDED_FIELDS = ["description", "author", "repository"] as const;
 const CURRENT_MANIFEST_VERSION = "0.3";
+
+/**
+ * Calculate Levenshtein distance between two strings
+ * Used for "did you mean?" suggestions on mismatched tool names (Issue #140)
+ */
+function levenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1, // insertion
+          matrix[i - 1][j] + 1, // deletion
+        );
+      }
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+/**
+ * Find closest matching tool name from a set
+ * Returns match if distance <= threshold (default: 10 chars or 40% of length)
+ * Generous threshold to catch common renames like "data" -> "resources"
+ */
+function findClosestMatch(
+  name: string,
+  candidates: Set<string>,
+  threshold?: number,
+): string | null {
+  const maxDist = threshold ?? Math.max(10, Math.floor(name.length * 0.4));
+  let closest: string | null = null;
+  let minDist = Infinity;
+
+  for (const candidate of candidates) {
+    const dist = levenshteinDistance(
+      name.toLowerCase(),
+      candidate.toLowerCase(),
+    );
+    if (dist < minDist && dist <= maxDist) {
+      minDist = dist;
+      closest = candidate;
+    }
+  }
+
+  return closest;
+}
 
 export class ManifestValidationAssessor extends BaseAssessor {
   /**
@@ -154,6 +214,12 @@ export class ManifestValidationAssessor extends BaseAssessor {
     // Validate version format
     this.testCount++;
     validationResults.push(this.validateVersionFormat(manifest.version));
+
+    // Validate tool names match server (Issue #140)
+    if (manifest.tools && context.tools.length > 0) {
+      const toolResults = this.validateToolNamesMatch(manifest, context.tools);
+      validationResults.push(...toolResults);
+    }
 
     // Validate privacy policy URLs if present
     let privacyPolicies:
@@ -546,6 +612,84 @@ export class ManifestValidationAssessor extends BaseAssessor {
       value: version,
       severity: "INFO",
     };
+  }
+
+  /**
+   * Validate manifest tool declarations against actual server tools (Issue #140)
+   * Compares tool names in manifest.tools against context.tools from tools/list
+   * Uses Levenshtein distance for "did you mean?" suggestions
+   */
+  private validateToolNamesMatch(
+    manifest: ManifestJsonSchema,
+    serverTools: Tool[],
+  ): ManifestValidationResult[] {
+    const results: ManifestValidationResult[] = [];
+
+    // Skip if manifest doesn't declare tools
+    if (!manifest.tools || manifest.tools.length === 0) {
+      return results;
+    }
+
+    this.testCount++;
+
+    const manifestToolNames = new Set(manifest.tools.map((t) => t.name));
+    const serverToolNames = new Set(serverTools.map((t) => t.name));
+
+    // Check for tools declared in manifest but not on server
+    const mismatches: Array<{ manifest: string; suggestion: string | null }> =
+      [];
+    for (const name of manifestToolNames) {
+      if (!serverToolNames.has(name)) {
+        const suggestion = findClosestMatch(name, serverToolNames);
+        mismatches.push({ manifest: name, suggestion });
+      }
+    }
+
+    // Check for tools on server but not declared in manifest
+    const undeclaredTools: string[] = [];
+    for (const name of serverToolNames) {
+      if (!manifestToolNames.has(name)) {
+        undeclaredTools.push(name);
+      }
+    }
+
+    // Report mismatches with suggestions
+    if (mismatches.length > 0) {
+      const issueLines = mismatches.map((m) =>
+        m.suggestion
+          ? `"${m.manifest}" (did you mean "${m.suggestion}"?)`
+          : `"${m.manifest}"`,
+      );
+      results.push({
+        field: "tools (manifest vs server)",
+        valid: false,
+        value: mismatches,
+        issue: `Manifest declares tools not found on server: ${issueLines.join(", ")}`,
+        severity: "WARNING",
+      });
+    }
+
+    if (undeclaredTools.length > 0) {
+      results.push({
+        field: "tools (undeclared)",
+        valid: false,
+        value: undeclaredTools,
+        issue: `Server has tools not declared in manifest: ${undeclaredTools.join(", ")}`,
+        severity: "INFO",
+      });
+    }
+
+    // All matched
+    if (mismatches.length === 0 && undeclaredTools.length === 0) {
+      results.push({
+        field: "tools (manifest vs server)",
+        valid: true,
+        value: `${manifestToolNames.size} tools matched`,
+        severity: "INFO",
+      });
+    }
+
+    return results;
   }
 
   /**
