@@ -392,4 +392,169 @@ describe("AUPComplianceAssessor", () => {
       expect(result.explanation.length).toBeGreaterThan(0);
     });
   });
+
+  describe("Financial Services false positive prevention (Issue #139)", () => {
+    it("should NOT flag analytics servers as Financial Services high-risk domain", async () => {
+      // Arrange - Microsoft Clarity-like analytics server
+      mockContext.tools = [
+        createMockTool({
+          name: "clarity_get_sessions",
+          description:
+            "Filter sessions by productPrice, productPurchases, and conversion metrics",
+        }),
+        createMockTool({
+          name: "analytics_dashboard",
+          description: "View financial metrics and trading volume reports",
+        }),
+      ];
+      mockContext.readmeContent = `
+        # Analytics Dashboard MCP
+        Track user sessions, filter by productPrice, analyze investment performance metrics.
+        Provides dashboard views for financial KPIs and trading analytics.
+      `;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should NOT include Financial Services in high-risk domains
+      expect(result.highRiskDomains).not.toContain("Financial Services");
+      expect(result.status).toBe("PASS");
+    });
+
+    it("should flag actual financial transaction servers as Financial Services", async () => {
+      // Arrange - Actual payment processing server
+      mockContext.tools = [
+        createMockTool({
+          name: "process_payment",
+          description: "Process payment transactions and charge customer cards",
+        }),
+        createMockTool({
+          name: "transfer_funds",
+          description: "Transfer funds between accounts",
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - SHOULD include Financial Services
+      expect(result.highRiskDomains).toContain("Financial Services");
+    });
+
+    it("should flag trading execution servers as Financial Services", async () => {
+      // Arrange - Trading execution server
+      // Descriptions must contain financial keywords (trading, investment, etc.) AND financial action patterns
+      mockContext.tools = [
+        createMockTool({
+          name: "execute_trade",
+          description: "Execute trading operations on the investment platform",
+        }),
+        createMockTool({
+          name: "buy_stock",
+          description: "Buy shares on the trading platform",
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - SHOULD include Financial Services
+      expect(result.highRiskDomains).toContain("Financial Services");
+    });
+
+    it("should handle mixed analytics and transactions appropriately", async () => {
+      // Arrange - Server with both analytics AND transactions
+      // The transaction tool must have BOTH financial keyword AND financial action
+      mockContext.tools = [
+        createMockTool({
+          name: "view_trading_metrics",
+          description: "View analytics dashboard for trading volume",
+        }),
+        createMockTool({
+          name: "execute_trade",
+          description: "Execute trade on the trading platform",
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - SHOULD include Financial Services due to transaction capability
+      expect(result.highRiskDomains).toContain("Financial Services");
+    });
+
+    it("should exempt pure analytics servers even with financial keywords", async () => {
+      // Arrange - Analytics-only server
+      mockContext.tools = [
+        createMockTool({
+          name: "get_investment_metrics",
+          description: "Query investment performance metrics and analytics",
+        }),
+        createMockTool({
+          name: "filter_by_payment_status",
+          description: "Filter orders by payment status for reporting",
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should NOT flag as Financial Services (analytics only)
+      expect(result.highRiskDomains).not.toContain("Financial Services");
+    });
+
+    it("should NOT flag Google Analytics-like servers", async () => {
+      // Arrange - Google Analytics integration
+      mockContext.tools = [
+        createMockTool({
+          name: "get_ga_data",
+          description:
+            "Query Google Analytics data including payment conversion metrics",
+        }),
+      ];
+      mockContext.readmeContent = `
+        # Google Analytics MCP
+        Integration with Google Analytics to track financial conversion rates.
+      `;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should NOT include Financial Services
+      expect(result.highRiskDomains).not.toContain("Financial Services");
+    });
+
+    it("should flag banking servers with withdrawal/deposit capabilities", async () => {
+      // Arrange - Banking server
+      mockContext.tools = [
+        createMockTool({
+          name: "banking_operations",
+          description: "Withdraw from savings account and deposit to checking",
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - SHOULD include Financial Services
+      expect(result.highRiskDomains).toContain("Financial Services");
+    });
+
+    it("should NOT flag session tracking with financial field filters", async () => {
+      // Arrange - Session tracking with e-commerce filters (Microsoft Clarity-like)
+      mockContext.tools = [
+        createMockTool({
+          name: "track_sessions",
+          description:
+            "Track user sessions, filter by orderValue and productPrice",
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - Should NOT include Financial Services (analytics/tracking context)
+      expect(result.highRiskDomains).not.toContain("Financial Services");
+    });
+  });
 });

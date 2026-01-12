@@ -329,6 +329,102 @@ export const HIGH_RISK_DOMAINS: {
 ];
 
 /**
+ * Analytics/Reporting Exemption Patterns (Issue #139)
+ *
+ * These patterns identify legitimate analytics and reporting use cases
+ * that should NOT trigger "Financial Services" high-risk domain flag.
+ *
+ * Key distinction:
+ * - Analytics: filter, track, report, analyze, dashboard, metric
+ * - Transactions: process, transfer, execute, withdraw, deposit
+ */
+export const FINANCIAL_ANALYTICS_EXEMPTION_PATTERNS: RegExp[] = [
+  // Analytics/BI tool indicators
+  /\b(analytics|analytic)\b/i,
+  /\bdashboard\b/i,
+  /\bmetric(s)?\b/i,
+  /\breport(ing|s)?\b/i,
+  /\binsight(s)?\b/i,
+  /\bvisualization\b/i,
+
+  // Filter/query patterns (read-only operations)
+  /\bfilter\s*(by|on|for)\b/i,
+  /\bsort\s*(by|on)\b/i,
+  /\bgroup\s*(by|on)\b/i,
+  /\bquery\b/i,
+  /\bsearch\b/i,
+
+  // Tracking/monitoring (read operations)
+  /\btrack(ing|er)?\b/i,
+  /\bmonitor(ing)?\b/i,
+  /\bsession\s*(record(ing)?|replay|data)\b/i,
+  /\bheatmaps?\b/i,
+  /\bclick\s*(map|track)\b/i,
+
+  // BI/Analytics platforms
+  /\bclarity\b/i, // Microsoft Clarity
+  /\bgoogle\s*analytics\b/i,
+  /\bmixpanel\b/i,
+  /\bamplitude\b/i,
+  /\bsegment\b/i,
+  /\bplausible\b/i,
+  /\bmatomo\b/i,
+  /\bhotjar\b/i,
+
+  // Read-only financial field indicators
+  /\bproduct(Price|Purchases|Revenue|Sales)\b/i,
+  /\border(Value|Total|Amount)\b/i,
+  /\bconversion(Rate|Value)?\b/i,
+  /\brevenue\s*(metric|data|report)/i,
+  /\bsales\s*(data|report|metric)/i,
+  /\btransaction(Count|Volume)\b/i, // Aggregate metrics, not processing
+];
+
+/**
+ * Financial Transaction Action Patterns (Issue #139)
+ *
+ * These patterns identify ACTUAL financial transaction capabilities
+ * that SHOULD trigger the "Financial Services" high-risk domain flag.
+ *
+ * These indicate the server can perform financial operations, not just
+ * analyze/report on financial data.
+ */
+export const FINANCIAL_ACTION_PATTERNS: RegExp[] = [
+  // Payment processing
+  /\b(process|submit|initiate)\s*(payment|transaction)/i,
+  /\bcharge\s*(card|customer|account)/i,
+  /\bcreate\s*(payment|invoice|charge)/i,
+
+  // Fund transfers
+  /\btransfer\s*(fund|money|balance)/i,
+  /\bsend\s*money\b/i,
+  /\bwire\s*transfer\b/i,
+
+  // Account operations
+  /\bwithdraw(al)?\b/i,
+  /\bdeposit\b/i,
+  /\bdebit\b/i,
+  /\bcredit\s*(account|card|balance)/i,
+
+  // Trading operations
+  /\b(execute|place|submit)\s*(trade|order)/i,
+  /\bbuy\s*(stock|share|asset|crypto)/i,
+  /\bsell\s*(stock|share|asset|crypto)/i,
+  /\bmarket\s*order\b/i,
+  /\blimit\s*order\b/i,
+
+  // Investment operations
+  /\binvest\s*in\b/i,
+  /\ballocate\s*(fund|capital)/i,
+  /\brebalance\s*portfolio/i,
+
+  // Crypto operations
+  /\bmint\s*(token|nft)/i,
+  /\bswap\s*(token|crypto)/i,
+  /\bstake\b/i,
+];
+
+/**
  * Get all patterns for a specific severity level
  */
 export function getPatternsBySeverity(
@@ -390,7 +486,65 @@ export function checkTextForAUPViolations(text: string): Array<{
 }
 
 /**
+ * Check if text indicates analytics/reporting use case (Issue #139)
+ *
+ * @param text - The text to analyze (tool name, description, or README)
+ * @returns true if analytics/reporting patterns are detected
+ */
+export function isAnalyticsContext(text: string): boolean {
+  return FINANCIAL_ANALYTICS_EXEMPTION_PATTERNS.some((pattern) =>
+    pattern.test(text),
+  );
+}
+
+/**
+ * Check if text indicates actual financial transaction capabilities (Issue #139)
+ *
+ * @param text - The text to analyze
+ * @returns true if financial action patterns are detected
+ */
+export function hasFinancialActions(text: string): boolean {
+  return FINANCIAL_ACTION_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+/**
+ * Context-aware check for financial high-risk domain (Issue #139)
+ *
+ * Returns true ONLY if:
+ * 1. Financial keywords are present AND
+ * 2. Financial action patterns are present OR analytics exemption patterns are absent
+ *
+ * This prevents false positives for analytics/reporting servers while
+ * maintaining detection of actual financial transaction servers.
+ *
+ * @param text - The text to analyze
+ * @returns true if this is genuinely a financial services context
+ */
+export function isFinancialServicesContext(text: string): boolean {
+  const hasFinancialKeyword =
+    /\b(financial|banking|payment|trading|investment)/i.test(text);
+
+  if (!hasFinancialKeyword) {
+    return false;
+  }
+
+  // If financial action patterns are present, it's genuinely financial services
+  if (hasFinancialActions(text)) {
+    return true;
+  }
+
+  // If analytics context is detected, exempt from financial services flag
+  if (isAnalyticsContext(text)) {
+    return false;
+  }
+
+  // Default: treat as financial services if keywords present but no clear context
+  return true;
+}
+
+/**
  * Check text for high-risk domain keywords
+ * Now with context-aware detection for Financial Services (Issue #139)
  */
 export function checkTextForHighRiskDomains(
   text: string,
@@ -402,6 +556,14 @@ export function checkTextForHighRiskDomains(
   }> = [];
 
   for (const domainDef of HIGH_RISK_DOMAINS) {
+    // Issue #139: Context-aware Financial Services detection
+    // Skip Financial Services if text is analytics context without financial actions
+    if (domainDef.domain === "Financial Services") {
+      if (!isFinancialServicesContext(text)) {
+        continue; // Skip - this is analytics, not financial transactions
+      }
+    }
+
     const match = text.match(domainDef.pattern);
     if (match) {
       matches.push({
