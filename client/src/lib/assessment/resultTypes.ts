@@ -482,6 +482,7 @@ export interface FunctionalityAssessment {
  * Test validity warning when responses are suspiciously uniform.
  * Indicates tests may not have reached security-relevant code paths.
  * Issue #134: Detect identical security test responses
+ * Issue #135: Enhanced data for Stage B Claude analysis
  */
 export interface TestValidityWarning {
   /** Number of responses that match the most common pattern */
@@ -502,6 +503,60 @@ export interface TestValidityWarning {
     | "unknown";
   /** Human-readable explanation */
   explanation: string;
+
+  // Issue #135: Enhanced fields for Stage B semantic analysis
+
+  /** Response diversity metrics for Claude analysis */
+  responseDiversity?: {
+    /** Number of unique normalized responses */
+    uniqueResponses: number;
+    /** Shannon entropy (0=uniform, 1=max diversity) */
+    entropyScore: number;
+    /** Top response distribution by frequency */
+    distribution: Array<{
+      response: string;
+      count: number;
+      percentage: number;
+    }>;
+  };
+
+  /** Per-tool uniformity breakdown */
+  toolUniformity?: Record<
+    string,
+    {
+      identicalCount: number;
+      totalCount: number;
+      percentageIdentical: number;
+    }
+  >;
+
+  /** Attack pattern correlation for semantic analysis */
+  attackPatternCorrelation?: Record<
+    string,
+    {
+      testCount: number;
+      uniqueResponses: number;
+      samplePayload?: string;
+      sampleResponse?: string;
+    }
+  >;
+
+  /** Sample payload-response pairs for Claude analysis */
+  samplePairs?: Array<{
+    attackCategory: string;
+    payload: string;
+    response: string;
+    vulnerable: boolean;
+  }>;
+
+  /** Response metadata statistics */
+  responseMetadata?: {
+    avgLength: number;
+    minLength: number;
+    maxLength: number;
+    emptyCount: number;
+    errorCount: number;
+  };
 }
 
 export interface SecurityAssessment {

@@ -521,4 +521,280 @@ b'{"status":{"error":"Wrong input: Vector with name \`fast-all-minilm-l6-v2\` is
       expect(result.warning?.detectedPattern).toBe("connection_error");
     });
   });
+
+  // Issue #135: Enhanced data tests for Stage B semantic analysis
+  describe("Enhanced Stage B Data", () => {
+    describe("Response Diversity", () => {
+      it("calculates low entropy for uniform responses", () => {
+        const tests = generateUniformResults(
+          100,
+          '{"error": "config missing"}',
+        );
+
+        const result = analyzer.analyze(tests);
+
+        expect(result.warning?.responseDiversity).toBeDefined();
+        expect(result.warning?.responseDiversity?.uniqueResponses).toBe(1);
+        expect(result.warning?.responseDiversity?.entropyScore).toBe(0);
+      });
+
+      it("calculates higher entropy for diverse responses triggering warning", () => {
+        // 85 identical + 15 diverse = triggers warning but has some diversity
+        const identicalTests = generateUniformResults(
+          85,
+          '{"error": "config missing"}',
+        );
+        const diverseTests = generateDiverseResults(15);
+        const tests = [...identicalTests, ...diverseTests];
+
+        const result = analyzer.analyze(tests);
+
+        expect(result.warning?.responseDiversity).toBeDefined();
+        expect(
+          result.warning?.responseDiversity?.uniqueResponses,
+        ).toBeGreaterThan(1);
+        expect(result.warning?.responseDiversity?.entropyScore).toBeGreaterThan(
+          0,
+        );
+      });
+
+      it("includes response distribution sorted by frequency", () => {
+        // 85% identical triggers warning, with some diversity
+        const tests = [
+          ...generateUniformResults(85, '{"error": "most common"}'),
+          ...generateUniformResults(10, '{"error": "second"}'),
+          ...generateUniformResults(5, '{"error": "third"}'),
+        ];
+
+        const result = analyzer.analyze(tests);
+
+        expect(result.warning?.responseDiversity?.distribution).toBeDefined();
+        expect(
+          result.warning?.responseDiversity?.distribution?.length,
+        ).toBeLessThanOrEqual(5);
+        expect(result.warning?.responseDiversity?.distribution?.[0].count).toBe(
+          85,
+        );
+        expect(
+          result.warning?.responseDiversity?.distribution?.[0].percentage,
+        ).toBeCloseTo(85, 0);
+      });
+    });
+
+    describe("Tool Uniformity Export", () => {
+      it("exports toolUniformity as JSON object (not Map)", () => {
+        // Both tools have identical responses - triggers warning
+        const tests = [
+          ...generateUniformResults(50, '{"error": "config"}', "tool-1"),
+          ...generateUniformResults(50, '{"error": "config"}', "tool-2"),
+        ];
+
+        const result = analyzer.analyze(tests);
+
+        expect(result.warning?.toolUniformity).toBeDefined();
+        expect(typeof result.warning?.toolUniformity).toBe("object");
+        expect(result.warning?.toolUniformity?.["tool-1"]).toEqual({
+          identicalCount: 50,
+          totalCount: 50,
+          percentageIdentical: 100,
+        });
+      });
+    });
+
+    describe("Attack Pattern Correlation", () => {
+      it("categorizes tests by attack type", () => {
+        const tests: SecurityTestResult[] = [
+          ...Array(30)
+            .fill(0)
+            .map((_, i) =>
+              createTestResult({
+                testName: `SQL Injection Test ${i}`,
+                response: '{"error": "config"}',
+              }),
+            ),
+          ...Array(20)
+            .fill(0)
+            .map((_, i) =>
+              createTestResult({
+                testName: `XSS Script Test ${i}`,
+                response: '{"error": "config"}',
+              }),
+            ),
+          ...Array(50)
+            .fill(0)
+            .map((_, i) =>
+              createTestResult({
+                testName: `Command RCE Test ${i}`,
+                response: '{"error": "config"}',
+              }),
+            ),
+        ];
+
+        const result = analyzer.analyze(tests);
+
+        expect(result.warning?.attackPatternCorrelation).toBeDefined();
+        expect(
+          result.warning?.attackPatternCorrelation?.["injection"]?.testCount,
+        ).toBe(30);
+        expect(
+          result.warning?.attackPatternCorrelation?.["xss"]?.testCount,
+        ).toBe(20);
+        expect(
+          result.warning?.attackPatternCorrelation?.["command_injection"]
+            ?.testCount,
+        ).toBe(50);
+      });
+
+      it("includes sample payload and response per category", () => {
+        const tests = generateUniformResults(100, '{"error": "config"}');
+        tests[0].testName = "SQL Injection Test";
+        tests[0].payload = "SELECT * FROM users";
+
+        const result = analyzer.analyze(tests);
+
+        expect(
+          result.warning?.attackPatternCorrelation?.["injection"]
+            ?.samplePayload,
+        ).toBeDefined();
+        expect(
+          result.warning?.attackPatternCorrelation?.["injection"]
+            ?.sampleResponse,
+        ).toBeDefined();
+      });
+    });
+
+    describe("Sample Pairs Collection", () => {
+      it("collects diverse sample pairs up to maxSamplePairs", () => {
+        const tests = generateUniformResults(100, '{"error": "config"}');
+        // Give each test a different attack category
+        tests.forEach((t, i) => {
+          t.testName = i % 2 === 0 ? "SQL Injection" : "XSS Script";
+          t.payload = `payload-${i}`;
+        });
+
+        const result = analyzer.analyze(tests);
+
+        expect(result.warning?.samplePairs).toBeDefined();
+        expect(result.warning?.samplePairs?.length).toBeLessThanOrEqual(10);
+      });
+
+      it("prioritizes category diversity in sample pairs", () => {
+        const tests: SecurityTestResult[] = [
+          createTestResult({
+            testName: "SQL Injection",
+            payload: "sql-payload",
+            response: '{"error": "config"}',
+          }),
+          createTestResult({
+            testName: "XSS Script",
+            payload: "xss-payload",
+            response: '{"error": "config"}',
+          }),
+          createTestResult({
+            testName: "Command RCE",
+            payload: "cmd-payload",
+            response: '{"error": "config"}',
+          }),
+          ...generateUniformResults(97, '{"error": "config"}'),
+        ];
+
+        const result = analyzer.analyze(tests);
+
+        // Should have at least 3 different categories in first 3 pairs
+        const categories = new Set(
+          result.warning?.samplePairs?.slice(0, 3).map((p) => p.attackCategory),
+        );
+        expect(categories.size).toBeGreaterThanOrEqual(3);
+      });
+
+      it("includes vulnerability status in sample pairs", () => {
+        const tests = generateUniformResults(100, '{"error": "config"}');
+        tests[0].vulnerable = true;
+
+        const result = analyzer.analyze(tests);
+
+        expect(
+          result.warning?.samplePairs?.some((p) => p.vulnerable === true) ||
+            result.warning?.samplePairs?.some((p) => p.vulnerable === false),
+        ).toBe(true);
+      });
+    });
+
+    describe("Response Metadata", () => {
+      it("calculates response length statistics", () => {
+        const tests = [
+          createTestResult({ response: "a".repeat(100) }),
+          createTestResult({ response: "b".repeat(200) }),
+          createTestResult({ response: "c".repeat(300) }),
+          ...generateUniformResults(97, '{"error": "config"}'),
+        ];
+
+        const result = analyzer.analyze(tests);
+
+        expect(result.warning?.responseMetadata).toBeDefined();
+        expect(result.warning?.responseMetadata?.avgLength).toBeGreaterThan(0);
+        expect(result.warning?.responseMetadata?.minLength).toBeGreaterThan(0);
+        expect(result.warning?.responseMetadata?.maxLength).toBeGreaterThan(
+          result.warning?.responseMetadata?.minLength || 0,
+        );
+      });
+
+      it("counts empty responses", () => {
+        const tests = [
+          createTestResult({ response: "{}" }),
+          createTestResult({ response: "[]" }),
+          createTestResult({ response: "null" }),
+          createTestResult({ response: "" }),
+          ...generateUniformResults(96, '{"error": "config"}'),
+        ];
+
+        const result = analyzer.analyze(tests);
+
+        expect(
+          result.warning?.responseMetadata?.emptyCount,
+        ).toBeGreaterThanOrEqual(4);
+      });
+
+      it("counts error responses", () => {
+        const tests = generateUniformResults(
+          100,
+          '{"error": "something failed"}',
+        );
+
+        const result = analyzer.analyze(tests);
+
+        expect(result.warning?.responseMetadata?.errorCount).toBe(100);
+      });
+    });
+
+    describe("Config Options", () => {
+      it("respects custom maxSamplePairs", () => {
+        const customAnalyzer = new TestValidityAnalyzer({ maxSamplePairs: 3 });
+        const tests = generateUniformResults(100, '{"error": "config"}');
+        tests.forEach((t, i) => (t.payload = `payload-${i}`));
+
+        const result = customAnalyzer.analyze(tests);
+
+        expect(result.warning?.samplePairs?.length).toBeLessThanOrEqual(3);
+      });
+
+      it("respects custom maxDistributionEntries", () => {
+        const customAnalyzer = new TestValidityAnalyzer({
+          maxDistributionEntries: 2,
+        });
+        // 85% identical triggers warning
+        const tests = [
+          ...generateUniformResults(85, '{"a": 1}'),
+          ...generateUniformResults(10, '{"b": 2}'),
+          ...generateUniformResults(5, '{"c": 3}'),
+        ];
+
+        const result = customAnalyzer.analyze(tests);
+
+        expect(
+          result.warning?.responseDiversity?.distribution?.length,
+        ).toBeLessThanOrEqual(2);
+      });
+    });
+  });
 });

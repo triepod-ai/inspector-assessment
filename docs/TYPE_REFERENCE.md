@@ -414,6 +414,79 @@ interface SecurityAssessment {
   overallRiskLevel: SecurityRiskLevel;
   status: AssessmentStatus;
   explanation: string;
+  // Issue #75: Auth bypass summary for fail-open vulnerability detection
+  authBypassSummary?: {
+    toolsWithAuthBypass: string[];
+    failOpenCount: number;
+    failClosedCount: number;
+    unknownCount: number;
+  };
+  // Issue #134: Test validity warning for response uniformity detection
+  testValidityWarning?: TestValidityWarning;
+  overallConfidence?: "high" | "medium" | "low";
+}
+```
+
+#### TestValidityWarning
+
+Detects when security tests return suspiciously uniform responses (Issue #134, #135).
+
+```typescript
+interface TestValidityWarning {
+  // Core fields (Issue #134)
+  identicalResponseCount: number;
+  totalResponses: number;
+  percentageIdentical: number;
+  sampleResponse: string;
+  detectedPattern:
+    | "configuration_error"
+    | "connection_error"
+    | "timeout"
+    | "empty_response"
+    | "generic_error"
+    | "unknown";
+  explanation: string;
+
+  // Enhanced Stage B fields (Issue #135)
+  responseDiversity?: {
+    uniqueResponses: number;
+    entropyScore: number; // Shannon entropy 0-1 (0=uniform, 1=max diversity)
+    distribution: Array<{
+      response: string;
+      count: number;
+      percentage: number;
+    }>;
+  };
+  toolUniformity?: Record<
+    string,
+    {
+      identicalCount: number;
+      totalCount: number;
+      percentageIdentical: number;
+    }
+  >;
+  attackPatternCorrelation?: Record<
+    string,
+    {
+      testCount: number;
+      uniqueResponses: number;
+      samplePayload?: string;
+      sampleResponse?: string;
+    }
+  >;
+  samplePairs?: Array<{
+    attackCategory: string;
+    payload: string;
+    response: string;
+    vulnerable: boolean;
+  }>;
+  responseMetadata?: {
+    avgLength: number;
+    minLength: number;
+    maxLength: number;
+    emptyCount: number;
+    errorCount: number;
+  };
 }
 ```
 
