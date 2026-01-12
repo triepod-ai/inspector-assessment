@@ -217,6 +217,11 @@ export interface SecurityTestResult {
   scopeTriggerPayload?: string; // e.g., "admin", "sudo", "write_file"
   scopeCweIds?: string[]; // e.g., ["CWE-250", "CWE-269"]
   excessivePermissionsEvidence?: string; // Evidence text that triggered detection
+  // Issue #146: Execution context classification for false positive reduction
+  // Distinguishes between actual execution and payload reflection in errors
+  executionContext?: "CONFIRMED" | "LIKELY_FALSE_POSITIVE" | "SUSPECTED";
+  contextEvidence?: string; // Evidence supporting the context classification
+  operationSucceeded?: boolean; // Whether the operation succeeded or failed
 }
 
 // ============================================================================

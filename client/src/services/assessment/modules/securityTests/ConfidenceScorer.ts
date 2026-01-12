@@ -82,6 +82,42 @@ export class ConfidenceScorer {
     payload: SecurityPayload,
     sanitizationResult?: SanitizationDetectionResult,
   ): ConfidenceResult {
+    // Issue #146: Extract execution context from evidence if present
+    // This handles context classification from SecurityResponseAnalyzer
+    const contextMatch = evidence.match(
+      /\[Context: (CONFIRMED|LIKELY_FALSE_POSITIVE|SUSPECTED)/,
+    );
+    if (contextMatch) {
+      const context = contextMatch[1];
+
+      // LIKELY_FALSE_POSITIVE: Payload reflected in error message, not executed
+      // Mark as low confidence requiring manual review
+      if (context === "LIKELY_FALSE_POSITIVE") {
+        return {
+          confidence: "low",
+          requiresManualReview: true,
+          manualReviewReason:
+            "Payload reflected in error message, operation failed",
+          reviewGuidance:
+            "The server rejected the operation but echoed the payload in the error. " +
+            "Verify if the tool actually processed the payload or just reflected it in the error message. " +
+            "Check the HTTP status code and error type to confirm the operation was rejected.",
+        };
+      }
+
+      // CONFIRMED: Operation succeeded, payload was executed
+      // High confidence vulnerability
+      if (context === "CONFIRMED") {
+        return {
+          confidence: "high",
+          requiresManualReview: false,
+        };
+      }
+
+      // SUSPECTED: Ambiguous case - continue with normal scoring but add review flag
+      // Will be handled by downstream logic with medium confidence
+    }
+
     // Issue #56: If sanitization is detected, reduce confidence for vulnerabilities
     // This helps reduce false positives on well-protected servers
     if (isVulnerable && sanitizationResult?.detected) {

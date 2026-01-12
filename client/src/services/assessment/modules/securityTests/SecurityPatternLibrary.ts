@@ -60,6 +60,87 @@ export const VALIDATION_ERROR_PATTERNS = [
 ] as const;
 
 // =============================================================================
+// ERROR CONTEXT PATTERNS (Issue #146)
+// =============================================================================
+
+/**
+ * Issue #146: Error context patterns indicating operation failure
+ * Used to detect when payload appears in error message (likely false positive)
+ * These patterns indicate the server rejected/failed the operation
+ */
+export const ERROR_CONTEXT_PATTERNS = [
+  /failed\s+to\s+(?:get|read|load|access|process|fetch|retrieve|find)/i,
+  /error:\s+response\s+status:\s+\d{3}/i,
+  /(?:could\s+not|cannot|unable\s+to)\s+(?:find|locate|access|read|get|load)/i,
+  /\b(?:not\s+found|doesn['']t\s+exist|no\s+such|does\s+not\s+exist)\b/i,
+  /error\s+(?:loading|reading|processing|fetching|accessing)/i,
+  /(?:operation|request)\s+failed/i,
+  /invalid\s+(?:path|file|resource|input|parameter)/i,
+  /\b(?:rejected|refused|denied)\b/i,
+  /(?:resource|file|path)\s+(?:is\s+)?(?:invalid|not\s+allowed)/i,
+  /access\s+(?:denied|forbidden)/i,
+  /permission\s+denied/i,
+  /\b(?:4\d{2}|5\d{2})\s*(?:error|not\s+found|bad\s+request|unauthorized|forbidden)/i,
+] as const;
+
+/**
+ * Issue #146: Success context patterns indicating operation completion
+ * Used to confirm operation actually executed (high confidence vulnerability)
+ * These patterns indicate the server processed and returned results
+ */
+export const SUCCESS_CONTEXT_PATTERNS = [
+  /(?:successfully|completed)\s+(?:read|loaded|accessed|executed|retrieved)/i,
+  /file\s+contents?:/i,
+  /data\s+retrieved/i,
+  /execution\s+result:/i,
+  /\boutput:/i,
+  /\bresults?:/i,
+  /returned\s+(?:data|content|results)/i,
+  /read\s+\d+\s+bytes/i,
+  /fetched\s+(?:from|data)/i,
+] as const;
+
+/**
+ * Issue #146: Check if payload appears in error context (likely false positive)
+ * @param responseText The full response text from the tool
+ * @param payload The payload that was sent to the tool
+ * @returns true if payload is reflected in an error context
+ */
+export function isPayloadInErrorContext(
+  responseText: string,
+  payload: string,
+): boolean {
+  // Check if response contains error patterns
+  const hasErrorContext = ERROR_CONTEXT_PATTERNS.some((p) =>
+    p.test(responseText),
+  );
+  // Check if payload is reflected in the response
+  const payloadReflected = responseText
+    .toLowerCase()
+    .includes(payload.toLowerCase());
+
+  return hasErrorContext && payloadReflected;
+}
+
+/**
+ * Issue #146: Check if response indicates successful operation (high confidence)
+ * @param responseText The full response text from the tool
+ * @returns true if response indicates operation succeeded
+ */
+export function hasSuccessContext(responseText: string): boolean {
+  return SUCCESS_CONTEXT_PATTERNS.some((p) => p.test(responseText));
+}
+
+/**
+ * Issue #146: Check if response indicates failed operation (error context)
+ * @param responseText The full response text from the tool
+ * @returns true if response indicates operation failed
+ */
+export function hasErrorContext(responseText: string): boolean {
+  return ERROR_CONTEXT_PATTERNS.some((p) => p.test(responseText));
+}
+
+// =============================================================================
 // EXECUTION EVIDENCE PATTERNS
 // =============================================================================
 

@@ -38,6 +38,10 @@ import {
   // Issue #144: Excessive permissions scope patterns (Challenge #22)
   SCOPE_VIOLATION_PATTERNS,
   SCOPE_ENFORCED_PATTERNS,
+  // Issue #146: Error context patterns for false positive reduction
+  isPayloadInErrorContext,
+  hasSuccessContext,
+  hasErrorContext,
 } from "./SecurityPatternLibrary";
 
 // Re-export types for backward compatibility
@@ -264,7 +268,23 @@ export class SecurityResponseAnalyzer {
     if (behaviorResult) return behaviorResult;
 
     // Check 3: Vulnerability evidence matching
-    return this.checkVulnerabilityEvidence(response, payload, responseText);
+    const vulnResult = this.checkVulnerabilityEvidence(
+      response,
+      payload,
+      responseText,
+    );
+
+    // Issue #146: If vulnerable, classify execution context to reduce false positives
+    // This distinguishes between actual execution and payload reflection in errors
+    if (vulnResult.isVulnerable) {
+      return this.classifyVulnerabilityContext(
+        vulnResult,
+        responseText,
+        payload,
+      );
+    }
+
+    return vulnResult;
   }
 
   /**
@@ -1616,6 +1636,66 @@ export class SecurityResponseAnalyzer {
 
     // Fall back to injection response analysis
     return this.analyzeInjectionResponse(response);
+  }
+
+  // ============================================================================
+  // Issue #146: Execution Context Classification (False Positive Reduction)
+  // ============================================================================
+
+  /**
+   * Issue #146: Classify vulnerability context to reduce false positives
+   * Distinguishes between actual execution and payload reflection in errors
+   *
+   * Context classification:
+   * - CONFIRMED: Operation succeeded, payload was actually executed (HIGH risk)
+   * - LIKELY_FALSE_POSITIVE: Operation failed, payload just reflected in error (LOW risk)
+   * - SUSPECTED: Ambiguous case requiring manual review (MEDIUM risk)
+   *
+   * @param vulnResult The vulnerability analysis result from checkVulnerabilityEvidence
+   * @param responseText The full response text (lowercase)
+   * @param payload The security payload that was tested
+   * @returns Updated AnalysisResult with context classification
+   */
+  private classifyVulnerabilityContext(
+    vulnResult: AnalysisResult,
+    responseText: string,
+    payload: SecurityPayload,
+  ): AnalysisResult {
+    // Use pattern library helpers to detect context
+    const hasError = hasErrorContext(responseText);
+    const hasSuccess = hasSuccessContext(responseText);
+    const payloadInError = isPayloadInErrorContext(
+      responseText,
+      payload.payload,
+    );
+
+    // CONFIRMED: Success patterns present, no error patterns
+    // This indicates the operation actually executed and returned results
+    if (hasSuccess && !hasError) {
+      return {
+        ...vulnResult,
+        evidence: `${vulnResult.evidence} [Context: CONFIRMED - operation succeeded]`,
+      };
+    }
+
+    // LIKELY_FALSE_POSITIVE: Error context with payload reflection
+    // The server rejected the operation but echoed the payload in the error message
+    if (payloadInError && hasError) {
+      return {
+        isVulnerable: false,
+        evidence:
+          `Operation failed with error containing reflected payload. ` +
+          `Original detection: ${vulnResult.evidence} ` +
+          `[Context: LIKELY_FALSE_POSITIVE - payload reflected in error message, not executed]`,
+      };
+    }
+
+    // SUSPECTED: Ambiguous (neither clear success nor clear error)
+    // Mark as requiring manual review
+    return {
+      ...vulnResult,
+      evidence: `${vulnResult.evidence} [Context: SUSPECTED - requires manual review]`,
+    };
   }
 
   // ============================================================================
