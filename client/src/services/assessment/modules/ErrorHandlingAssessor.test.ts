@@ -18,6 +18,10 @@ describe("ErrorHandlingAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess", () => {
     it("should assess error handling with various error scenarios", async () => {
       // Arrange

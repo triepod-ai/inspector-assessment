@@ -25,6 +25,10 @@ describe("Firecrawl False Positive Fix Validation", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("should correctly assess firecrawl_scrape with insufficient credits error", async () => {
     const tool: Tool = {
       name: "firecrawl_scrape",

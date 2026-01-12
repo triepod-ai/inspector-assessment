@@ -15,6 +15,10 @@ const createMockLogger = (): Logger & { warn: jest.Mock } => ({
 });
 
 describe("createConcurrencyLimit", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("should limit concurrent operations to the specified concurrency", async () => {
     const concurrency = 2;
     const limit = createConcurrencyLimit(concurrency);

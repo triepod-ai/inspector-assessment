@@ -291,6 +291,10 @@ function createInvalidConfig(content: string, filename?: string): string {
 // ============================================================================
 
 describe("CLI E2E Integration Tests", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   let vulnerableAvailable = false;
   let hardenedAvailable = false;
 

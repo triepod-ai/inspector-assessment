@@ -47,6 +47,10 @@ describe("TemporalAssessor - Secondary Content Detection for Stateful Tools", ()
     >(mutationDetector, "hasPromotionalKeywords");
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("hasErrorKeywords", () => {
     it("detects error keyword", () => {
       expect(hasErrorKeywords("Error: Something failed")).toBe(true);

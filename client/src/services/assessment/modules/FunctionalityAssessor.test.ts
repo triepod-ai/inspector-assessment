@@ -18,6 +18,10 @@ describe("FunctionalityAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess", () => {
     it("should return functionality assessment with all tools tested", async () => {
       // Arrange

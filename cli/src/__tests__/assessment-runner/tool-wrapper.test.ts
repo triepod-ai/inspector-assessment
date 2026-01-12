@@ -22,6 +22,10 @@ describe("createCallToolWrapper", () => {
     };
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("successful tool calls", () => {
     it("should wrap successful tool response with content array", async () => {
       mockCallTool.mockResolvedValue({

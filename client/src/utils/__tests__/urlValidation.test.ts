@@ -1,6 +1,10 @@
 import { validateRedirectUrl, isPrivateUrl } from "../urlValidation";
 
 describe("validateRedirectUrl", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("valid URLs", () => {
     it("should allow HTTP URLs", () => {
       expect(() => validateRedirectUrl("http://example.com")).not.toThrow();

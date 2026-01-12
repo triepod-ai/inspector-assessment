@@ -27,6 +27,10 @@ import {
 } from "../cli-parserSchemas.js";
 
 describe("cli-parserSchemas", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Re-exported schemas", () => {
     test("exports ZOD_SCHEMA_VERSION", () => {
       expect(ZOD_SCHEMA_VERSION).toBe(1);

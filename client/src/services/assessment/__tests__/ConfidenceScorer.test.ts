@@ -15,6 +15,10 @@ describe("ConfidenceScorer", () => {
     scorer = new ConfidenceScorer();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // Helper to create mock tool
   const createTool = (name: string, description: string = ""): Tool => ({
     name,

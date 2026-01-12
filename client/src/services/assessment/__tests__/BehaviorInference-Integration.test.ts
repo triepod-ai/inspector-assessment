@@ -13,6 +13,10 @@ import { inferBehaviorEnhanced } from "../modules/annotations/BehaviorInference"
 import type { JSONSchema } from "../modules/annotations/SchemaAnalyzer";
 
 describe("BehaviorInference - Signal Aggregation Integration", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("High Confidence Scenarios (All Signals Agree)", () => {
     it("should aggregate to high confidence when all signals agree on read-only", () => {
       const result = inferBehaviorEnhanced(

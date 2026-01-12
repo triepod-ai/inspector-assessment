@@ -28,6 +28,10 @@ describe("ToolAnnotationAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess", () => {
     it("should pass when all tools have proper annotations", async () => {
       // Arrange

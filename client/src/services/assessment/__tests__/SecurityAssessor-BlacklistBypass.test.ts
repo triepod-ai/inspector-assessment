@@ -31,6 +31,10 @@ describe("SecurityAssessor - Blacklist Bypass Detection (Issue #110)", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Blacklist Bypass Detection", () => {
     it("should detect bypass_used: true as blacklist bypass vulnerability", async () => {
       const tool: Tool = {

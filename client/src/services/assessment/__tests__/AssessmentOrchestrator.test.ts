@@ -23,6 +23,10 @@ const createMockTools = (count: number): Tool[] =>
     }));
 
 describe("AssessmentOrchestrator constructor", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("default initialization", () => {
     it("should initialize with default config when no config provided", () => {
       const orchestrator = new AssessmentOrchestrator();

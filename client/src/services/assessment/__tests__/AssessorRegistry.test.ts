@@ -11,6 +11,10 @@ import { AssessmentPhase } from "../registry/types";
 import { DEFAULT_ASSESSMENT_CONFIG } from "@/lib/assessmentTypes";
 
 describe("AssessorRegistry", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("constructor", () => {
     it("should initialize with empty assessors map", () => {
       const registry = new AssessorRegistry(DEFAULT_ASSESSMENT_CONFIG);

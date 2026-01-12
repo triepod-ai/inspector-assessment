@@ -19,6 +19,10 @@ import {
 import { DEFAULT_INSPECTOR_CONFIG } from "../constants";
 
 describe("configurationTypesSchemas", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Re-exported schemas", () => {
     test("exports ZOD_SCHEMA_VERSION", () => {
       expect(ZOD_SCHEMA_VERSION).toBe(1);

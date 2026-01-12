@@ -25,6 +25,10 @@ describe("AssessmentOrchestrator Integration Tests", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Full Assessment Integration", () => {
     it("should orchestrate complete assessment with all categories", async () => {
       // Arrange

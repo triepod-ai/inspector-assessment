@@ -17,6 +17,10 @@ import {
 } from "../../lib/zodErrorFormatter.js";
 
 describe("zodErrorFormatter", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("formatZodIssue", () => {
     it("should format issue with path", () => {
       const issue = {

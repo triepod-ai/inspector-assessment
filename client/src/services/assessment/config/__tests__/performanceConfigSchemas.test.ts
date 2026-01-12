@@ -14,6 +14,10 @@ import {
 import { DEFAULT_PERFORMANCE_CONFIG } from "../performanceConfig";
 
 describe("PerformanceConfigSchema", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("valid configurations", () => {
     test("accepts empty object (all fields optional)", () => {
       const result = PerformanceConfigSchema.safeParse({});

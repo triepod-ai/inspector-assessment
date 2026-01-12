@@ -20,6 +20,10 @@ describe("AuthenticationAssessor - Hardcoded Secret Detection", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Hardcoded Secret Detection", () => {
     it("should detect hardcoded Stripe key", async () => {
       // Arrange

@@ -29,6 +29,10 @@ describe("ProhibitedLibrariesAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess", () => {
     it("should pass with no prohibited libraries", async () => {
       // Arrange

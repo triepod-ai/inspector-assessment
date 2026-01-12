@@ -17,6 +17,10 @@ import * as path from "path";
  */
 
 describe("CLI Argument Parsing Concepts", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Profile Flag Parsing", () => {
     const VALID_PROFILES = ["quick", "security", "compliance", "full"];
 

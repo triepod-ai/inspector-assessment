@@ -36,6 +36,10 @@ describe("DeveloperExperienceAssessor - Namespace Detection (Issue #142)", () =>
     assessor = new DeveloperExperienceAssessor(createConfig());
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // Helper to create minimal context with tools
   function createContext(
     tools: Tool[],

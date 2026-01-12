@@ -14,6 +14,10 @@ import {
 } from "../modules/annotations/SchemaAnalyzer";
 
 describe("SchemaAnalyzer", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("analyzeInputSchema", () => {
     describe("read-only detection", () => {
       it("should detect id-only parameter as read-only", () => {

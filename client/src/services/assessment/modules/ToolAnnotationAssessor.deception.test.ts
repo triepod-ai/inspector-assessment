@@ -27,6 +27,10 @@ describe("ToolAnnotationAssessor - Deception Detection", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("High-Confidence Deception Detection", () => {
     it("should flag MISALIGNED when tool name contains 'exec' with readOnlyHint=true", async () => {
       mockContext.tools = [

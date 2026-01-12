@@ -120,6 +120,10 @@ async function sendMcpRequest(
 }
 
 describe("HTTP Transport Integration", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   let vulnerableServerAvailable = false;
   let hardenedServerAvailable = false;
 

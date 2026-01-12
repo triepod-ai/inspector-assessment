@@ -143,6 +143,10 @@ async function callTool(
 }
 
 describe("Testbed A/B Comparison", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   let bothServersAvailable = false;
   let vulnerableAvailable = false;
   let hardenedAvailable = false;

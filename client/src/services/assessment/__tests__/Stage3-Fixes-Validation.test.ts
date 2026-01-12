@@ -116,6 +116,10 @@ describe("Stage 3 Fixes Validation", () => {
       jest.clearAllMocks();
     });
 
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
     it("should emit test_validity_warning event when uniformity detected", async () => {
       // Create a tool that returns identical responses
       const tool: Tool = {

@@ -18,6 +18,10 @@ import { analyzeDescription } from "../modules/annotations/DescriptionAnalyzer";
 import type { JSONSchema } from "../modules/annotations/SchemaAnalyzer";
 
 describe("Real-world MCP Server Scenarios", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("GitHub MCP Server patterns", () => {
     it("should correctly classify github_create_issue as write operation", () => {
       const result = inferBehaviorEnhanced(

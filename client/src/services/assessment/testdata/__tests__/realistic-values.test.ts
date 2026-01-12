@@ -23,6 +23,10 @@ import {
 } from "../realistic-values";
 
 describe("REALISTIC_DATA Composition", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // TEST-002: Validate FIX-002 - Spread operator creates mutable copies
   describe("Type Safety - Spread Operator", () => {
     it("should create mutable copies from readonly source arrays", () => {

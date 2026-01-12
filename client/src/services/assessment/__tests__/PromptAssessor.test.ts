@@ -53,6 +53,10 @@ describe("PromptAssessor", () => {
     assessor = new PromptAssessor(createConfig());
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess() main flow", () => {
     it("should return PASS with skip message when no prompts provided", async () => {
       const result = await assessor.assess(

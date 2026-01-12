@@ -7,6 +7,10 @@ import {
 } from "../assessmentTypes";
 
 describe("Assessment Types", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("AssessmentCategoryTier type", () => {
     it("should accept 'core' as a valid tier", () => {
       const tier: AssessmentCategoryTier = "core";

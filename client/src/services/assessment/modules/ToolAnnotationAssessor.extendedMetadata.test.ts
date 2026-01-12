@@ -27,6 +27,10 @@ describe("ToolAnnotationAssessor - Extended Metadata Extraction", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Extended Metadata Extraction (Issue #54)", () => {
     it("should extract rate limit from annotations", async () => {
       mockContext.tools = [

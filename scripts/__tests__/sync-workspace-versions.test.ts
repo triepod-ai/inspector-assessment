@@ -30,6 +30,10 @@ describe("Sync Workspace Versions", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Version Synchronization", () => {
     it("should sync all workspace versions to match root version", () => {
       const rootVersion = "1.26.2";

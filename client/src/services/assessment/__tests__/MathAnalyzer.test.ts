@@ -13,6 +13,10 @@ describe("MathAnalyzer", () => {
     analyzer = new MathAnalyzer();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // Helper to create mock tool
   const createTool = (name: string, description: string = ""): Tool => ({
     name,

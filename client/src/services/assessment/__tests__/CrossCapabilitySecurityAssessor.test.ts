@@ -93,6 +93,10 @@ describe("CrossCapabilitySecurityAssessor", () => {
     assessor = new CrossCapabilitySecurityAssessor(createConfig());
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Tool-to-Resource Access Tests", () => {
     it("should detect resource access tool with path param accessing sensitive resource", async () => {
       const tools = [

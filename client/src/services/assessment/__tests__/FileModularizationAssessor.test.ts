@@ -31,6 +31,10 @@ describe("FileModularizationAssessor", () => {
     assessor = new FileModularizationAssessor(config);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("countToolsInFile", () => {
     let countToolsInFile: (content: string, language: string | null) => number;
 

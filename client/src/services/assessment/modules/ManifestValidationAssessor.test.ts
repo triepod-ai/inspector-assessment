@@ -27,6 +27,10 @@ describe("ManifestValidationAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess", () => {
     it("should pass with valid manifest.json", async () => {
       // Arrange - include icon for complete manifest

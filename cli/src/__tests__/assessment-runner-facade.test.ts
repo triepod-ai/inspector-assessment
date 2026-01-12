@@ -26,6 +26,10 @@ import * as AssessmentRunner from "../lib/assessment-runner.js";
 import type { SourceFiles, CallToolFn } from "../lib/assessment-runner.js";
 
 describe("Assessment Runner Facade", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Function Exports", () => {
     it("should export loadServerConfig function", () => {
       expect(typeof loadServerConfig).toBe("function");

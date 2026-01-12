@@ -447,6 +447,10 @@ describe("Output Schema Validation", () => {
     cacheToolOutputSchemas([]);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("cacheToolOutputSchemas", () => {
     test("caches validators for tools with output schemas", () => {
       cacheToolOutputSchemas(mockTools);

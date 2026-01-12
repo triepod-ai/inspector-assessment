@@ -5,6 +5,10 @@ import {
 } from "@/utils/oauthUtils";
 
 describe("parseOAuthCallbackParams", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("Returns successful: true and code when present", () => {
     expect(parseOAuthCallbackParams("?code=fake-code")).toEqual({
       successful: true,

@@ -38,6 +38,10 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Pure Behavior Detection (Ignores Flags)", () => {
     it("should detect safe reflection WITHOUT flag assistance", async () => {
       const tool: Tool = {

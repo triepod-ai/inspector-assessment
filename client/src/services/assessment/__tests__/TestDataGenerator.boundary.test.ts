@@ -7,6 +7,10 @@ import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { TestDataGenerator } from "../TestDataGenerator";
 
 describe("TestDataGenerator - Boundary Scenario Optimization", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("generateBoundaryScenarios", () => {
     it("should return empty array for tool without boundary constraints", () => {
       // Tool with no min/max constraints

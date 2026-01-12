@@ -31,6 +31,10 @@ function createMockSecurityTest(
 }
 
 describe("stageBEnrichmentBuilder", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("buildToolSummaryStageBEnrichment", () => {
     it("should return empty enrichment for empty tests", () => {
       const result = buildToolSummaryStageBEnrichment("test_tool", []);

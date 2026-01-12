@@ -2,6 +2,10 @@ import { cleanParams } from "../paramUtils";
 import type { JsonSchemaType } from "../jsonUtils";
 
 describe("cleanParams", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("should preserve required fields even when undefined", () => {
     const schema: JsonSchemaType = {
       type: "object",

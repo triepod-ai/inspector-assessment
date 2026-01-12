@@ -23,6 +23,10 @@ describe("ToolClassifier", () => {
     classifier = new ToolClassifier();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // ============================================================================
   // HIGH RISK CATEGORIES (7)
   // ============================================================================

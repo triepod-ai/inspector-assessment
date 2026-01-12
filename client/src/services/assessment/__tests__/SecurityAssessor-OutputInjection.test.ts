@@ -31,6 +31,10 @@ describe("SecurityAssessor - Output Injection Detection (Issue #110)", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("LLM Injection Marker Detection", () => {
     it("should detect <IMPORTANT> tags as output injection vulnerability", async () => {
       const tool: Tool = {

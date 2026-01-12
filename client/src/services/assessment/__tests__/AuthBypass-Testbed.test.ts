@@ -22,6 +22,10 @@ describe("Auth Bypass Detection - Challenge #5 Testbed Validation", () => {
     analyzer = new SecurityResponseAnalyzer();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   /**
    * Helper to create mock response
    */

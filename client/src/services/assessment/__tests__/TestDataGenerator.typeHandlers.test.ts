@@ -22,6 +22,10 @@ const getPrivateStaticMethod = (methodName: string) => {
 };
 
 describe("TestDataGenerator - Type Handlers", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // ===========================================================================
   // Type Handlers - Boolean
   // ===========================================================================

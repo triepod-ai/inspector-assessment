@@ -1,6 +1,10 @@
 import { escapeUnicode } from "../escapeUnicode";
 
 describe("escapeUnicode", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("should escape Unicode characters in a string", () => {
     const input = { text: "你好世界" };
     const expected = '{\n  "text": "\\\\u4f60\\\\u597d\\\\u4e16\\\\u754c"\n}';

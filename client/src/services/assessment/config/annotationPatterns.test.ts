@@ -18,6 +18,10 @@ const createMockLogger = (): Logger & { warn: jest.Mock } => ({
 });
 
 describe("loadPatternConfig", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Backwards Compatibility - Logger Parameter", () => {
     it("should return defaults without config path (no logger)", () => {
       const config = loadPatternConfig();

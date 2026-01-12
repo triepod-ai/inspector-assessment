@@ -75,6 +75,10 @@ describe("TestScenarioEngine", () => {
       engine = new TestScenarioEngine(100, 0); // Short timeout for tests
     });
 
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
     it("should return minimalWorks=true when minimal params succeed", async () => {
       const tool = createTool("test_tool", {
         properties: { query: { type: "string" } },

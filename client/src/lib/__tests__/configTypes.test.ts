@@ -19,6 +19,10 @@ import {
 } from "../assessment/configTypes";
 
 describe("AssessmentConfiguration presets", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("configVersion field (Issue #107)", () => {
     const CURRENT_CONFIG_VERSION = 2;
 

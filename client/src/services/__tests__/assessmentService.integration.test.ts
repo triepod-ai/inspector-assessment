@@ -82,6 +82,10 @@ describe("MCPAssessmentService - Integration Tests", () => {
     mockCallTool = jest.fn();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Performance and Integration Tests", () => {
     describe("Large Tool Set Performance", () => {
       it("should handle assessment of many tools efficiently", async () => {

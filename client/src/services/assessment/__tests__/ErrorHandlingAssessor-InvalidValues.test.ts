@@ -14,6 +14,10 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
     assessor = new ErrorHandlingAssessor(DEFAULT_ASSESSMENT_CONFIG);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   /**
    * Helper to create mock ErrorTestDetail for invalid_values tests
    */

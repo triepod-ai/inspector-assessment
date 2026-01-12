@@ -20,6 +20,10 @@ describe("AuthenticationAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess", () => {
     it("should pass with no auth issues", async () => {
       // Arrange

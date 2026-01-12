@@ -29,6 +29,10 @@ describe("PortabilityAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess", () => {
     it("should pass with no portability issues", async () => {
       // Arrange

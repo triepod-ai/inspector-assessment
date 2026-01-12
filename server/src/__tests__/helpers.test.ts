@@ -61,6 +61,10 @@ const createMockRequest = (
 });
 
 describe("is401Error", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("SseError detection", () => {
     it("should return true for SseError with code 401", () => {
       const error = new SseError(401, "Unauthorized", createMockErrorEvent());

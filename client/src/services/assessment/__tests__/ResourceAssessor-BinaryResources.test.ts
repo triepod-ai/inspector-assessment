@@ -35,6 +35,10 @@ describe("ResourceAssessor - Binary Resource Vulnerabilities (Issue #127)", () =
     assessor = new ResourceAssessor(createConfig());
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Blob DoS Detection (CWE-400, CWE-409)", () => {
     it("should detect HIGH risk for 1GB blob size acceptance", async () => {
       // Use shared assessor from beforeEach

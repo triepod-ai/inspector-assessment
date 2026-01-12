@@ -264,6 +264,10 @@ const VALID_FIXTURES = {
 // ============================================================================
 
 describe("jsonlEventSchemas", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Schema exports", () => {
     test("exports ZOD_SCHEMA_VERSION", () => {
       expect(ZOD_SCHEMA_VERSION).toBe(1);

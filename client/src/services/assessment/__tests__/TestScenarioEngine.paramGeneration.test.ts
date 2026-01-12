@@ -38,6 +38,10 @@ describe("TestScenarioEngine", () => {
       generateMinimalParams = getPrivateMethod(engine, "generateMinimalParams");
     });
 
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
     it("should return empty object for tool without inputSchema", () => {
       const tool: Tool = {
         name: "no_schema",

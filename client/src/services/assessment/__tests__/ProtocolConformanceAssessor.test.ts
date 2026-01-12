@@ -63,6 +63,10 @@ const createMockContext = (
   }) as unknown as AssessmentContext;
 
 describe("ProtocolConformanceAssessor", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Error Response Format", () => {
     it("should pass when error response follows MCP format", async () => {
       const assessor = new ProtocolConformanceAssessor(createConfig());

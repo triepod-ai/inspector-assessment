@@ -21,6 +21,10 @@ const asPartialResults = (obj: Record<string, unknown>) =>
   obj as unknown as Partial<MCPDirectoryAssessment>;
 
 describe("buildAUPEnrichment", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("empty/minimal results", () => {
     it("should return empty sample when no violations", () => {
       const result = buildAUPEnrichment({ violations: [] });

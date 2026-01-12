@@ -21,6 +21,10 @@ describe("SecurityAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess", () => {
     it("should test all 8 security patterns", async () => {
       // Arrange

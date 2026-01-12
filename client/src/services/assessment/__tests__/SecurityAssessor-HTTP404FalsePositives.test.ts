@@ -36,6 +36,10 @@ describe("SecurityAssessor - HTTP 404 False Positives Fix (Issue #26)", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("HTTP Error Responses (Should NOT be flagged)", () => {
     it("should NOT flag HTTP 404 Not Found as Calculator Injection", async () => {
       const tool: Tool = {

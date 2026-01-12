@@ -31,6 +31,10 @@ describe("TemporalAssessor - Stateful Tool Handling", () => {
       varianceClassifier.extractFieldNames(obj, prefix);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("isStatefulTool", () => {
     it("identifies search tools as stateful", () => {
       expect(isStatefulTool(createTool("safe_search_tool_mcp"))).toBe(true);

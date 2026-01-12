@@ -16,6 +16,10 @@ describe("SecurityPayloadGenerator - Auth Payload Handling", () => {
     generator = new SecurityPayloadGenerator();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   /**
    * Helper to create auth payload
    */

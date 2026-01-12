@@ -37,6 +37,10 @@ describe("SecurityAssessor - API Wrapper False Positives Fix (Issue #58)", () =>
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("JSON responses with coincidental numeric fields (Should NOT be flagged)", () => {
     it("should NOT flag API response with 'records: 4' as Calculator Injection for '2+2' payload", async () => {
       const tool: Tool = {

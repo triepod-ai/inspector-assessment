@@ -28,6 +28,10 @@ describe("ToolAnnotationAssessor - Command Patterns", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Command Execution Tools (Issue #17)", () => {
     it("should treat run_command as destructive (not write) with high confidence", async () => {
       // Arrange - command execution tool

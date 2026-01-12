@@ -33,6 +33,10 @@ describe("TemporalAssessor - Definition Mutation Detection (Issue #7)", () => {
         mutationDetector.detectDefinitionMutation(snapshots);
     });
 
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
     it("returns null when no snapshots provided", () => {
       const result = detectDefinitionMutation([]);
       expect(result).toBeNull();

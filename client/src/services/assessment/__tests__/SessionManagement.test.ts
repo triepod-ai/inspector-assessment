@@ -16,6 +16,10 @@ describe("Session Management Detection (Issue #111, Challenge #12)", () => {
     analyzer = new SecurityResponseAnalyzer();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("CWE-384: Session Fixation Detection", () => {
     it("should detect attacker_controlled: true as session fixation", () => {
       const response = {

@@ -36,6 +36,10 @@ describe("SanitizationDetector", () => {
     detector = new SanitizationDetector();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Library Detection", () => {
     describe("XSS Prevention Libraries", () => {
       it("should detect DOMPurify in description", () => {

@@ -40,6 +40,10 @@ describe("Security Detection Validation - Assessment Service", () => {
     mockCallTool = jest.fn();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Injection Detection Patterns (Fixed)", () => {
     it("should detect SQL injection attacks", async () => {
       // Simulate classic SQL injection vulnerability

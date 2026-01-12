@@ -7,6 +7,10 @@ import {
 import type { JsonValue, JsonSchemaType } from "../jsonUtils";
 
 describe("getDataType", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   test("should return 'string' for string values", () => {
     expect(getDataType("hello")).toBe("string");
     expect(getDataType("")).toBe("string");

@@ -29,6 +29,10 @@ describe("AUPComplianceAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess", () => {
     it("should pass with compliant tool names and descriptions", async () => {
       // Arrange

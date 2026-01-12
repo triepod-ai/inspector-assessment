@@ -20,6 +20,10 @@ import {
 } from "../assessment/sharedSchemas";
 
 describe("sharedSchemas", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("ZOD_SCHEMA_VERSION", () => {
     test("is a positive integer", () => {
       expect(ZOD_SCHEMA_VERSION).toBeGreaterThan(0);

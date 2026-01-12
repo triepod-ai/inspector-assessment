@@ -31,6 +31,10 @@ describe("SecurityAssessor - Auth Bypass Detection (Issue #75)", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Fail-Open Authentication Detection", () => {
     it("should detect auth_status: bypassed as fail-open vulnerability", async () => {
       const tool: Tool = {

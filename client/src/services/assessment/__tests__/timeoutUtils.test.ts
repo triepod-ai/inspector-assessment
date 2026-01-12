@@ -11,6 +11,10 @@ import {
 } from "../lib/timeoutUtils";
 
 describe("timeoutUtils", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe("executeWithTimeout", () => {
     it("should resolve when operation completes before timeout", async () => {
       const result = await executeWithTimeout(Promise.resolve("success"), {

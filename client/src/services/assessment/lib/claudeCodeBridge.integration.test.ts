@@ -97,6 +97,10 @@ function skipIfClaudeUnconfigured(): boolean {
 }
 
 describe("ClaudeCodeBridge Integration Tests", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // Check server availability before all tests
   beforeAll(async () => {
     try {

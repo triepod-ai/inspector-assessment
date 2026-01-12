@@ -31,6 +31,10 @@ describe("loadServerConfig", () => {
     mockExistsSync.mockReturnValue(true);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // ============================================================================
   // Flat Config Format Tests
   // ============================================================================

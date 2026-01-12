@@ -22,6 +22,10 @@ describe("SecurityResponseAnalyzer", () => {
     analyzer = new SecurityResponseAnalyzer();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   /**
    * Helper to create a mock response
    */

@@ -56,6 +56,10 @@ describe("ProtocolComplianceAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // ==========================================================================
   // Section 1: MCPSpecCompliance Tests (ported from MCPSpecComplianceAssessor)
   // ==========================================================================

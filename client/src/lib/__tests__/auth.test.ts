@@ -24,6 +24,10 @@ describe("discoverScopes", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   const testCases = [
     {
       name: "returns joined scopes from OAuth metadata",

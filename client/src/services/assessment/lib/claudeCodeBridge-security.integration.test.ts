@@ -83,6 +83,10 @@ beforeAll(async () => {
 }, HEALTH_CHECK_TIMEOUT + 5000);
 
 describe("ClaudeCodeBridge - Security Semantic Analysis Integration", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Server Availability", () => {
     it("should detect mcp-auditor availability", async () => {
       if (!serverAvailable) {

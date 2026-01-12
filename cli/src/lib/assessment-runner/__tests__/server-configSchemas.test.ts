@@ -29,6 +29,10 @@ import type {
 } from "../server-configSchemas.js";
 
 describe("server-configSchemas", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Re-exported schemas", () => {
     test("exports TransportTypeSchema", () => {
       expect(TransportTypeSchema.safeParse("stdio").success).toBe(true);

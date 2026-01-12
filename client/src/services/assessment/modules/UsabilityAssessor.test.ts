@@ -17,6 +17,10 @@ describe("UsabilityAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess", () => {
     it("should assess usability with well-designed tools", async () => {
       // Arrange

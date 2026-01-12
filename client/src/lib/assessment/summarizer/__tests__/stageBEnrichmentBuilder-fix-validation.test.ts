@@ -32,6 +32,10 @@ function createMockSecurityTest(
 }
 
 describe("stageBEnrichmentBuilder Fix Validation Tests", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("[TEST-002] testToEvidence semantic consistency (FIX-002)", () => {
     describe("evidence and location field consistency", () => {
       it("should use response for both location and context when test has response only (happy path)", () => {

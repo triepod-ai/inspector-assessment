@@ -51,6 +51,10 @@ describe("MCPAssessmentService - Usability Assessment", () => {
     mockCallTool = jest.fn();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Usability Assessment - Edge Cases", () => {
     describe("Naming Convention Analysis", () => {
       it("should detect inconsistent naming patterns", async () => {

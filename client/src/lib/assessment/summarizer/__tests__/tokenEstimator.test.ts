@@ -17,6 +17,10 @@ import {
 import type { MCPDirectoryAssessment } from "../../resultTypes";
 
 describe("tokenEstimator", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("estimateTokens", () => {
     it("should estimate tokens for a simple string", () => {
       const text = "Hello, world!"; // 13 chars

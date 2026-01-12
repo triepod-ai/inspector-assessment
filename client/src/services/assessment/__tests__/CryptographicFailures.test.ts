@@ -19,6 +19,10 @@ describe("Cryptographic Failures Detection (Issue #112, Challenge #13)", () => {
     analyzer = new SecurityResponseAnalyzer();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("CWE-328: Weak Hash Algorithm Detection", () => {
     it("should detect algorithm: MD5 as weak hash", () => {
       const response = {

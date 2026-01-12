@@ -47,6 +47,10 @@ describe("loadSourceFiles", () => {
     mockReaddirSync.mockReturnValue([]);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("README discovery", () => {
     it("should find README.md in source directory", () => {
       const sourcePath = "/project";

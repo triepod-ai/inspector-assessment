@@ -12,6 +12,10 @@ import { inferBehavior } from "../modules/annotations/BehaviorInference";
 import type { ServerPersistenceContext } from "../config/annotationPatterns";
 
 describe("BehaviorInference", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("inferBehavior", () => {
     describe("read-only tools", () => {
       it("should infer read-only for 'get_*' tools", () => {

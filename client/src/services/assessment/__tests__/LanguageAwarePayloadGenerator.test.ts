@@ -13,6 +13,10 @@ describe("LanguageAwarePayloadGenerator", () => {
     generator = new LanguageAwarePayloadGenerator();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("detectLanguage", () => {
     describe("Python detection", () => {
       it("should detect Python from param name 'python_code'", () => {

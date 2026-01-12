@@ -66,6 +66,10 @@ describe("DeveloperExperienceAssessor - Issue #55 Quality Scoring", () => {
     assessor = new DeveloperExperienceAssessor(createConfig());
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Point Allocation", () => {
     it("should award 10 points for README presence", async () => {
       const result = await assessor.assess(

@@ -23,6 +23,10 @@ describe("MCPAssessmentService", () => {
     mockCallTool = jest.fn();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Constructor and Configuration", () => {
     it("should use default configuration when none provided", () => {
       const defaultService = new MCPAssessmentService();

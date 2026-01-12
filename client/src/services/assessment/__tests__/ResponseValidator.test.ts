@@ -7,6 +7,10 @@ import { ResponseValidator, ValidationContext } from "../ResponseValidator";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 describe("ResponseValidator - isBusinessLogicError", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("API Operational Errors", () => {
     it("should recognize insufficient credits as business logic error", () => {
       const tool: Tool = {

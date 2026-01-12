@@ -10,6 +10,10 @@ import { describe, it, expect } from "@jest/globals";
 import * as assessmentRunner from "../../lib/assessment-runner/index.js";
 
 describe("assessment-runner index exports", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("function exports", () => {
     it("should export all 6 public functions", () => {
       expect(typeof assessmentRunner.loadServerConfig).toBe("function");

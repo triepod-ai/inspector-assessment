@@ -14,6 +14,10 @@ import * as path from "path";
 const CLI_PATH = path.join(__dirname, "../../cli/src/assess-full.ts");
 
 describe("ServerInfo Capture Logic", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   let cliContent: string;
 
   beforeAll(() => {

@@ -27,6 +27,10 @@ import {
 } from "../profiles.js";
 
 describe("Profile Definitions", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe("Profile Constants", () => {
     it("should have four profiles defined", () => {
       const profiles = Object.keys(ASSESSMENT_PROFILES);

@@ -13,6 +13,10 @@ describe("SafeResponseDetector", () => {
     detector = new SafeResponseDetector();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // Helper to create mock response
   const createResponse = (text: string): CompatibilityCallToolResult => ({
     content: [{ type: "text", text }],

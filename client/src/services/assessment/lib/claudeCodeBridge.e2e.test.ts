@@ -144,6 +144,10 @@ function createHttpConfig(
 }
 
 describe("ClaudeCodeBridge E2E Tests", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // Check server availability before all tests
   beforeAll(async () => {
     try {

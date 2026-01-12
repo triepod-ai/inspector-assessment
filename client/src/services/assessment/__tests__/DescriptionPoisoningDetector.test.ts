@@ -15,6 +15,10 @@ import {
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 describe("DescriptionPoisoningDetector", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   /**
    * Helper to create a mock tool with description
    */

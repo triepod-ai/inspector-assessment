@@ -22,6 +22,10 @@ import {
 } from "../modules/annotations/ArchitectureDetector";
 
 describe("Architecture & Behavior Integration - Critical Bug Hunting", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("BUG HUNT: Multi-signal conflicts", () => {
     it("CRITICAL: should handle name says read-only but description says destructive", () => {
       const result = inferBehaviorEnhanced(

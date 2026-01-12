@@ -33,6 +33,10 @@ describe("DescriptionPoisoning - DVMCP Patterns", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   /**
    * Helper to create context with specific tool
    */

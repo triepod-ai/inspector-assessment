@@ -20,6 +20,10 @@ describe("AuthenticationAssessor - Environment Variable Detection", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Environment-Dependent Auth Detection", () => {
     it("should detect process.env.SECRET_KEY usage", async () => {
       // Arrange

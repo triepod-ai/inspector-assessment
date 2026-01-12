@@ -49,6 +49,10 @@ function isStdioConfig(entry: ServerEntry): entry is StdioServerConfig {
 }
 
 describe("server-configSchemas type guards", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("isHttpSseConfig", () => {
     it("should return true for HTTP transport config", () => {
       const config: ServerEntry = {

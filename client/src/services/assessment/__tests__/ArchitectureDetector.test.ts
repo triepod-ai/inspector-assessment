@@ -12,6 +12,10 @@ import {
 } from "../modules/annotations/ArchitectureDetector";
 
 describe("ArchitectureDetector", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("detectArchitecture", () => {
     describe("database detection", () => {
       it("should detect Neo4j from tool descriptions", () => {

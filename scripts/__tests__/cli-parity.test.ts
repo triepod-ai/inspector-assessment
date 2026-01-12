@@ -194,6 +194,10 @@ function usesGetAllModulesConfig(content: string): boolean {
  * Validates the AST detection logic with positive and negative cases.
  */
 describe("usesGetAllModulesConfig helper", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("should return false for object literal pattern (old code)", () => {
     const oldPattern = `
       function buildConfig() {

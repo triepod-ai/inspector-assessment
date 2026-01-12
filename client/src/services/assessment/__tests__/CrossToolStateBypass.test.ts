@@ -28,6 +28,10 @@ describe("Cross-Tool State-Based Authorization Bypass - Challenge #7 Validation"
     analyzer = new SecurityResponseAnalyzer();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   /**
    * Helper to create mock response
    */

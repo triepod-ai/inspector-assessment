@@ -36,6 +36,10 @@ const findProjectRoot = (): string => {
 };
 
 describe("Package Import Patterns", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   const projectRoot = findProjectRoot();
   const rootPkg = JSON.parse(
     fs.readFileSync(path.join(projectRoot, "package.json"), "utf-8"),

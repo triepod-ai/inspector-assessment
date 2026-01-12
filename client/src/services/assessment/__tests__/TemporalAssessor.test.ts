@@ -46,6 +46,10 @@ describe("TemporalAssessor", () => {
       analyzeResponses = getPrivateMethod(assessor, "analyzeResponses");
     });
 
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
     it("returns not vulnerable when all responses match", () => {
       const tool = createTool("test_tool");
       const responses = Array(5)

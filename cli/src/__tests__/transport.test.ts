@@ -10,6 +10,10 @@ import { describe, it, expect } from "@jest/globals";
 import { createTransport, type TransportOptions } from "../transport.js";
 
 describe("Transport Creation", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Input Validation", () => {
     it("should throw error when URL is missing for HTTP transport", () => {
       const options: TransportOptions = {

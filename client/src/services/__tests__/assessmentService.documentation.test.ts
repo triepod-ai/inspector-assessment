@@ -33,6 +33,10 @@ describe("MCPAssessmentService - Documentation Assessment", () => {
     mockCallTool = jest.fn();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Documentation Assessment - Variations", () => {
     describe("README Content Analysis", () => {
       it("should handle missing README", async () => {

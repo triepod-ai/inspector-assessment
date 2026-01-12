@@ -13,6 +13,10 @@ describe("ErrorClassifier", () => {
     classifier = new ErrorClassifier();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // Helper to create mock response
   const createResponse = (text: string): CompatibilityCallToolResult => ({
     content: [{ type: "text", text }],

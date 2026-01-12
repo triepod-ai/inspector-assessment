@@ -35,6 +35,10 @@ describe("Stage 3 Type Safety Fixes", () => {
       jest.clearAllMocks();
     });
 
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
     it("should handle simple union type (string|null) in nested object", async () => {
       // Arrange - tool with nested object containing union type
       const tool = createMockTool({

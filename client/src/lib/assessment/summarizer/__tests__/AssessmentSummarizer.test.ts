@@ -150,6 +150,10 @@ function createMockResults(
 }
 
 describe("AssessmentSummarizer", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("generateExecutiveSummary", () => {
     it("should generate executive summary with all required fields", () => {
       const summarizer = new AssessmentSummarizer();

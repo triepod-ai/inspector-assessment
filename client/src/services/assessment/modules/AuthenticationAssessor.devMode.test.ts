@@ -20,6 +20,10 @@ describe("AuthenticationAssessor - Development Mode Warning Detection", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Development Mode Warning Detection", () => {
     it("should detect dev mode auth bypass - skip auth in dev", async () => {
       // Arrange

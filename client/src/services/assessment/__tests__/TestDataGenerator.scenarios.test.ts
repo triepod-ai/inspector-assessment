@@ -38,6 +38,10 @@ const createTool = (
 });
 
 describe("TestDataGenerator - Scenario Generation", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // ===========================================================================
   // Error Scenario Generation
   // ===========================================================================

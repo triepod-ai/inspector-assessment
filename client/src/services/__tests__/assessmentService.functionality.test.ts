@@ -81,6 +81,10 @@ describe("MCPAssessmentService - Functionality Assessment", () => {
     mockCallTool = jest.fn();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Functionality Assessment - Edge Cases", () => {
     describe("Complex Schema Handling", () => {
       it("should generate appropriate test parameters for nested objects", async () => {

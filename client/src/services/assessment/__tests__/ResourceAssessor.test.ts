@@ -35,6 +35,10 @@ describe("ResourceAssessor", () => {
     assessor = new ResourceAssessor(createConfig());
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Prompt Injection Detection", () => {
     const createContext = (
       resourceContent: string,

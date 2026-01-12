@@ -16,6 +16,10 @@
 import { TestDataGenerator } from "../TestDataGenerator";
 
 describe("TestDataGenerator - Data Pool Validity", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // Access private static REALISTIC_DATA
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const REALISTIC_DATA = (TestDataGenerator as any).REALISTIC_DATA;

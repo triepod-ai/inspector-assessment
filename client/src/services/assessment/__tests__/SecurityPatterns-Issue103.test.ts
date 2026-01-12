@@ -35,6 +35,10 @@ describe("Issue #103 - Detection Patterns", () => {
     generator = new SecurityPayloadGenerator();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   /**
    * Helper to create a mock response
    */

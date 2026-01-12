@@ -12,6 +12,10 @@ describe("ExecutionArtifactDetector", () => {
     detector = new ExecutionArtifactDetector();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("hasExecutionEvidence", () => {
     it("should detect execution keywords", () => {
       expect(

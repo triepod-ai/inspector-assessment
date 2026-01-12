@@ -13,6 +13,10 @@ import { describe, it, expect } from "@jest/globals";
 import { ScopedListenerConfig } from "../lib/event-config.js";
 
 describe("CLI Build Fixes Regression Tests", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("event-config.ts - CLI_DEFAULT_MAX_LISTENERS constant", () => {
     it("should use local constant instead of cross-workspace import", () => {
       // Fix: Replaced DEFAULT_PERFORMANCE_CONFIG.eventEmitterMaxListeners

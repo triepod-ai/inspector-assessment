@@ -51,6 +51,10 @@ describeIntegration("ProtocolConformance - CLI serverInfo Integration", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Testbed Health Check", () => {
     it("should verify hardened server is accessible for serverInfo tests", async () => {
       if (!testbedAvailable.hardened) {

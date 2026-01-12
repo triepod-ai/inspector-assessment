@@ -28,6 +28,10 @@ const createMockLogger = (): Logger & {
 });
 
 describe("DEFAULT_PERFORMANCE_CONFIG", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("should have all expected default values", () => {
     expect(DEFAULT_PERFORMANCE_CONFIG).toEqual({
       batchFlushIntervalMs: 500,

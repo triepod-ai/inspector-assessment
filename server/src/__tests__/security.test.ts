@@ -24,6 +24,10 @@ beforeAll(async () => {
 });
 
 describe("Authentication Middleware", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Valid Authentication", () => {
     it("should accept requests with valid Bearer token", async () => {
       const response = await request(app)

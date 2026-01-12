@@ -36,6 +36,10 @@ describe("ResourceAssessor - Issue #9 Enrichment Fields", () => {
     assessor = new ResourceAssessor(createConfig());
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("sensitivePatterns Field", () => {
     const createContext = (
       resourceContent: string,

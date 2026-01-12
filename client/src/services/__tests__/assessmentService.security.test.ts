@@ -35,6 +35,10 @@ describe("MCPAssessmentService - Security Assessment", () => {
     mockCallTool = jest.fn();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Security Assessment - Critical Vulnerabilities", () => {
     describe("Prompt Injection Detection", () => {
       it("should detect Role Override injection attempts", async () => {

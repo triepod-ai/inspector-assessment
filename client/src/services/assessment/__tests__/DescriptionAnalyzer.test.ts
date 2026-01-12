@@ -13,6 +13,10 @@ import {
 } from "../modules/annotations/DescriptionAnalyzer";
 
 describe("DescriptionAnalyzer", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("analyzeDescription", () => {
     describe("read-only detection", () => {
       it("should detect 'retrieves' as high-confidence read-only", () => {

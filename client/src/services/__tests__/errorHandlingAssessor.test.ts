@@ -65,6 +65,10 @@ describe("ErrorHandlingAssessor", () => {
     } as AssessmentContext;
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("MCP Protocol Compliance", () => {
     it("should test for missing required parameters", async () => {
       // Mock tool response for missing params

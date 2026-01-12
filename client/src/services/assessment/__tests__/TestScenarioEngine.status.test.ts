@@ -88,6 +88,10 @@ describe("TestScenarioEngine", () => {
       );
     });
 
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
     describe("untested status", () => {
       it("should return 'untested' when scenariosExecuted=0", () => {
         const result = createMockResult({ scenariosExecuted: 0 });

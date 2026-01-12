@@ -35,6 +35,10 @@ describe("SecurityAssessor - Validation False Positives Fix", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("MCP Error Code -32602 (JSON-RPC Invalid Params)", () => {
     it("should recognize MCP -32602 as secure validation rejection", async () => {
       const tool: Tool = {

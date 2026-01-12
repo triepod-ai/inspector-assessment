@@ -19,6 +19,10 @@ describe("TemporalAssessor - Response Normalization", () => {
       varianceClassifier.normalizeResponse(response);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Timestamp Normalization", () => {
     it("normalizes ISO timestamps", () => {
       const input = { timestamp: "2025-12-27T10:30:00.123Z" };

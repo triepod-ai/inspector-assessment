@@ -53,6 +53,10 @@ describe("ResourceAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess with no resources", () => {
     it("should return PASS status when no resources are declared", async () => {
       mockContext.resources = undefined;

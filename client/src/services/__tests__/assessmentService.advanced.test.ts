@@ -30,6 +30,10 @@ describe("MCPAssessmentService - Advanced Test Generator", () => {
     mockCallTool = jest.fn();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Dynamic Security Testing", () => {
     describe("Advanced Injection Attack Vectors", () => {
       it("should detect SQL injection attempts in tool parameters", async () => {

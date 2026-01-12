@@ -31,6 +31,10 @@ import {
 } from "../responseValidatorSchemas";
 
 describe("responseValidatorSchemas", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Re-exported schemas", () => {
     test("exports ZOD_SCHEMA_VERSION", () => {
       expect(ZOD_SCHEMA_VERSION).toBe(1);

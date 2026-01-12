@@ -26,6 +26,10 @@ import {
 } from "../index";
 
 describe("testdata Module Exports", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // TEST-003: Validate module boundary - all exports accessible
   describe("Public API - realistic-values.ts exports", () => {
     it("should export REALISTIC_URLS", () => {

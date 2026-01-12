@@ -26,6 +26,10 @@ import {
 } from "../modules/securityTests/SecurityPatternLibrary";
 
 describe("SecurityPatternLibrary", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Pattern Compilation", () => {
     it("should compile all HTTP_ERROR_PATTERNS", () => {
       expect(HTTP_ERROR_PATTERNS.statusWithContext).toBeInstanceOf(RegExp);

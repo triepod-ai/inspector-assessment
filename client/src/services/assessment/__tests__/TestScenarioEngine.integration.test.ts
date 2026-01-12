@@ -63,6 +63,10 @@ const createMockValidation = (
 });
 
 describe("TestScenarioEngine", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe("Integration Tests", () => {
     describe("full workflow with successful tool", () => {
       it("should complete full assessment with fully_working status", async () => {

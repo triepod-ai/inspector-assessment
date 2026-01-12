@@ -73,6 +73,10 @@ describe("TestValidityAnalyzer", () => {
     analyzer = new TestValidityAnalyzer();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Basic Detection", () => {
     it("returns no warning for diverse responses", () => {
       const tests = generateDiverseResults(100);

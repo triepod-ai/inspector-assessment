@@ -19,6 +19,10 @@ describe("DocumentationAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess", () => {
     it("should assess documentation with complete README", async () => {
       // Arrange

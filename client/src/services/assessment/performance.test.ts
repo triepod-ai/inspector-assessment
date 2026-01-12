@@ -12,6 +12,10 @@ import { DEFAULT_ASSESSMENT_CONFIG } from "@/lib/assessmentTypes";
 // See GitHub Issue #123 for rationale.
 
 describe("Assessment Performance Benchmarks", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Performance Metrics", () => {
     it("should complete basic assessment and produce valid results", async () => {
       // Arrange

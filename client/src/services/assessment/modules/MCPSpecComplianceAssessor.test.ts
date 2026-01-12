@@ -17,6 +17,10 @@ describe("MCPSpecComplianceAssessor", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("assess", () => {
     it("should assess MCP spec compliance with full server info", async () => {
       // Arrange

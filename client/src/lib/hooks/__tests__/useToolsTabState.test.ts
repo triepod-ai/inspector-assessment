@@ -32,6 +32,10 @@ describe("useToolsTabState", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("initial state", () => {
     it("should return initial state with empty params when no tool selected", () => {
       const { result } = renderHook(() =>

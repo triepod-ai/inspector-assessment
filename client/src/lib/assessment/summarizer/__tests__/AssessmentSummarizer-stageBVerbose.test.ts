@@ -88,6 +88,10 @@ function createMockAssessment(
 }
 
 describe("AssessmentSummarizer Stage B Verbose Integration Tests", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("[TEST-003] stageBVerbose field integration (TEST-REQ-003)", () => {
     describe("stageBEnrichment field population", () => {
       it("should populate stageBEnrichment when stageBVerbose=true (happy path)", () => {

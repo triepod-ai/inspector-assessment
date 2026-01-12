@@ -27,6 +27,10 @@ describe("ToolAnnotationAssessor - Description Poisoning Detection", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Description Poisoning Detection (Issue #8)", () => {
     it("should detect hidden instruction tags in descriptions", async () => {
       mockContext.tools = [

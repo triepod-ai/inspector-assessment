@@ -23,6 +23,10 @@ import {
 import { calculateModuleScore } from "../moduleScoring";
 
 describe("moduleFieldValidator", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("validateModuleOutput", () => {
     it("should validate a complete functionality result", () => {
       const result = {

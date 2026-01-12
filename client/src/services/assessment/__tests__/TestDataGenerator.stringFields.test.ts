@@ -22,6 +22,10 @@ const getPrivateStaticMethod = (methodName: string) => {
 };
 
 describe("TestDataGenerator - String Field Detection", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   const generateRealisticValue = getPrivateStaticMethod(
     "generateRealisticValue",
   );

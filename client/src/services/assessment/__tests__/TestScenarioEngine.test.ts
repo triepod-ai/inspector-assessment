@@ -17,6 +17,10 @@
 import { TestScenarioEngine } from "../TestScenarioEngine";
 
 describe("TestScenarioEngine", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Constructor and Configuration", () => {
     it("should use default timeout of 5000ms when not specified", () => {
       const engine = new TestScenarioEngine();

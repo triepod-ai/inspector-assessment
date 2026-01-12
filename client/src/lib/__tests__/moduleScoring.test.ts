@@ -1,6 +1,10 @@
 import { calculateModuleScore, normalizeModuleKey } from "../moduleScoring";
 
 describe("moduleScoring", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("normalizeModuleKey", () => {
     it("should convert to lowercase", () => {
       expect(normalizeModuleKey("Functionality")).toBe("functionality");

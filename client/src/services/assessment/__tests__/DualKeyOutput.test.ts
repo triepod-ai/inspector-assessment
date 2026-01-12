@@ -47,6 +47,10 @@ function createMockContext(
 }
 
 describe("Dual-Key Output (Issue #124)", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("developerExperience composite field", () => {
     it("should combine documentation and usability assessments", async () => {
       const orchestrator = new AssessmentOrchestrator({

@@ -69,6 +69,10 @@ const createMockResult = (
 });
 
 describe("TestScenarioEngine", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("generateDetailedReport", () => {
     it("should include tool name as header", () => {
       const result = createMockResult({ toolName: "my_test_tool" });

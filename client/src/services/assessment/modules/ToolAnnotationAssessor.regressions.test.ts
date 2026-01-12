@@ -27,6 +27,10 @@ describe("ToolAnnotationAssessor - Regression Tests", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Low-Confidence Annotation Trust (Issue Fix)", () => {
     it("should trust explicit annotation when inference is low-confidence", async () => {
       // Tool with generic name (can't infer behavior) but explicit annotation

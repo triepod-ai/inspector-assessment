@@ -60,6 +60,10 @@ describe("connectToServer", () => {
     mockStdioTransport.stderr.on.mockClear();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("HTTP transport", () => {
     it("should create StreamableHTTPClientTransport for transport:http", async () => {
       const config = {

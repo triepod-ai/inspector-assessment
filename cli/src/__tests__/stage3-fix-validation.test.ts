@@ -15,6 +15,10 @@ import {
 } from "../lib/cli-parserSchemas.js";
 
 describe("Stage 3 Fix Validation Tests", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("[TEST-001] cli-parserSchemas.ts - stageBVerbose field (FIX-001)", () => {
     describe("stageBVerbose field validation", () => {
       it("should accept stageBVerbose with true value (happy path)", () => {

@@ -28,6 +28,10 @@ describe("TemporalAssessor - Variance Classification (Issue #69)", () => {
         );
     });
 
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
     it.each([
       ["create_billing_product", true],
       ["create_user", true],

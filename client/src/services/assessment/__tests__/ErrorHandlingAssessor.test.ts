@@ -57,6 +57,10 @@ const createMockContext = (
   }) as unknown as AssessmentContext;
 
 describe("ErrorHandlingAssessor", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("errorTests array exposure", () => {
     it("should include errorTests array at top level of assessment result", async () => {
       const assessor = new ErrorHandlingAssessor(createConfig());

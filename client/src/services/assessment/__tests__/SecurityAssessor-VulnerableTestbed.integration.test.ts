@@ -68,6 +68,10 @@ describeIntegration("SecurityAssessor - Vulnerable Testbed Integration", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Testbed Health Check", () => {
     it("should verify vulnerable server is accessible", async () => {
       if (!testbedAvailable.vulnerable) {

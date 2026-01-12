@@ -81,6 +81,10 @@ describe("MCPAssessmentService - Error Handling Assessment", () => {
     mockCallTool = jest.fn();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Error Handling Assessment - Critical Issues", () => {
     describe("MCP Compliance Testing", () => {
       it("should detect 0% MCP compliance scenario", async () => {

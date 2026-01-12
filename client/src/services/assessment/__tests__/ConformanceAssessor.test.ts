@@ -34,6 +34,10 @@ describe("ConformanceAssessor", () => {
     assessor = new ConformanceAssessor(config);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("constructor", () => {
     it("should instantiate successfully with valid config", () => {
       expect(assessor).toBeInstanceOf(ConformanceAssessor);

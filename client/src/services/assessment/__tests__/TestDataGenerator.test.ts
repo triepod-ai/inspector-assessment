@@ -56,6 +56,10 @@ describe("TestDataGenerator", () => {
     jest.restoreAllMocks();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // ===========================================================================
   // Claude Bridge Configuration
   // ===========================================================================

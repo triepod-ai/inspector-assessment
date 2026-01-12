@@ -192,6 +192,10 @@ describe("Enhanced Security Assessment", () => {
     mockCallTool = jest.fn();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("Enhanced SQL Injection Detection", () => {
     it("should detect SQL injection with enhanced patterns", async () => {
       const vulnerableResponses = [
