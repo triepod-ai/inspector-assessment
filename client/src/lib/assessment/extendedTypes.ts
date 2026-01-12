@@ -280,12 +280,22 @@ export interface ManifestToolDeclaration {
   description?: string;
 }
 
+/**
+ * npm-style author object format (Issue #141)
+ * Supports structured author information with name, url, and email
+ */
+export interface ManifestAuthorObject {
+  name: string;
+  url?: string;
+  email?: string;
+}
+
 export interface ManifestJsonSchema {
   manifest_version: string;
   name: string;
   version: string;
   description?: string;
-  author?: string;
+  author?: string | ManifestAuthorObject; // Supports both string and object (Issue #141)
   repository?: string;
   license?: string;
   mcp_config?: McpConfigSchema; // Root level (legacy) - now optional
@@ -318,6 +328,27 @@ export interface ManifestValidationResult {
   severity: "ERROR" | "WARNING" | "INFO";
 }
 
+/**
+ * Extracted contact information from manifest (Issue #141)
+ * Used by mcp-auditor D4 Contact Information check
+ */
+export interface ExtractedContactInfo {
+  email?: string;
+  url?: string;
+  name?: string;
+  source: "author_object" | "author_string" | "support" | "repository";
+}
+
+/**
+ * Extracted version information from manifest (Issue #141)
+ * Used by mcp-auditor D5 Version Information check
+ */
+export interface ExtractedVersionInfo {
+  version: string;
+  valid: boolean;
+  semverCompliant: boolean;
+}
+
 export interface ManifestValidationAssessment {
   hasManifest: boolean;
   manifestVersion?: string;
@@ -331,6 +362,10 @@ export interface ManifestValidationAssessment {
     validationResults: PrivacyPolicyValidation[];
     allAccessible: boolean;
   };
+  /** Extracted contact information for D4 check (Issue #141) */
+  contactInfo?: ExtractedContactInfo;
+  /** Extracted version information for D5 check (Issue #141) */
+  versionInfo?: ExtractedVersionInfo;
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];

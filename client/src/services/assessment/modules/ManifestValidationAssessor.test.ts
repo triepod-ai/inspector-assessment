@@ -640,4 +640,179 @@ describe("ManifestValidationAssessor", () => {
       expect(toolResult).toBeUndefined();
     });
   });
+
+  describe("D4/D5 field extraction - Issue #141", () => {
+    describe("D4 Contact Information", () => {
+      it("should extract contact info from author object", async () => {
+        mockContext.manifestJson = {
+          manifest_version: "0.3",
+          name: "test-server",
+          version: "1.0.0",
+          mcp_config: { command: "test" },
+          author: {
+            name: "Microsoft",
+            url: "https://clarity.microsoft.com",
+            email: "clarityms@microsoft.com",
+          },
+        };
+
+        const result = await assessor.assess(mockContext);
+
+        expect(result.contactInfo).toEqual({
+          email: "clarityms@microsoft.com",
+          url: "https://clarity.microsoft.com",
+          name: "Microsoft",
+          source: "author_object",
+        });
+      });
+
+      it("should extract email from author string format", async () => {
+        mockContext.manifestJson = {
+          manifest_version: "0.3",
+          name: "test-server",
+          version: "1.0.0",
+          mcp_config: { command: "test" },
+          author: "Microsoft <clarityms@microsoft.com>",
+        };
+
+        const result = await assessor.assess(mockContext);
+
+        expect(result.contactInfo).toEqual({
+          name: "Microsoft",
+          email: "clarityms@microsoft.com",
+          source: "author_string",
+        });
+      });
+
+      it("should extract name from author string without email", async () => {
+        mockContext.manifestJson = {
+          manifest_version: "0.3",
+          name: "test-server",
+          version: "1.0.0",
+          mcp_config: { command: "test" },
+          author: "John Doe",
+        };
+
+        const result = await assessor.assess(mockContext);
+
+        expect(result.contactInfo).toEqual({
+          name: "John Doe",
+          email: undefined,
+          source: "author_string",
+        });
+      });
+
+      it("should fallback to repository when no author", async () => {
+        mockContext.manifestJson = {
+          manifest_version: "0.3",
+          name: "test-server",
+          version: "1.0.0",
+          mcp_config: { command: "test" },
+          repository: "https://github.com/microsoft/clarity-mcp",
+        };
+
+        const result = await assessor.assess(mockContext);
+
+        expect(result.contactInfo).toEqual({
+          url: "https://github.com/microsoft/clarity-mcp",
+          source: "repository",
+        });
+      });
+
+      it("should return undefined when no contact info available", async () => {
+        mockContext.manifestJson = {
+          manifest_version: "0.3",
+          name: "test-server",
+          version: "1.0.0",
+          mcp_config: { command: "test" },
+        };
+
+        const result = await assessor.assess(mockContext);
+
+        expect(result.contactInfo).toBeUndefined();
+      });
+    });
+
+    describe("D5 Version Information", () => {
+      it("should extract version info from root level", async () => {
+        mockContext.manifestJson = {
+          manifest_version: "0.3",
+          name: "test-server",
+          version: "2.0.0",
+          mcp_config: { command: "test" },
+        };
+
+        const result = await assessor.assess(mockContext);
+
+        expect(result.versionInfo).toEqual({
+          version: "2.0.0",
+          valid: true,
+          semverCompliant: true,
+        });
+      });
+
+      it("should detect non-semver version format", async () => {
+        mockContext.manifestJson = {
+          manifest_version: "0.3",
+          name: "test-server",
+          version: "v2.0",
+          mcp_config: { command: "test" },
+        };
+
+        const result = await assessor.assess(mockContext);
+
+        expect(result.versionInfo).toEqual({
+          version: "v2.0",
+          valid: true,
+          semverCompliant: false,
+        });
+      });
+
+      it("should handle semver with prerelease", async () => {
+        mockContext.manifestJson = {
+          manifest_version: "0.3",
+          name: "test-server",
+          version: "1.0.0-beta.1",
+          mcp_config: { command: "test" },
+        };
+
+        const result = await assessor.assess(mockContext);
+
+        expect(result.versionInfo).toEqual({
+          version: "1.0.0-beta.1",
+          valid: true,
+          semverCompliant: true,
+        });
+      });
+
+      it("should handle semver with build metadata", async () => {
+        mockContext.manifestJson = {
+          manifest_version: "0.3",
+          name: "test-server",
+          version: "1.0.0+build.123",
+          mcp_config: { command: "test" },
+        };
+
+        const result = await assessor.assess(mockContext);
+
+        expect(result.versionInfo).toEqual({
+          version: "1.0.0+build.123",
+          valid: true,
+          semverCompliant: true,
+        });
+      });
+
+      it("should return undefined when no version", async () => {
+        mockContext.manifestJson = {
+          manifest_version: "0.3",
+          name: "test-server",
+          mcp_config: { command: "test" },
+        } as any;
+
+        const result = await assessor.assess(mockContext);
+
+        expect(result.versionInfo).toBeUndefined();
+      });
+    });
+  });
 });

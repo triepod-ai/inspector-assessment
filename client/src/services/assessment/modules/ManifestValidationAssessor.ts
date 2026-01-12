@@ -21,6 +21,9 @@ import type {
   McpConfigSchema,
   AssessmentStatus,
   PrivacyPolicyValidation,
+  ExtractedContactInfo,
+  ExtractedVersionInfo,
+  ManifestAuthorObject,
 } from "@/lib/assessmentTypes";
 
 const REQUIRED_FIELDS = ["name", "version", "mcp_config"] as const;
@@ -128,6 +131,70 @@ export class ManifestValidationAssessor extends BaseAssessor {
       return manifest.server.mcp_config;
     }
     return undefined;
+  }
+
+  /**
+   * Extract contact information from manifest (Issue #141 - D4 check)
+   * Supports: author object, author string (email parsing), repository fallback
+   *
+   * @param manifest - The parsed manifest JSON
+   * @returns Extracted contact info or undefined if no contact info found
+   */
+  private extractContactInfo(
+    manifest: ManifestJsonSchema,
+  ): ExtractedContactInfo | undefined {
+    // 1. Check author object format (npm-style)
+    if (typeof manifest.author === "object" && manifest.author !== null) {
+      const authorObj = manifest.author as ManifestAuthorObject;
+      return {
+        email: authorObj.email,
+        url: authorObj.url,
+        name: authorObj.name,
+        source: "author_object",
+      };
+    }
+
+    // 2. Check author string (may contain email: "Name <email@example.com>")
+    if (typeof manifest.author === "string" && manifest.author.trim()) {
+      const emailMatch = manifest.author.match(/<([^>]+@[^>]+)>/);
+      return {
+        name: manifest.author.replace(/<[^>]+>/, "").trim() || undefined,
+        email: emailMatch?.[1],
+        source: "author_string",
+      };
+    }
+
+    // 3. Fallback to repository (provides contact via issues)
+    if (manifest.repository) {
+      return {
+        url: manifest.repository,
+        source: "repository",
+      };
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Extract version information from manifest (Issue #141 - D5 check)
+   *
+   * @param manifest - The parsed manifest JSON
+   * @returns Extracted version info or undefined if no version found
+   */
+  private extractVersionInfo(
+    manifest: ManifestJsonSchema,
+  ): ExtractedVersionInfo | undefined {
+    if (!manifest.version) return undefined;
+
+    // Semver pattern: MAJOR.MINOR.PATCH with optional prerelease and build metadata
+    const semverPattern =
+      /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
+
+    return {
+      version: manifest.version,
+      valid: true,
+      semverCompliant: semverPattern.test(manifest.version),
+    };
   }
 
   /**
@@ -304,6 +371,10 @@ export class ManifestValidationAssessor extends BaseAssessor {
       privacyPolicies,
     );
 
+    // Extract D4/D5 fields (Issue #141)
+    const contactInfo = this.extractContactInfo(manifest);
+    const versionInfo = this.extractVersionInfo(manifest);
+
     this.logger.info(
       `Assessment complete: ${validationResults.filter((r) => r.valid).length}/${validationResults.length} checks passed`,
     );
@@ -316,6 +387,8 @@ export class ManifestValidationAssessor extends BaseAssessor {
       hasRequiredFields,
       missingFields,
       privacyPolicies,
+      contactInfo,
+      versionInfo,
       status,
       explanation,
       recommendations,
