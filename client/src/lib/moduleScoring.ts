@@ -27,6 +27,13 @@ export function calculateModuleScore(result: unknown): number | null {
   if (!result || typeof result !== "object") return null;
   const r = result as Record<string, unknown>;
 
+  // Issue #154: Handle skipped modules - return null to exclude from scoring
+  // Modules that couldn't execute (e.g., prohibitedLibraries without source files)
+  // should not contribute to overall score calculations
+  if (r.skipped === true) {
+    return null;
+  }
+
   // ErrorHandling module - validate test execution before scoring (Issue #153)
   const metrics = r.metrics as Record<string, unknown> | undefined;
   if (metrics?.mcpComplianceScore !== undefined) {

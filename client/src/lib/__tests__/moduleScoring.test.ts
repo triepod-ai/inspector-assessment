@@ -397,6 +397,81 @@ describe("moduleScoring", () => {
       });
     });
 
+    // Issue #154: Skipped modules with skipped:true flag
+    describe("skipped modules (Issue #154)", () => {
+      it("should return null for module with skipped:true flag", () => {
+        // ProhibitedLibrariesAssessor returns this when no source files available
+        const result = {
+          matches: [],
+          scannedFiles: [],
+          status: "NEED_MORE_INFO",
+          skipped: true,
+          skipReason:
+            "No package.json or source files provided. Enable source code analysis with --source flag.",
+        };
+        expect(calculateModuleScore(result)).toBeNull();
+      });
+
+      it("should return null regardless of status when skipped:true", () => {
+        // Even if status is PASS, skipped flag takes precedence
+        const result = {
+          status: "PASS",
+          skipped: true,
+        };
+        expect(calculateModuleScore(result)).toBeNull();
+      });
+
+      it("should return normal score when skipped:false", () => {
+        const result = {
+          status: "PASS",
+          skipped: false,
+        };
+        expect(calculateModuleScore(result)).toBe(100);
+      });
+
+      it("should return normal score when skipped is undefined", () => {
+        // Backward compatibility - modules without skipped field should work normally
+        const result = {
+          status: "PASS",
+        };
+        expect(calculateModuleScore(result)).toBe(100);
+      });
+
+      it("should exclude skipped modules from overall score calculation", () => {
+        const results: Record<string, unknown> = {
+          security: { status: "PASS", vulnerabilities: [] },
+          prohibitedLibraries: {
+            status: "NEED_MORE_INFO",
+            skipped: true,
+            scannedFiles: [],
+          },
+          functionality: { coveragePercentage: 80 },
+        };
+
+        // Calculate scores
+        const scores = Object.entries(results).map(([name, result]) => ({
+          name,
+          score: calculateModuleScore(result),
+        }));
+
+        // Verify skipped module returns null
+        expect(scores).toEqual([
+          { name: "security", score: 100 },
+          { name: "prohibitedLibraries", score: null },
+          { name: "functionality", score: 80 },
+        ]);
+
+        // Only non-null scores should contribute to average
+        const validScores = scores.filter((s) => s.score !== null);
+        expect(validScores).toHaveLength(2);
+
+        const average =
+          validScores.reduce((sum, s) => sum + (s.score ?? 0), 0) /
+          validScores.length;
+        expect(average).toBe(90); // (100 + 80) / 2 = 90
+      });
+    });
+
     describe("skip-modules integration", () => {
       it("should return null for skipped module results to enable filtering", () => {
         // Simulate skipped module (undefined result)
