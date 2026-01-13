@@ -425,3 +425,69 @@
 - Issue #153 identified same pattern as Issue #152
 
 ---
+
+## 2026-01-13: Fixed False-Positive Scoring Bugs (Issues #153, #154)
+
+**Summary:** Fixed false-positive scoring bugs in prohibitedLibraries and errorHandling assessment modules.
+
+**Session Focus:** Issue #154 (prohibitedLibraries reports 0 files scanned returning PASS) and Issue #153 (errorHandling returns 100% score with no tests executed)
+
+**Changes Made:**
+- `client/src/lib/assessment/extendedTypes.ts` - Added skipped?, skipReason? fields to ProhibitedLibrariesAssessment
+- `client/src/services/assessment/modules/ProhibitedLibrariesAssessor.ts` - Added createSkippedResult() method and early return check
+- `client/src/services/assessment/modules/ProhibitedLibrariesAssessor.test.ts` - Added 8 tests for skip behavior (158 lines)
+- `cli/src/lib/assessment-runner/assessment-executor.ts` - CLI always shows warning when source path not found
+- `client/src/lib/moduleScoring.ts` - Validate test execution before returning score
+- `client/src/services/assessment/modules/ErrorHandlingAssessor.ts` - Added testExecutionMetadata tracking
+- `client/src/lib/assessment/resultTypes.ts` - Added TestExecutionMetadata interface
+- `client/src/lib/__tests__/moduleScoring.test.ts` - Added 119 lines of score validation tests
+
+**Key Decisions:**
+- Used established createSkippedResult() pattern from ConformanceAssessor/FileModularizationAssessor
+- Return NEED_MORE_INFO (not new SKIPPED status) for backward compatibility
+- Test execution validation: 0 score if all tests fail, cap at 50 if >50% fail
+
+**Commits:**
+- c6b675a3: fix(prohibitedLibraries): Return NEED_MORE_INFO when no files to scan (Issue #154)
+- 4dc203bb: fix(errorHandling): Validate test execution before scoring (Issue #153)
+
+**Issues Closed:** #153, #154
+
+**Next Steps:**
+- Monitor for any edge cases in production usage
+- Consider similar validation patterns for other assessment modules
+
+**Notes:**
+- Code review workflow found no P0 issues
+- All 35 ProhibitedLibraries tests passing including 8 new ones
+
+---
+
+## 2026-01-13: Added --debug-annotations CLI Flag (Issue #155)
+
+**Summary:** Added debug flag and expanded annotation detection to 5 locations for Issue #155.
+
+**Session Focus:** Issue #155 - Tool annotation detection returns 0% for servers with runtime annotations
+
+**Changes Made:**
+- `client/src/services/assessment/modules/annotations/AlignmentChecker.ts` - Added setAnnotationDebugMode(), debug logging, expanded to check _meta and annotations.hints
+- `cli/src/lib/cli-parser.ts` - Added --debug-annotations flag with help text
+- `cli/src/lib/assessment-runner/assessment-executor.ts` - Enable debug mode when flag is used
+- `client/src/services/assessment/modules/annotations/index.ts` - Export new debug functions
+- `client/src/services/assessment/__tests__/AlignmentChecker-Issue155.test.ts` - New test file with 12 test cases
+
+**Key Decisions:**
+- Extraction logic was already correct; issue is server frameworks not serializing top-level hints
+- Added debug flag to help developers diagnose annotation location issues
+- Expanded to 5 annotation locations: annotations object, direct properties, metadata, _meta, annotations.hints
+
+**Next Steps:**
+- Run tests to verify no regressions
+- Document the --debug-annotations flag in CLI docs
+
+**Notes:**
+- Root cause identified: FastMCP doesn't serialize top-level readOnlyHint properties
+- Servers should use annotations=ToolAnnotations(readOnlyHint=True) instead of readOnlyHint: true at tool root
+- 12 new test cases covering all annotation location combinations
+
+---
