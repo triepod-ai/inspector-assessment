@@ -248,6 +248,108 @@ describe("getToolsWithPreservedHints", () => {
     expect(tools[0].destructiveHint).toBe(true);
   });
 
+  // Issue #160: Non-suffixed property preservation tests
+  it("should preserve non-suffixed readOnly from annotations object (Issue #160)", async () => {
+    mockClient.listTools.mockImplementation(async () => {
+      if (mockTransport.onmessage) {
+        mockTransport.onmessage({
+          result: {
+            tools: [
+              {
+                name: "domain_search",
+                annotations: { readOnly: true }, // Non-suffixed version
+              },
+            ],
+          },
+        });
+      }
+      // SDK returns tool without annotations (stripped by Zod)
+      return { tools: [{ name: "domain_search" }] };
+    });
+
+    const tools = await getToolsWithPreservedHints(mockClient as any);
+
+    // Should be mapped to readOnlyHint
+    expect(tools[0].readOnlyHint).toBe(true);
+  });
+
+  it("should preserve all non-suffixed annotations from annotations object (Issue #160)", async () => {
+    mockClient.listTools.mockImplementation(async () => {
+      if (mockTransport.onmessage) {
+        mockTransport.onmessage({
+          result: {
+            tools: [
+              {
+                name: "full_tool",
+                annotations: {
+                  readOnly: true,
+                  destructive: false,
+                  idempotent: true,
+                  openWorld: false,
+                },
+              },
+            ],
+          },
+        });
+      }
+      return { tools: [{ name: "full_tool" }] };
+    });
+
+    const tools = await getToolsWithPreservedHints(mockClient as any);
+
+    expect(tools[0].readOnlyHint).toBe(true);
+    expect(tools[0].destructiveHint).toBe(false);
+    expect(tools[0].idempotentHint).toBe(true);
+    expect(tools[0].openWorldHint).toBe(false);
+  });
+
+  it("should preserve non-suffixed readOnly from direct property (Issue #160)", async () => {
+    mockClient.listTools.mockImplementation(async () => {
+      if (mockTransport.onmessage) {
+        mockTransport.onmessage({
+          result: {
+            tools: [
+              {
+                name: "direct_tool",
+                readOnly: true, // Direct non-suffixed property
+              },
+            ],
+          },
+        });
+      }
+      return { tools: [{ name: "direct_tool" }] };
+    });
+
+    const tools = await getToolsWithPreservedHints(mockClient as any);
+
+    expect(tools[0].readOnlyHint).toBe(true);
+  });
+
+  it("should prioritize *Hint over non-suffixed versions (Issue #160)", async () => {
+    mockClient.listTools.mockImplementation(async () => {
+      if (mockTransport.onmessage) {
+        mockTransport.onmessage({
+          result: {
+            tools: [
+              {
+                name: "priority_tool",
+                annotations: {
+                  readOnlyHint: false, // *Hint should win
+                  readOnly: true, // Should be ignored
+                },
+              },
+            ],
+          },
+        });
+      }
+      return { tools: [{ name: "priority_tool" }] };
+    });
+
+    const tools = await getToolsWithPreservedHints(mockClient as any);
+
+    expect(tools[0].readOnlyHint).toBe(false); // *Hint takes priority
+  });
+
   it("should restore original onmessage handler after call", async () => {
     const originalHandler = jest.fn();
     mockTransport.onmessage = originalHandler;
