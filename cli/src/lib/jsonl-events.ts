@@ -89,17 +89,125 @@ export function extractToolParams(schema: unknown): ToolParam[] {
 /**
  * Emit tool_discovered event for each tool found.
  * Includes annotations if the server provides them.
+ *
+ * Issue #155: Check multiple locations for annotations:
+ * 1. tool.annotations object (MCP 2024-11 spec)
+ * 2. Direct properties (tool.readOnlyHint, etc.)
+ * 3. tool.metadata object
+ * 4. tool._meta object
  */
 export function emitToolDiscovered(tool: Tool): void {
   const params = extractToolParams(tool.inputSchema);
 
-  // Extract annotations, null if not present
-  const annotations = tool.annotations
+  // Issue #155: Extract annotations from multiple sources (priority order)
+  // This mirrors the logic in AlignmentChecker.extractAnnotations()
+  const toolAny = tool as Record<string, unknown>;
+
+  // Priority 1: Check tool.annotations object (MCP spec)
+  let readOnlyHint: boolean | undefined;
+  let destructiveHint: boolean | undefined;
+  let idempotentHint: boolean | undefined;
+  let openWorldHint: boolean | undefined;
+
+  if (tool.annotations) {
+    readOnlyHint = tool.annotations.readOnlyHint;
+    destructiveHint = tool.annotations.destructiveHint;
+    idempotentHint = tool.annotations.idempotentHint;
+    openWorldHint = tool.annotations.openWorldHint;
+  }
+
+  // Priority 2: Check direct properties on tool object
+  // Only use if not already found in annotations
+  if (readOnlyHint === undefined && typeof toolAny.readOnlyHint === "boolean") {
+    readOnlyHint = toolAny.readOnlyHint;
+  }
+  if (
+    destructiveHint === undefined &&
+    typeof toolAny.destructiveHint === "boolean"
+  ) {
+    destructiveHint = toolAny.destructiveHint;
+  }
+  if (
+    idempotentHint === undefined &&
+    typeof toolAny.idempotentHint === "boolean"
+  ) {
+    idempotentHint = toolAny.idempotentHint;
+  }
+  if (
+    openWorldHint === undefined &&
+    typeof toolAny.openWorldHint === "boolean"
+  ) {
+    openWorldHint = toolAny.openWorldHint;
+  }
+
+  // Priority 3: Check tool.metadata object
+  const metadata = toolAny.metadata as Record<string, unknown> | undefined;
+  if (metadata) {
+    if (
+      readOnlyHint === undefined &&
+      typeof metadata.readOnlyHint === "boolean"
+    ) {
+      readOnlyHint = metadata.readOnlyHint;
+    }
+    if (
+      destructiveHint === undefined &&
+      typeof metadata.destructiveHint === "boolean"
+    ) {
+      destructiveHint = metadata.destructiveHint;
+    }
+    if (
+      idempotentHint === undefined &&
+      typeof metadata.idempotentHint === "boolean"
+    ) {
+      idempotentHint = metadata.idempotentHint;
+    }
+    if (
+      openWorldHint === undefined &&
+      typeof metadata.openWorldHint === "boolean"
+    ) {
+      openWorldHint = metadata.openWorldHint;
+    }
+  }
+
+  // Priority 4: Check tool._meta object
+  const _meta = toolAny._meta as Record<string, unknown> | undefined;
+  if (_meta) {
+    if (readOnlyHint === undefined && typeof _meta.readOnlyHint === "boolean") {
+      readOnlyHint = _meta.readOnlyHint;
+    }
+    if (
+      destructiveHint === undefined &&
+      typeof _meta.destructiveHint === "boolean"
+    ) {
+      destructiveHint = _meta.destructiveHint;
+    }
+    if (
+      idempotentHint === undefined &&
+      typeof _meta.idempotentHint === "boolean"
+    ) {
+      idempotentHint = _meta.idempotentHint;
+    }
+    if (
+      openWorldHint === undefined &&
+      typeof _meta.openWorldHint === "boolean"
+    ) {
+      openWorldHint = _meta.openWorldHint;
+    }
+  }
+
+  // Build annotations object if any hints were found
+  const hasAnnotations =
+    readOnlyHint !== undefined ||
+    destructiveHint !== undefined ||
+    idempotentHint !== undefined ||
+    openWorldHint !== undefined;
+
+  const annotations = hasAnnotations
     ? {
-        readOnlyHint: tool.annotations.readOnlyHint,
-        destructiveHint: tool.annotations.destructiveHint,
-        idempotentHint: tool.annotations.idempotentHint,
-        openWorldHint: tool.annotations.openWorldHint,
+        readOnlyHint,
+        destructiveHint,
+        idempotentHint,
+        openWorldHint,
       }
     : null;
 

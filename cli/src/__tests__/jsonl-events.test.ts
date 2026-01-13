@@ -196,6 +196,95 @@ describe("JSONL Event Emission", () => {
 
       expect(emittedEvents[0].annotations).toBeNull();
     });
+
+    // Issue #155: Test that direct properties are detected
+    it("should detect annotations from direct properties (Issue #155)", () => {
+      // Simulate a tool with readOnlyHint as a direct property (not in annotations object)
+      // This is how some MCP SDKs serialize annotations
+      const tool = {
+        name: "browse_subreddit",
+        description: "Browse a subreddit",
+        inputSchema: { type: "object" },
+        readOnlyHint: true, // Direct property, not in annotations object
+      } as Tool;
+
+      emitToolDiscovered(tool);
+
+      const annotations = emittedEvents[0].annotations as Record<
+        string,
+        boolean
+      > | null;
+      expect(annotations).not.toBeNull();
+      expect(annotations?.readOnlyHint).toBe(true);
+    });
+
+    it("should detect annotations from metadata object (Issue #155)", () => {
+      // Simulate a tool with annotations in metadata object
+      const tool = {
+        name: "get_data",
+        description: "Get data",
+        inputSchema: { type: "object" },
+        metadata: {
+          readOnlyHint: true,
+          destructiveHint: false,
+        },
+      } as Tool;
+
+      emitToolDiscovered(tool);
+
+      const annotations = emittedEvents[0].annotations as Record<
+        string,
+        boolean
+      > | null;
+      expect(annotations).not.toBeNull();
+      expect(annotations?.readOnlyHint).toBe(true);
+      expect(annotations?.destructiveHint).toBe(false);
+    });
+
+    it("should detect annotations from _meta object (Issue #155)", () => {
+      // Simulate a tool with annotations in _meta object
+      const tool = {
+        name: "search_docs",
+        description: "Search documents",
+        inputSchema: { type: "object" },
+        _meta: {
+          idempotentHint: true,
+          openWorldHint: false,
+        },
+      } as Tool;
+
+      emitToolDiscovered(tool);
+
+      const annotations = emittedEvents[0].annotations as Record<
+        string,
+        boolean
+      > | null;
+      expect(annotations).not.toBeNull();
+      expect(annotations?.idempotentHint).toBe(true);
+      expect(annotations?.openWorldHint).toBe(false);
+    });
+
+    it("should prioritize tool.annotations over direct properties (Issue #155)", () => {
+      // When both exist, tool.annotations should take precedence
+      const tool = {
+        name: "conflicting_tool",
+        description: "Test priority",
+        inputSchema: { type: "object" },
+        annotations: {
+          readOnlyHint: false, // In annotations object
+        },
+        readOnlyHint: true, // Direct property (should be ignored)
+      } as Tool;
+
+      emitToolDiscovered(tool);
+
+      const annotations = emittedEvents[0].annotations as Record<
+        string,
+        boolean
+      > | null;
+      expect(annotations).not.toBeNull();
+      expect(annotations?.readOnlyHint).toBe(false); // Should use annotations object value
+    });
   });
 
   describe("emitToolsDiscoveryComplete", () => {
