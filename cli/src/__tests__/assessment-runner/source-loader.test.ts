@@ -113,6 +113,130 @@ describe("loadSourceFiles", () => {
 
       expect(result.readmeContent).toBeUndefined();
     });
+
+    // Issue #151: Extended README patterns
+    it("should find README.markdown", () => {
+      const sourcePath = "/project";
+      mockExistsSync.mockImplementation(
+        (p: string) => p === path.join(sourcePath, "README.markdown"),
+      );
+      mockReadFileSync.mockReturnValue("# Markdown README");
+
+      const result = loadSourceFiles(sourcePath);
+
+      expect(result.readmeContent).toBe("# Markdown README");
+    });
+
+    it("should find README.txt", () => {
+      const sourcePath = "/project";
+      mockExistsSync.mockImplementation(
+        (p: string) => p === path.join(sourcePath, "README.txt"),
+      );
+      mockReadFileSync.mockReturnValue("Text README content");
+
+      const result = loadSourceFiles(sourcePath);
+
+      expect(result.readmeContent).toBe("Text README content");
+    });
+
+    it("should find README without extension", () => {
+      const sourcePath = "/project";
+      mockExistsSync.mockImplementation(
+        (p: string) => p === path.join(sourcePath, "README"),
+      );
+      mockReadFileSync.mockReturnValue("No extension README");
+
+      const result = loadSourceFiles(sourcePath);
+
+      expect(result.readmeContent).toBe("No extension README");
+    });
+
+    it("should prioritize README.md over other variants", () => {
+      const sourcePath = "/project";
+      // Multiple README files exist - README.md should be found first
+      mockExistsSync.mockImplementation((p: string) => {
+        return (
+          p === path.join(sourcePath, "README.md") ||
+          p === path.join(sourcePath, "README.txt") ||
+          p === path.join(sourcePath, "README")
+        );
+      });
+      mockReadFileSync.mockImplementation((p: string) => {
+        if (p.endsWith("README.md")) return "# MD README";
+        if (p.endsWith("README.txt")) return "TXT README";
+        if (p.endsWith("README")) return "Plain README";
+        return "";
+      });
+
+      const result = loadSourceFiles(sourcePath);
+
+      expect(result.readmeContent).toBe("# MD README");
+    });
+  });
+
+  describe("debug logging", () => {
+    it("should log debug output when debug flag is true", () => {
+      const sourcePath = "/project";
+      const consoleSpy = jest
+        .spyOn(console, "log")
+        .mockImplementation(() => {});
+
+      try {
+        mockExistsSync.mockReturnValue(false);
+        mockReaddirSync.mockReturnValue([]);
+
+        loadSourceFiles(sourcePath, true);
+
+        // Verify debug logging was called
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining("[source-loader]"),
+        );
+      } finally {
+        consoleSpy.mockRestore();
+      }
+    });
+
+    it("should not log debug output when debug flag is false", () => {
+      const sourcePath = "/project";
+      const consoleSpy = jest
+        .spyOn(console, "log")
+        .mockImplementation(() => {});
+
+      try {
+        mockExistsSync.mockReturnValue(false);
+        mockReaddirSync.mockReturnValue([]);
+
+        loadSourceFiles(sourcePath, false);
+
+        // Verify debug logging was NOT called
+        expect(consoleSpy).not.toHaveBeenCalledWith(
+          expect.stringContaining("[source-loader]"),
+        );
+      } finally {
+        consoleSpy.mockRestore();
+      }
+    });
+
+    it("should not log debug output by default", () => {
+      const sourcePath = "/project";
+      const consoleSpy = jest
+        .spyOn(console, "log")
+        .mockImplementation(() => {});
+
+      try {
+        mockExistsSync.mockReturnValue(false);
+        mockReaddirSync.mockReturnValue([]);
+
+        loadSourceFiles(sourcePath);
+
+        // Verify debug logging was NOT called by default
+        expect(consoleSpy).not.toHaveBeenCalledWith(
+          expect.stringContaining("[source-loader]"),
+        );
+      } finally {
+        consoleSpy.mockRestore();
+      }
+    });
   });
 
   describe("package.json parsing", () => {

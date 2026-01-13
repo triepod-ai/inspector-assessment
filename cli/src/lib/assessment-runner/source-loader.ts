@@ -7,6 +7,7 @@
  */
 
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 
 import type { SourceFiles } from "./types.js";
@@ -18,21 +19,52 @@ const MAX_SOURCE_FILE_SIZE = 100_000;
  * Load optional files from source code path
  *
  * @param sourcePath - Path to source code directory
+ * @param debug - Enable debug logging for path resolution troubleshooting
  * @returns Object containing loaded source files
  */
-export function loadSourceFiles(sourcePath: string): SourceFiles {
+export function loadSourceFiles(
+  sourcePath: string,
+  debug: boolean = false,
+): SourceFiles {
   const result: Record<string, unknown> = {};
+
+  // Debug logging helper - masks home directory for privacy in logs
+  const log = (msg: string) => {
+    if (!debug) return;
+    const maskedMsg = msg.replace(os.homedir(), "~");
+    console.log(`[source-loader] ${maskedMsg}`);
+  };
+
+  log(`Starting source file loading from: ${sourcePath}`);
 
   // Search for README in source directory and parent directories (up to 3 levels)
   // This handles cases where --source points to a subdirectory but README is at repo root
-  const readmePaths = ["README.md", "readme.md", "Readme.md"];
+  // Extended patterns to handle various README naming conventions
+  const readmePaths = [
+    "README.md",
+    "readme.md",
+    "Readme.md",
+    "README.markdown",
+    "readme.markdown",
+    "README.txt",
+    "readme.txt",
+    "README",
+    "Readme",
+  ];
   let readmeFound = false;
+
+  log(`Searching for README variants: ${readmePaths.join(", ")}`);
 
   // First try the source directory itself
   for (const readmePath of readmePaths) {
     const fullPath = path.join(sourcePath, readmePath);
-    if (fs.existsSync(fullPath)) {
+    const exists = fs.existsSync(fullPath);
+    log(`  Checking: ${fullPath} - exists: ${exists}`);
+    if (exists) {
       result.readmeContent = fs.readFileSync(fullPath, "utf-8");
+      log(
+        `  ✓ Found README: ${fullPath} (${(result.readmeContent as string).length} bytes)`,
+      );
       readmeFound = true;
       break;
     }
@@ -40,15 +72,27 @@ export function loadSourceFiles(sourcePath: string): SourceFiles {
 
   // If not found, search parent directories (up to 3 levels)
   if (!readmeFound) {
+    log(
+      `README not found in source directory, searching parent directories...`,
+    );
     let currentDir = sourcePath;
     for (let i = 0; i < 3; i++) {
       const parentDir = path.dirname(currentDir);
-      if (parentDir === currentDir) break; // Reached filesystem root
+      if (parentDir === currentDir) {
+        log(`  Reached filesystem root, stopping parent search`);
+        break; // Reached filesystem root
+      }
 
+      log(`  Searching parent level ${i + 1}: ${parentDir}`);
       for (const readmePath of readmePaths) {
         const fullPath = path.join(parentDir, readmePath);
-        if (fs.existsSync(fullPath)) {
+        const exists = fs.existsSync(fullPath);
+        log(`    Checking: ${fullPath} - exists: ${exists}`);
+        if (exists) {
           result.readmeContent = fs.readFileSync(fullPath, "utf-8");
+          log(
+            `    ✓ Found README: ${fullPath} (${(result.readmeContent as string).length} bytes)`,
+          );
           readmeFound = true;
           break;
         }
@@ -56,6 +100,10 @@ export function loadSourceFiles(sourcePath: string): SourceFiles {
       if (readmeFound) break;
       currentDir = parentDir;
     }
+  }
+
+  if (!readmeFound) {
+    log(`✗ No README found in source directory or parent directories`);
   }
 
   const packagePath = path.join(sourcePath, "package.json");
@@ -147,6 +195,14 @@ export function loadSourceFiles(sourcePath: string): SourceFiles {
   } catch (e) {
     console.warn("[Assessment] Could not load source files:", e);
   }
+
+  // Summary logging
+  const sourceCodeFiles = result.sourceCodeFiles as Map<string, string>;
+  log(`Source loading complete:`);
+  log(`  - README: ${result.readmeContent ? "found" : "not found"}`);
+  log(`  - package.json: ${result.packageJson ? "found" : "not found"}`);
+  log(`  - manifest.json: ${result.manifestJson ? "found" : "not found"}`);
+  log(`  - Source files loaded: ${sourceCodeFiles.size}`);
 
   return result as SourceFiles;
 }

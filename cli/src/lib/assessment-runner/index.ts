@@ -16,6 +16,9 @@ export { loadServerConfig } from "./server-config.js";
 // Source File Loading
 export { loadSourceFiles } from "./source-loader.js";
 
+// Path Resolution
+export { resolveSourcePath } from "./path-resolver.js";
+
 // Server Connection
 export { connectToServer } from "./server-connection.js";
 

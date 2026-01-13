@@ -42,6 +42,7 @@ import {
 import type { AssessmentOptions } from "../cli-parser.js";
 import { loadServerConfig } from "./server-config.js";
 import { loadSourceFiles } from "./source-loader.js";
+import { resolveSourcePath } from "./path-resolver.js";
 import { connectToServer } from "./server-connection.js";
 import { createCallToolWrapper } from "./tool-wrapper.js";
 import { buildConfig } from "./config-builder.js";
@@ -284,10 +285,19 @@ export async function runFullAssessment(
   }
 
   let sourceFiles = {};
-  if (options.sourceCodePath && fs.existsSync(options.sourceCodePath)) {
-    sourceFiles = loadSourceFiles(options.sourceCodePath);
-    if (!options.jsonOnly) {
-      console.log(`📁 Loaded source files from: ${options.sourceCodePath}`);
+  if (options.sourceCodePath) {
+    // Resolve path using utility (handles ~, relative paths, symlinks)
+    const resolvedSourcePath = resolveSourcePath(options.sourceCodePath);
+
+    if (fs.existsSync(resolvedSourcePath)) {
+      sourceFiles = loadSourceFiles(resolvedSourcePath, options.debugSource);
+      if (!options.jsonOnly) {
+        console.log(`📁 Loaded source files from: ${resolvedSourcePath}`);
+      }
+    } else if (!options.jsonOnly && options.debugSource) {
+      console.log(
+        `⚠️  Source path not found: ${options.sourceCodePath} (resolved: ${resolvedSourcePath})`,
+      );
     }
   }
 
