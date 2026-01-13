@@ -76,6 +76,39 @@ export const RUN_READONLY_EXEMPT_SUFFIXES = [
 ];
 
 /**
+ * Prefixes that indicate read-only operations.
+ * Issue #161: When a tool starts with these prefixes, certain keywords become nouns.
+ * For example, "post" in "get_post_details" is a Reddit post (noun), not POST method (verb).
+ */
+export const READONLY_PREFIX_PATTERNS = [
+  /^get[_-]/i,
+  /^list[_-]/i,
+  /^fetch[_-]/i,
+  /^read[_-]/i,
+  /^search[_-]/i,
+  /^find[_-]/i,
+  /^show[_-]/i,
+  /^view[_-]/i,
+  /^describe[_-]/i,
+  /^check[_-]/i,
+  /^query[_-]/i,
+];
+
+/**
+ * Keywords that can be nouns when following a read-only prefix.
+ * Issue #161: These words are verbs when used as prefixes (post_message) but
+ * nouns when used after read-only prefixes (get_post_details).
+ */
+export const NOUN_KEYWORDS_IN_READONLY_CONTEXT = [
+  "post", // Reddit post, blog post, forum post
+  "message", // chat message, email message
+  "comment", // post comment, code comment
+  "thread", // forum thread, email thread
+  "log", // log entry, audit log
+  "record", // database record
+];
+
+/**
  * Keywords that contradict destructiveHint=false (these tools delete/destroy data)
  */
 export const DESTRUCTIVE_CONTRADICTION_KEYWORDS = [
@@ -153,6 +186,27 @@ export function isRunKeywordExempt(toolName: string): boolean {
 }
 
 /**
+ * Check if a keyword is being used as a noun in a read-only context.
+ * Issue #161: "post" in "get_post_details" is a Reddit post (noun), not POST method (verb).
+ * Prevents false positives when read-only tools reference content types.
+ *
+ * @param toolName - The tool name to check
+ * @param keyword - The keyword that was matched (e.g., "post")
+ * @returns true if the keyword is a noun in this read-only context
+ */
+export function isNounInReadOnlyContext(
+  toolName: string,
+  keyword: string,
+): boolean {
+  // Check if keyword can be a noun in read-only context
+  if (!NOUN_KEYWORDS_IN_READONLY_CONTEXT.includes(keyword)) {
+    return false;
+  }
+  // Check if tool name starts with read-only prefix
+  return READONLY_PREFIX_PATTERNS.some((pattern) => pattern.test(toolName));
+}
+
+/**
  * Type guard for confidence levels that warrant event emission or status changes.
  * Uses positive check for acceptable levels (safer than !== "low" if new levels added).
  */
@@ -176,6 +230,10 @@ export function detectAnnotationDeception(
       // Tools like "runAccessibilityAudit" are genuinely read-only
       if (keyword === "run" && isRunKeywordExempt(toolName)) {
         // Tool matches "run" but has an analysis suffix - not deceptive
+        // Fall through to normal pattern-based inference
+      } else if (isNounInReadOnlyContext(toolName, keyword)) {
+        // Issue #161: Skip when keyword is a noun in read-only context
+        // e.g., "post" in "get_post_details" is a Reddit post, not POST method
         // Fall through to normal pattern-based inference
       } else {
         return {
