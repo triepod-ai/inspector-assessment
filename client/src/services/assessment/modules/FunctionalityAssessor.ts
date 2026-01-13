@@ -186,6 +186,7 @@ export class FunctionalityAssessor extends BaseAssessor {
 
     return {
       totalTools,
+      totalToolsFound: totalTools, // Issue #158: legacy compatibility for mcp-auditor
       testedTools,
       workingTools,
       brokenTools,

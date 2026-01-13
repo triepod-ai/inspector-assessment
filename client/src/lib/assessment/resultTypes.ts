@@ -501,6 +501,8 @@ export interface DiscoveredTool {
 
 export interface FunctionalityAssessment {
   totalTools: number;
+  /** @deprecated Use totalTools. Legacy field for mcp-auditor compatibility (Issue #158) */
+  totalToolsFound?: number;
   testedTools: number;
   workingTools: number;
   brokenTools: string[];

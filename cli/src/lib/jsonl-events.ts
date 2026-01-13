@@ -100,7 +100,10 @@ export function emitToolDiscovered(tool: Tool): void {
   const params = extractToolParams(tool.inputSchema);
 
   // Issue #155: Extract annotations from multiple sources (priority order)
-  // This mirrors the logic in AlignmentChecker.extractAnnotations()
+  // NOTE: This is a simplified version of AlignmentChecker.extractAnnotations()
+  // that only checks *Hint-suffixed properties (readOnlyHint, destructiveHint, etc.),
+  // not non-suffixed variants like readOnly, destructive, idempotent, openWorld.
+  // See AlignmentChecker.resolveAnnotationValue() for full implementation with fallbacks.
   const toolAny = tool as Record<string, unknown>;
 
   // Priority 1: Check tool.annotations object (MCP spec)
