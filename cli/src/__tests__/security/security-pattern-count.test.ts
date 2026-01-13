@@ -189,11 +189,11 @@ describe("Security Pattern Count Consistency", () => {
       );
 
       // Reviewer mode: "Test only 3 critical"
-      expect(content).toMatch(/securityPatternsToTest:\s*3;.*3 critical/i);
+      expect(content).toMatch(/securityPatternsToTest:\s*3,.*3 critical/i);
 
       // Developer/audit modes: "all security patterns" or "all 8"
       expect(content).toMatch(
-        /securityPatternsToTest:\s*8;.*all.*8|8.*patterns/i,
+        /securityPatternsToTest:\s*8,.*all.*8|8.*patterns/i,
       );
     });
 
