@@ -48,6 +48,8 @@ import { createCallToolWrapper } from "./tool-wrapper.js";
 import { buildConfig } from "./config-builder.js";
 // Issue #155: Import annotation debug mode setter
 import { setAnnotationDebugMode } from "../../../../client/lib/services/assessment/modules/annotations/AlignmentChecker.js";
+// Issue #155: Import helper to preserve hint properties stripped by SDK
+import { getToolsWithPreservedHints } from "./tools-with-hints.js";
 
 /**
  * Run full assessment against an MCP server
@@ -113,10 +115,13 @@ export async function runFullAssessment(
     console.log("⚠️  Server did not provide serverInfo during initialization");
   }
 
-  const response = await client.listTools();
-  const tools = response.tools || [];
+  // Issue #155: Use helper that preserves hint properties stripped by SDK Zod validation
+  // The SDK's listTools() validates against a schema that strips direct properties
+  // like readOnlyHint. This helper intercepts the raw transport response to preserve them.
+  const tools = await getToolsWithPreservedHints(client);
 
   // Emit JSONL tool discovery events for audit-worker parsing
+  // Tools now have hint properties preserved from raw response
   for (const tool of tools) {
     emitToolDiscovered(tool);
   }
@@ -430,9 +435,9 @@ export async function runFullAssessment(
     serverName: options.serverName,
     tools,
     callTool: createCallToolWrapper(client),
+    // Issue #155: Use helper to preserve hint properties in refreshed tool lists
     listTools: async () => {
-      const response = await client.listTools();
-      return response.tools;
+      return getToolsWithPreservedHints(client);
     },
     config,
     sourceCodePath: options.sourceCodePath,
