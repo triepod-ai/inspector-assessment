@@ -294,9 +294,13 @@ export async function runFullAssessment(
       if (!options.jsonOnly) {
         console.log(`📁 Loaded source files from: ${resolvedSourcePath}`);
       }
-    } else if (!options.jsonOnly && options.debugSource) {
+    } else if (!options.jsonOnly) {
+      // Issue #154: Always show warning, not just with --debug-source
       console.log(
         `⚠️  Source path not found: ${options.sourceCodePath} (resolved: ${resolvedSourcePath})`,
+      );
+      console.log(
+        `   Use --source <existing-path> to enable full source file analysis.`,
       );
     }
   }

@@ -36,6 +36,23 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
     this.logger.info("Starting prohibited libraries assessment");
     this.testCount = 0;
 
+    // Issue #154: Check if there are any files to scan
+    const hasPackageJson = Boolean(context.packageJson);
+    const hasSourceFiles = Boolean(
+      context.sourceCodeFiles &&
+      context.config.enableSourceCodeAnalysis &&
+      context.sourceCodeFiles.size > 0,
+    );
+
+    if (!hasPackageJson && !hasSourceFiles) {
+      this.logger.info(
+        "No package.json or source files available, skipping assessment",
+      );
+      return this.createSkippedResult(
+        "No package.json or source files provided. Enable source code analysis with --source flag.",
+      );
+    }
+
     const matches: ProhibitedLibraryMatch[] = [];
     const scannedFiles: string[] = [];
     let hasFinancialLibraries = false;
@@ -190,6 +207,27 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
       status,
       explanation,
       recommendations,
+    };
+  }
+
+  /**
+   * Create result when no files are available to scan (Issue #154)
+   * Follows the pattern established by ConformanceAssessor
+   */
+  private createSkippedResult(reason: string): ProhibitedLibrariesAssessment {
+    return {
+      matches: [],
+      scannedFiles: [],
+      hasFinancialLibraries: false,
+      hasMediaLibraries: false,
+      status: "NEED_MORE_INFO",
+      explanation: `Prohibited libraries assessment skipped: ${reason}`,
+      recommendations: [
+        "Provide --source <path> to enable package.json and source file scanning",
+        "Ensure the source path exists and contains package.json or source files",
+      ],
+      skipped: true,
+      skipReason: reason,
     };
   }
 

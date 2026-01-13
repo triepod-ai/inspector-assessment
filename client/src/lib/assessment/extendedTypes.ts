@@ -245,6 +245,10 @@ export interface ProhibitedLibrariesAssessment {
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
+  /** Whether assessment was skipped due to missing files (Issue #154) */
+  skipped?: boolean;
+  /** Reason for skipping if applicable */
+  skipReason?: string;
 }
 
 // ============================================================================

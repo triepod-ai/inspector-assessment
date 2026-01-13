@@ -525,4 +525,162 @@ module.exports = stripe;
       expect(stripeMatch?.importFiles?.length).toBeGreaterThanOrEqual(3);
     });
   });
+
+  // Issue #154: Skipped Assessment Tests
+  describe("Skipped Assessment (Issue #154)", () => {
+    it("should return NEED_MORE_INFO with skipped=true when no files to scan", async () => {
+      // Arrange - context with no packageJson and no sourceCodeFiles
+      mockContext.packageJson = undefined;
+      mockContext.sourceCodeFiles = undefined;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.status).toBe("NEED_MORE_INFO");
+      expect(result.skipped).toBe(true);
+      expect(result.skipReason).toContain("No package.json or source files");
+      expect(result.scannedFiles).toHaveLength(0);
+      expect(result.explanation).toContain("skipped");
+    });
+
+    it("should return NEED_MORE_INFO when sourceCodeFiles is empty Map", async () => {
+      // Arrange - empty Map (what happens when source path not found)
+      mockContext.packageJson = undefined;
+      mockContext.sourceCodeFiles = new Map();
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.status).toBe("NEED_MORE_INFO");
+      expect(result.skipped).toBe(true);
+    });
+
+    it("should proceed normally when only packageJson is available", async () => {
+      // Arrange - packageJson but no sourceCodeFiles
+      mockContext.packageJson = {
+        name: "test",
+        version: "1.0.0",
+        dependencies: {},
+      };
+      mockContext.sourceCodeFiles = undefined;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - should NOT be skipped since packageJson is available
+      expect(result.skipped).toBeUndefined();
+      expect(result.scannedFiles).toContain("package.json");
+      expect(result.status).toBe("PASS");
+    });
+
+    it("should proceed normally when only sourceCodeFiles is available", async () => {
+      // Arrange - sourceCodeFiles but no packageJson
+      mockContext.packageJson = undefined;
+      mockContext.sourceCodeFiles = createMockSourceCodeFiles({
+        "src/index.ts": "import express from 'express';",
+      });
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - should NOT be skipped since sourceCodeFiles is available
+      expect(result.skipped).toBeUndefined();
+      expect(result.scannedFiles.length).toBeGreaterThan(0);
+    });
+
+    it("should include actionable recommendations when skipped", async () => {
+      // Arrange
+      mockContext.packageJson = undefined;
+      mockContext.sourceCodeFiles = undefined;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.recommendations).toContainEqual(
+        expect.stringContaining("--source"),
+      );
+    });
+
+    it("should return 0 matches when skipped", async () => {
+      // Arrange
+      mockContext.packageJson = undefined;
+      mockContext.sourceCodeFiles = undefined;
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert
+      expect(result.matches).toHaveLength(0);
+      expect(result.hasFinancialLibraries).toBe(false);
+      expect(result.hasMediaLibraries).toBe(false);
+    });
+
+    it("should skip when sourceCodeFiles exist but enableSourceCodeAnalysis is false and no packageJson", async () => {
+      // Arrange - source files exist but analysis disabled + no packageJson = nothing to scan
+      const configNoSource = createMockAssessmentConfig({
+        enableExtendedAssessment: true,
+        enableSourceCodeAnalysis: false,
+        assessmentCategories: {
+          functionality: true,
+          security: true,
+          documentation: true,
+          errorHandling: true,
+          usability: true,
+          prohibitedLibraries: true,
+        },
+      });
+      const assessorNoSource = new ProhibitedLibrariesAssessor(configNoSource);
+      const contextNoSource = createMockAssessmentContext({
+        config: configNoSource,
+      });
+      contextNoSource.packageJson = undefined;
+      contextNoSource.sourceCodeFiles = createMockSourceCodeFiles({
+        "src/index.ts": "import Stripe from 'stripe';",
+      });
+
+      // Act
+      const result = await assessorNoSource.assess(contextNoSource);
+
+      // Assert - SHOULD skip because source analysis is disabled and no packageJson
+      // The source files won't be scanned anyway (gated by enableSourceCodeAnalysis at line 115)
+      expect(result.status).toBe("NEED_MORE_INFO");
+      expect(result.skipped).toBe(true);
+    });
+
+    it("should NOT skip when packageJson exists even if enableSourceCodeAnalysis is false", async () => {
+      // Arrange - packageJson available, source analysis disabled
+      const configNoSource = createMockAssessmentConfig({
+        enableExtendedAssessment: true,
+        enableSourceCodeAnalysis: false,
+        assessmentCategories: {
+          functionality: true,
+          security: true,
+          documentation: true,
+          errorHandling: true,
+          usability: true,
+          prohibitedLibraries: true,
+        },
+      });
+      const assessorNoSource = new ProhibitedLibrariesAssessor(configNoSource);
+      const contextNoSource = createMockAssessmentContext({
+        config: configNoSource,
+      });
+      contextNoSource.packageJson = {
+        name: "test",
+        version: "1.0.0",
+        dependencies: {},
+      };
+
+      // Act
+      const result = await assessorNoSource.assess(contextNoSource);
+
+      // Assert - should NOT be skipped since packageJson is available
+      expect(result.skipped).toBeUndefined();
+      expect(result.scannedFiles).toContain("package.json");
+      expect(result.status).toBe("PASS");
+    });
+  });
 });
