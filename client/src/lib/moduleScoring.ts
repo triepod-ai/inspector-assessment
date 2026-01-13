@@ -40,9 +40,44 @@ export function calculateModuleScore(result: unknown): number | null {
   if (r.coveragePercentage !== undefined) {
     return Math.round(r.coveragePercentage as number);
   }
-  // Security module - 100% if no vulns, lower based on vuln count
+  // Security module - validate test execution before scoring (Issue #152)
   if (Array.isArray(r.vulnerabilities)) {
     const vulnCount = r.vulnerabilities.length;
+    const metadata = r.testExecutionMetadata as
+      | {
+          totalTestsAttempted?: number;
+          validTestsCompleted?: number;
+          connectionErrorCount?: number;
+          testCoveragePercent?: number;
+        }
+      | undefined;
+
+    // If we have metadata, validate test execution
+    if (metadata) {
+      const {
+        validTestsCompleted = 0,
+        connectionErrorCount = 0,
+        testCoveragePercent = 0,
+      } = metadata;
+
+      // Case 1: All tests failed due to connection errors
+      // Return 0 score - can't verify security without successful test execution
+      // Note: validTestsCompleted=0 with connectionErrorCount=0 is allowed
+      // (e.g., server has no security-relevant tools - uses normal scoring)
+      if (validTestsCompleted === 0 && connectionErrorCount > 0) {
+        return 0;
+      }
+
+      // Case 2: Significant connection errors (>50% failure)
+      // Cap score at 50 - partial coverage means partial confidence
+      if (testCoveragePercent < 50 && connectionErrorCount > 0) {
+        const baseScore =
+          vulnCount === 0 ? 100 : Math.max(0, 100 - vulnCount * 10);
+        return Math.min(50, baseScore);
+      }
+    }
+
+    // Normal case: good test coverage, calculate based on vulnerabilities
     return vulnCount === 0 ? 100 : Math.max(0, 100 - vulnCount * 10);
   }
   // AUP module - 100% if no violations, lower based on violation count

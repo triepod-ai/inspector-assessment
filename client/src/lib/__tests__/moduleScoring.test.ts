@@ -105,6 +105,112 @@ describe("moduleScoring", () => {
         };
         expect(calculateModuleScore(result)).toBe(0);
       });
+
+      // Issue #152: Test execution metadata validation
+      describe("test execution metadata (Issue #152)", () => {
+        it("should return 0 when no tests completed due to connection errors", () => {
+          const result = {
+            vulnerabilities: [],
+            testExecutionMetadata: {
+              totalTestsAttempted: 100,
+              validTestsCompleted: 0,
+              connectionErrorCount: 100,
+              testCoveragePercent: 0,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(0);
+        });
+
+        it("should return 0 when 1 vuln found but no valid tests ran", () => {
+          // This is the exact bug scenario: 1 vuln from additionalChecks = 90%
+          // but no actual security tests executed
+          const result = {
+            vulnerabilities: ["additional_check_vuln"],
+            testExecutionMetadata: {
+              totalTestsAttempted: 100,
+              validTestsCompleted: 0,
+              connectionErrorCount: 100,
+              testCoveragePercent: 0,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(0);
+        });
+
+        it("should cap at 50 when test coverage is below 50%", () => {
+          const result = {
+            vulnerabilities: [],
+            testExecutionMetadata: {
+              totalTestsAttempted: 100,
+              validTestsCompleted: 40,
+              connectionErrorCount: 60,
+              testCoveragePercent: 40,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(50);
+        });
+
+        it("should cap vulnerability-based score at 50 when coverage < 50%", () => {
+          // 2 vulns would normally be 80%, but capped at 50% due to low coverage
+          const result = {
+            vulnerabilities: ["vuln1", "vuln2"],
+            testExecutionMetadata: {
+              totalTestsAttempted: 100,
+              validTestsCompleted: 30,
+              connectionErrorCount: 70,
+              testCoveragePercent: 30,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(50);
+        });
+
+        it("should return normal score when coverage >= 50%", () => {
+          const result = {
+            vulnerabilities: [],
+            testExecutionMetadata: {
+              totalTestsAttempted: 100,
+              validTestsCompleted: 80,
+              connectionErrorCount: 20,
+              testCoveragePercent: 80,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(100);
+        });
+
+        it("should return vulnerability-based score when coverage is good", () => {
+          const result = {
+            vulnerabilities: ["vuln1"],
+            testExecutionMetadata: {
+              totalTestsAttempted: 100,
+              validTestsCompleted: 95,
+              connectionErrorCount: 5,
+              testCoveragePercent: 95,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(90);
+        });
+
+        it("should use normal scoring when metadata is missing (backward compatibility)", () => {
+          const result = {
+            vulnerabilities: ["vuln1"],
+          };
+          expect(calculateModuleScore(result)).toBe(90);
+        });
+
+        it("should not penalize when no connection errors despite low coverage", () => {
+          // If server just has few tools, that's fine
+          const result = {
+            vulnerabilities: [],
+            testExecutionMetadata: {
+              totalTestsAttempted: 10,
+              validTestsCompleted: 4,
+              connectionErrorCount: 0,
+              testCoveragePercent: 40,
+            },
+          };
+          // No connection errors = no penalty for low coverage
+          expect(calculateModuleScore(result)).toBe(100);
+        });
+      });
     });
 
     describe("AUP compliance module", () => {

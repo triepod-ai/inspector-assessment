@@ -608,6 +608,18 @@ export interface SecurityAssessment {
   testValidityWarning?: TestValidityWarning;
   /** Overall confidence level (may be reduced by test validity issues) */
   overallConfidence?: "high" | "medium" | "low";
+  // Issue #152: Test execution metadata for score validation
+  // Prevents high scores when tests fail to execute
+  testExecutionMetadata?: {
+    /** Total tests that were supposed to run */
+    totalTestsAttempted: number;
+    /** Tests that completed successfully */
+    validTestsCompleted: number;
+    /** Tests that failed due to connection/server errors */
+    connectionErrorCount: number;
+    /** Percentage of tests that completed: validTestsCompleted / totalTestsAttempted * 100 */
+    testCoveragePercent: number;
+  };
 }
 
 export interface DocumentationAssessment {

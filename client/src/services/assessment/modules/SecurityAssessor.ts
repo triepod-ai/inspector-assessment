@@ -377,6 +377,14 @@ export class SecurityAssessor extends BaseAssessor {
     // Issue #75: Aggregate auth bypass detection results
     const authBypassSummary = this.aggregateAuthBypassResults(allTests);
 
+    // Issue #152: Calculate test execution metadata for score validation
+    const totalTestsAttempted = allTests.length;
+    const validTestsCompleted = validTests.length;
+    const testCoveragePercent =
+      totalTestsAttempted > 0
+        ? Math.round((validTestsCompleted / totalTestsAttempted) * 100)
+        : 0;
+
     return {
       promptInjectionTests: allTests,
       vulnerabilities,
@@ -387,6 +395,13 @@ export class SecurityAssessor extends BaseAssessor {
       // Issue #134: Test validity warning for response uniformity detection
       testValidityWarning: validityResult.warning,
       overallConfidence,
+      // Issue #152: Test execution metadata for score validation
+      testExecutionMetadata: {
+        totalTestsAttempted,
+        validTestsCompleted,
+        connectionErrorCount: connectionErrors.length,
+        testCoveragePercent,
+      },
     };
   }
 
