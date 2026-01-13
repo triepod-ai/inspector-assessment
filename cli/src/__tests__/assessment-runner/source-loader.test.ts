@@ -168,19 +168,23 @@ describe("loadSourceFiles", () => {
       const consoleSpy = jest
         .spyOn(console, "warn")
         .mockImplementation(() => {});
-      mockExistsSync.mockImplementation(
-        (p: string) => p === path.join(sourcePath, "manifest.json"),
-      );
-      mockReadFileSync.mockReturnValue("{ invalid json }");
 
-      const result = loadSourceFiles(sourcePath);
+      try {
+        mockExistsSync.mockImplementation(
+          (p: string) => p === path.join(sourcePath, "manifest.json"),
+        );
+        mockReadFileSync.mockReturnValue("{ invalid json }");
 
-      expect(result.manifestRaw).toBe("{ invalid json }");
-      expect(result.manifestJson).toBeUndefined();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Failed to parse manifest.json"),
-      );
-      consoleSpy.mockRestore();
+        const result = loadSourceFiles(sourcePath);
+
+        expect(result.manifestRaw).toBe("{ invalid json }");
+        expect(result.manifestJson).toBeUndefined();
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining("Failed to parse manifest.json"),
+        );
+      } finally {
+        consoleSpy.mockRestore();
+      }
     });
   });
 
@@ -355,19 +359,23 @@ describe("loadSourceFiles", () => {
       const consoleSpy = jest
         .spyOn(console, "warn")
         .mockImplementation(() => {});
-      mockExistsSync.mockReturnValue(false);
-      mockReaddirSync.mockImplementation(() => {
-        throw new Error("Permission denied");
-      });
 
-      const result = loadSourceFiles(sourcePath);
+      try {
+        mockExistsSync.mockReturnValue(false);
+        mockReaddirSync.mockImplementation(() => {
+          throw new Error("Permission denied");
+        });
 
-      expect(result.sourceCodeFiles?.size).toBe(0);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Could not load source files"),
-        expect.any(Error),
-      );
-      consoleSpy.mockRestore();
+        const result = loadSourceFiles(sourcePath);
+
+        expect(result.sourceCodeFiles?.size).toBe(0);
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining("Could not load source files"),
+          expect.any(Error),
+        );
+      } finally {
+        consoleSpy.mockRestore();
+      }
     });
 
     it("should skip unreadable files silently", () => {

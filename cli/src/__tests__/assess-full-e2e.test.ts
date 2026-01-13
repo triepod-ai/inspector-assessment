@@ -112,6 +112,10 @@ async function spawnCLI(
     // Set timeout
     const timer = setTimeout(() => {
       if (proc && !proc.killed) {
+        // Destroy streams before killing to prevent memory leaks
+        proc.stdout?.destroy();
+        proc.stderr?.destroy();
+        proc.stdin?.destroy();
         proc.kill("SIGTERM");
         exitCode = -1; // Indicate timeout
       }
@@ -120,6 +124,10 @@ async function spawnCLI(
     // Handle process exit
     proc.on("close", (code) => {
       clearTimeout(timer);
+      // Destroy streams to prevent memory leaks
+      proc?.stdout?.destroy();
+      proc?.stderr?.destroy();
+      proc?.stdin?.destroy();
       // Don't overwrite timeout exit code (-1)
       if (exitCode !== -1) {
         exitCode = code;
@@ -140,6 +148,10 @@ async function spawnCLI(
     // Handle errors
     proc.on("error", (err) => {
       clearTimeout(timer);
+      // Destroy streams to prevent memory leaks
+      proc?.stdout?.destroy();
+      proc?.stderr?.destroy();
+      proc?.stdin?.destroy();
       stderr += `\nProcess error: ${err.message}`;
       resolve({
         stdout,
@@ -194,11 +206,11 @@ function parseJSONLEvents(stderr: string): JSONLEvent[] {
  * @returns True if server responds, false otherwise
  */
 async function checkServerAvailable(url: string): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    // Give enough time to receive initial response but not wait forever
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const controller = new AbortController();
+  // Give enough time to receive initial response but not wait forever
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
 
+  try {
     const response = await fetch(url, {
       method: "POST",
       headers: DEFAULT_HEADERS,
@@ -217,7 +229,6 @@ async function checkServerAvailable(url: string): Promise<boolean> {
 
     // Server responded with a status code - check if it's OK
     if (response.status >= 500) {
-      clearTimeout(timeoutId);
       return false;
     }
 
@@ -225,25 +236,26 @@ async function checkServerAvailable(url: string): Promise<boolean> {
     // This confirms the server is actually responding
     const reader = response.body?.getReader();
     if (!reader) {
-      clearTimeout(timeoutId);
       return response.status < 500;
     }
 
     try {
       // Try to read the first chunk
       const { done, value } = await reader.read();
-      clearTimeout(timeoutId);
       reader.cancel(); // Cancel the stream - we don't need more data
 
       // If we got any data, the server is available
       return !done && value && value.length > 0;
     } catch {
-      clearTimeout(timeoutId);
       // If read fails after successful fetch, server still responded
       return true;
     }
   } catch {
     return false;
+  } finally {
+    // Always clean up timeout and abort controller
+    clearTimeout(timeoutId);
+    controller.abort();
   }
 }
 

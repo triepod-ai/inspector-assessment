@@ -169,20 +169,28 @@ describe("resolveModuleNames", () => {
 
   it("should emit warnings for deprecated modules when warn=true", () => {
     const consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-    const modules = ["documentation"];
-    resolveModuleNames(modules, true);
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("deprecated"),
-    );
-    consoleSpy.mockRestore();
+
+    try {
+      const modules = ["documentation"];
+      resolveModuleNames(modules, true);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("deprecated"),
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
   it("should not emit warnings when warn=false", () => {
     const consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-    const modules = ["documentation"];
-    resolveModuleNames(modules, false);
-    expect(consoleSpy).not.toHaveBeenCalled();
-    consoleSpy.mockRestore();
+
+    try {
+      const modules = ["documentation"];
+      resolveModuleNames(modules, false);
+      expect(consoleSpy).not.toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 });
 

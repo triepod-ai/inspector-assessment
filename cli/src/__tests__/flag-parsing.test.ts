@@ -842,8 +842,9 @@ describe("parseArgs Zod Schema Integration", () => {
     // Run any pending timers and restore
     jest.runAllTimers();
     jest.useRealTimers();
-    processExitSpy.mockRestore();
-    consoleErrorSpy.mockRestore();
+    // Use optional chaining in case spies weren't created (prevents memory leaks)
+    processExitSpy?.mockRestore();
+    consoleErrorSpy?.mockRestore();
   });
 
   describe("LogLevelSchema integration", () => {

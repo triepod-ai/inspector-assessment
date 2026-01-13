@@ -30,10 +30,10 @@ const DEFAULT_HEADERS = {
  * Check if a server is available by sending an initialize request
  */
 async function checkServerAvailable(url: string): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
 
+  try {
     const response = await fetch(url, {
       method: "POST",
       headers: DEFAULT_HEADERS,
@@ -50,10 +50,13 @@ async function checkServerAvailable(url: string): Promise<boolean> {
       signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
     return response.status < 500;
   } catch {
     return false;
+  } finally {
+    // Always clean up timeout and abort controller to prevent memory leaks
+    clearTimeout(timeoutId);
+    controller.abort();
   }
 }
 

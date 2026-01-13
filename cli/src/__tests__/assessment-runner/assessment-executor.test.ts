@@ -11,6 +11,7 @@ import {
   expect,
   beforeEach,
   afterEach,
+  afterAll,
 } from "@jest/globals";
 
 // Mock all dependencies with explicit any types for flexibility
@@ -189,6 +190,22 @@ describe("runFullAssessment", () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  afterAll(() => {
+    // Clean up module mocks to prevent memory leaks
+    jest.unmock("../../lib/assessment-runner/server-config.js");
+    jest.unmock("../../lib/assessment-runner/server-connection.js");
+    jest.unmock("../../lib/assessment-runner/source-loader.js");
+    jest.unmock("../../lib/assessment-runner/tool-wrapper.js");
+    jest.unmock("../../lib/assessment-runner/config-builder.js");
+    jest.unmock(
+      "../../../../client/lib/services/assessment/AssessmentOrchestrator.js",
+    );
+    jest.unmock("../../assessmentState.js");
+    jest.unmock("../../lib/jsonl-events.js");
+    jest.unmock("fs");
+    jest.unmock("../../../../client/lib/lib/assessmentTypes.js");
   });
 
   describe("orchestration flow", () => {
