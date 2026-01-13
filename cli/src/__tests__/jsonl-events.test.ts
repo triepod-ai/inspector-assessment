@@ -285,6 +285,147 @@ describe("JSONL Event Emission", () => {
       expect(annotations).not.toBeNull();
       expect(annotations?.readOnlyHint).toBe(false); // Should use annotations object value
     });
+
+    // Issue #160: Test non-suffixed annotation property detection
+    it("should detect non-suffixed readOnly from annotations object (Issue #160)", () => {
+      const tool = {
+        name: "domain_search",
+        description: "Search emails based on domain name",
+        inputSchema: { type: "object" },
+        annotations: { readOnly: true }, // Non-suffixed version
+      } as Tool;
+
+      emitToolDiscovered(tool);
+
+      const annotations = emittedEvents[0].annotations as Record<
+        string,
+        boolean
+      > | null;
+      expect(annotations).not.toBeNull();
+      expect(annotations?.readOnlyHint).toBe(true);
+    });
+
+    it("should detect all non-suffixed annotations from annotations object (Issue #160)", () => {
+      const tool = {
+        name: "full_annotations",
+        inputSchema: { type: "object" },
+        annotations: {
+          readOnly: true,
+          destructive: false,
+          idempotent: true,
+          openWorld: false,
+        },
+      } as Tool;
+
+      emitToolDiscovered(tool);
+
+      const annotations = emittedEvents[0].annotations as Record<
+        string,
+        boolean
+      > | null;
+      expect(annotations).not.toBeNull();
+      expect(annotations?.readOnlyHint).toBe(true);
+      expect(annotations?.destructiveHint).toBe(false);
+      expect(annotations?.idempotentHint).toBe(true);
+      expect(annotations?.openWorldHint).toBe(false);
+    });
+
+    it("should detect non-suffixed readOnly from direct properties (Issue #160)", () => {
+      const tool = {
+        name: "email_finder",
+        inputSchema: { type: "object" },
+        readOnly: true, // Direct non-suffixed property
+      } as Tool;
+
+      emitToolDiscovered(tool);
+
+      const annotations = emittedEvents[0].annotations as Record<
+        string,
+        boolean
+      > | null;
+      expect(annotations).not.toBeNull();
+      expect(annotations?.readOnlyHint).toBe(true);
+    });
+
+    it("should detect non-suffixed annotations from metadata object (Issue #160)", () => {
+      const tool = {
+        name: "metadata_tool",
+        inputSchema: { type: "object" },
+        metadata: {
+          readOnly: true,
+          destructive: false,
+        },
+      } as Tool;
+
+      emitToolDiscovered(tool);
+
+      const annotations = emittedEvents[0].annotations as Record<
+        string,
+        boolean
+      > | null;
+      expect(annotations).not.toBeNull();
+      expect(annotations?.readOnlyHint).toBe(true);
+      expect(annotations?.destructiveHint).toBe(false);
+    });
+
+    it("should detect non-suffixed annotations from _meta object (Issue #160)", () => {
+      const tool = {
+        name: "meta_tool",
+        inputSchema: { type: "object" },
+        _meta: {
+          idempotent: true,
+          openWorld: false,
+        },
+      } as Tool;
+
+      emitToolDiscovered(tool);
+
+      const annotations = emittedEvents[0].annotations as Record<
+        string,
+        boolean
+      > | null;
+      expect(annotations).not.toBeNull();
+      expect(annotations?.idempotentHint).toBe(true);
+      expect(annotations?.openWorldHint).toBe(false);
+    });
+
+    it("should prioritize *Hint over non-suffixed in annotations object (Issue #160)", () => {
+      const tool = {
+        name: "priority_tool",
+        inputSchema: { type: "object" },
+        annotations: {
+          readOnlyHint: false, // *Hint version should win
+          readOnly: true, // Should be ignored
+        },
+      } as Tool;
+
+      emitToolDiscovered(tool);
+
+      const annotations = emittedEvents[0].annotations as Record<
+        string,
+        boolean
+      > | null;
+      expect(annotations).not.toBeNull();
+      expect(annotations?.readOnlyHint).toBe(false); // *Hint takes priority
+    });
+
+    it("should prioritize *Hint over non-suffixed in direct properties (Issue #160)", () => {
+      const tool = {
+        name: "direct_priority_tool",
+        inputSchema: { type: "object" },
+        destructiveHint: true, // *Hint version should win
+        destructive: false, // Should be ignored
+      } as Tool;
+
+      emitToolDiscovered(tool);
+
+      const annotations = emittedEvents[0].annotations as Record<
+        string,
+        boolean
+      > | null;
+      expect(annotations).not.toBeNull();
+      expect(annotations?.destructiveHint).toBe(true);
+    });
   });
 
   describe("emitToolsDiscoveryComplete", () => {

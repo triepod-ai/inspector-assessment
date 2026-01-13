@@ -100,101 +100,141 @@ export function emitToolDiscovered(tool: Tool): void {
   const params = extractToolParams(tool.inputSchema);
 
   // Issue #155: Extract annotations from multiple sources (priority order)
-  // NOTE: This is a simplified version of AlignmentChecker.extractAnnotations()
-  // that only checks *Hint-suffixed properties (readOnlyHint, destructiveHint, etc.),
-  // not non-suffixed variants like readOnly, destructive, idempotent, openWorld.
-  // See AlignmentChecker.resolveAnnotationValue() for full implementation with fallbacks.
+  // Issue #160: Also check non-suffixed variants (readOnly, destructive, etc.)
+  // for servers that use the shorter property names instead of *Hint versions.
   const toolAny = tool as Record<string, unknown>;
+  const annotationsAny = tool.annotations as
+    | Record<string, unknown>
+    | undefined;
 
   // Priority 1: Check tool.annotations object (MCP spec)
+  // Issue #160: Use nullish coalescing to fall back to non-suffixed versions
   let readOnlyHint: boolean | undefined;
   let destructiveHint: boolean | undefined;
   let idempotentHint: boolean | undefined;
   let openWorldHint: boolean | undefined;
 
-  if (tool.annotations) {
-    readOnlyHint = tool.annotations.readOnlyHint;
-    destructiveHint = tool.annotations.destructiveHint;
-    idempotentHint = tool.annotations.idempotentHint;
-    openWorldHint = tool.annotations.openWorldHint;
+  if (annotationsAny) {
+    // Check *Hint version first, fall back to non-suffixed (Issue #160)
+    if (typeof annotationsAny.readOnlyHint === "boolean") {
+      readOnlyHint = annotationsAny.readOnlyHint;
+    } else if (typeof annotationsAny.readOnly === "boolean") {
+      readOnlyHint = annotationsAny.readOnly;
+    }
+    if (typeof annotationsAny.destructiveHint === "boolean") {
+      destructiveHint = annotationsAny.destructiveHint;
+    } else if (typeof annotationsAny.destructive === "boolean") {
+      destructiveHint = annotationsAny.destructive;
+    }
+    if (typeof annotationsAny.idempotentHint === "boolean") {
+      idempotentHint = annotationsAny.idempotentHint;
+    } else if (typeof annotationsAny.idempotent === "boolean") {
+      idempotentHint = annotationsAny.idempotent;
+    }
+    if (typeof annotationsAny.openWorldHint === "boolean") {
+      openWorldHint = annotationsAny.openWorldHint;
+    } else if (typeof annotationsAny.openWorld === "boolean") {
+      openWorldHint = annotationsAny.openWorld;
+    }
   }
 
   // Priority 2: Check direct properties on tool object
   // Only use if not already found in annotations
-  if (readOnlyHint === undefined && typeof toolAny.readOnlyHint === "boolean") {
-    readOnlyHint = toolAny.readOnlyHint;
+  // Issue #160: Check both *Hint and non-suffixed versions
+  if (readOnlyHint === undefined) {
+    if (typeof toolAny.readOnlyHint === "boolean") {
+      readOnlyHint = toolAny.readOnlyHint;
+    } else if (typeof toolAny.readOnly === "boolean") {
+      readOnlyHint = toolAny.readOnly;
+    }
   }
-  if (
-    destructiveHint === undefined &&
-    typeof toolAny.destructiveHint === "boolean"
-  ) {
-    destructiveHint = toolAny.destructiveHint;
+  if (destructiveHint === undefined) {
+    if (typeof toolAny.destructiveHint === "boolean") {
+      destructiveHint = toolAny.destructiveHint;
+    } else if (typeof toolAny.destructive === "boolean") {
+      destructiveHint = toolAny.destructive;
+    }
   }
-  if (
-    idempotentHint === undefined &&
-    typeof toolAny.idempotentHint === "boolean"
-  ) {
-    idempotentHint = toolAny.idempotentHint;
+  if (idempotentHint === undefined) {
+    if (typeof toolAny.idempotentHint === "boolean") {
+      idempotentHint = toolAny.idempotentHint;
+    } else if (typeof toolAny.idempotent === "boolean") {
+      idempotentHint = toolAny.idempotent;
+    }
   }
-  if (
-    openWorldHint === undefined &&
-    typeof toolAny.openWorldHint === "boolean"
-  ) {
-    openWorldHint = toolAny.openWorldHint;
+  if (openWorldHint === undefined) {
+    if (typeof toolAny.openWorldHint === "boolean") {
+      openWorldHint = toolAny.openWorldHint;
+    } else if (typeof toolAny.openWorld === "boolean") {
+      openWorldHint = toolAny.openWorld;
+    }
   }
 
   // Priority 3: Check tool.metadata object
+  // Issue #160: Check both *Hint and non-suffixed versions
   const metadata = toolAny.metadata as Record<string, unknown> | undefined;
   if (metadata) {
-    if (
-      readOnlyHint === undefined &&
-      typeof metadata.readOnlyHint === "boolean"
-    ) {
-      readOnlyHint = metadata.readOnlyHint;
+    if (readOnlyHint === undefined) {
+      if (typeof metadata.readOnlyHint === "boolean") {
+        readOnlyHint = metadata.readOnlyHint;
+      } else if (typeof metadata.readOnly === "boolean") {
+        readOnlyHint = metadata.readOnly;
+      }
     }
-    if (
-      destructiveHint === undefined &&
-      typeof metadata.destructiveHint === "boolean"
-    ) {
-      destructiveHint = metadata.destructiveHint;
+    if (destructiveHint === undefined) {
+      if (typeof metadata.destructiveHint === "boolean") {
+        destructiveHint = metadata.destructiveHint;
+      } else if (typeof metadata.destructive === "boolean") {
+        destructiveHint = metadata.destructive;
+      }
     }
-    if (
-      idempotentHint === undefined &&
-      typeof metadata.idempotentHint === "boolean"
-    ) {
-      idempotentHint = metadata.idempotentHint;
+    if (idempotentHint === undefined) {
+      if (typeof metadata.idempotentHint === "boolean") {
+        idempotentHint = metadata.idempotentHint;
+      } else if (typeof metadata.idempotent === "boolean") {
+        idempotentHint = metadata.idempotent;
+      }
     }
-    if (
-      openWorldHint === undefined &&
-      typeof metadata.openWorldHint === "boolean"
-    ) {
-      openWorldHint = metadata.openWorldHint;
+    if (openWorldHint === undefined) {
+      if (typeof metadata.openWorldHint === "boolean") {
+        openWorldHint = metadata.openWorldHint;
+      } else if (typeof metadata.openWorld === "boolean") {
+        openWorldHint = metadata.openWorld;
+      }
     }
   }
 
   // Priority 4: Check tool._meta object
+  // Issue #160: Check both *Hint and non-suffixed versions
   const _meta = toolAny._meta as Record<string, unknown> | undefined;
   if (_meta) {
-    if (readOnlyHint === undefined && typeof _meta.readOnlyHint === "boolean") {
-      readOnlyHint = _meta.readOnlyHint;
+    if (readOnlyHint === undefined) {
+      if (typeof _meta.readOnlyHint === "boolean") {
+        readOnlyHint = _meta.readOnlyHint;
+      } else if (typeof _meta.readOnly === "boolean") {
+        readOnlyHint = _meta.readOnly;
+      }
     }
-    if (
-      destructiveHint === undefined &&
-      typeof _meta.destructiveHint === "boolean"
-    ) {
-      destructiveHint = _meta.destructiveHint;
+    if (destructiveHint === undefined) {
+      if (typeof _meta.destructiveHint === "boolean") {
+        destructiveHint = _meta.destructiveHint;
+      } else if (typeof _meta.destructive === "boolean") {
+        destructiveHint = _meta.destructive;
+      }
     }
-    if (
-      idempotentHint === undefined &&
-      typeof _meta.idempotentHint === "boolean"
-    ) {
-      idempotentHint = _meta.idempotentHint;
+    if (idempotentHint === undefined) {
+      if (typeof _meta.idempotentHint === "boolean") {
+        idempotentHint = _meta.idempotentHint;
+      } else if (typeof _meta.idempotent === "boolean") {
+        idempotentHint = _meta.idempotent;
+      }
     }
-    if (
-      openWorldHint === undefined &&
-      typeof _meta.openWorldHint === "boolean"
-    ) {
-      openWorldHint = _meta.openWorldHint;
+    if (openWorldHint === undefined) {
+      if (typeof _meta.openWorldHint === "boolean") {
+        openWorldHint = _meta.openWorldHint;
+      } else if (typeof _meta.openWorld === "boolean") {
+        openWorldHint = _meta.openWorld;
+      }
     }
   }
 
