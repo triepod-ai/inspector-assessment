@@ -6,7 +6,14 @@
  * normally strip them.
  */
 
-import { jest, describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import {
+  jest,
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+} from "@jest/globals";
 import {
   getToolsWithPreservedHints,
   type ToolWithHints,
@@ -266,9 +273,9 @@ describe("getToolsWithPreservedHints", () => {
       throw new Error("Test error");
     });
 
-    await expect(
-      getToolsWithPreservedHints(mockClient as any),
-    ).rejects.toThrow("Test error");
+    await expect(getToolsWithPreservedHints(mockClient as any)).rejects.toThrow(
+      "Test error",
+    );
 
     // Original handler should be restored despite error
     expect(mockTransport.onmessage).toBe(originalHandler);

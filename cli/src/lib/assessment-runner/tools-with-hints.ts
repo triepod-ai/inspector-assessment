@@ -88,7 +88,10 @@ export async function getToolsWithPreservedHints(
 
     // Call original handler (cast to any to preserve original typing)
     if (originalOnMessage) {
-      (originalOnMessage as (msg: unknown, extra?: unknown) => void)(message, extra);
+      (originalOnMessage as (msg: unknown, extra?: unknown) => void)(
+        message,
+        extra,
+      );
     }
   };
 
