@@ -348,6 +348,8 @@ export interface ErrorTestDetail {
   };
   passed: boolean;
   reason?: string;
+  /** Issue #153: Flag for connection errors - tests with this flag are not counted as valid */
+  isConnectionError?: boolean;
 }
 
 export interface ErrorHandlingMetrics {

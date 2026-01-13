@@ -429,4 +429,109 @@ describe("ErrorHandlingAssessor", () => {
       expect(result.score).toBeLessThanOrEqual(100);
     });
   });
+
+  describe("Issue #153: Connection error detection", () => {
+    it("should detect connection errors and mark tests as failed", async () => {
+      const assessor = new ErrorHandlingAssessor(createConfig());
+      const tool = createTool("test_tool");
+
+      // Simulate ECONNREFUSED connection error
+      const mockCallTool = jest
+        .fn()
+        .mockRejectedValue(
+          new Error("ECONNREFUSED - connect ECONNREFUSED 127.0.0.1:9999"),
+        );
+
+      const context = createMockContext([tool], mockCallTool);
+      const result = await assessor.assess(context);
+
+      // All tests should be marked as connection errors
+      expect(result.testExecutionMetadata).toBeDefined();
+      expect(
+        result.testExecutionMetadata?.connectionErrorCount,
+      ).toBeGreaterThan(0);
+
+      // Tests with connection errors should be marked as NOT passed
+      const connectionErrorTests = result.errorTests.filter(
+        (t) => t.isConnectionError === true,
+      );
+      expect(connectionErrorTests.length).toBeGreaterThan(0);
+      connectionErrorTests.forEach((test) => {
+        expect(test.passed).toBe(false);
+        expect(test.reason).toContain("Connection error");
+      });
+    });
+
+    it("should detect ETIMEDOUT as connection error", async () => {
+      const assessor = new ErrorHandlingAssessor(createConfig());
+      const tool = createTool("test_tool");
+
+      // Simulate ETIMEDOUT connection error
+      const mockCallTool = jest
+        .fn()
+        .mockRejectedValue(
+          new Error("ETIMEDOUT - connect ETIMEDOUT 127.0.0.1:9999"),
+        );
+
+      const context = createMockContext([tool], mockCallTool);
+      const result = await assessor.assess(context);
+
+      // All tests should be connection errors
+      expect(result.testExecutionMetadata?.connectionErrorCount).toBe(4); // 4 test types per tool
+
+      // Valid tests completed should be 0
+      expect(result.testExecutionMetadata?.validTestsCompleted).toBe(0);
+    });
+
+    it("should NOT mark non-connection errors as connection errors", async () => {
+      const assessor = new ErrorHandlingAssessor(createConfig());
+      const tool = createTool("test_tool");
+
+      // Simulate a normal validation error (not a connection error)
+      const mockCallTool = jest
+        .fn()
+        .mockRejectedValue(new Error("Parameter 'query' is required"));
+
+      const context = createMockContext([tool], mockCallTool);
+      const result = await assessor.assess(context);
+
+      // Should NOT be marked as connection errors
+      expect(result.testExecutionMetadata?.connectionErrorCount).toBe(0);
+      expect(result.testExecutionMetadata?.validTestsCompleted).toBe(4);
+
+      // Tests should pass because they got meaningful errors
+      const passedTests = result.errorTests.filter((t) => t.passed);
+      expect(passedTests.length).toBeGreaterThan(0);
+    });
+
+    it("should calculate testCoveragePercent correctly with mixed results", async () => {
+      const assessor = new ErrorHandlingAssessor(createConfig());
+      const tools = [createTool("tool_1"), createTool("tool_2")];
+
+      let callCount = 0;
+      const mockCallTool = jest.fn().mockImplementation(() => {
+        callCount++;
+        // First tool (4 calls) succeeds, second tool (4 calls) gets connection errors
+        if (callCount <= 4) {
+          return Promise.resolve({
+            isError: true,
+            content: [{ type: "text", text: "Error: validation failed" }],
+          });
+        }
+        return Promise.reject(
+          new Error("ECONNREFUSED - connect ECONNREFUSED 127.0.0.1:9999"),
+        );
+      });
+
+      const context = createMockContext(tools, mockCallTool);
+      const result = await assessor.assess(context);
+
+      // 8 total tests (2 tools * 4 test types)
+      // 4 valid, 4 connection errors
+      expect(result.testExecutionMetadata?.totalTestsAttempted).toBe(8);
+      expect(result.testExecutionMetadata?.validTestsCompleted).toBe(4);
+      expect(result.testExecutionMetadata?.connectionErrorCount).toBe(4);
+      expect(result.testExecutionMetadata?.testCoveragePercent).toBe(50);
+    });
+  });
 });

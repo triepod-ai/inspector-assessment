@@ -17,6 +17,7 @@ import { AssessmentContext } from "../AssessmentOrchestrator";
 import { createConcurrencyLimit } from "../lib/concurrencyLimit";
 import { ExecutionArtifactDetector } from "./securityTests/ExecutionArtifactDetector";
 import { SafeResponseDetector } from "./securityTests/SafeResponseDetector";
+import { ErrorClassifier } from "./securityTests/ErrorClassifier";
 import {
   Tool,
   CompatibilityCallToolResult,
@@ -25,11 +26,13 @@ import {
 export class ErrorHandlingAssessor extends BaseAssessor {
   private executionDetector: ExecutionArtifactDetector;
   private safeResponseDetector: SafeResponseDetector;
+  private errorClassifier: ErrorClassifier;
 
   constructor(config: AssessmentConfiguration) {
     super(config);
     this.executionDetector = new ExecutionArtifactDetector();
     this.safeResponseDetector = new SafeResponseDetector();
+    this.errorClassifier = new ErrorClassifier();
   }
 
   async assess(context: AssessmentContext): Promise<ErrorHandlingAssessment> {
@@ -104,15 +107,14 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     this.testCount = testDetails.length;
 
     // Issue #153: Calculate test execution metadata for score validation
-    // Track which tools successfully produced test results vs failed due to connection errors
-    const totalToolsAttempted = toolsToTest.length;
-    const toolsWithResults = allToolTests.filter(
-      (tests) => tests.length > 0,
-    ).length;
-    const connectionErrorCount = totalToolsAttempted - toolsWithResults;
+    // Count connection errors from test results (tests with isConnectionError flag)
+    const connectionErrorTests = testDetails.filter((t) => t.isConnectionError);
+    const connectionErrorCount = connectionErrorTests.length;
+    const validTestsCompleted = testDetails.length - connectionErrorCount;
+    const totalTestsAttempted = testDetails.length;
     const testCoveragePercent =
-      totalToolsAttempted > 0
-        ? Math.round((toolsWithResults / totalToolsAttempted) * 100)
+      totalTestsAttempted > 0
+        ? Math.round((validTestsCompleted / totalTestsAttempted) * 100)
         : 0;
 
     const metrics = this.calculateMetrics(testDetails, passedTests);
@@ -133,8 +135,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       recommendations,
       // Issue #153: Test execution metadata for score validation
       testExecutionMetadata: {
-        totalTestsAttempted: totalToolsAttempted,
-        validTestsCompleted: testDetails.length,
+        totalTestsAttempted,
+        validTestsCompleted,
         connectionErrorCount,
         testCoveragePercent,
       },
@@ -295,6 +297,26 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         reason: isError ? undefined : "Tool did not reject missing parameters",
       };
     } catch (error) {
+      // Issue #153: Check for connection errors first - these should NOT count as passed
+      if (this.errorClassifier.isConnectionErrorFromException(error)) {
+        const errorInfo = this.extractErrorInfo(error);
+        return {
+          toolName: tool.name,
+          testType: "missing_required",
+          testInput,
+          expectedError: "Missing required parameters",
+          actualResponse: {
+            isError: true,
+            errorCode: errorInfo.code,
+            errorMessage: errorInfo.message,
+            rawResponse: error,
+          },
+          passed: false,
+          reason: "Connection error - unable to test",
+          isConnectionError: true,
+        };
+      }
+
       // Check if the error message is meaningful (not just a generic crash)
       const errorInfo = this.extractErrorInfo(error);
       const messageLower = errorInfo.message?.toLowerCase() ?? "";
@@ -304,8 +326,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         messageLower.includes("parameter") ||
         messageLower.includes("must") ||
         messageLower.includes("invalid") ||
-        messageLower.includes("validation") ||
-        (errorInfo.message?.length ?? 0) > 20; // Longer messages are likely intentional
+        messageLower.includes("validation");
+      // Removed: (errorInfo.message?.length ?? 0) > 20 - this was causing false positives
 
       return {
         toolName: tool.name,
@@ -380,6 +402,26 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         reason: isError ? undefined : "Tool accepted wrong parameter types",
       };
     } catch (error) {
+      // Issue #153: Check for connection errors first - these should NOT count as passed
+      if (this.errorClassifier.isConnectionErrorFromException(error)) {
+        const errorInfo = this.extractErrorInfo(error);
+        return {
+          toolName: tool.name,
+          testType: "wrong_type",
+          testInput,
+          expectedError: "Type validation error",
+          actualResponse: {
+            isError: true,
+            errorCode: errorInfo.code,
+            errorMessage: errorInfo.message,
+            rawResponse: error,
+          },
+          passed: false,
+          reason: "Connection error - unable to test",
+          isConnectionError: true,
+        };
+      }
+
       // Check if the error message is meaningful (not just a generic crash)
       const errorInfo = this.extractErrorInfo(error);
       const messageLower = errorInfo.message?.toLowerCase() ?? "";
@@ -390,8 +432,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         messageLower.includes("must be") ||
         messageLower.includes("validation") ||
         messageLower.includes("string") ||
-        messageLower.includes("number") ||
-        (errorInfo.message?.length ?? 0) > 20; // Longer messages are likely intentional
+        messageLower.includes("number");
+      // Removed: (errorInfo.message?.length ?? 0) > 20 - this was causing false positives
 
       return {
         toolName: tool.name,
@@ -446,6 +488,26 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         reason: isError ? undefined : "Tool accepted invalid values",
       };
     } catch (error) {
+      // Issue #153: Check for connection errors first - these should NOT count as passed
+      if (this.errorClassifier.isConnectionErrorFromException(error)) {
+        const errorInfo = this.extractErrorInfo(error);
+        return {
+          toolName: tool.name,
+          testType: "invalid_values",
+          testInput,
+          expectedError: "Invalid parameter values",
+          actualResponse: {
+            isError: true,
+            errorCode: errorInfo.code,
+            errorMessage: errorInfo.message,
+            rawResponse: error,
+          },
+          passed: false,
+          reason: "Connection error - unable to test",
+          isConnectionError: true,
+        };
+      }
+
       // Check if the error message is meaningful (not just a generic crash)
       const errorInfo = this.extractErrorInfo(error);
       const messageLower = errorInfo.message?.toLowerCase() ?? "";
@@ -455,8 +517,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         messageLower.includes("must") ||
         messageLower.includes("cannot") ||
         messageLower.includes("validation") ||
-        messageLower.includes("error") ||
-        (errorInfo.message?.length ?? 0) > 15; // Even shorter messages OK for invalid values
+        messageLower.includes("error");
+      // Removed: (errorInfo.message?.length ?? 0) > 15 - this was causing false positives
 
       return {
         toolName: tool.name,
@@ -510,6 +572,26 @@ export class ErrorHandlingAssessor extends BaseAssessor {
           !isError && !response ? "Tool crashed on large input" : undefined,
       };
     } catch (error) {
+      // Issue #153: Check for connection errors first - these should NOT count as passed
+      if (this.errorClassifier.isConnectionErrorFromException(error)) {
+        const errorInfo = this.extractErrorInfo(error);
+        return {
+          toolName: tool.name,
+          testType: "excessive_input",
+          testInput: { value: "[100KB string]" },
+          expectedError: "Input size limit exceeded",
+          actualResponse: {
+            isError: true,
+            errorCode: errorInfo.code,
+            errorMessage: errorInfo.message,
+            rawResponse: "[error details omitted]",
+          },
+          passed: false,
+          reason: "Connection error - unable to test",
+          isConnectionError: true,
+        };
+      }
+
       // Check if the error message is meaningful (not just a generic crash)
       const errorInfo = this.extractErrorInfo(error);
       const messageLower = errorInfo.message?.toLowerCase() ?? "";
@@ -519,8 +601,8 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         messageLower.includes("limit") ||
         messageLower.includes("exceed") ||
         messageLower.includes("too") ||
-        messageLower.includes("maximum") ||
-        (errorInfo.message?.length ?? 0) > 10; // Short messages OK for size limits
+        messageLower.includes("maximum");
+      // Removed: (errorInfo.message?.length ?? 0) > 10 - this was causing false positives
 
       return {
         toolName: tool.name,
