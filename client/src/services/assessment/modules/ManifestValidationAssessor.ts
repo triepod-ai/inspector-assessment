@@ -29,6 +29,7 @@ import type {
 const REQUIRED_FIELDS = ["name", "version", "mcp_config"] as const;
 const RECOMMENDED_FIELDS = ["description", "author", "repository"] as const;
 const CURRENT_MANIFEST_VERSION = "0.3";
+const SEMVER_PATTERN = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
 
 /**
  * Calculate Levenshtein distance between two strings
@@ -156,7 +157,9 @@ export class ManifestValidationAssessor extends BaseAssessor {
 
     // 2. Check author string (may contain email: "Name <email@example.com>")
     if (typeof manifest.author === "string" && manifest.author.trim()) {
-      const emailMatch = manifest.author.match(/<([^>]+@[^>]+)>/);
+      const emailMatch = manifest.author.match(
+        /<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>/,
+      );
       return {
         name: manifest.author.replace(/<[^>]+>/, "").trim() || undefined,
         email: emailMatch?.[1],
@@ -186,14 +189,10 @@ export class ManifestValidationAssessor extends BaseAssessor {
   ): ExtractedVersionInfo | undefined {
     if (!manifest.version) return undefined;
 
-    // Semver pattern: MAJOR.MINOR.PATCH with optional prerelease and build metadata
-    const semverPattern =
-      /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
-
     return {
       version: manifest.version,
       valid: true,
-      semverCompliant: semverPattern.test(manifest.version),
+      semverCompliant: SEMVER_PATTERN.test(manifest.version),
     };
   }
 
@@ -689,9 +688,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
       };
     }
 
-    // Check for semver format
-    const semverPattern = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$/;
-    if (!semverPattern.test(version)) {
+    if (!SEMVER_PATTERN.test(version)) {
       return {
         field: "version (format)",
         valid: false,

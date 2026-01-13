@@ -382,6 +382,13 @@ This guide explains all validation rules the Inspector checks, required vs. opti
 - Can be a name or email format
 - Failure severity: **WARNING** (if missing or empty)
 
+**Email Validation** (when author contains email in angle brackets):
+
+- Must follow format: `name@domain.tld`
+- Domain must include valid TLD (2+ letters)
+- Supports standard email characters: alphanumeric, dots, underscores, percent, plus, hyphens
+- Pattern: `/<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>/`
+
 **Valid Examples**:
 
 ```json
@@ -396,6 +403,10 @@ This guide explains all validation rules the Inspector checks, required vs. opti
 {
   "author": "Acme Corp <contact@acme.com>"
 }
+
+{
+  "author": "Team <team@company.co.uk>"
+}
 ```
 
 **Invalid Examples**:
@@ -403,6 +414,14 @@ This guide explains all validation rules the Inspector checks, required vs. opti
 ```json
 {
   "author": ""  // Warning: empty
+}
+
+{
+  "author": "John Doe <invalid>"  // Warning: missing domain/TLD
+}
+
+{
+  "author": "John Doe <test@localhost>"  // Warning: invalid TLD format
 }
 
 {

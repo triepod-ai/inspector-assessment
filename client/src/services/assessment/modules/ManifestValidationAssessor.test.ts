@@ -815,4 +815,335 @@ describe("ManifestValidationAssessor", () => {
       });
     });
   });
+
+  // ============================================================================
+  // STAGE 3 FIX VALIDATION TESTS
+  // Tests for fixes applied in Stage 3 (FIX-001, FIX-002)
+  // ============================================================================
+
+  describe("Stage 3 Fix Validation", () => {
+    describe("FIX-001: SEMVER_PATTERN consolidation", () => {
+      it("should use consolidated SEMVER_PATTERN for version validation", async () => {
+        // Validates FIX-001: Consolidated semver regex pattern
+        const testCases = [
+          { version: "1.0.0", expected: true, label: "basic semver" },
+          {
+            version: "0.1.0-beta.1",
+            expected: true,
+            label: "prerelease",
+          },
+          {
+            version: "2.3.4+build.123",
+            expected: true,
+            label: "build metadata",
+          },
+          { version: "v1.0.0", expected: false, label: "v prefix" },
+          { version: "1.0", expected: false, label: "incomplete" },
+          { version: "1.0.0.0", expected: false, label: "quad version" },
+        ];
+
+        for (const { version, expected, label } of testCases) {
+          mockContext.manifestJson = createMockManifestJson({
+            version,
+            icon: "icon.png",
+          });
+          const result = await assessor.assess(mockContext);
+
+          expect(result.versionInfo?.semverCompliant).toBe(expected);
+
+          if (expected) {
+            const formatResult = result.validationResults.find(
+              (r) => r.field === "version (format)",
+            );
+            expect(formatResult?.valid).toBe(true);
+          } else {
+            const formatResult = result.validationResults.find(
+              (r) => r.field === "version (format)",
+            );
+            expect(formatResult?.valid).toBe(false);
+          }
+        }
+      });
+    });
+
+    describe("FIX-002: Enhanced email TLD validation (TEST-REQ-001)", () => {
+      describe("extractContactInfo - email edge cases", () => {
+        it("should extract valid email from author string", async () => {
+          // Validates FIX-002: Enhanced email regex
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "1.0.0",
+            mcp_config: { command: "test" },
+            author: "John Doe <john.doe@example.com>",
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          expect(result.contactInfo).toEqual({
+            name: "John Doe",
+            email: "john.doe@example.com",
+            source: "author_string",
+          });
+        });
+
+        it("should reject email without TLD", async () => {
+          // TEST-REQ-001: Email with invalid TLD format
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "1.0.0",
+            mcp_config: { command: "test" },
+            author: "Invalid <test@localhost>",
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          // Should not extract invalid email
+          expect(result.contactInfo?.email).toBeUndefined();
+          expect(result.contactInfo?.name).toBe("Invalid");
+        });
+
+        it("should reject email with single-letter TLD", async () => {
+          // TEST-REQ-001: Email with TLD too short
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "1.0.0",
+            mcp_config: { command: "test" },
+            author: "User <user@example.x>",
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          expect(result.contactInfo?.email).toBeUndefined();
+        });
+
+        it("should handle malformed email with incomplete angle brackets", async () => {
+          // TEST-REQ-001: Malformed email angle brackets
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "1.0.0",
+            mcp_config: { command: "test" },
+            author: "Name <incomplete",
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          // Should extract name but not email
+          expect(result.contactInfo?.name).toBe("Name <incomplete");
+          expect(result.contactInfo?.email).toBeUndefined();
+        });
+
+        it("should extract first email when multiple present", async () => {
+          // TEST-REQ-001: Multiple email addresses
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "1.0.0",
+            mcp_config: { command: "test" },
+            author: "Name <first@example.com> <second@example.org>",
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          // Regex should extract first match only
+          expect(result.contactInfo?.email).toBe("first@example.com");
+        });
+
+        it("should handle unicode characters in author name", async () => {
+          // TEST-REQ-001: Unicode in author name
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "1.0.0",
+            mcp_config: { command: "test" },
+            author: "Jöhn Döe <john@example.com>",
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          expect(result.contactInfo).toEqual({
+            name: "Jöhn Döe",
+            email: "john@example.com",
+            source: "author_string",
+          });
+        });
+
+        it("should handle author object with null email", async () => {
+          // TEST-REQ-005: Author object with null values
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "1.0.0",
+            mcp_config: { command: "test" },
+            author: {
+              name: "John Doe",
+              email: null as any,
+              url: null as any,
+            },
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          expect(result.contactInfo).toEqual({
+            name: "John Doe",
+            email: null,
+            url: null,
+            source: "author_object",
+          });
+        });
+
+        it("should handle author object with empty string values", async () => {
+          // TEST-REQ-005: Author object with empty strings
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "1.0.0",
+            mcp_config: { command: "test" },
+            author: {
+              name: "John Doe",
+              email: "",
+              url: "",
+            },
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          expect(result.contactInfo).toEqual({
+            name: "John Doe",
+            email: "",
+            url: "",
+            source: "author_object",
+          });
+        });
+
+        it("should handle empty author object", async () => {
+          // TEST-REQ-001: Empty author object
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "1.0.0",
+            mcp_config: { command: "test" },
+            author: {} as any,
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          expect(result.contactInfo).toEqual({
+            email: undefined,
+            url: undefined,
+            name: undefined,
+            source: "author_object",
+          });
+        });
+      });
+
+      describe("extractVersionInfo - version edge cases (TEST-REQ-002)", () => {
+        it("should reject quad version format", async () => {
+          // TEST-REQ-002: Invalid quad version
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "1.0.0.0",
+            mcp_config: { command: "test" },
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          expect(result.versionInfo).toEqual({
+            version: "1.0.0.0",
+            valid: true,
+            semverCompliant: false,
+          });
+        });
+
+        it("should handle empty string version", async () => {
+          // TEST-REQ-002: Empty string version
+          // Empty string is falsy, so extractVersionInfo returns undefined
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "",
+            mcp_config: { command: "test" },
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          // Empty string version is treated as missing (falsy)
+          expect(result.versionInfo).toBeUndefined();
+        });
+
+        it("should handle version with only prerelease", async () => {
+          // TEST-REQ-002: Prerelease-only version
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "-beta.1",
+            mcp_config: { command: "test" },
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          expect(result.versionInfo).toEqual({
+            version: "-beta.1",
+            valid: true,
+            semverCompliant: false,
+          });
+        });
+
+        it("should handle very long version strings", async () => {
+          // TEST-REQ-002: Very long version (potential DoS)
+          const longVersion = "1.0.0-" + "a".repeat(1000);
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: longVersion,
+            mcp_config: { command: "test" },
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          // Should complete without error
+          expect(result.versionInfo?.version).toBe(longVersion);
+          expect(result.versionInfo?.valid).toBe(true);
+          // Long prerelease should still match semver pattern
+          expect(result.versionInfo?.semverCompliant).toBe(true);
+        });
+
+        it("should validate complex semver with all components", async () => {
+          // Comprehensive semver validation
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "1.2.3-beta.4+build.567",
+            mcp_config: { command: "test" },
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          expect(result.versionInfo).toEqual({
+            version: "1.2.3-beta.4+build.567",
+            valid: true,
+            semverCompliant: true,
+          });
+        });
+
+        it("should accept 0.0.0 as valid semver", async () => {
+          // Edge case: zero version
+          mockContext.manifestJson = {
+            manifest_version: "0.3",
+            name: "test-server",
+            version: "0.0.0",
+            mcp_config: { command: "test" },
+          };
+
+          const result = await assessor.assess(mockContext);
+
+          expect(result.versionInfo?.semverCompliant).toBe(true);
+        });
+      });
+    });
+  });
 });
