@@ -30,10 +30,16 @@ import {
  */
 interface ToolWithAnnotations extends Tool {
   annotations?: {
+    // Standard MCP 2024-11 spec with *Hint suffix
     readOnlyHint?: boolean;
     destructiveHint?: boolean;
     idempotentHint?: boolean;
     openWorldHint?: boolean;
+    // Issue #150: Non-suffixed fallback versions
+    readOnly?: boolean;
+    destructive?: boolean;
+    idempotent?: boolean;
+    openWorld?: boolean;
     title?: string;
     rateLimit?: RateLimitConfig;
     permissions?: string | string[];
@@ -41,10 +47,16 @@ interface ToolWithAnnotations extends Tool {
     supportsBulkOperations?: boolean;
   };
   metadata?: {
+    // Standard MCP 2024-11 spec with *Hint suffix
     readOnlyHint?: boolean;
     destructiveHint?: boolean;
     idempotentHint?: boolean;
     openWorldHint?: boolean;
+    // Issue #150: Non-suffixed fallback versions
+    readOnly?: boolean;
+    destructive?: boolean;
+    idempotent?: boolean;
+    openWorld?: boolean;
     title?: string;
     rateLimit?: RateLimitConfig;
     requiredPermission?: string;
@@ -61,6 +73,11 @@ interface ToolWithAnnotations extends Tool {
   destructiveHint?: boolean;
   idempotentHint?: boolean;
   openWorldHint?: boolean;
+  // Issue #150: Non-suffixed fallback versions
+  readOnly?: boolean;
+  destructive?: boolean;
+  idempotent?: boolean;
+  openWorld?: boolean;
   title?: string;
   rateLimit?: RateLimitConfig;
   requiredPermission?: string;
@@ -121,61 +138,149 @@ export interface AlignmentMetricsResult {
 }
 
 /**
+ * Helper to resolve annotation value with fallback (Issue #150)
+ * Checks *Hint suffix first (MCP spec), then non-suffixed version as fallback
+ * This handles servers that use 'readOnly' instead of 'readOnlyHint'
+ *
+ * @param obj - The object to search for annotation properties
+ * @param hintKey - The MCP spec compliant key (e.g., 'readOnlyHint')
+ * @param fallbackKey - The non-suffixed fallback key (e.g., 'readOnly')
+ * @returns The boolean annotation value, or undefined if not found or not a boolean
+ */
+function resolveAnnotationValue(
+  obj: Record<string, unknown> | undefined,
+  hintKey: string,
+  fallbackKey: string,
+): boolean | undefined {
+  if (!obj) return undefined;
+  // Priority: *Hint version (MCP spec)
+  if (obj[hintKey] !== undefined) {
+    const val = obj[hintKey];
+    if (typeof val === "boolean") return val;
+  }
+  // Fallback: non-suffixed version (Issue #150)
+  if (obj[fallbackKey] !== undefined) {
+    const val = obj[fallbackKey];
+    if (typeof val === "boolean") return val;
+  }
+  return undefined;
+}
+
+/**
  * Extract annotations from a tool
  * Checks multiple sources in priority order: annotations object, direct properties, metadata
+ * Issue #150: Also checks non-suffixed property names (readOnly, destructive) as fallback
  */
 export function extractAnnotations(tool: Tool): ExtractedAnnotations {
   const extendedTool = tool as ToolWithAnnotations;
 
   // Priority 1: Check annotations object (MCP 2024-11 spec)
+  // Issue #150: Use resolveAnnotationValue to check both *Hint and non-suffixed versions
   if (extendedTool.annotations) {
+    const annotationsObj = extendedTool.annotations as Record<string, unknown>;
+    const readOnlyValue = resolveAnnotationValue(
+      annotationsObj,
+      "readOnlyHint",
+      "readOnly",
+    );
+    const destructiveValue = resolveAnnotationValue(
+      annotationsObj,
+      "destructiveHint",
+      "destructive",
+    );
+
     const hasAnnotations =
-      extendedTool.annotations.readOnlyHint !== undefined ||
-      extendedTool.annotations.destructiveHint !== undefined;
+      readOnlyValue !== undefined || destructiveValue !== undefined;
 
     if (hasAnnotations) {
       return {
-        readOnlyHint: extendedTool.annotations.readOnlyHint,
-        destructiveHint: extendedTool.annotations.destructiveHint,
+        readOnlyHint: readOnlyValue,
+        destructiveHint: destructiveValue,
         title: extendedTool.annotations.title || extendedTool.title,
         description: tool.description,
-        idempotentHint: extendedTool.annotations.idempotentHint,
-        openWorldHint: extendedTool.annotations.openWorldHint,
+        idempotentHint: resolveAnnotationValue(
+          annotationsObj,
+          "idempotentHint",
+          "idempotent",
+        ),
+        openWorldHint: resolveAnnotationValue(
+          annotationsObj,
+          "openWorldHint",
+          "openWorld",
+        ),
         source: "mcp",
       };
     }
   }
 
   // Priority 2: Check direct properties
-  if (
-    extendedTool.readOnlyHint !== undefined ||
-    extendedTool.destructiveHint !== undefined
-  ) {
+  // Issue #150: Use resolveAnnotationValue to check both *Hint and non-suffixed versions
+  const directObj = extendedTool as unknown as Record<string, unknown>;
+  const directReadOnly = resolveAnnotationValue(
+    directObj,
+    "readOnlyHint",
+    "readOnly",
+  );
+  const directDestructive = resolveAnnotationValue(
+    directObj,
+    "destructiveHint",
+    "destructive",
+  );
+
+  if (directReadOnly !== undefined || directDestructive !== undefined) {
     return {
-      readOnlyHint: extendedTool.readOnlyHint,
-      destructiveHint: extendedTool.destructiveHint,
+      readOnlyHint: directReadOnly,
+      destructiveHint: directDestructive,
       title: extendedTool.title,
       description: tool.description,
-      idempotentHint: extendedTool.idempotentHint,
-      openWorldHint: extendedTool.openWorldHint,
+      idempotentHint: resolveAnnotationValue(
+        directObj,
+        "idempotentHint",
+        "idempotent",
+      ),
+      openWorldHint: resolveAnnotationValue(
+        directObj,
+        "openWorldHint",
+        "openWorld",
+      ),
       source: "mcp",
     };
   }
 
   // Priority 3: Check metadata
+  // Issue #150: Use resolveAnnotationValue to check both *Hint and non-suffixed versions
   if (extendedTool.metadata) {
+    const metadataObj = extendedTool.metadata as Record<string, unknown>;
+    const metaReadOnly = resolveAnnotationValue(
+      metadataObj,
+      "readOnlyHint",
+      "readOnly",
+    );
+    const metaDestructive = resolveAnnotationValue(
+      metadataObj,
+      "destructiveHint",
+      "destructive",
+    );
+
     const hasMetadataAnnotations =
-      extendedTool.metadata.readOnlyHint !== undefined ||
-      extendedTool.metadata.destructiveHint !== undefined;
+      metaReadOnly !== undefined || metaDestructive !== undefined;
 
     if (hasMetadataAnnotations) {
       return {
-        readOnlyHint: extendedTool.metadata.readOnlyHint,
-        destructiveHint: extendedTool.metadata.destructiveHint,
+        readOnlyHint: metaReadOnly,
+        destructiveHint: metaDestructive,
         title: extendedTool.metadata.title || extendedTool.title,
         description: tool.description,
-        idempotentHint: extendedTool.metadata.idempotentHint,
-        openWorldHint: extendedTool.metadata.openWorldHint,
+        idempotentHint: resolveAnnotationValue(
+          metadataObj,
+          "idempotentHint",
+          "idempotent",
+        ),
+        openWorldHint: resolveAnnotationValue(
+          metadataObj,
+          "openWorldHint",
+          "openWorld",
+        ),
         source: "mcp",
       };
     }
