@@ -12,7 +12,22 @@
  * Note: Tests skip gracefully when testbed servers are unavailable.
  */
 
-import { describe, it, expect, beforeAll } from "@jest/globals";
+import {
+  jest,
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterEach,
+} from "@jest/globals";
+
+/**
+ * Skip integration tests unless RUN_E2E_TESTS is set.
+ * This prevents long timeouts when testbed servers aren't running.
+ *
+ * To run: RUN_E2E_TESTS=1 npm test -- --testPathPattern="testbed-integration"
+ */
+const describeE2E = process.env.RUN_E2E_TESTS ? describe : describe.skip;
 
 // Testbed server URLs
 const VULNERABLE_URL = "http://localhost:10900/mcp";
@@ -145,7 +160,7 @@ async function callTool(
   return data;
 }
 
-describe("Testbed A/B Comparison", () => {
+describeE2E("Testbed A/B Comparison", () => {
   afterEach(() => {
     jest.clearAllMocks();
   });

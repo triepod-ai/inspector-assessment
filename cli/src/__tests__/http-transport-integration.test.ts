@@ -8,8 +8,24 @@
  * Note: Tests skip gracefully when testbed servers are unavailable.
  */
 
-import { describe, it, expect, beforeAll } from "@jest/globals";
+import {
+  jest,
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterEach,
+} from "@jest/globals";
+
+/**
+ * Skip integration tests unless RUN_E2E_TESTS is set.
+ * This prevents long timeouts when testbed servers aren't running.
+ *
+ * To run: RUN_E2E_TESTS=1 npm test -- --testPathPattern="http-transport-integration"
+ */
 import { createTransport, type TransportOptions } from "../transport.js";
+
+const describeE2E = process.env.RUN_E2E_TESTS ? describe : describe.skip;
 
 // Testbed server URLs
 const VULNERABLE_MCP_URL = "http://localhost:10900/mcp";
@@ -122,7 +138,7 @@ async function sendMcpRequest(
   return { response, data };
 }
 
-describe("HTTP Transport Integration", () => {
+describeE2E("HTTP Transport Integration", () => {
   afterEach(() => {
     jest.clearAllMocks();
   });

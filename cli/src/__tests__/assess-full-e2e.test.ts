@@ -307,10 +307,22 @@ function createInvalidConfig(content: string, filename?: string): string {
 }
 
 // ============================================================================
+// E2E Skip Check
+// ============================================================================
+
+/**
+ * Skip E2E tests unless RUN_E2E_TESTS is set.
+ * This prevents long timeouts when testbed servers aren't running.
+ *
+ * To run E2E tests: RUN_E2E_TESTS=1 npm test -- --testPathPattern="e2e"
+ */
+const describeE2E = process.env.RUN_E2E_TESTS ? describe : describe.skip;
+
+// ============================================================================
 // Test Setup
 // ============================================================================
 
-describe("CLI E2E Integration Tests", () => {
+describeE2E("CLI E2E Integration Tests", () => {
   afterEach(() => {
     jest.clearAllMocks();
   });

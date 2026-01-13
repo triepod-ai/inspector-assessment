@@ -6,7 +6,7 @@
  * @module cli/lib/assessment-runner/__tests__/server-configSchemas
  */
 
-// Uses Jest globals (describe, test, expect)
+import { jest, describe, test, expect, afterEach } from "@jest/globals";
 import { ZodError } from "zod";
 import {
   HttpSseServerConfigSchema,

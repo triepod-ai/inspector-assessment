@@ -316,7 +316,10 @@ describe("runFullAssessment", () => {
         sourceCodePath: "/path/to/source",
       });
 
-      expect(mockLoadSourceFiles).toHaveBeenCalledWith("/path/to/source");
+      expect(mockLoadSourceFiles).toHaveBeenCalledWith(
+        "/path/to/source",
+        undefined,
+      );
     });
 
     it("should not load source files when path does not exist", async () => {

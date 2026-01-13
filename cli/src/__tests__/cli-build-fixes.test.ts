@@ -9,7 +9,7 @@
  * @see https://github.com/triepod-ai/inspector-assessment/issues/37
  */
 
-import { describe, it, expect } from "@jest/globals";
+import { jest, describe, it, expect, afterEach } from "@jest/globals";
 import { ScopedListenerConfig } from "../lib/event-config.js";
 
 describe("CLI Build Fixes Regression Tests", () => {

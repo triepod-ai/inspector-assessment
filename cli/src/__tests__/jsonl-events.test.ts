@@ -77,7 +77,7 @@ describe("JSONL Event Emission", () => {
 
     it("should include schemaVersion field", () => {
       emitJSONL({ event: "test" });
-      expect(emittedEvents[0]).toHaveProperty("schemaVersion", 1);
+      expect(emittedEvents[0]).toHaveProperty("schemaVersion", 3);
     });
 
     it("should handle complex nested objects", () => {

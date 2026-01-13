@@ -7,7 +7,7 @@
  * @see https://github.com/triepod-ai/inspector-assessment/issues/137
  */
 
-import { describe, it, expect } from "@jest/globals";
+import { jest, describe, it, expect, afterEach } from "@jest/globals";
 import {
   AssessmentOptionsSchema,
   safeParseAssessmentOptions,

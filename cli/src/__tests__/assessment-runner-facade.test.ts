@@ -7,12 +7,13 @@
  * @see https://github.com/triepod-ai/inspector-assessment/issues/96
  */
 
-import { describe, it, expect } from "@jest/globals";
+import { jest, describe, it, expect, afterEach } from "@jest/globals";
 
 // Test named imports (the primary consumer pattern)
 import {
   loadServerConfig,
   loadSourceFiles,
+  resolveSourcePath,
   connectToServer,
   createCallToolWrapper,
   buildConfig,
@@ -116,13 +117,14 @@ describe("Assessment Runner Facade", () => {
         ([, value]) => typeof value === "function",
       );
 
-      expect(exportedFunctions.length).toBe(6);
+      expect(exportedFunctions.length).toBe(7);
       expect(exportedFunctions.map(([name]) => name).sort()).toEqual([
         "buildConfig",
         "connectToServer",
         "createCallToolWrapper",
         "loadServerConfig",
         "loadSourceFiles",
+        "resolveSourcePath",
         "runFullAssessment",
       ]);
     });
@@ -132,6 +134,7 @@ describe("Assessment Runner Facade", () => {
       const expectedExports = [
         "loadServerConfig",
         "loadSourceFiles",
+        "resolveSourcePath",
         "connectToServer",
         "createCallToolWrapper",
         "buildConfig",

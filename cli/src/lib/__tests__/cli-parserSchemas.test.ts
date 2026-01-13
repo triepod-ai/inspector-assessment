@@ -6,7 +6,7 @@
  * @module cli/lib/__tests__/cli-parserSchemas
  */
 
-// Uses Jest globals (describe, test, expect)
+import { jest, describe, test, expect, afterEach } from "@jest/globals";
 import { ZodError } from "zod";
 import {
   AssessmentProfileNameSchema,

@@ -6,7 +6,7 @@
  * mocked transport implementations due to ESM limitations.
  */
 
-import { describe, it, expect } from "@jest/globals";
+import { jest, describe, it, expect, afterEach } from "@jest/globals";
 import { createTransport, type TransportOptions } from "../transport.js";
 
 describe("Transport Creation", () => {
