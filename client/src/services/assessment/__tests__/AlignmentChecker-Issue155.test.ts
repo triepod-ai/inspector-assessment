@@ -257,14 +257,12 @@ describe("AlignmentChecker - Issue #155 Debug Mode", () => {
       setAnnotationDebugMode(true);
       extractAnnotations(tool);
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        "[DEBUG-ANNOTATIONS]",
-        "test_tool",
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-      );
+      // Verify the [DEBUG-ANNOTATIONS] prefix was logged
+      // Note: expect.anything() doesn't match undefined, so check first 2 args
+      expect(consoleSpy).toHaveBeenCalled();
+      const call = consoleSpy.mock.calls[0];
+      expect(call[0]).toBe("[DEBUG-ANNOTATIONS]");
+      expect(call[1]).toBe("test_tool");
 
       consoleSpy.mockRestore();
     });
