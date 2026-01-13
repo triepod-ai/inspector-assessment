@@ -15,7 +15,15 @@
  * @see https://github.com/triepod-ai/inspector-assessment/issues/97
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
+import {
+  jest,
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  afterEach,
+} from "@jest/globals";
 import { spawn, ChildProcess } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
