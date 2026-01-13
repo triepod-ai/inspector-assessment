@@ -73,6 +73,125 @@ describe("moduleScoring", () => {
         };
         expect(calculateModuleScore(result)).toBe(76);
       });
+
+      // Issue #153: Test execution metadata validation
+      describe("test execution metadata (Issue #153)", () => {
+        it("should return 0 when no tests completed due to connection errors", () => {
+          const result = {
+            metrics: { mcpComplianceScore: 100 },
+            testExecutionMetadata: {
+              totalTestsAttempted: 10,
+              validTestsCompleted: 0,
+              connectionErrorCount: 10,
+              testCoveragePercent: 0,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(0);
+        });
+
+        it("should return 0 even with perfect score when no tests ran", () => {
+          // This is the exact bug scenario from Issue #153
+          const result = {
+            metrics: { mcpComplianceScore: 100 },
+            testExecutionMetadata: {
+              totalTestsAttempted: 5,
+              validTestsCompleted: 0,
+              connectionErrorCount: 5,
+              testCoveragePercent: 0,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(0);
+        });
+
+        it("should cap at 50 when test coverage is below 50%", () => {
+          const result = {
+            metrics: { mcpComplianceScore: 100 },
+            testExecutionMetadata: {
+              totalTestsAttempted: 10,
+              validTestsCompleted: 4,
+              connectionErrorCount: 6,
+              testCoveragePercent: 40,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(50);
+        });
+
+        it("should cap mcpComplianceScore at 50 when coverage < 50%", () => {
+          // 80% score would normally pass through, but capped at 50% due to low coverage
+          const result = {
+            metrics: { mcpComplianceScore: 80 },
+            testExecutionMetadata: {
+              totalTestsAttempted: 10,
+              validTestsCompleted: 3,
+              connectionErrorCount: 7,
+              testCoveragePercent: 30,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(50);
+        });
+
+        it("should return normal score when coverage >= 50%", () => {
+          const result = {
+            metrics: { mcpComplianceScore: 85 },
+            testExecutionMetadata: {
+              totalTestsAttempted: 10,
+              validTestsCompleted: 8,
+              connectionErrorCount: 2,
+              testCoveragePercent: 80,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(85);
+        });
+
+        it("should return mcpComplianceScore when coverage is good", () => {
+          const result = {
+            metrics: { mcpComplianceScore: 75 },
+            testExecutionMetadata: {
+              totalTestsAttempted: 10,
+              validTestsCompleted: 9,
+              connectionErrorCount: 1,
+              testCoveragePercent: 90,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(75);
+        });
+
+        it("should use normal scoring when metadata is missing (backward compatibility)", () => {
+          const result = {
+            metrics: { mcpComplianceScore: 85.5 },
+          };
+          expect(calculateModuleScore(result)).toBe(86);
+        });
+
+        it("should not penalize when no connection errors despite low test count", () => {
+          // If server has few tools, that's fine - no connection errors
+          const result = {
+            metrics: { mcpComplianceScore: 100 },
+            testExecutionMetadata: {
+              totalTestsAttempted: 2,
+              validTestsCompleted: 2,
+              connectionErrorCount: 0,
+              testCoveragePercent: 100,
+            },
+          };
+          expect(calculateModuleScore(result)).toBe(100);
+        });
+
+        it("should allow low coverage without penalty when no connection errors", () => {
+          // Edge case: totalTestsAttempted might be low due to server config
+          const result = {
+            metrics: { mcpComplianceScore: 90 },
+            testExecutionMetadata: {
+              totalTestsAttempted: 5,
+              validTestsCompleted: 2,
+              connectionErrorCount: 0,
+              testCoveragePercent: 40,
+            },
+          };
+          // No connection errors = no penalty for low coverage
+          expect(calculateModuleScore(result)).toBe(90);
+        });
+      });
     });
 
     describe("MCP spec compliance module", () => {

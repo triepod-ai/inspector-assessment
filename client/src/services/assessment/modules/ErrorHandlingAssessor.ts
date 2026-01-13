@@ -103,6 +103,18 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
     this.testCount = testDetails.length;
 
+    // Issue #153: Calculate test execution metadata for score validation
+    // Track which tools successfully produced test results vs failed due to connection errors
+    const totalToolsAttempted = toolsToTest.length;
+    const toolsWithResults = allToolTests.filter(
+      (tests) => tests.length > 0,
+    ).length;
+    const connectionErrorCount = totalToolsAttempted - toolsWithResults;
+    const testCoveragePercent =
+      totalToolsAttempted > 0
+        ? Math.round((toolsWithResults / totalToolsAttempted) * 100)
+        : 0;
+
     const metrics = this.calculateMetrics(testDetails, passedTests);
     const status = this.determineErrorHandlingStatus(
       metrics,
@@ -119,6 +131,13 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       score: Math.round(metrics.mcpComplianceScore),
       explanation,
       recommendations,
+      // Issue #153: Test execution metadata for score validation
+      testExecutionMetadata: {
+        totalTestsAttempted: totalToolsAttempted,
+        validTestsCompleted: testDetails.length,
+        connectionErrorCount,
+        testCoveragePercent,
+      },
     };
   }
 

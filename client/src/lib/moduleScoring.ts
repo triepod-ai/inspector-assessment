@@ -27,9 +27,42 @@ export function calculateModuleScore(result: unknown): number | null {
   if (!result || typeof result !== "object") return null;
   const r = result as Record<string, unknown>;
 
-  // ErrorHandling module - uses metrics.mcpComplianceScore
+  // ErrorHandling module - validate test execution before scoring (Issue #153)
   const metrics = r.metrics as Record<string, unknown> | undefined;
   if (metrics?.mcpComplianceScore !== undefined) {
+    const metadata = r.testExecutionMetadata as
+      | {
+          totalTestsAttempted?: number;
+          validTestsCompleted?: number;
+          connectionErrorCount?: number;
+          testCoveragePercent?: number;
+        }
+      | undefined;
+
+    // If we have metadata, validate test execution
+    if (metadata) {
+      const {
+        validTestsCompleted = 0,
+        connectionErrorCount = 0,
+        testCoveragePercent = 0,
+      } = metadata;
+
+      // Case 1: All tests failed due to connection errors
+      // Return 0 score - can't verify error handling without successful test execution
+      // Note: validTestsCompleted=0 with connectionErrorCount=0 is allowed
+      // (e.g., no tools selected for testing - uses normal scoring)
+      if (validTestsCompleted === 0 && connectionErrorCount > 0) {
+        return 0;
+      }
+
+      // Case 2: Significant connection errors (>50% failure)
+      // Cap score at 50 - partial coverage means partial confidence
+      if (testCoveragePercent < 50 && connectionErrorCount > 0) {
+        const baseScore = Math.round(metrics.mcpComplianceScore as number);
+        return Math.min(50, baseScore);
+      }
+    }
+
     return Math.round(metrics.mcpComplianceScore as number);
   }
   // MCPSpecCompliance module - uses complianceScore

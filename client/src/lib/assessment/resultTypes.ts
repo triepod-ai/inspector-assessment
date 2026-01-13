@@ -638,6 +638,18 @@ export interface ErrorHandlingAssessment {
   score: number;
   explanation: string;
   recommendations: string[];
+  // Issue #153: Test execution metadata for score validation
+  // Prevents high scores when tests fail to execute
+  testExecutionMetadata?: {
+    /** Total tests that were supposed to run */
+    totalTestsAttempted: number;
+    /** Tests that completed successfully */
+    validTestsCompleted: number;
+    /** Tests that failed due to connection/server errors */
+    connectionErrorCount: number;
+    /** Percentage of tests that completed: validTestsCompleted / totalTestsAttempted * 100 */
+    testCoveragePercent: number;
+  };
 }
 
 export interface UsabilityAssessment {
