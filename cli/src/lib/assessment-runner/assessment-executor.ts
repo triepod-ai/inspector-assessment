@@ -46,6 +46,8 @@ import { resolveSourcePath } from "./path-resolver.js";
 import { connectToServer } from "./server-connection.js";
 import { createCallToolWrapper } from "./tool-wrapper.js";
 import { buildConfig } from "./config-builder.js";
+// Issue #155: Import annotation debug mode setter
+import { setAnnotationDebugMode } from "../../../../client/lib/services/assessment/modules/annotations/AlignmentChecker.js";
 
 /**
  * Run full assessment against an MCP server
@@ -56,6 +58,14 @@ import { buildConfig } from "./config-builder.js";
 export async function runFullAssessment(
   options: AssessmentOptions,
 ): Promise<MCPDirectoryAssessment> {
+  // Issue #155: Enable annotation debug mode if flag is set
+  if (options.debugAnnotations) {
+    setAnnotationDebugMode(true);
+    if (!options.jsonOnly) {
+      console.log("🔍 Annotation debug mode enabled (--debug-annotations)");
+    }
+  }
+
   if (!options.jsonOnly) {
     console.log(`\n🔍 Starting full assessment for: ${options.serverName}`);
   }

@@ -59,6 +59,8 @@ export interface AssessmentOptions {
   sourceCodePath?: string;
   /** Enable debug logging for source file loading (Issue #151) */
   debugSource?: boolean;
+  /** Enable debug logging for annotation extraction (Issue #155) */
+  debugAnnotations?: boolean;
   patternConfigPath?: string;
   /** Path to performance configuration JSON (Issue #37) */
   performanceConfigPath?: string;
@@ -214,6 +216,10 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
         break;
       case "--debug-source":
         options.debugSource = true;
+        break;
+      case "--debug-annotations":
+        // Issue #155: Enable debug logging for annotation extraction
+        options.debugAnnotations = true;
         break;
       case "--pattern-config":
       case "-p":
@@ -527,6 +533,8 @@ Options:
   --output, -o <path>    Output path (default: /tmp/inspector-full-assessment-<server>.<ext>)
   --source <path>        Source code path for deep analysis (AUP, portability, etc.)
   --debug-source         Enable debug logging for source file loading (Issue #151)
+  --debug-annotations    Enable debug logging for annotation extraction (Issue #155)
+                         Shows raw tool keys, annotations object, and direct hints
   --pattern-config, -p <path>  Path to custom annotation pattern JSON
   --performance-config <path>  Path to performance tuning JSON (batch sizes, timeouts, etc.)
   --format, -f <type>    Output format: json (default) or markdown

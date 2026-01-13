@@ -87,6 +87,8 @@ interface ToolWithAnnotations extends Tool {
   bulkOperations?: BulkOperationsConfig;
   supportsBulkOperations?: boolean;
   returnSchema?: Record<string, unknown>;
+  // Issue #155: MCP _meta field can contain arbitrary data including annotations
+  _meta?: Record<string, unknown>;
 }
 
 interface RateLimitConfig {
@@ -171,8 +173,43 @@ function resolveAnnotationValue(
  * Checks multiple sources in priority order: annotations object, direct properties, metadata
  * Issue #150: Also checks non-suffixed property names (readOnly, destructive) as fallback
  */
+/**
+ * Global debug flag for annotation extraction (Issue #155)
+ * Set via setAnnotationDebugMode() when --debug-annotations flag is used
+ */
+let annotationDebugMode = false;
+
+/**
+ * Enable or disable annotation debug logging (Issue #155)
+ * Called by CLI when --debug-annotations flag is provided
+ */
+export function setAnnotationDebugMode(enabled: boolean): void {
+  annotationDebugMode = enabled;
+}
+
+/**
+ * Check if annotation debug mode is enabled
+ */
+export function isAnnotationDebugEnabled(): boolean {
+  return annotationDebugMode;
+}
+
 export function extractAnnotations(tool: Tool): ExtractedAnnotations {
   const extendedTool = tool as ToolWithAnnotations;
+
+  // Issue #155: Debug logging when --debug-annotations flag is enabled
+  if (annotationDebugMode) {
+    console.log(
+      "[DEBUG-ANNOTATIONS]",
+      tool.name,
+      "| keys:",
+      Object.keys(tool),
+      "| annotations:",
+      JSON.stringify(extendedTool.annotations),
+      "| direct.readOnlyHint:",
+      (extendedTool as unknown as Record<string, unknown>).readOnlyHint,
+    );
+  }
 
   // Priority 1: Check annotations object (MCP 2024-11 spec)
   // Issue #150: Use resolveAnnotationValue to check both *Hint and non-suffixed versions
@@ -283,6 +320,81 @@ export function extractAnnotations(tool: Tool): ExtractedAnnotations {
         ),
         source: "mcp",
       };
+    }
+  }
+
+  // Priority 4: Check _meta object (MCP spec allows arbitrary data here)
+  // Issue #155: Some servers may store annotations in _meta
+  if (extendedTool._meta) {
+    const metaObj = extendedTool._meta;
+    const metaReadOnly = resolveAnnotationValue(
+      metaObj,
+      "readOnlyHint",
+      "readOnly",
+    );
+    const metaDestructive = resolveAnnotationValue(
+      metaObj,
+      "destructiveHint",
+      "destructive",
+    );
+
+    if (metaReadOnly !== undefined || metaDestructive !== undefined) {
+      return {
+        readOnlyHint: metaReadOnly,
+        destructiveHint: metaDestructive,
+        title: metaObj.title as string | undefined,
+        description: tool.description,
+        idempotentHint: resolveAnnotationValue(
+          metaObj,
+          "idempotentHint",
+          "idempotent",
+        ),
+        openWorldHint: resolveAnnotationValue(
+          metaObj,
+          "openWorldHint",
+          "openWorld",
+        ),
+        source: "mcp",
+      };
+    }
+  }
+
+  // Priority 5: Check annotations.hints (nested structure some servers use)
+  // Issue #155: Handle servers that nest hints inside annotations object
+  if (extendedTool.annotations) {
+    const hintsObj = (extendedTool.annotations as Record<string, unknown>)
+      .hints as Record<string, unknown> | undefined;
+    if (hintsObj) {
+      const hintsReadOnly = resolveAnnotationValue(
+        hintsObj,
+        "readOnlyHint",
+        "readOnly",
+      );
+      const hintsDestructive = resolveAnnotationValue(
+        hintsObj,
+        "destructiveHint",
+        "destructive",
+      );
+
+      if (hintsReadOnly !== undefined || hintsDestructive !== undefined) {
+        return {
+          readOnlyHint: hintsReadOnly,
+          destructiveHint: hintsDestructive,
+          title: extendedTool.annotations.title,
+          description: tool.description,
+          idempotentHint: resolveAnnotationValue(
+            hintsObj,
+            "idempotentHint",
+            "idempotent",
+          ),
+          openWorldHint: resolveAnnotationValue(
+            hintsObj,
+            "openWorldHint",
+            "openWorld",
+          ),
+          source: "mcp",
+        };
+      }
     }
   }
 

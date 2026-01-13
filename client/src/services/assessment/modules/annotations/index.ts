@@ -76,6 +76,7 @@ export {
 
 // Issue #105: Alignment Checker
 // Issue #119: Added scanInputSchemaDescriptions for Challenge #15
+// Issue #155: Added setAnnotationDebugMode for debug logging
 export {
   extractAnnotations,
   extractExtendedMetadata,
@@ -84,6 +85,8 @@ export {
   assessSingleTool,
   determineAnnotationStatus,
   calculateMetrics,
+  setAnnotationDebugMode,
+  isAnnotationDebugEnabled,
   type ExtractedAnnotations,
   type AlignmentMetricsResult,
 } from "./AlignmentChecker";
