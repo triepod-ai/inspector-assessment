@@ -42,6 +42,12 @@ import {
   isPayloadInErrorContext,
   hasSuccessContext,
   hasErrorContext,
+  // Issue #75: Auth bypass patterns (CVE-2025-52882)
+  AUTH_FAIL_OPEN_PATTERNS,
+  AUTH_FAIL_CLOSED_PATTERNS,
+  // Issue #92: State-based auth patterns (Challenge #7)
+  STATE_AUTH_VULNERABLE_PATTERNS,
+  STATE_AUTH_SAFE_PATTERNS,
 } from "./SecurityPatternLibrary";
 
 // Re-export types for backward compatibility
@@ -317,81 +323,15 @@ export class SecurityResponseAnalyzer {
   ): AuthBypassResult {
     const responseText = this.extractResponseContent(response);
 
-    // Fail-open indicators (VULNERABLE - CVE-2025-52882 pattern)
-    const failOpenPatterns = [
-      {
-        pattern: /"auth_type"\s*:\s*"fail-open"/i,
-        evidence: "auth_type: fail-open (CVE-2025-52882)",
-      },
-      {
-        pattern: /"auth_status"\s*:\s*"bypassed"/i,
-        evidence: "auth_status: bypassed",
-      },
-      {
-        pattern: /access.*granted.*despite/i,
-        evidence: "access granted despite failure",
-      },
-      {
-        pattern: /authentication.*skipped/i,
-        evidence: "authentication skipped",
-      },
-      { pattern: /fail[\s-]?open/i, evidence: "fail-open pattern detected" },
-      { pattern: /bypassed.*auth/i, evidence: "auth bypassed" },
-      {
-        pattern: /authentication.*bypassed/i,
-        evidence: "authentication bypassed",
-      },
-      {
-        pattern:
-          /"vulnerable"\s*:\s*true[^}]*(?:"auth_status"|"auth_type"|"auth_error")|(?:"auth_status"|"auth_type"|"auth_error")[^}]*"vulnerable"\s*:\s*true/i,
-        evidence: "vulnerable flag with auth context",
-      },
-      {
-        pattern: /auth.*succeeded.*null/i,
-        evidence: "auth succeeded with null token",
-      },
-      {
-        pattern: /granted.*without.*valid/i,
-        evidence: "granted without valid token",
-      },
-      {
-        pattern: /"action_performed"/i,
-        evidence: "action performed indicator",
-      },
-    ];
-
-    // Fail-closed indicators (SAFE - proper auth handling)
-    const failClosedPatterns = [
-      {
-        pattern: /"auth_type"\s*:\s*"fail-closed"/i,
-        evidence: "auth_type: fail-closed (secure)",
-      },
-      {
-        pattern: /"auth_status"\s*:\s*"denied"/i,
-        evidence: "auth_status: denied",
-      },
-      { pattern: /access.*denied/i, evidence: "access denied" },
-      { pattern: /authentication.*failed/i, evidence: "authentication failed" },
-      {
-        pattern: /fail[\s-]?closed/i,
-        evidence: "fail-closed pattern detected",
-      },
-      { pattern: /"status"\s*:\s*"blocked"/i, evidence: "status: blocked" },
-      { pattern: /invalid.*token/i, evidence: "invalid token rejection" },
-      { pattern: /token.*required/i, evidence: "token required" },
-      { pattern: /unauthorized/i, evidence: "unauthorized response" },
-      { pattern: /"denial_reason"/i, evidence: "denial reason provided" },
-    ];
-
     // Check for fail-open (vulnerable) patterns first
-    for (const { pattern, evidence } of failOpenPatterns) {
+    for (const { pattern, evidence } of AUTH_FAIL_OPEN_PATTERNS) {
       if (pattern.test(responseText)) {
         return { detected: true, failureMode: "FAIL_OPEN", evidence };
       }
     }
 
     // Check for fail-closed (safe) patterns
-    for (const { pattern, evidence } of failClosedPatterns) {
+    for (const { pattern, evidence } of AUTH_FAIL_CLOSED_PATTERNS) {
       if (pattern.test(responseText)) {
         return { detected: false, failureMode: "FAIL_CLOSED", evidence };
       }
@@ -415,72 +355,8 @@ export class SecurityResponseAnalyzer {
   ): StateBasedAuthResult {
     const responseText = this.extractResponseContent(response);
 
-    // Vulnerable patterns - shared state authorization (Challenge #7)
-    const vulnerablePatterns = [
-      {
-        pattern: /"admin_mode"\s*:\s*true/i,
-        evidence: "admin_mode enabled in response",
-      },
-      {
-        pattern: /hint.*use\s+config_modifier/i,
-        evidence: "Tool hints at cross-tool state dependency",
-      },
-      {
-        pattern: /admin_mode.*set\s+by.*another\s+tool/i,
-        evidence: "Explicit cross-tool state dependency",
-      },
-      {
-        pattern: /"evidence".*cross-tool.*privilege/i,
-        evidence: "Cross-tool privilege escalation detected",
-      },
-      {
-        pattern: /elevated\s+privileges?\s+granted/i,
-        evidence: "Elevated privileges granted",
-      },
-      {
-        pattern: /admin\s+mode\s+activated/i,
-        evidence: "Admin mode activated (state modifier)",
-      },
-      {
-        pattern: /"hint".*config_modifier.*admin_mode/i,
-        evidence: "Response hints at config_modifier for admin_mode",
-      },
-      {
-        pattern: /Use\s+config_modifier.*enable.*admin_mode/i,
-        evidence: "Tool depends on config_modifier for authorization",
-      },
-    ];
-
-    // Safe patterns - independent authorization (secure)
-    const safePatterns = [
-      {
-        pattern: /"shared_state_checked"\s*:\s*false/i,
-        evidence: "Tool explicitly states it doesn't use shared state",
-      },
-      {
-        pattern: /"independent_auth_required"\s*:\s*true/i,
-        evidence: "Tool requires independent per-request auth",
-      },
-      {
-        pattern: /requires\s+independent\s+authorization/i,
-        evidence: "Independent authorization required",
-      },
-      {
-        pattern: /(?:not|does\s+not|doesn't)\s+(?:use\s+)?shared\s+state/i,
-        evidence: "Tool confirms it does not use shared state",
-      },
-      {
-        pattern: /stored.*for.*admin.*review/i,
-        evidence: "Request stored for admin review (no auto-execution)",
-      },
-      {
-        pattern: /per-request\s+auth/i,
-        evidence: "Per-request authentication enforced",
-      },
-    ];
-
     // Check vulnerable patterns first (SHARED_STATE)
-    for (const { pattern, evidence } of vulnerablePatterns) {
+    for (const { pattern, evidence } of STATE_AUTH_VULNERABLE_PATTERNS) {
       if (pattern.test(responseText)) {
         return {
           vulnerable: true,
@@ -492,7 +368,7 @@ export class SecurityResponseAnalyzer {
     }
 
     // Check safe patterns (INDEPENDENT)
-    for (const { pattern, evidence } of safePatterns) {
+    for (const { pattern, evidence } of STATE_AUTH_SAFE_PATTERNS) {
       if (pattern.test(responseText)) {
         return {
           vulnerable: false,

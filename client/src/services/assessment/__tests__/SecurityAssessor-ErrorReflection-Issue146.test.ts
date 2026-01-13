@@ -289,8 +289,8 @@ describe("Issue #146: Error Reflection False Positive Reduction", () => {
     });
 
     describe("Edge cases", () => {
-      it("should handle mixed success and error patterns with SUSPECTED classification", () => {
-        // Ambiguous case: has both success and error indicators
+      it("should handle mixed success and error patterns gracefully", () => {
+        // Edge case: has both success and error indicators with payload reflection
         const response: CompatibilityCallToolResult = {
           isError: false,
           content: [
@@ -307,9 +307,11 @@ describe("Issue #146: Error Reflection False Positive Reduction", () => {
           mockTool,
         );
 
-        // Ambiguous case - may or may not be SUSPECTED
-        // The key is that it's handled without crashing
+        // Verify the case is handled gracefully (should detect echoed input)
         expect(result.evidence).toBeDefined();
+        expect(result.isVulnerable).toBe(false); // Should NOT be flagged as vulnerable
+        // The analyzer detects this as echoed input pattern, not actual execution
+        expect(result.evidence).toContain("echoed input");
       });
 
       it("should handle empty response text gracefully", () => {

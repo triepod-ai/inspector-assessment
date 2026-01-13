@@ -1486,6 +1486,119 @@ if (/\/etc\/passwd/.test(response) && !containsEchoedPayload(response)) {
 - Command fields: `command_executed:`, `stdout:`
 - Process info: `PID: 1234`
 
+### Layer 3.5: Execution Context Classification (Issue #146)
+
+Distinguishes between actual code execution and payload reflection in error messages to reduce false positives:
+
+```typescript
+// Classify whether payload appears in error context or success context
+const context = classifyVulnerabilityContext(response, payload, toolName);
+
+if (context.executionContext === "LIKELY_FALSE_POSITIVE") {
+  // Payload echoed in error message (safe reflection)
+  return {
+    safe: true,
+    evidence: context.contextEvidence,
+    executionContext: "LIKELY_FALSE_POSITIVE",
+  };
+}
+```
+
+**Context Classification Logic**:
+
+1. **Extract Context Keywords**: Scan response for error/success indicators
+
+   ```typescript
+   // ERROR_CONTEXT_PATTERNS (61 patterns)
+   const errorKeywords = [
+     "invalid",
+     "error",
+     "failed",
+     "rejected",
+     "blocked",
+     "not allowed",
+     "denied",
+     "validation failed",
+     "unauthorized",
+   ];
+
+   // SUCCESS_CONTEXT_PATTERNS (72 patterns)
+   const successKeywords = [
+     "executed successfully",
+     "command ran",
+     "result is",
+     "operation completed",
+     "query returned",
+     "found",
+   ];
+   ```
+
+2. **Classify Context**: Determine if payload appears in error or success context
+   - `hasErrorContext()`: Checks for error keywords surrounding payload
+   - `hasSuccessContext()`: Checks for success keywords near payload
+   - `isPayloadInErrorContext()`: Combines both checks with confidence scoring
+
+3. **Determine Execution Context**:
+
+   ```typescript
+   if (isPayloadInErrorContext(response, payload)) {
+     return {
+       executionContext: "LIKELY_FALSE_POSITIVE",
+       contextEvidence: "Payload echoed in error message",
+       operationSucceeded: false,
+     };
+   }
+
+   if (hasSuccessContext(response)) {
+     return {
+       executionContext: "CONFIRMED",
+       contextEvidence: "Success indicators present",
+       operationSucceeded: true,
+     };
+   }
+
+   return {
+     executionContext: "SUSPECTED",
+     contextEvidence: "Ambiguous context",
+     operationSucceeded: undefined,
+   };
+   ```
+
+**New SecurityTestResult Fields**:
+
+- `executionContext`: `"CONFIRMED"` | `"LIKELY_FALSE_POSITIVE"` | `"SUSPECTED"`
+- `contextEvidence`: Human-readable explanation of classification
+- `operationSucceeded`: Boolean indicating operation success/failure
+
+**Example: Error Reflection (Safe)**:
+
+```json
+{
+  "error": "Invalid input: 'whoami' is not recognized as a valid command"
+}
+// executionContext: "LIKELY_FALSE_POSITIVE"
+// contextEvidence: "Payload echoed in error message (invalid, not recognized)"
+// operationSucceeded: false
+```
+
+**Example: Execution (Vulnerable)**:
+
+```json
+{
+  "result": "Command executed successfully: root"
+}
+// executionContext: "CONFIRMED"
+// contextEvidence: "Success indicators present (executed successfully)"
+// operationSucceeded: true
+```
+
+**Pattern Library Updates**:
+
+- `ERROR_CONTEXT_PATTERNS`: 61 error indicators (e.g., "invalid", "rejected", "validation failed")
+- `SUCCESS_CONTEXT_PATTERNS`: 72 success indicators (e.g., "executed successfully", "operation completed")
+- Helper functions: `isPayloadInErrorContext()`, `hasSuccessContext()`, `hasErrorContext()`
+- Context classifier: `classifyVulnerabilityContext()` in SecurityResponseAnalyzer
+
 ### Layer 4: Fallback Analysis
 
 Comprehensive pattern matching for edge cases:

@@ -319,6 +319,46 @@ export interface SecurityAssessment {
 - `selectToolsForTesting(tools)` - Filter tools based on configuration
 - `separateConnectionErrors(tests)` - Distinguish connection errors from true vulnerabilities
 
+**Helper Functions** (SecurityPatternLibrary):
+
+- `isPayloadInErrorContext(response, payload)` - Checks if payload appears in error context (Issue #146)
+- `hasSuccessContext(response)` - Detects success indicators in response (72 patterns)
+- `hasErrorContext(response)` - Detects error indicators in response (61 patterns)
+- `classifyVulnerabilityContext(response, payload, toolName)` - Classifies execution context to reduce false positives
+
+**False Positive Reduction** (Issue #146):
+
+The SecurityAssessor now includes execution context classification to distinguish between:
+
+- **Actual code execution**: Payload executed and returned results → `executionContext: "CONFIRMED"`
+- **Safe error reflection**: Payload echoed in error message → `executionContext: "LIKELY_FALSE_POSITIVE"`
+- **Ambiguous cases**: Unclear context → `executionContext: "SUSPECTED"`
+
+Example usage:
+
+```typescript
+const context = classifyVulnerabilityContext(response, payload, toolName);
+if (context.executionContext === "LIKELY_FALSE_POSITIVE") {
+  // Skip false positive - payload was rejected but echoed in error
+  return { safe: true, evidence: context.contextEvidence };
+}
+```
+
+**New SecurityTestResult Fields**:
+
+- `executionContext`: Classification of execution context
+- `contextEvidence`: Human-readable explanation
+- `operationSucceeded`: Whether operation succeeded or failed
+
+**Pattern Arrays** (SecurityPatternLibrary):
+
+- `ERROR_CONTEXT_PATTERNS`: 61 error indicators (e.g., "invalid", "rejected", "validation failed")
+- `SUCCESS_CONTEXT_PATTERNS`: 72 success indicators (e.g., "executed successfully", "operation completed")
+- `AUTH_FAIL_OPEN_PATTERNS`: Authentication fail-open indicators (Issue #75)
+- `AUTH_FAIL_CLOSED_PATTERNS`: Authentication fail-closed indicators (Issue #75)
+- `STATE_AUTH_VULNERABLE_PATTERNS`: State-based auth bypass indicators (Issue #92)
+- `STATE_AUTH_SAFE_PATTERNS`: Safe state management indicators (Issue #92)
+
 ---
 
 ### 3. DocumentationAssessor (Core)
@@ -526,6 +566,8 @@ export interface SecurityAssessment {
 - Icon validity and presence
 - Privacy policy URLs accessibility
 - Command and args format
+- Semantic versioning compliance
+- Author email format validation
 
 **Return Type**: `ManifestValidationAssessment`
 
@@ -534,6 +576,26 @@ export interface SecurityAssessment {
 ```typescript
 manifestValidation?: boolean;  // Only enabled in bundle-specific assessment modes
 ```
+
+**Implementation Constants** (Issue #140):
+
+- `SEMVER_PATTERN`: Shared regex for semantic version validation (FIX-001)
+  - Pattern: `/^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/`
+  - Validates: X.Y.Z format with optional pre-release and build metadata
+  - Used by: `extractVersionInfo()` and `validateVersionFormat()`
+
+**Email Validation** (Issue #140 FIX-002):
+
+- Author string format: `"Name <email@example.com>"`
+- Regex pattern: `/<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>/`
+- Validates: Proper email format with TLD (2+ characters)
+- Rejects: Invalid emails like `<invalid>`, `<test@localhost>`
+
+**Testing Coverage** (56 total tests, 16 added in v1.24.2):
+
+- Levenshtein distance algorithm: 13 tests (edit distance calculations, Unicode support)
+- findClosestMatch integration: 6 tests (typo suggestions, threshold logic)
+- fetchWithRetry exponential backoff: 6 tests (retry logic, HEAD/GET fallback)
 
 **Implementation Location**: `client/src/services/assessment/modules/ManifestValidationAssessor.ts`
 
