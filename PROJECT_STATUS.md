@@ -2,17 +2,51 @@
 
 ## Current Version
 
-- **Version**: 1.26.7 (published to npm as "@bryan-thompson/inspector-assessment")
-- decd1f65 perf: Optimize Levenshtein algorithm and add retry logic (Issue #140)
+- **Version**: 1.36.2 (published to npm as "@bryan-thompson/inspector-assessment")
+- b49fb305 fix(functionality): Add totalToolsFound legacy field for mcp-auditor compatibility (Issue #158)
 
-**Next Steps:**
-- Consider extracting Levenshtein to shared utility (P2 suggestion)
-- Address remaining open issues (#139, #141, #146)
+**Recent Releases:**
+- v1.36.2: Issue #158 fix - totalToolsFound legacy compatibility
+- v1.36.1: Issue #153, #154 fixes - connection error detection, skipped module scoring
+- v1.36.0: Issue #155 fix - tool annotation detection in events
 
 **Notes:**
-- Code review identified P1 issues: missing early return and network failure handling
-- 30 total new tests added (6 integration + 24 unit)
-- Issue #140 closed
+- All 1566 tests passing
+- Issue #158 closed
+
+---
+
+## 2026-01-13: v1.36.2 Release - Issue #158 Fix
+
+**Summary:** Fixed `totalToolsFound` null bug by adding legacy compatibility field for mcp-auditor integration.
+
+**Session Focus:** Issue #158 - totalToolsFound is null despite workingTools being populated
+
+**Root Cause:** Field naming mismatch between inspector (`totalTools`) and mcp-auditor (`totalToolsFound`). The mcp-auditor expects `totalToolsFound` but inspector only output `totalTools`.
+
+**Changes Made:**
+- `client/src/lib/assessment/resultTypes.ts` - Added `totalToolsFound?: number` to FunctionalityAssessment interface
+- `client/src/services/assessment/modules/FunctionalityAssessor.ts` - Added `totalToolsFound: totalTools` to return object
+
+**Commits:**
+- b49fb305 fix(functionality): Add totalToolsFound legacy field for mcp-auditor compatibility (Issue #158)
+- 09a8e94e v1.36.2
+
+**Issues Closed:** #158
+
+**Verification:**
+```json
+{
+  "totalTools": 46,
+  "totalToolsFound": 46,
+  "workingTools": 46
+}
+```
+
+**Notes:**
+- Backwards compatible - existing consumers using `totalTools` unaffected
+- All 23 FunctionalityAssessor tests pass
+- Published to npm as @bryan-thompson/inspector-assessment@1.36.2
 
 ---
 
@@ -489,5 +523,41 @@
 - Root cause identified: FastMCP doesn't serialize top-level readOnlyHint properties
 - Servers should use annotations=ToolAnnotations(readOnlyHint=True) instead of readOnlyHint: true at tool root
 - 12 new test cases covering all annotation location combinations
+
+---
+
+## 2026-01-13: Fixed Skipped Module Scoring in calculateModuleScore (Issue #154 Follow-up)
+
+**Summary:** Fixed module scoring to properly return null for skipped modules, completing Issue #154 fix.
+
+**Session Focus:** Investigating reopened Issue #154 where prohibitedLibraries module still showed 100% score with 0 scanned files despite the initial fix.
+
+**Changes Made:**
+- `client/src/lib/moduleScoring.ts` - Added early return check for `skipped: true` flag to return `null` instead of calculating score
+- `client/src/lib/__tests__/moduleScoring-skipped.test.ts` - New test file with 6 comprehensive test cases for skipped module scoring behavior
+
+**Key Decisions:**
+- Root cause: `calculateModuleScore()` wasn't honoring the `skipped: true` flag that modules set via `createSkippedResult()`
+- Fix location: Added check at the start of `calculateModuleScore()` before any score calculation
+- Return value: `null` for skipped modules (consistent with how UI should handle missing/unavailable data)
+- Test coverage: Added tests for direct skipped flag, nested result.skipped, and various edge cases
+
+**Commits:**
+- 1eb59519: fix(moduleScoring): Return null for skipped modules in calculateModuleScore (Issue #154)
+
+**Issues Updated:** #154 (added follow-up comments explaining the additional fix)
+
+**Related Issues Created:**
+- mcp-auditor#140: Investigate libraryMetrics display transformation (found during investigation)
+
+**Next Steps:**
+- Monitor production usage to ensure skipped modules display correctly
+- Consider adding similar skipped handling to other scoring utilities if needed
+
+**Notes:**
+- The initial Issue #154 fix added `createSkippedResult()` call in ProhibitedLibrariesAssessor
+- This follow-up fix ensures the scoring layer respects that skipped flag
+- Both fixes together complete the full solution: module marks itself skipped AND scoring honors it
+- All 1566 tests passing including 6 new skipped module scoring tests
 
 ---
