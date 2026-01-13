@@ -63,6 +63,13 @@ describe("connectToServer", () => {
     jest.clearAllMocks();
   });
 
+  afterAll(() => {
+    jest.unmock("@modelcontextprotocol/sdk/client/index.js");
+    jest.unmock("@modelcontextprotocol/sdk/client/stdio.js");
+    jest.unmock("@modelcontextprotocol/sdk/client/sse.js");
+    jest.unmock("@modelcontextprotocol/sdk/client/streamableHttp.js");
+  });
+
   describe("HTTP transport", () => {
     it("should create StreamableHTTPClientTransport for transport:http", async () => {
       const config = {

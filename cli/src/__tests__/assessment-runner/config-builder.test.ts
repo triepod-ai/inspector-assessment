@@ -95,6 +95,17 @@ describe("buildConfig", () => {
     process.env = originalEnv;
   });
 
+  afterAll(() => {
+    jest.unmock("../../profiles.js");
+    jest.unmock("../../../../client/lib/lib/assessmentTypes.js");
+    jest.unmock(
+      "../../../../client/lib/services/assessment/lib/claudeCodeBridge.js",
+    );
+    jest.unmock(
+      "../../../../client/lib/services/assessment/config/performanceConfig.js",
+    );
+  });
+
   describe("default configuration", () => {
     it("should spread DEFAULT_ASSESSMENT_CONFIG", () => {
       const result = buildConfig({ serverName: "test" });

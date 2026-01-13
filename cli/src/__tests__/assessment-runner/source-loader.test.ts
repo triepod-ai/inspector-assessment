@@ -50,6 +50,10 @@ describe("loadSourceFiles", () => {
     jest.clearAllMocks();
   });
 
+  afterAll(() => {
+    jest.unmock("fs");
+  });
+
   describe("README discovery", () => {
     it("should find README.md in source directory", () => {
       const sourcePath = "/project";

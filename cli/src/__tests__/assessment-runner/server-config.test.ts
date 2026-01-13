@@ -36,6 +36,10 @@ describe("loadServerConfig", () => {
     mockExistsSync.mockReturnValue(false);
   });
 
+  afterAll(() => {
+    jest.unmock("fs");
+  });
+
   describe("config path resolution", () => {
     it("should search explicit configPath first when provided", () => {
       const configPath = "/custom/path/config.json";
