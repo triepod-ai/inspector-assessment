@@ -221,50 +221,52 @@ describe("AlignmentChecker - Issue #155 Debug Mode", () => {
   describe("Debug logging behavior", () => {
     it("should not log when debug mode is disabled", () => {
       const consoleSpy = jest.spyOn(console, "log").mockImplementation();
+      try {
+        const tool = {
+          name: "test_tool",
+          description: "Test tool",
+          inputSchema: { type: "object", properties: {} },
+          annotations: { readOnlyHint: true },
+        } as unknown as Tool;
 
-      const tool = {
-        name: "test_tool",
-        description: "Test tool",
-        inputSchema: { type: "object", properties: {} },
-        annotations: { readOnlyHint: true },
-      } as unknown as Tool;
+        setAnnotationDebugMode(false);
+        extractAnnotations(tool);
 
-      setAnnotationDebugMode(false);
-      extractAnnotations(tool);
-
-      expect(consoleSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining("[DEBUG-ANNOTATIONS]"),
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-      );
-
-      consoleSpy.mockRestore();
+        expect(consoleSpy).not.toHaveBeenCalledWith(
+          expect.stringContaining("[DEBUG-ANNOTATIONS]"),
+          expect.anything(),
+          expect.anything(),
+          expect.anything(),
+          expect.anything(),
+          expect.anything(),
+        );
+      } finally {
+        consoleSpy.mockRestore();
+      }
     });
 
     it("should log with [DEBUG-ANNOTATIONS] prefix when enabled", () => {
       const consoleSpy = jest.spyOn(console, "log").mockImplementation();
+      try {
+        const tool = {
+          name: "test_tool",
+          description: "Test tool",
+          inputSchema: { type: "object", properties: {} },
+          annotations: { readOnlyHint: true },
+        } as unknown as Tool;
 
-      const tool = {
-        name: "test_tool",
-        description: "Test tool",
-        inputSchema: { type: "object", properties: {} },
-        annotations: { readOnlyHint: true },
-      } as unknown as Tool;
+        setAnnotationDebugMode(true);
+        extractAnnotations(tool);
 
-      setAnnotationDebugMode(true);
-      extractAnnotations(tool);
-
-      // Verify the [DEBUG-ANNOTATIONS] prefix was logged
-      // Note: expect.anything() doesn't match undefined, so check first 2 args
-      expect(consoleSpy).toHaveBeenCalled();
-      const call = consoleSpy.mock.calls[0];
-      expect(call[0]).toBe("[DEBUG-ANNOTATIONS]");
-      expect(call[1]).toBe("test_tool");
-
-      consoleSpy.mockRestore();
+        // Verify the [DEBUG-ANNOTATIONS] prefix was logged
+        // Note: expect.anything() doesn't match undefined, so check first 2 args
+        expect(consoleSpy).toHaveBeenCalled();
+        const call = consoleSpy.mock.calls[0];
+        expect(call[0]).toBe("[DEBUG-ANNOTATIONS]");
+        expect(call[1]).toBe("test_tool");
+      } finally {
+        consoleSpy.mockRestore();
+      }
     });
   });
 });
