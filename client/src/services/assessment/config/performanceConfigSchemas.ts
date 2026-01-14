@@ -135,6 +135,40 @@ export const PerformanceConfigSchema = z.object({
       `eventEmitterMaxListeners must be <= ${PERF_CONFIG_RANGES.eventEmitterMaxListeners.max}`,
     )
     .optional(),
+
+  /**
+   * Maximum retry attempts for transient errors in security tests.
+   * Issue #157: Connection retry logic for reliability
+   */
+  securityRetryMaxAttempts: z
+    .number()
+    .int("securityRetryMaxAttempts must be an integer")
+    .min(
+      PERF_CONFIG_RANGES.securityRetryMaxAttempts.min,
+      `securityRetryMaxAttempts must be >= ${PERF_CONFIG_RANGES.securityRetryMaxAttempts.min}`,
+    )
+    .max(
+      PERF_CONFIG_RANGES.securityRetryMaxAttempts.max,
+      `securityRetryMaxAttempts must be <= ${PERF_CONFIG_RANGES.securityRetryMaxAttempts.max}`,
+    )
+    .optional(),
+
+  /**
+   * Initial backoff delay in milliseconds for security test retries.
+   * Issue #157: Connection retry logic for reliability
+   */
+  securityRetryBackoffMs: z
+    .number()
+    .int("securityRetryBackoffMs must be an integer")
+    .min(
+      PERF_CONFIG_RANGES.securityRetryBackoffMs.min,
+      `securityRetryBackoffMs must be >= ${PERF_CONFIG_RANGES.securityRetryBackoffMs.min}`,
+    )
+    .max(
+      PERF_CONFIG_RANGES.securityRetryBackoffMs.max,
+      `securityRetryBackoffMs must be <= ${PERF_CONFIG_RANGES.securityRetryBackoffMs.max}`,
+    )
+    .optional(),
 });
 
 /**

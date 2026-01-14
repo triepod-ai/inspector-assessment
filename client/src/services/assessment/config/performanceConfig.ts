@@ -73,6 +73,22 @@ export interface PerformanceConfig {
    * @default 50
    */
   eventEmitterMaxListeners: number;
+
+  /**
+   * Maximum retry attempts for transient errors in security tests.
+   * Payload-level retry with exponential backoff for connection errors.
+   * @default 2
+   * @see https://github.com/triepod-ai/inspector-assessment/issues/157
+   */
+  securityRetryMaxAttempts: number;
+
+  /**
+   * Initial backoff delay in milliseconds for security test retries.
+   * Uses exponential backoff: delay * 2^attempt (100ms → 200ms → 400ms)
+   * @default 100
+   * @see https://github.com/triepod-ai/inspector-assessment/issues/157
+   */
+  securityRetryBackoffMs: number;
 }
 
 /**
@@ -89,6 +105,8 @@ export const DEFAULT_PERFORMANCE_CONFIG: Readonly<Required<PerformanceConfig>> =
     securityTestTimeoutMs: 5000,
     queueWarningThreshold: 10000,
     eventEmitterMaxListeners: 50,
+    securityRetryMaxAttempts: 2,
+    securityRetryBackoffMs: 100,
   });
 
 /**
@@ -163,6 +181,12 @@ export function mergeWithDefaults(
     eventEmitterMaxListeners:
       partial.eventEmitterMaxListeners ??
       DEFAULT_PERFORMANCE_CONFIG.eventEmitterMaxListeners,
+    securityRetryMaxAttempts:
+      partial.securityRetryMaxAttempts ??
+      DEFAULT_PERFORMANCE_CONFIG.securityRetryMaxAttempts,
+    securityRetryBackoffMs:
+      partial.securityRetryBackoffMs ??
+      DEFAULT_PERFORMANCE_CONFIG.securityRetryBackoffMs,
   };
 }
 

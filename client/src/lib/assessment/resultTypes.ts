@@ -149,6 +149,9 @@ export interface SecurityTestResult {
   connectionError?: boolean; // True if test failed due to connection/server failure
   errorType?: "connection" | "server" | "protocol"; // Classify error type
   testReliability?: "completed" | "failed" | "retried"; // Test execution status
+  // Issue #157: Retry tracking fields for connection reliability
+  retryAttempts?: number; // Number of retry attempts made (0 = succeeded first try)
+  retriedSuccessfully?: boolean; // Whether test succeeded after retry
   // Issue #56: Sanitization detection fields for false positive reduction
   sanitizationDetected?: boolean; // Whether sanitization was detected in tool/response
   sanitizationLibraries?: string[]; // Specific libraries detected (e.g., "DOMPurify")

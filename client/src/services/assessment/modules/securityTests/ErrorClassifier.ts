@@ -12,6 +12,7 @@ import {
   ERROR_CLASSIFICATION_PATTERNS,
   matchesAny,
   hasMcpErrorPrefix,
+  isTransientErrorPattern,
 } from "./SecurityPatternLibrary";
 
 /**
@@ -46,6 +47,31 @@ export class ErrorClassifier {
     if (error instanceof Error) {
       const message = error.message.toLowerCase();
       return this.isConnectionErrorFromText(message);
+    }
+    return false;
+  }
+
+  /**
+   * Check if response indicates transient error worth retrying.
+   * Transient errors (ECONNREFUSED, ETIMEDOUT, etc.) may resolve on retry.
+   * Permanent errors (unknown tool, unauthorized) will not.
+   *
+   * @see https://github.com/triepod-ai/inspector-assessment/issues/157
+   */
+  isTransientError(response: CompatibilityCallToolResult): boolean {
+    const text = this.extractResponseContent(response).toLowerCase();
+    return isTransientErrorPattern(text);
+  }
+
+  /**
+   * Check if caught exception indicates transient error worth retrying.
+   *
+   * @see https://github.com/triepod-ai/inspector-assessment/issues/157
+   */
+  isTransientErrorFromException(error: unknown): boolean {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      return isTransientErrorPattern(message);
     }
     return false;
   }

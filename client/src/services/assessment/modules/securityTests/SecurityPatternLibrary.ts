@@ -318,6 +318,57 @@ export const ERROR_CLASSIFICATION_PATTERNS = {
 } as const;
 
 // =============================================================================
+// TRANSIENT ERROR PATTERNS (Issue #157: Connection retry logic)
+// =============================================================================
+
+/**
+ * Transient error patterns that are worth retrying.
+ * These indicate temporary network/server issues that may resolve.
+ * Used by: isTransientError(), isTransientErrorFromException()
+ *
+ * @see https://github.com/triepod-ai/inspector-assessment/issues/157
+ */
+export const TRANSIENT_ERROR_PATTERNS = [
+  /ECONNREFUSED/i, // Server temporarily down
+  /ETIMEDOUT/i, // Network timeout
+  /socket hang up/i, // Connection dropped
+  /fetch failed/i, // Network layer failure
+  /connection reset/i, // TCP reset
+  /gateway timeout/i, // Proxy/load balancer timeout
+  /service unavailable/i, // 503 response
+  /ERR_CONNECTION/i, // Browser-style connection errors
+] as const;
+
+/**
+ * Permanent error patterns that should NOT be retried.
+ * These indicate issues that will not resolve with retry.
+ * Used by: isTransientError() to short-circuit retry logic
+ *
+ * @see https://github.com/triepod-ai/inspector-assessment/issues/157
+ */
+export const PERMANENT_ERROR_PATTERNS = [
+  /unknown tool:/i, // Tool doesn't exist
+  /no such tool/i, // Tool doesn't exist
+  /unauthorized/i, // Auth failure (won't change on retry)
+  /forbidden/i, // Permission denied (won't change on retry)
+  /invalid.*token/i, // Bad credentials
+] as const;
+
+/**
+ * Check if error text indicates a transient error worth retrying.
+ * @param text Error message or response text
+ * @returns true if error is transient and should be retried
+ */
+export function isTransientErrorPattern(text: string): boolean {
+  // Check for permanent errors first (never retry these)
+  if (matchesAny(PERMANENT_ERROR_PATTERNS, text)) {
+    return false;
+  }
+  // Check for transient errors
+  return matchesAny(TRANSIENT_ERROR_PATTERNS, text);
+}
+
+// =============================================================================
 // REFLECTION PATTERNS (safe response detection)
 // =============================================================================
 

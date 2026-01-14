@@ -113,6 +113,10 @@ export const PERF_CONFIG_RANGES = {
   queueWarningThreshold: { min: 100, max: 1000000 },
   /** Maximum EventEmitter listeners to prevent Node.js warnings */
   eventEmitterMaxListeners: { min: 10, max: 1000 },
+  /** Maximum retry attempts for transient errors in security tests (Issue #157) */
+  securityRetryMaxAttempts: { min: 0, max: 10 },
+  /** Initial backoff delay in ms for security test retries (Issue #157) */
+  securityRetryBackoffMs: { min: 10, max: 5000 },
 } as const;
 
 /**

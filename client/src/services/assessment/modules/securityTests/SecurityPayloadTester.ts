@@ -27,6 +27,7 @@ import { SecurityResponseAnalyzer } from "./SecurityResponseAnalyzer";
 import { SecurityPayloadGenerator } from "./SecurityPayloadGenerator";
 import { SanitizationDetector } from "./SanitizationDetector";
 import { DEFAULT_PERFORMANCE_CONFIG } from "../../config/performanceConfig";
+import { isTransientErrorPattern } from "./SecurityPatternLibrary";
 
 /**
  * Re-export ProgressCallback for external use
@@ -41,6 +42,16 @@ export interface PayloadTestConfig {
   maxParallelTests?: number;
   securityTestTimeout?: number;
   selectedToolsForTesting?: string[];
+  /**
+   * Maximum retry attempts for transient errors (Issue #157)
+   * Uses PerformanceConfig.securityRetryMaxAttempts if not specified
+   */
+  securityRetryMaxAttempts?: number;
+  /**
+   * Initial backoff delay in ms for retries (Issue #157)
+   * Uses PerformanceConfig.securityRetryBackoffMs if not specified
+   */
+  securityRetryBackoffMs?: number;
 }
 
 /**
@@ -189,7 +200,8 @@ export class SecurityPayloadTester {
               batchCount++;
 
               try {
-                const result = await this.testPayload(
+                // Issue #157: Use retry-enabled wrapper for transient error resilience
+                const result = await this.testPayloadWithRetry(
                   tool,
                   attackPattern.attackName,
                   payload,
@@ -400,7 +412,8 @@ export class SecurityPayloadTester {
         batchCount++;
 
         try {
-          const result = await this.testPayload(
+          // Issue #157: Use retry-enabled wrapper for transient error resilience
+          const result = await this.testPayloadWithRetry(
             tool,
             attackPattern.attackName,
             payload,
@@ -771,6 +784,104 @@ export class SecurityPayloadTester {
         evidence: `Tool rejected input: ${this.extractErrorMessage(error)}`,
       };
     }
+  }
+
+  /**
+   * Test payload with retry logic for transient errors.
+   * Implements exponential backoff: 100ms → 200ms → 400ms
+   *
+   * Issue #157: Connection retry logic for reliability
+   *
+   * @param tool - Tool to test
+   * @param attackName - Name of attack pattern
+   * @param payload - Security payload to test
+   * @param callTool - Function to call the tool
+   * @returns SecurityTestResult with retry metadata if applicable
+   */
+  async testPayloadWithRetry(
+    tool: Tool,
+    attackName: string,
+    payload: SecurityPayload,
+    callTool: (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<CompatibilityCallToolResult>,
+  ): Promise<SecurityTestResult> {
+    const maxRetries =
+      this.config.securityRetryMaxAttempts ??
+      DEFAULT_PERFORMANCE_CONFIG.securityRetryMaxAttempts;
+    const backoffMs =
+      this.config.securityRetryBackoffMs ??
+      DEFAULT_PERFORMANCE_CONFIG.securityRetryBackoffMs;
+
+    let lastResult: SecurityTestResult | null = null;
+    let retryAttempts = 0;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const result = await this.testPayload(
+        tool,
+        attackName,
+        payload,
+        callTool,
+      );
+
+      // Check if result indicates transient error worth retrying
+      if (result.connectionError && attempt < maxRetries) {
+        const errorText = (result.response || "").toLowerCase();
+        if (isTransientErrorPattern(errorText)) {
+          retryAttempts++;
+          lastResult = result;
+
+          this.logger.log(
+            `Transient error on ${tool.name}, retrying (${attempt + 1}/${maxRetries}): ${errorText.slice(0, 100)}`,
+          );
+
+          // Exponential backoff: 100ms → 200ms → 400ms
+          await this.sleep(backoffMs * Math.pow(2, attempt));
+          continue;
+        }
+      }
+
+      // Success or permanent error - return with retry metadata
+      return this.addRetryMetadata(
+        result,
+        retryAttempts,
+        !result.connectionError,
+      );
+    }
+
+    // All retries exhausted - return last result with failure metadata
+    if (lastResult) {
+      return this.addRetryMetadata(lastResult, retryAttempts, false);
+    }
+
+    // Should not reach here, but handle gracefully
+    throw new Error(`Unexpected retry loop exit for ${tool.name}`);
+  }
+
+  /**
+   * Add retry metadata to result.
+   * Issue #157: Track retry attempts for reliability metrics
+   */
+  private addRetryMetadata(
+    result: SecurityTestResult,
+    retryAttempts: number,
+    succeeded: boolean,
+  ): SecurityTestResult {
+    if (retryAttempts === 0) {
+      // No retries needed - return as-is with completed status
+      return {
+        ...result,
+        testReliability: result.connectionError ? "failed" : "completed",
+      };
+    }
+
+    return {
+      ...result,
+      retryAttempts,
+      retriedSuccessfully: succeeded,
+      testReliability: succeeded ? "retried" : "failed",
+    };
   }
 
   /**
