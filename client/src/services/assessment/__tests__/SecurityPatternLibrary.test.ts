@@ -64,7 +64,8 @@ describe("SecurityPatternLibrary", () => {
     });
 
     it("should compile all CONNECTION_ERROR_PATTERNS", () => {
-      expect(CONNECTION_ERROR_PATTERNS.unambiguous.length).toBe(17);
+      // Updated: 18 includes ECONNRESET (Issue #157)
+      expect(CONNECTION_ERROR_PATTERNS.unambiguous.length).toBe(18);
       expect(CONNECTION_ERROR_PATTERNS.contextual.length).toBe(7);
       expect(CONNECTION_ERROR_PATTERNS.mcpPrefix).toBeInstanceOf(RegExp);
     });
@@ -380,7 +381,8 @@ describe("SecurityPatternLibrary", () => {
 
     it("should have no duplicate connection error patterns", () => {
       // Previously had 2 copies - now consolidated into CONNECTION_ERROR_PATTERNS object
-      expect(CONNECTION_ERROR_PATTERNS.unambiguous.length).toBe(17);
+      // Updated: 18 includes ECONNRESET (Issue #157)
+      expect(CONNECTION_ERROR_PATTERNS.unambiguous.length).toBe(18);
       expect(CONNECTION_ERROR_PATTERNS.contextual.length).toBe(7);
     });
   });

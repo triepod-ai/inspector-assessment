@@ -185,6 +185,66 @@ const fastConfig = PERFORMANCE_PRESETS.fast;
 
 ---
 
+### `securityRetryMaxAttempts`
+
+**Purpose**: Maximum retry attempts for transient network errors in security tests (Issue #157).
+
+| Property | Value |
+| -------- | ----- |
+| Default  | 2     |
+| Range    | 0-10  |
+
+**When to Adjust**:
+
+- **Increase** (3-5) for unreliable network connections or flaky MCP servers
+- **Decrease** (0-1) for fast CI/CD pipelines where speed matters more than retry resilience
+- **Set to 0** to disable retries entirely
+
+**Impact**: Higher values improve test reliability on unstable connections; lower values reduce total test time.
+
+**Transient Errors (will retry)**:
+
+- `ECONNREFUSED`, `ECONNRESET`, `ETIMEDOUT`
+- `socket hang up`, `fetch failed`, `connection reset`
+- `gateway timeout`, `service unavailable`
+
+**Permanent Errors (no retry)**:
+
+- `unknown tool`, `no such tool`
+- `unauthorized`, `forbidden`, `invalid token`
+
+---
+
+### `securityRetryBackoffMs`
+
+**Purpose**: Initial backoff delay for security test retries (Issue #157).
+
+| Property | Value        |
+| -------- | ------------ |
+| Default  | 100          |
+| Range    | 10-5000      |
+| Unit     | milliseconds |
+
+**Backoff Pattern**: Exponential - `delay * 2^attempt`
+
+- Attempt 0: 100ms
+- Attempt 1: 200ms
+- Attempt 2: 400ms
+
+**When to Adjust**:
+
+- **Increase** (200-500ms) for servers that need more recovery time
+- **Decrease** (10-50ms) for fast CI/CD when retries should be quick
+
+**Impact**: Higher values give servers more recovery time; lower values reduce total wait time.
+
+**Example**: With `securityRetryMaxAttempts: 2` and `securityRetryBackoffMs: 100`:
+
+- Total max retry delay: 100 + 200 = 300ms
+- Total max attempts: 3 (initial + 2 retries)
+
+---
+
 ## Presets
 
 ### `default`
@@ -199,13 +259,15 @@ Balanced configuration for general use.
   "testTimeoutMs": 5000,
   "securityTestTimeoutMs": 5000,
   "queueWarningThreshold": 10000,
-  "eventEmitterMaxListeners": 50
+  "eventEmitterMaxListeners": 50,
+  "securityRetryMaxAttempts": 2,
+  "securityRetryBackoffMs": 100
 }
 ```
 
 ### `fast`
 
-Optimized for speed with larger batches.
+Optimized for speed with larger batches and minimal retries.
 
 ```json
 {
@@ -215,7 +277,9 @@ Optimized for speed with larger batches.
   "testTimeoutMs": 5000,
   "securityTestTimeoutMs": 5000,
   "queueWarningThreshold": 10000,
-  "eventEmitterMaxListeners": 50
+  "eventEmitterMaxListeners": 50,
+  "securityRetryMaxAttempts": 1,
+  "securityRetryBackoffMs": 50
 }
 ```
 

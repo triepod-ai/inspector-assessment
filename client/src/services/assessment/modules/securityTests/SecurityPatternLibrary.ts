@@ -277,11 +277,12 @@ export const CONNECTION_ERROR_PATTERNS = {
     /MCP error -32700/i,
     /socket hang up/i,
     /ECONNREFUSED/i,
+    /ECONNRESET/i, // Connection reset by peer (Node.js error code)
     /ETIMEDOUT/i,
     /network error/i,
     /ERR_CONNECTION/i,
     /fetch failed/i,
-    /connection reset/i,
+    /connection reset/i, // TCP reset (generic form)
     /error POSTing to endpoint/i,
     /error GETting.*endpoint/i,
     /service unavailable/i,
@@ -330,10 +331,11 @@ export const ERROR_CLASSIFICATION_PATTERNS = {
  */
 export const TRANSIENT_ERROR_PATTERNS = [
   /ECONNREFUSED/i, // Server temporarily down
+  /ECONNRESET/i, // Connection reset by peer (Node.js error code)
   /ETIMEDOUT/i, // Network timeout
   /socket hang up/i, // Connection dropped
   /fetch failed/i, // Network layer failure
-  /connection reset/i, // TCP reset
+  /connection reset/i, // TCP reset (generic form)
   /gateway timeout/i, // Proxy/load balancer timeout
   /service unavailable/i, // 503 response
   /ERR_CONNECTION/i, // Browser-style connection errors

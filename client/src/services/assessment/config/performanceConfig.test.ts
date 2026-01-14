@@ -41,6 +41,9 @@ describe("DEFAULT_PERFORMANCE_CONFIG", () => {
       securityTestTimeoutMs: 5000,
       queueWarningThreshold: 10000,
       eventEmitterMaxListeners: 50,
+      // Issue #157: Security payload retry config
+      securityRetryMaxAttempts: 2,
+      securityRetryBackoffMs: 100,
     });
   });
 

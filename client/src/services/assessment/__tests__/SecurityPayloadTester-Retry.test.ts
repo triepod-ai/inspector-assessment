@@ -51,7 +51,7 @@ describe("Issue #157: Connection Retry Logic", () => {
 
       it("should detect connection reset as transient", () => {
         expect(isTransientErrorPattern("connection reset")).toBe(true);
-        expect(isTransientErrorPattern("ECONNRESET")).toBe(false); // Not in pattern, uses "connection reset" form
+        expect(isTransientErrorPattern("ECONNRESET")).toBe(true); // Node.js error code
       });
 
       it("should detect gateway timeout as transient", () => {
@@ -175,7 +175,7 @@ describe("Issue #157: Connection Retry Logic", () => {
 
   describe("Pattern completeness", () => {
     it("TRANSIENT_ERROR_PATTERNS should have all expected patterns", () => {
-      expect(TRANSIENT_ERROR_PATTERNS.length).toBeGreaterThanOrEqual(8);
+      expect(TRANSIENT_ERROR_PATTERNS.length).toBeGreaterThanOrEqual(9);
     });
 
     it("PERMANENT_ERROR_PATTERNS should have all expected patterns", () => {
@@ -191,6 +191,229 @@ describe("Issue #157: Connection Retry Logic", () => {
       // (isTransientErrorPattern returns false for permanent, true for transient)
       expect(isTransientErrorPattern("ECONNREFUSED")).toBe(true);
       expect(isTransientErrorPattern("socket hang up")).toBe(true);
+    });
+  });
+
+  describe("testPayloadWithRetry Integration Tests", () => {
+    // Mock SecurityPayloadTester for integration testing
+    let mockLogger: { log: jest.Mock; logError: jest.Mock };
+    let mockExecuteWithTimeout: jest.Mock;
+    let callCounter: number;
+
+    beforeEach(() => {
+      mockLogger = {
+        log: jest.fn(),
+        logError: jest.fn(),
+      };
+      mockExecuteWithTimeout = jest.fn((promise: Promise<any>) => promise);
+      callCounter = 0;
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    const createMockTool = (name: string): any => ({
+      name,
+      description: "Test tool",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+        },
+      },
+    });
+
+    const createMockPayload = (): any => ({
+      payload: "test_payload",
+      description: "Test payload",
+      payloadType: "generic",
+      riskLevel: "medium" as const,
+    });
+
+    it("should return immediately on success without retry", async () => {
+      const tool = createMockTool("test_tool");
+      const payload = createMockPayload();
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        content: [{ type: "text", text: "Success" }],
+      });
+
+      // Import SecurityPayloadTester dynamically to test the method
+      const { SecurityPayloadTester } =
+        await import("../modules/securityTests/SecurityPayloadTester");
+      const tester = new SecurityPayloadTester(
+        { securityRetryMaxAttempts: 3, securityRetryBackoffMs: 100 },
+        mockLogger,
+        mockExecuteWithTimeout,
+      );
+
+      const result = await tester.testPayloadWithRetry(
+        tool,
+        "Command Injection",
+        payload,
+        mockCallTool,
+      );
+
+      expect(result.vulnerable).toBe(false);
+      expect(result.retryAttempts).toBeUndefined();
+      expect(result.retriedSuccessfully).toBeUndefined();
+      expect(result.testReliability).toBe("completed");
+      expect(mockCallTool).toHaveBeenCalledTimes(1);
+    });
+
+    it("should retry on transient error then succeed", async () => {
+      const tool = createMockTool("test_tool");
+      const payload = createMockPayload();
+
+      const mockCallTool = jest
+        .fn()
+        .mockRejectedValueOnce(new Error("ECONNREFUSED"))
+        .mockResolvedValueOnce({
+          content: [{ type: "text", text: "Success after retry" }],
+        });
+
+      const { SecurityPayloadTester } =
+        await import("../modules/securityTests/SecurityPayloadTester");
+      const tester = new SecurityPayloadTester(
+        { securityRetryMaxAttempts: 3, securityRetryBackoffMs: 100 },
+        mockLogger,
+        mockExecuteWithTimeout,
+      );
+
+      const resultPromise = tester.testPayloadWithRetry(
+        tool,
+        "Command Injection",
+        payload,
+        mockCallTool,
+      );
+
+      // Fast-forward through exponential backoff
+      await jest.advanceTimersByTimeAsync(100); // First retry backoff
+
+      const result = await resultPromise;
+
+      expect(result.vulnerable).toBe(false);
+      expect(result.retryAttempts).toBe(1);
+      expect(result.retriedSuccessfully).toBe(true);
+      expect(result.testReliability).toBe("retried");
+      expect(mockCallTool).toHaveBeenCalledTimes(2);
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining("Transient error on test_tool"),
+      );
+    });
+
+    it("should exhaust retries and return failure metadata", async () => {
+      const tool = createMockTool("test_tool");
+      const payload = createMockPayload();
+
+      const mockCallTool = jest.fn().mockRejectedValue(new Error("ETIMEDOUT"));
+
+      const { SecurityPayloadTester } =
+        await import("../modules/securityTests/SecurityPayloadTester");
+      const tester = new SecurityPayloadTester(
+        { securityRetryMaxAttempts: 3, securityRetryBackoffMs: 100 },
+        mockLogger,
+        mockExecuteWithTimeout,
+      );
+
+      const resultPromise = tester.testPayloadWithRetry(
+        tool,
+        "Command Injection",
+        payload,
+        mockCallTool,
+      );
+
+      // Fast-forward through all exponential backoffs: 100ms, 200ms, 400ms
+      await jest.advanceTimersByTimeAsync(100);
+      await jest.advanceTimersByTimeAsync(200);
+      await jest.advanceTimersByTimeAsync(400);
+
+      const result = await resultPromise;
+
+      expect(result.connectionError).toBe(true);
+      expect(result.retryAttempts).toBe(3);
+      expect(result.retriedSuccessfully).toBe(false);
+      expect(result.testReliability).toBe("failed");
+      expect(mockCallTool).toHaveBeenCalledTimes(4); // Initial + 3 retries
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining("Transient error on test_tool"),
+      );
+    });
+
+    it("should NOT retry on permanent error", async () => {
+      const tool = createMockTool("test_tool");
+      const payload = createMockPayload();
+
+      const mockCallTool = jest
+        .fn()
+        .mockRejectedValue(new Error("unknown tool: test_tool"));
+
+      const { SecurityPayloadTester } =
+        await import("../modules/securityTests/SecurityPayloadTester");
+      const tester = new SecurityPayloadTester(
+        { securityRetryMaxAttempts: 3, securityRetryBackoffMs: 100 },
+        mockLogger,
+        mockExecuteWithTimeout,
+      );
+
+      const result = await tester.testPayloadWithRetry(
+        tool,
+        "Command Injection",
+        payload,
+        mockCallTool,
+      );
+
+      expect(result.vulnerable).toBe(false);
+      expect(result.retryAttempts).toBeUndefined();
+      expect(result.retriedSuccessfully).toBeUndefined();
+      expect(mockCallTool).toHaveBeenCalledTimes(1); // No retries
+    });
+
+    it("should properly attach retry metadata", async () => {
+      const tool = createMockTool("test_tool");
+      const payload = createMockPayload();
+
+      let callCount = 0;
+      const mockCallTool = jest.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.reject(new Error("ECONNRESET"));
+        } else if (callCount === 2) {
+          return Promise.reject(new Error("socket hang up"));
+        } else {
+          return Promise.resolve({
+            content: [{ type: "text", text: "Success after 2 retries" }],
+          });
+        }
+      });
+
+      const { SecurityPayloadTester } =
+        await import("../modules/securityTests/SecurityPayloadTester");
+      const tester = new SecurityPayloadTester(
+        { securityRetryMaxAttempts: 3, securityRetryBackoffMs: 10 }, // Shorter backoff for faster test
+        mockLogger,
+        mockExecuteWithTimeout,
+      );
+
+      // Use real timers for this test since fake timers interfere with async retry logic
+      jest.useRealTimers();
+
+      const result = await tester.testPayloadWithRetry(
+        tool,
+        "Command Injection",
+        payload,
+        mockCallTool,
+      );
+
+      expect(result.retryAttempts).toBe(2);
+      expect(result.retriedSuccessfully).toBe(true);
+      expect(result.testReliability).toBe("retried");
+      expect(mockCallTool).toHaveBeenCalledTimes(3);
+
+      // Restore fake timers for other tests
+      jest.useFakeTimers();
     });
   });
 });
