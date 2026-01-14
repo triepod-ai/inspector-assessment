@@ -105,6 +105,51 @@ export class VarianceClassifier {
     "make",
   ];
 
+  /**
+   * Issue #166: Patterns for tools that fetch data from external APIs.
+   * External API tools legitimately return different content on each call
+   * due to: live data updates, API errors (500, 429), rate limiting, etc.
+   *
+   * For these tools, error vs success variance is LEGITIMATE, not a rug pull.
+   */
+  private readonly EXTERNAL_API_PATTERNS = [
+    // API-related prefixes
+    "api",
+    "external",
+    "remote",
+    "live",
+    // Data type patterns (typically from external sources)
+    "weather",
+    "stock",
+    "price",
+    "market",
+    "currency",
+    "exchange",
+    "rate",
+    "forex",
+    // Service-specific prefixes
+    "wb", // World Bank
+    "worldbank",
+    // Action patterns suggesting external fetch
+    "fetch_from",
+    "poll",
+    "realtime",
+    "current",
+  ];
+
+  /**
+   * Issue #166: Description patterns that suggest external API dependency
+   */
+  private readonly EXTERNAL_API_DESCRIPTION_PATTERNS = [
+    /external\s*(api|service)/i,
+    /fetche?s?\s*(from|data\s+from)/i,
+    /calls?\s*(external|remote)/i,
+    /live\s*(data|feed|stream)/i,
+    /real[- ]?time/i,
+    /world\s*bank/i,
+    /third[- ]?party\s*(api|service)/i,
+  ];
+
   constructor(mutationDetector?: MutationDetector) {
     this.mutationDetector = mutationDetector ?? new MutationDetector();
   }
@@ -248,14 +293,64 @@ export class VarianceClassifier {
   }
 
   /**
+   * Issue #166: Check if a tool fetches data from external APIs.
+   * External API tools legitimately return different data each call
+   * due to: live data updates, API errors (500, 429), rate limiting, etc.
+   *
+   * Uses BOTH name patterns AND description analysis for detection.
+   */
+  isExternalAPITool(tool: Tool): boolean {
+    const toolName = tool.name.toLowerCase();
+    const description = (tool.description || "").toLowerCase();
+
+    // Check name patterns with word-boundary matching
+    const nameMatch = this.EXTERNAL_API_PATTERNS.some((pattern) => {
+      const wordBoundaryRegex = new RegExp(`(^|_|-)${pattern}($|_|-|s)`);
+      return wordBoundaryRegex.test(toolName);
+    });
+
+    // Check description for external API indicators
+    const descriptionMatch = this.EXTERNAL_API_DESCRIPTION_PATTERNS.some(
+      (pattern) => pattern.test(description),
+    );
+
+    return nameMatch || descriptionMatch;
+  }
+
+  /**
    * Issue #69: Classify variance between two responses to reduce false positives.
    * Returns LEGITIMATE for expected variance (IDs, timestamps), SUSPICIOUS for
    * schema changes, and BEHAVIORAL for semantic changes (promotional keywords, errors).
+   *
+   * Issue #166: Added optional tool parameter to enable external API handling.
+   * External API tools may have error vs success variance which is LEGITIMATE.
    */
   classifyVariance(
     baseline: unknown,
     current: unknown,
+    tool?: Tool,
   ): VarianceClassification {
+    // Issue #166: Check for isError variance (external API behavior)
+    // If one response is an error and one is success, for stateful/external API tools
+    // this is expected behavior, not a rug pull
+    const baselineIsError =
+      (baseline as Record<string, unknown>)?.isError === true;
+    const currentIsError =
+      (current as Record<string, unknown>)?.isError === true;
+
+    if (baselineIsError !== currentIsError) {
+      // One is error, one is success - check if this is expected for the tool type
+      if (tool && (this.isStatefulTool(tool) || this.isExternalAPITool(tool))) {
+        return {
+          type: "LEGITIMATE",
+          confidence: "medium",
+          reasons: [
+            "API error vs success variance (expected for external API/stateful tools)",
+          ],
+        };
+      }
+    }
+
     // 1. Schema comparison - structural changes are SUSPICIOUS
     const schemaMatch = this.compareSchemas(baseline, current);
     if (!schemaMatch) {

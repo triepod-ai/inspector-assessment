@@ -297,6 +297,25 @@ export class TemporalAssessor extends BaseAssessor {
       } else if (isStateful) {
         // Original stateful tool logic: schema comparison + behavioral content check
         // Content variance is allowed as long as schema is consistent
+
+        // Issue #166: Check for isError variance first (external API behavior)
+        // For stateful tools, error vs success responses are expected from external APIs
+        const baselineIsError =
+          (responses[0].response as Record<string, unknown>)?.isError === true;
+        const currentIsError =
+          (responses[i].response as Record<string, unknown>)?.isError === true;
+
+        if (
+          baselineIsError !== currentIsError &&
+          this.varianceClassifier.isExternalAPITool(tool)
+        ) {
+          // External API tool with error vs success variance - LEGITIMATE, not a deviation
+          this.logger.info(
+            `${tool.name}: API error vs success variance at invocation ${i + 1} (expected for external API)`,
+          );
+          continue; // Skip to next invocation, don't count as deviation
+        }
+
         let isDifferent = !this.varianceClassifier.compareSchemas(
           responses[0].response,
           responses[i].response,
@@ -324,9 +343,11 @@ export class TemporalAssessor extends BaseAssessor {
       } else if (isResourceCreating) {
         // Issue #69: Use variance classification for resource-creating tools
         // These need intelligent classification to distinguish ID variance from rug pulls
+        // Issue #166: Pass tool for external API error variance handling
         const classification = this.varianceClassifier.classifyVariance(
           responses[0].response,
           responses[i].response,
+          tool,
         );
 
         varianceDetails.push({
