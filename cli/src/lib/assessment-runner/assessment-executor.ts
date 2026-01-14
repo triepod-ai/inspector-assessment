@@ -50,6 +50,8 @@ import { buildConfig } from "./config-builder.js";
 import { setAnnotationDebugMode } from "../../../../client/lib/services/assessment/modules/annotations/AlignmentChecker.js";
 // Issue #155: Import helper to preserve hint properties stripped by SDK
 import { getToolsWithPreservedHints } from "./tools-with-hints.js";
+// Issue #168: Import external API dependency detector
+import { ExternalAPIDependencyDetector } from "../../../../client/lib/services/assessment/helpers/ExternalAPIDependencyDetector.js";
 
 /**
  * Run full assessment against an MCP server
@@ -431,6 +433,18 @@ export async function runFullAssessment(
     // phase_started and phase_complete are emitted directly (not via callback)
   };
 
+  // Issue #168: Detect external API dependencies before assessors run
+  // This enables TemporalAssessor, FunctionalityAssessor, and ErrorHandlingAssessor
+  // to adjust their behavior for tools that depend on external APIs
+  const apiDetector = new ExternalAPIDependencyDetector();
+  const externalAPIDependencies = apiDetector.detect(tools);
+
+  if (!options.jsonOnly && externalAPIDependencies.detectedCount > 0) {
+    console.log(
+      `🌐 Detected ${externalAPIDependencies.detectedCount} tool(s) with external API dependencies`,
+    );
+  }
+
   const context: AssessmentContext = {
     serverName: options.serverName,
     tools,
@@ -453,6 +467,8 @@ export async function runFullAssessment(
     serverInfo,
     serverCapabilities:
       serverCapabilities as AssessmentContext["serverCapabilities"],
+    // Issue #168: External API dependency detection for assessor behavior adjustment
+    externalAPIDependencies,
   };
 
   if (!options.jsonOnly) {

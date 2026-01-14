@@ -58,6 +58,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
           const toolTests = await this.testToolErrorHandling(
             tool,
             context.callTool,
+            context,
           );
 
           // Emit per-tool validation summary for auditor UI (Phase 7)
@@ -204,22 +205,29 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       name: string,
       params: Record<string, unknown>,
     ) => Promise<CompatibilityCallToolResult>,
+    context: AssessmentContext,
   ): Promise<ErrorTestDetail[]> {
     const tests: ErrorTestDetail[] = [];
 
+    // Issue #168: Check if tool depends on external API
+    const isExternalAPI =
+      context.externalAPIDependencies?.toolsWithExternalAPIDependency.has(
+        tool.name,
+      ) ?? false;
+
     // Scored tests first (affect compliance score)
     // Test 1: Missing required parameters
-    tests.push(await this.testMissingParameters(tool, callTool));
+    tests.push(await this.testMissingParameters(tool, callTool, isExternalAPI));
 
     // Test 2: Wrong parameter types
-    tests.push(await this.testWrongTypes(tool, callTool));
+    tests.push(await this.testWrongTypes(tool, callTool, isExternalAPI));
 
     // Test 3: Excessive input size
-    tests.push(await this.testExcessiveInput(tool, callTool));
+    tests.push(await this.testExcessiveInput(tool, callTool, isExternalAPI));
 
     // Informational tests last (do not affect compliance score)
     // Test 4: Invalid parameter values (edge case handling)
-    tests.push(await this.testInvalidValues(tool, callTool));
+    tests.push(await this.testInvalidValues(tool, callTool, isExternalAPI));
 
     return tests;
   }
@@ -230,6 +238,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       name: string,
       params: Record<string, unknown>,
     ) => Promise<CompatibilityCallToolResult>,
+    isExternalAPI: boolean = false,
   ): Promise<ErrorTestDetail> {
     const testInput = {}; // Empty params
 
@@ -281,6 +290,26 @@ export class ErrorHandlingAssessor extends BaseAssessor {
           /\b(query|field|parameter|argument|value|input)\b/i.test(
             errorInfo.message ?? "",
           ));
+
+      // Issue #168: For external API tools, check if error is an external service error
+      // External service errors should be treated as passed (validation can't be tested)
+      if (isExternalAPI && isError && this.isExternalServiceError(errorInfo)) {
+        return {
+          toolName: tool.name,
+          testType: "missing_required",
+          testInput,
+          expectedError: "Missing required parameters",
+          actualResponse: {
+            isError,
+            errorCode: errorInfo.code,
+            errorMessage: errorInfo.message,
+            rawResponse: response,
+          },
+          passed: true,
+          reason:
+            "External API service error (validation cannot be tested when service unavailable)",
+        };
+      }
 
       return {
         toolName: tool.name,
@@ -352,6 +381,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       name: string,
       params: Record<string, unknown>,
     ) => Promise<CompatibilityCallToolResult>,
+    isExternalAPI: boolean = false,
   ): Promise<ErrorTestDetail> {
     const schema = this.getToolSchema(tool);
     const testInput = this.generateWrongTypeParams(schema);
@@ -386,6 +416,25 @@ export class ErrorHandlingAssessor extends BaseAssessor {
           /\b(validation|validate|schema|format)\b/i.test(
             errorInfo.message ?? "",
           ));
+
+      // Issue #168: For external API tools, check if error is an external service error
+      if (isExternalAPI && isError && this.isExternalServiceError(errorInfo)) {
+        return {
+          toolName: tool.name,
+          testType: "wrong_type",
+          testInput,
+          expectedError: "Type validation error",
+          actualResponse: {
+            isError,
+            errorCode: errorInfo.code,
+            errorMessage: errorInfo.message,
+            rawResponse: response,
+          },
+          passed: true,
+          reason:
+            "External API service error (validation cannot be tested when service unavailable)",
+        };
+      }
 
       return {
         toolName: tool.name,
@@ -458,6 +507,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       name: string,
       params: Record<string, unknown>,
     ) => Promise<CompatibilityCallToolResult>,
+    isExternalAPI: boolean = false,
   ): Promise<ErrorTestDetail> {
     const schema = this.getToolSchema(tool);
     const testInput = this.generateInvalidValueParams(schema);
@@ -470,6 +520,25 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
       const isError = this.isErrorResponse(response);
       const errorInfo = this.extractErrorInfo(response);
+
+      // Issue #168: For external API tools, check if error is an external service error
+      if (isExternalAPI && isError && this.isExternalServiceError(errorInfo)) {
+        return {
+          toolName: tool.name,
+          testType: "invalid_values",
+          testInput,
+          expectedError: "Invalid parameter values",
+          actualResponse: {
+            isError,
+            errorCode: errorInfo.code,
+            errorMessage: errorInfo.message,
+            rawResponse: response,
+          },
+          passed: true,
+          reason:
+            "External API service error (validation cannot be tested when service unavailable)",
+        };
+      }
 
       // For invalid values, any error response is good
       // The server is validating inputs properly
@@ -543,6 +612,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       name: string,
       params: Record<string, unknown>,
     ) => Promise<CompatibilityCallToolResult>,
+    isExternalAPI: boolean = false,
   ): Promise<ErrorTestDetail> {
     const largeString = "x".repeat(100000); // 100KB string
     const testInput = this.generateParamsWithValue(tool, largeString);
@@ -555,6 +625,25 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
       const isError = this.isErrorResponse(response);
       const errorInfo = this.extractErrorInfo(response);
+
+      // Issue #168: For external API tools, check if error is an external service error
+      if (isExternalAPI && isError && this.isExternalServiceError(errorInfo)) {
+        return {
+          toolName: tool.name,
+          testType: "excessive_input",
+          testInput: { ...testInput, value: "[100KB string]" },
+          expectedError: "Input size limit exceeded",
+          actualResponse: {
+            isError,
+            errorCode: errorInfo.code,
+            errorMessage: errorInfo.message,
+            rawResponse: response ? "[response omitted]" : undefined,
+          },
+          passed: true,
+          reason:
+            "External API service error (validation cannot be tested when service unavailable)",
+        };
+      }
 
       return {
         toolName: tool.name,
@@ -1027,6 +1116,27 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     );
 
     return parts.join(" ");
+  }
+
+  /**
+   * Check if an error indicates an external service failure
+   * Issue #168: External API tools may fail due to service unavailability,
+   * which should not count as validation failure
+   */
+  private isExternalServiceError(errorInfo: {
+    code?: string | number;
+    message?: string;
+  }): boolean {
+    const message = errorInfo.message?.toLowerCase() ?? "";
+    const code = String(errorInfo.code ?? "").toLowerCase();
+
+    // Common external service error patterns
+    const externalErrorPatterns =
+      /rate\s*limit|429|503|502|504|service\s*unavailable|temporarily|timeout|connection\s*refused|network\s*error|api\s*error|external\s*service|upstream|gateway|unreachable|econnrefused|enotfound|etimedout|socket\s*hang\s*up/i;
+
+    return (
+      externalErrorPatterns.test(message) || externalErrorPatterns.test(code)
+    );
   }
 
   private generateRecommendations(

@@ -214,7 +214,8 @@ export class TemporalAssessor extends BaseAssessor {
     }
 
     // Analyze responses for temporal behavior changes
-    const result = this.analyzeResponses(tool, responses);
+    // Issue #168: Pass context for external API dependency awareness
+    const result = this.analyzeResponses(tool, responses, context);
 
     // Analyze definitions for mutation (rug pull via description change)
     const definitionMutation =
@@ -246,6 +247,7 @@ export class TemporalAssessor extends BaseAssessor {
   private analyzeResponses(
     tool: Tool,
     responses: InvocationResult[],
+    context: AssessmentContext,
   ): TemporalToolResult {
     if (responses.length === 0) {
       return {
@@ -305,10 +307,13 @@ export class TemporalAssessor extends BaseAssessor {
         const currentIsError =
           (responses[i].response as Record<string, unknown>)?.isError === true;
 
-        if (
-          baselineIsError !== currentIsError &&
-          this.varianceClassifier.isExternalAPITool(tool)
-        ) {
+        // Issue #168: Check context-based detection first, fall back to VarianceClassifier
+        const isExternalAPI =
+          context.externalAPIDependencies?.toolsWithExternalAPIDependency.has(
+            tool.name,
+          ) ?? this.varianceClassifier.isExternalAPITool(tool);
+
+        if (baselineIsError !== currentIsError && isExternalAPI) {
           // External API tool with error vs success variance - LEGITIMATE, not a deviation
           this.logger.info(
             `${tool.name}: API error vs success variance at invocation ${i + 1} (expected for external API)`,

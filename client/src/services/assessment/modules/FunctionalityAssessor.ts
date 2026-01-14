@@ -118,7 +118,7 @@ export class FunctionalityAssessor extends BaseAssessor {
           completedTests++;
           batchCount++;
 
-          const result = await this.testTool(tool, context.callTool);
+          const result = await this.testTool(tool, context.callTool, context);
 
           // Emit progress batch if threshold reached
           const timeSinceLastBatch = Date.now() - lastBatchTime;
@@ -204,6 +204,7 @@ export class FunctionalityAssessor extends BaseAssessor {
       name: string,
       params: Record<string, unknown>,
     ) => Promise<CompatibilityCallToolResult>,
+    context: AssessmentContext,
   ): Promise<ToolTestResult> {
     const startTime = Date.now();
 
@@ -261,7 +262,31 @@ export class FunctionalityAssessor extends BaseAssessor {
           };
         }
 
-        // Real tool failure (not just validation)
+        // Issue #168: Check for expected external API errors
+        // External API tools may fail due to rate limits, service unavailability, etc.
+        // These are expected behaviors, not broken functionality
+        const isExternalAPI =
+          context.externalAPIDependencies?.toolsWithExternalAPIDependency.has(
+            tool.name,
+          );
+        if (isExternalAPI && this.isExpectedAPIError(response)) {
+          this.logger.info(
+            `${tool.name}: External API error (expected behavior for external API tool)`,
+          );
+          return {
+            toolName: tool.name,
+            tested: true,
+            status: "working",
+            executionTime,
+            testParameters: cleanedParams,
+            response,
+            testInputMetadata: metadata,
+            responseMetadata,
+            note: "External API returned error (expected behavior)",
+          };
+        }
+
+        // Real tool failure (not just validation or expected API error)
         return {
           toolName: tool.name,
           tested: true,
@@ -641,5 +666,50 @@ export class FunctionalityAssessor extends BaseAssessor {
     }
 
     return parts.join(" ");
+  }
+
+  /**
+   * Issue #168: Check if an error response indicates an expected external API error.
+   * External APIs may return rate limit (429), service unavailable (503), timeout,
+   * or similar errors that are expected behavior, not broken functionality.
+   */
+  private isExpectedAPIError(response: unknown): boolean {
+    const content = this.extractResponseText(response);
+    if (!content) return false;
+
+    // Match common external API error patterns
+    const expectedErrorPatterns =
+      /rate\s*limit|429|503|service\s*unavailable|temporarily|timeout|connection\s*refused|network\s*error|api\s*error|external\s*service|upstream/i;
+
+    return expectedErrorPatterns.test(content);
+  }
+
+  /**
+   * Extract text content from a response for pattern matching.
+   */
+  private extractResponseText(response: unknown): string {
+    if (typeof response === "string") return response;
+    if (!response || typeof response !== "object") return "";
+
+    const obj = response as Record<string, unknown>;
+
+    // Check common response content locations
+    if (typeof obj.content === "string") return obj.content;
+    if (typeof obj.message === "string") return obj.message;
+    if (typeof obj.error === "string") return obj.error;
+
+    // Handle MCP response format with content array
+    if (Array.isArray(obj.content)) {
+      return obj.content
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (typeof item?.text === "string") return item.text;
+          return "";
+        })
+        .join(" ");
+    }
+
+    // Fallback to JSON stringify for deep search
+    return JSON.stringify(response);
   }
 }

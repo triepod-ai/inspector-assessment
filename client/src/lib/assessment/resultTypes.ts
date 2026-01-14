@@ -97,6 +97,8 @@ export interface ToolTestResult {
   testInputMetadata?: TestInputMetadata;
   /** Metadata about response content types and structure (optional, backward compatible) */
   responseMetadata?: ResponseMetadata;
+  /** Optional note providing context about the test result (Issue #168: external API errors) */
+  note?: string;
 }
 
 // Enhanced testing types for comprehensive functionality validation

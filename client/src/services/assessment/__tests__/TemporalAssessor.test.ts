@@ -31,7 +31,7 @@ import {
 describe("TemporalAssessor", () => {
   describe("analyzeResponses", () => {
     let assessor: TemporalAssessor;
-    let analyzeResponses: (
+    let analyzeResponsesFn: (
       tool: Tool,
       responses: Array<{
         invocation: number;
@@ -39,11 +39,27 @@ describe("TemporalAssessor", () => {
         error?: string;
         timestamp: number;
       }>,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      context: any,
     ) => unknown;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let mockContext: any;
+
+    // Helper to call analyzeResponses with default context
+    const analyzeResponses = (
+      tool: Tool,
+      responses: Array<{
+        invocation: number;
+        response: unknown;
+        error?: string;
+        timestamp: number;
+      }>,
+    ) => analyzeResponsesFn(tool, responses, mockContext);
 
     beforeEach(() => {
       assessor = new TemporalAssessor(createConfig());
-      analyzeResponses = getPrivateMethod(assessor, "analyzeResponses");
+      analyzeResponsesFn = getPrivateMethod(assessor, "analyzeResponses");
+      mockContext = createMockContext();
     });
 
     afterEach(() => {

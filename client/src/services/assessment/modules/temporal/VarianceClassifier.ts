@@ -8,6 +8,8 @@
 import { VarianceClassification } from "@/lib/assessmentTypes";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { MutationDetector } from "./MutationDetector";
+// Issue #168: Shared external API dependency detector
+import { ExternalAPIDependencyDetector } from "../../helpers/ExternalAPIDependencyDetector";
 
 /**
  * Classifies response variance and categorizes tools by their expected behavior patterns.
@@ -15,6 +17,8 @@ import { MutationDetector } from "./MutationDetector";
  */
 export class VarianceClassifier {
   private mutationDetector: MutationDetector;
+  // Issue #168: Shared detector for external API pattern matching
+  private externalAPIDetector: ExternalAPIDependencyDetector;
 
   // Patterns that suggest a tool may have side effects
   private readonly DESTRUCTIVE_PATTERNS = [
@@ -105,53 +109,13 @@ export class VarianceClassifier {
     "make",
   ];
 
-  /**
-   * Issue #166: Patterns for tools that fetch data from external APIs.
-   * External API tools legitimately return different content on each call
-   * due to: live data updates, API errors (500, 429), rate limiting, etc.
-   *
-   * For these tools, error vs success variance is LEGITIMATE, not a rug pull.
-   */
-  private readonly EXTERNAL_API_PATTERNS = [
-    // API-related prefixes
-    "api",
-    "external",
-    "remote",
-    "live",
-    // Data type patterns (typically from external sources)
-    "weather",
-    "stock",
-    "price",
-    "market",
-    "currency",
-    "exchange",
-    "rate",
-    "forex",
-    // Service-specific prefixes
-    "wb", // World Bank
-    "worldbank",
-    // Action patterns suggesting external fetch
-    "fetch_from",
-    "poll",
-    "realtime",
-    "current",
-  ];
-
-  /**
-   * Issue #166: Description patterns that suggest external API dependency
-   */
-  private readonly EXTERNAL_API_DESCRIPTION_PATTERNS = [
-    /external\s*(api|service)/i,
-    /fetche?s?\s*(from|data\s+from)/i,
-    /calls?\s*(external|remote)/i,
-    /live\s*(data|feed|stream)/i,
-    /real[- ]?time/i,
-    /world\s*bank/i,
-    /third[- ]?party\s*(api|service)/i,
-  ];
+  // Note: External API patterns moved to ExternalAPIDependencyDetector (Issue #168)
+  // The externalAPIDetector field handles all external API detection via shared helper
 
   constructor(mutationDetector?: MutationDetector) {
     this.mutationDetector = mutationDetector ?? new MutationDetector();
+    // Issue #168: Initialize shared external API detector
+    this.externalAPIDetector = new ExternalAPIDependencyDetector();
   }
 
   /**
@@ -297,24 +261,14 @@ export class VarianceClassifier {
    * External API tools legitimately return different data each call
    * due to: live data updates, API errors (500, 429), rate limiting, etc.
    *
+   * Issue #168: Delegates to shared ExternalAPIDependencyDetector for consistent
+   * detection logic across all assessors.
+   *
    * Uses BOTH name patterns AND description analysis for detection.
    */
   isExternalAPITool(tool: Tool): boolean {
-    const toolName = tool.name.toLowerCase();
-    const description = (tool.description || "").toLowerCase();
-
-    // Check name patterns with word-boundary matching
-    const nameMatch = this.EXTERNAL_API_PATTERNS.some((pattern) => {
-      const wordBoundaryRegex = new RegExp(`(^|_|-)${pattern}($|_|-|s)`);
-      return wordBoundaryRegex.test(toolName);
-    });
-
-    // Check description for external API indicators
-    const descriptionMatch = this.EXTERNAL_API_DESCRIPTION_PATTERNS.some(
-      (pattern) => pattern.test(description),
-    );
-
-    return nameMatch || descriptionMatch;
+    // Issue #168: Delegate to shared detector for consistent detection
+    return this.externalAPIDetector.isExternalAPITool(tool);
   }
 
   /**

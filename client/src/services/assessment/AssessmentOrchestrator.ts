@@ -40,6 +40,9 @@ import {
   generateRecommendations,
 } from "./orchestratorHelpers";
 
+// External API dependency detection (Issue #168)
+import { ExternalAPIDependencyInfo } from "./helpers/ExternalAPIDependencyDetector";
+
 // Registry pattern for assessor management (Issue #91)
 import { AssessorRegistry, ASSESSOR_DEFINITIONS } from "./registry";
 
@@ -152,6 +155,11 @@ export interface AssessmentContext {
   // Tool refresh for temporal definition tracking (optional)
   // When provided, enables detection of tool definition mutations (rug pulls)
   listTools?: () => Promise<Tool[]>;
+
+  // External API dependency detection (Issue #168)
+  // When provided, enables assessors to adjust behavior for external API tools
+  // Populated during context preparation by ExternalAPIDependencyDetector
+  externalAPIDependencies?: ExternalAPIDependencyInfo;
 }
 
 /**
