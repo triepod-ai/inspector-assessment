@@ -377,6 +377,7 @@ export function scanDescriptionForPoisoning(tool: Tool): PoisoningScanResult {
 
   // Length-based heuristic (Issue #119, Challenge #15)
   // Excessively long descriptions may be used to hide malicious content
+  // Issue #167: Length check moved AFTER pattern scan - severity depends on other patterns
   let lengthWarning:
     | { length: number; threshold: number; isExcessive: boolean }
     | undefined;
@@ -386,13 +387,7 @@ export function scanDescriptionForPoisoning(tool: Tool): PoisoningScanResult {
       threshold: DESCRIPTION_LENGTH_WARNING_THRESHOLD,
       isExcessive: true,
     };
-    matches.push({
-      name: "excessive_description_length",
-      pattern: `length > ${DESCRIPTION_LENGTH_WARNING_THRESHOLD}`,
-      severity: "MEDIUM",
-      category: "suspicious_length",
-      evidence: `Description is ${description.length} characters (threshold: ${DESCRIPTION_LENGTH_WARNING_THRESHOLD})`,
-    });
+    // NOTE: matches.push moved to after pattern loop (Issue #167)
   }
 
   for (const patternDef of DESCRIPTION_POISONING_PATTERNS) {
@@ -415,6 +410,21 @@ export function scanDescriptionForPoisoning(tool: Tool): PoisoningScanResult {
       // Prevent infinite loop for patterns without 'g' flag
       if (!regex.global) break;
     }
+  }
+
+  // Issue #167: Add length warning AFTER pattern scan with conditional severity
+  // Long descriptions alone are LOW (informational), but length + other patterns = MEDIUM
+  if (lengthWarning) {
+    const hasOtherPatterns = matches.length > 0;
+    matches.push({
+      name: "excessive_description_length",
+      pattern: `length > ${DESCRIPTION_LENGTH_WARNING_THRESHOLD}`,
+      severity: hasOtherPatterns ? "MEDIUM" : "LOW",
+      category: "suspicious_length",
+      evidence: hasOtherPatterns
+        ? `Description is ${description.length} characters AND contains ${matches.length} suspicious pattern(s)`
+        : `Description is ${description.length} characters (informational - no suspicious patterns detected)`,
+    });
   }
 
   // Determine overall risk level based on highest severity match

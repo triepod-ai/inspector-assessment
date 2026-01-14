@@ -768,11 +768,17 @@ export function determineAnnotationStatus(
   if (totalTools === 0) return "PASS";
 
   const annotatedCount = results.filter((r) => r.hasAnnotations).length;
-  const poisonedCount = results.filter(
-    (r) => r.descriptionPoisoning?.detected === true,
+
+  // Issue #167: Only fail for actionable poisoning (MEDIUM or HIGH risk)
+  // LOW risk (e.g., length-only) is informational and should not cause FAIL
+  const actionablePoisonedCount = results.filter(
+    (r) =>
+      r.descriptionPoisoning?.detected === true &&
+      (r.descriptionPoisoning.riskLevel === "MEDIUM" ||
+        r.descriptionPoisoning.riskLevel === "HIGH"),
   ).length;
 
-  if (poisonedCount > 0) return "FAIL";
+  if (actionablePoisonedCount > 0) return "FAIL";
 
   const misalignedCount = results.filter(
     (r) => r.alignmentStatus === "MISALIGNED",
