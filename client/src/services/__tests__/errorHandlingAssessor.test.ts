@@ -431,12 +431,15 @@ describe("ErrorHandlingAssessor", () => {
       };
 
       const assessorAny = assessor as any;
-      const invalidValues = assessorAny.generateInvalidValueParams(schema);
+      const result = assessorAny.generateInvalidValueParams(schema);
 
-      expect(invalidValues.choice).toBe("not_in_enum");
-      expect(invalidValues.email).toBe("invalid-email");
-      expect(invalidValues.url).toBe("not://a/valid/uri");
-      expect(invalidValues.limited).toBeLessThan(0);
+      // Issue #173: Method now returns { params, testedParameter, parameterIsRequired }
+      expect(result.params.choice).toBe("not_in_enum");
+      expect(result.params.email).toBe("invalid-email");
+      expect(result.params.url).toBe("not://a/valid/uri");
+      expect(result.params.limited).toBeLessThan(0);
+      expect(result.testedParameter).toBe("choice"); // First parameter
+      expect(result.parameterIsRequired).toBe(false); // No required array
     });
   });
 });

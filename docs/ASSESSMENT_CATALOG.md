@@ -206,6 +206,30 @@ The security assessor automatically adjusts vulnerability severity based on tool
 - No stack traces or internal details exposed
 - Server remains stable after errors
 
+**Graceful Degradation Recognition** (Issue #173):
+
+The assessor recognizes graceful degradation patterns for optional parameters and rewards helpful error messages:
+
+- **Optional Parameter Handling**: Tools that return neutral responses (empty arrays, "no results found") for optional empty parameters receive +15 bonus points instead of penalties
+- **Suggestion Detection**: Error messages containing "Did you mean", "Valid options", "Available" patterns receive +10 bonus points
+- **Required vs Optional**: Only penalizes poor handling of **required** parameters; optional parameter graceful handling is valid behavior
+
+**Scoring Bonuses**:
+| Scenario | Bonus Points |
+|----------|--------------|
+| Graceful degradation on optional param | +15 |
+| Error with suggestions ("Did you mean...") | +10 |
+| Specific field name in error message | +10 |
+| Descriptive error message (>30 chars) | +5 |
+| Proper error code included | +5 |
+
+**Graceful Response Patterns Recognized**:
+
+- Empty JSON arrays/objects: `[]`, `{}`
+- "No results found", "returned 0 items"
+- "Empty list", "no data", "no matching"
+- JSON with empty results: `{"results": []}`
+
 **Implementation**: `client/src/services/assessment/modules/ErrorHandlingAssessor.ts` (692 lines)
 
 ---

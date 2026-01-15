@@ -513,6 +513,54 @@ interface ErrorHandlingAssessment {
 }
 ```
 
+#### ErrorTestDetail
+
+Issue #173 added optional fields for graceful degradation tracking:
+
+```typescript
+interface ErrorTestDetail {
+  toolName: string;
+  testType: string; // "invalid_params", "missing_required", "wrong_type", etc.
+  testInput: Record<string, unknown>;
+  testDescription?: string;
+  expectedError: string;
+  actualResponse: {
+    isError: boolean;
+    errorCode?: string | number;
+    errorMessage?: string;
+    rawResponse: unknown;
+  };
+  passed: boolean;
+  reason?: string;
+  isConnectionError?: boolean; // Issue #153
+  // Issue #173 - Graceful degradation tracking
+  testedParameter?: string; // Name of the parameter being tested
+  parameterIsRequired?: boolean; // Whether the parameter is required
+  hasSuggestions?: boolean; // Whether error had helpful suggestions
+  suggestions?: string[]; // Extracted suggestions (e.g., ["Button", "Checkbox"])
+}
+```
+
+#### ErrorHandlingMetrics
+
+Issue #173 added fields for graceful degradation and suggestion tracking:
+
+```typescript
+interface ErrorHandlingMetrics {
+  mcpComplianceScore: number; // 0-100
+  errorResponseQuality: "excellent" | "good" | "fair" | "poor";
+  hasProperErrorCodes: boolean;
+  hasDescriptiveMessages: boolean;
+  validatesInputs: boolean;
+  validationCoverage?: { /* coverage details */ };
+  testDetails?: ErrorTestDetail[];
+  // Issue #173 - Graceful degradation metrics
+  gracefulDegradationCount?: number; // Count of graceful degradation detections
+  suggestionCount?: number; // Count of tests with helpful suggestions
+  suggestionBonusPoints?: number; // Total bonus points from suggestions/graceful handling
+}
+```
+
 #### UsabilityAssessment
 
 ```typescript

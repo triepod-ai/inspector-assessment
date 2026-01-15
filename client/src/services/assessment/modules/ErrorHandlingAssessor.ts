@@ -510,7 +510,12 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     isExternalAPI: boolean = false,
   ): Promise<ErrorTestDetail> {
     const schema = this.getToolSchema(tool);
-    const testInput = this.generateInvalidValueParams(schema);
+    // Issue #173: Destructure metadata from new return type
+    const {
+      params: testInput,
+      testedParameter,
+      parameterIsRequired,
+    } = this.generateInvalidValueParams(schema);
 
     try {
       const response = await this.executeWithTimeout(
@@ -520,6 +525,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
       const isError = this.isErrorResponse(response);
       const errorInfo = this.extractErrorInfo(response);
+      const responseText = this.extractResponseTextSafe(response);
+
+      // Issue #173: Detect suggestions in response
+      const { hasSuggestions, suggestions } =
+        this.detectSuggestionPatterns(responseText);
 
       // Issue #168: For external API tools, check if error is an external service error
       if (isExternalAPI && isError && this.isExternalServiceError(errorInfo)) {
@@ -537,6 +547,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
           passed: true,
           reason:
             "External API service error (validation cannot be tested when service unavailable)",
+          // Issue #173 metadata
+          testedParameter,
+          parameterIsRequired,
+          hasSuggestions,
+          suggestions: suggestions.length > 0 ? suggestions : undefined,
         };
       }
 
@@ -555,6 +570,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         },
         passed: isError,
         reason: isError ? undefined : "Tool accepted invalid values",
+        // Issue #173 metadata
+        testedParameter,
+        parameterIsRequired,
+        hasSuggestions,
+        suggestions: suggestions.length > 0 ? suggestions : undefined,
       };
     } catch (error) {
       // Issue #153: Check for connection errors first - these should NOT count as passed
@@ -574,6 +594,9 @@ export class ErrorHandlingAssessor extends BaseAssessor {
           passed: false,
           reason: "Connection error - unable to test",
           isConnectionError: true,
+          // Issue #173 metadata
+          testedParameter,
+          parameterIsRequired,
         };
       }
 
@@ -589,6 +612,10 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         messageLower.includes("error");
       // Removed: (errorInfo.message?.length ?? 0) > 15 - this was causing false positives
 
+      // Issue #173: Detect suggestions in error message
+      const { hasSuggestions, suggestions } =
+        this.detectSuggestionPatterns(messageLower);
+
       return {
         toolName: tool.name,
         testType: "invalid_values",
@@ -602,6 +629,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         },
         passed: isMeaningfulError,
         reason: isMeaningfulError ? undefined : "Generic unhandled exception",
+        // Issue #173 metadata
+        testedParameter,
+        parameterIsRequired,
+        hasSuggestions,
+        suggestions: suggestions.length > 0 ? suggestions : undefined,
       };
     }
   }
@@ -751,16 +783,36 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     return params;
   }
 
-  private generateInvalidValueParams(
-    schema: JSONSchema7 | null,
-  ): Record<string, unknown> {
+  /**
+   * Issue #173: Return type for generateInvalidValueParams with metadata
+   * Tracks which parameter is being tested and whether it's required
+   */
+  private generateInvalidValueParams(schema: JSONSchema7 | null): {
+    params: Record<string, unknown>;
+    testedParameter: string;
+    parameterIsRequired: boolean;
+  } {
     const params: Record<string, unknown> = {};
+    let testedParameter = "value";
+    let parameterIsRequired = false;
 
-    if (!schema?.properties) return { value: null };
+    if (!schema?.properties) {
+      return { params: { value: null }, testedParameter, parameterIsRequired };
+    }
+
+    const requiredSet = new Set(schema.required ?? []);
+    let firstParamSet = false;
 
     for (const [key, prop] of Object.entries(
       schema.properties as Record<string, JSONSchema7>,
     )) {
+      // Track the first parameter being tested (for contextual scoring)
+      if (!firstParamSet) {
+        testedParameter = key;
+        parameterIsRequired = requiredSet.has(key);
+        firstParamSet = true;
+      }
+
       if (prop.type === "string") {
         if (prop.enum) {
           params[key] = "not_in_enum"; // Value not in enum
@@ -782,7 +834,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       }
     }
 
-    return params;
+    return { params, testedParameter, parameterIsRequired };
   }
 
   private generateParamsWithValue(
@@ -816,11 +868,13 @@ export class ErrorHandlingAssessor extends BaseAssessor {
   /**
    * Analyze invalid_values response to determine scoring impact
    * Issue #99: Contextual empty string validation scoring
+   * Issue #173: Bonus points for suggestions and graceful degradation
    *
    * Classifications:
    * - safe_rejection: Tool rejected with error (no penalty)
    * - safe_reflection: Tool stored/echoed without executing (no penalty)
    * - defensive_programming: Tool handled gracefully (no penalty)
+   * - graceful_degradation: Optional param handled with neutral response (no penalty + bonus)
    * - execution_detected: Tool executed input (penalty)
    * - unknown: Cannot determine (partial penalty)
    */
@@ -829,6 +883,7 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     penaltyAmount: number;
     classification: string;
     reason: string;
+    bonusPoints: number; // Issue #173
   } {
     const responseText = this.extractResponseTextSafe(
       test.actualResponse.rawResponse,
@@ -836,15 +891,35 @@ export class ErrorHandlingAssessor extends BaseAssessor {
 
     // Case 1: Tool rejected with error - best case (no penalty)
     if (test.actualResponse.isError) {
+      // Issue #173: Check for suggestions bonus
+      const suggestionBonus = test.hasSuggestions ? 10 : 0;
       return {
         shouldPenalize: false,
         penaltyAmount: 0,
         classification: "safe_rejection",
         reason: "Tool properly rejected invalid input",
+        bonusPoints: suggestionBonus,
       };
     }
 
-    // Case 2: Defensive programming patterns (no penalty)
+    // Issue #173 Case 2: Graceful degradation for OPTIONAL parameters
+    // If the parameter is optional and the response is neutral (empty results),
+    // this is valid graceful degradation behavior, not a failure
+    if (
+      test.parameterIsRequired === false &&
+      this.isNeutralGracefulResponse(responseText)
+    ) {
+      return {
+        shouldPenalize: false,
+        penaltyAmount: 0,
+        classification: "graceful_degradation",
+        reason:
+          "Tool handled optional empty parameter gracefully (valid behavior)",
+        bonusPoints: 15, // Graceful degradation bonus
+      };
+    }
+
+    // Case 3: Defensive programming patterns (no penalty)
     // Check BEFORE execution detection because patterns like "query returned 0"
     // might match execution indicators but are actually safe
     if (this.isDefensiveProgrammingResponse(responseText)) {
@@ -853,20 +928,22 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         penaltyAmount: 0,
         classification: "defensive_programming",
         reason: "Tool handled empty input defensively",
+        bonusPoints: 0,
       };
     }
 
-    // Case 3: Safe reflection patterns (no penalty)
+    // Case 4: Safe reflection patterns (no penalty)
     if (this.safeResponseDetector.isReflectionResponse(responseText)) {
       return {
         shouldPenalize: false,
         penaltyAmount: 0,
         classification: "safe_reflection",
         reason: "Tool safely reflected input without execution",
+        bonusPoints: 0,
       };
     }
 
-    // Case 4: Check for execution evidence - VULNERABLE (full penalty)
+    // Case 5: Check for execution evidence - VULNERABLE (full penalty)
     if (
       this.executionDetector.hasExecutionEvidence(responseText) ||
       this.executionDetector.detectExecutionArtifacts(responseText)
@@ -876,15 +953,17 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         penaltyAmount: 100,
         classification: "execution_detected",
         reason: "Tool executed input without validation",
+        bonusPoints: 0,
       };
     }
 
-    // Case 5: Unknown - partial penalty for manual review
+    // Case 6: Unknown - partial penalty for manual review
     return {
       shouldPenalize: true,
       penaltyAmount: 25,
       classification: "unknown",
       reason: "Unable to determine safety - manual review recommended",
+      bonusPoints: 0,
     };
   }
 
@@ -924,6 +1003,79 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     return patterns.some((p) => p.test(responseText));
   }
 
+  /**
+   * Issue #173: Detect helpful suggestion patterns in error responses
+   * Patterns like: "Did you mean: Button, Checkbox?"
+   * Returns extracted suggestions for bonus scoring
+   */
+  private detectSuggestionPatterns(responseText: string): {
+    hasSuggestions: boolean;
+    suggestions: string[];
+  } {
+    // Issue #173: ReDoS protection - limit input length before regex matching
+    const truncatedText = responseText.slice(0, 2000);
+
+    // Issue #173: Bonus points - see docs/ASSESSMENT_CATALOG.md for scoring table
+    // Suggestions: +10 points for helpful error messages like "Did you mean: X?"
+    const suggestionPatterns = [
+      /did\s+you\s+mean[:\s]+([^?.]+)/i,
+      /perhaps\s+you\s+meant[:\s]+([^?.]+)/i,
+      /similar\s+to[:\s]+([^?.]+)/i,
+      /suggestions?[:\s]+([^?.]+)/i,
+      /valid\s+(options?|values?)[:\s]+([^?.]+)/i,
+      /available[:\s]+([^?.]+)/i,
+      /\btry[:\s]+([^?.]+)/i,
+      /expected\s+one\s+of[:\s]+([^?.]+)/i,
+    ];
+
+    for (const pattern of suggestionPatterns) {
+      const match = truncatedText.match(pattern);
+      if (match) {
+        // Get the captured group (last non-undefined group)
+        const suggestionText = match[match.length - 1] || match[1] || "";
+        const suggestions = suggestionText
+          .split(/[,;]/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0 && s.length < 50);
+
+        if (suggestions.length > 0) {
+          return { hasSuggestions: true, suggestions };
+        }
+      }
+    }
+
+    return { hasSuggestions: false, suggestions: [] };
+  }
+
+  /**
+   * Issue #173: Check for neutral/graceful responses on optional parameters
+   * These indicate the tool handled empty/missing optional input appropriately
+   */
+  private isNeutralGracefulResponse(responseText: string): boolean {
+    // Issue #173: ReDoS protection - limit input length before regex matching
+    const truncatedText = responseText.slice(0, 2000);
+
+    const gracefulPatterns = [
+      /^\s*\[\s*\]\s*$/, // Empty JSON array (standalone)
+      /^\s*\{\s*\}\s*$/, // Empty JSON object (standalone)
+      /^\s*$/, // Empty/whitespace only response
+      /no\s+results?\s*(found)?/i, // "No results" / "No results found"
+      /^results?:\s*\[\s*\]/i, // "results: []"
+      /returned\s+0\s+/i, // "returned 0 items"
+      /found\s+0\s+/i, // "found 0 matches"
+      /empty\s+list/i, // "empty list"
+      /no\s+matching/i, // "no matching items"
+      /default\s+value/i, // "using default value"
+      /^null$/i, // Explicit null
+      /no\s+data/i, // "no data"
+      /"results"\s*:\s*\[\s*\]/, // JSON with empty results array
+      /"items"\s*:\s*\[\s*\]/, // JSON with empty items array
+      /"data"\s*:\s*\[\s*\]/, // JSON with empty data array
+    ];
+
+    return gracefulPatterns.some((pattern) => pattern.test(truncatedText));
+  }
+
   private calculateMetrics(
     tests: ErrorTestDetail[],
     _passed: number, // parameter kept for API compatibility
@@ -932,6 +1084,11 @@ export class ErrorHandlingAssessor extends BaseAssessor {
     let enhancedScore = 0;
     let maxPossibleScore = 0;
 
+    // Issue #173: Track graceful degradation and suggestion metrics
+    let gracefulDegradationCount = 0;
+    let suggestionCount = 0;
+    let suggestionBonusPoints = 0;
+
     tests.forEach((test) => {
       // Issue #99: Contextual scoring for invalid_values tests
       // Instead of blanket exclusion, analyze response patterns to determine if
@@ -939,9 +1096,27 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       // or if it executed without validation (security concern).
       if (test.testType === "invalid_values") {
         const analysis = this.analyzeInvalidValuesResponse(test);
+
+        // Issue #173: Track graceful degradation
+        if (analysis.classification === "graceful_degradation") {
+          gracefulDegradationCount++;
+        }
+
+        // Issue #173: Track suggestions
+        if (test.hasSuggestions) {
+          suggestionCount++;
+        }
+
+        // Issue #173: Apply bonus points for graceful handling and suggestions
+        if (analysis.bonusPoints > 0) {
+          enhancedScore += analysis.bonusPoints;
+          maxPossibleScore += analysis.bonusPoints;
+          suggestionBonusPoints += analysis.bonusPoints;
+        }
+
         if (!analysis.shouldPenalize) {
-          // Safe response (rejection, reflection, or defensive programming)
-          // Skip scoring to preserve backward compatibility for well-behaved tools
+          // Safe response (rejection, reflection, defensive programming, graceful degradation)
+          // Skip base scoring to preserve backward compatibility for well-behaved tools
           return;
         }
         // Execution detected or unknown - include in scoring with penalty
@@ -979,6 +1154,14 @@ export class ErrorHandlingAssessor extends BaseAssessor {
         if (test.actualResponse.errorCode) {
           enhancedScore += 5;
           maxPossibleScore += 5;
+        }
+
+        // Issue #173: Extra points for suggestions in other test types
+        if (test.hasSuggestions) {
+          suggestionCount++;
+          enhancedScore += 10;
+          maxPossibleScore += 10;
+          suggestionBonusPoints += 10;
         }
       }
     });
@@ -1031,6 +1214,10 @@ export class ErrorHandlingAssessor extends BaseAssessor {
       hasDescriptiveMessages,
       validatesInputs,
       testDetails: tests,
+      // Issue #173: Graceful degradation and suggestion metrics
+      gracefulDegradationCount,
+      suggestionCount,
+      suggestionBonusPoints,
     };
   }
 

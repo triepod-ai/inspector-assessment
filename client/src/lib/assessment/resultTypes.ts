@@ -365,6 +365,14 @@ export interface ErrorTestDetail {
   reason?: string;
   /** Issue #153: Flag for connection errors - tests with this flag are not counted as valid */
   isConnectionError?: boolean;
+  /** Issue #173: Name of the parameter being tested (for contextual scoring) */
+  testedParameter?: string;
+  /** Issue #173: Whether the tested parameter is required according to schema */
+  parameterIsRequired?: boolean;
+  /** Issue #173: Whether response contained helpful suggestions (e.g., "did you mean") */
+  hasSuggestions?: boolean;
+  /** Issue #173: Extracted suggestions from response */
+  suggestions?: string[];
 }
 
 export interface ErrorHandlingMetrics {
@@ -386,6 +394,12 @@ export interface ErrorHandlingMetrics {
     overallPassRate?: number; // Overall percentage of tests that passed
   };
   testDetails?: ErrorTestDetail[]; // Detailed test results
+  /** Issue #173: Count of tests where graceful degradation was detected on optional params */
+  gracefulDegradationCount?: number;
+  /** Issue #173: Count of tests with helpful suggestions */
+  suggestionCount?: number;
+  /** Issue #173: Suggestion bonus points earned */
+  suggestionBonusPoints?: number;
 }
 
 // ============================================================================
