@@ -540,3 +540,69 @@ Fixes:
 - 13 files changed, +1569 lines
 
 ---
+
+## 2026-01-15: Issue #170 Annotation-Aware Security Assessment Implementation
+
+**Summary:** Implemented annotation-aware severity adjustment to reduce false positives in security assessments
+
+**Session Focus:** Reducing false positives in security assessments by considering tool annotations (readOnlyHint, openWorldHint)
+
+**Changes Made:**
+- Created AnnotationAwareSeverity.ts - severity adjustment logic for read-only and closed-world tools
+- Created ToolAnnotationExtractor.ts - pre-flight annotation extraction helper
+- Updated SecurityPayloadTester.ts with annotation context integration
+- Updated SecurityAssessor.ts with context passing and warning logging
+- Added 20 new tests (11 bypass prevention, 6 malformed validation, 3 fallback tests)
+- Updated 3 documentation files with new API documentation
+- Fixed P0 security issue: bidirectional string matching bypass vulnerability
+- Fixed P0 error handling: malformed annotation validation
+- Fixed P0 type safety: undefined reason fallback
+
+**Key Decisions:**
+- Downgrade to LOW (not INFO) for annotation-based severity adjustment
+- Server-level flags as fallback when per-tool annotations missing
+- Unidirectional pattern matching to prevent security bypass
+
+**Next Steps:**
+- Test against real read-only server (magentaa11y-mcp) to validate false positive reduction
+- Consider adding integration tests for full assessment pipeline
+
+**Notes:**
+- Ran full 6-stage code review workflow: review -> fix -> validate -> test -> docs -> verify
+- All 4989 tests passing (1 pre-existing timeout failure unrelated to Issue #170)
+- Commit: d6d28e01
+
+---
+
+## 2026-01-15: Issue #173 Graceful Degradation Recognition for Error Handling
+
+**Summary:** Enhanced ErrorHandlingAssessor to recognize graceful degradation on optional parameters and award bonus points for helpful error messages
+
+**Session Focus:** Improving error handling scoring for servers like magentaa11y-mcp that handle optional parameters gracefully
+
+**Changes Made:**
+- Added `detectSuggestionPatterns()` - detects "Did you mean: X, Y?" patterns in error messages
+- Added `isNeutralGracefulResponse()` - detects empty arrays, "no results found" responses
+- Modified `generateInvalidValueParams()` to track tested parameter metadata (name, required status)
+- Modified `analyzeInvalidValuesResponse()` with bonus point scoring system
+- Added ReDoS protection via input truncation (2000 chars) before regex matching
+- Added 7 new type fields to `ErrorTestDetail` and `ErrorHandlingMetrics`
+- Created 30 new tests for graceful degradation, suggestions, and ReDoS protection
+- Updated TYPE_REFERENCE.md and ASSESSMENT_CATALOG.md documentation
+
+**Scoring Changes:**
+- +15 bonus points for graceful degradation on optional params (empty array, "no results")
+- +10 bonus points for helpful suggestions ("Did you mean: X, Y?")
+- Required parameters still penalized when accepting invalid values (correct behavior)
+
+**Key Decisions:**
+- Use JSON Schema's `required` array to distinguish required vs optional parameters
+- Truncate input to 2000 chars before regex matching (ReDoS prevention)
+- Track `gracefulDegradationCount`, `suggestionCount`, `suggestionBonusPoints` in metrics
+
+**Notes:**
+- Fixed pre-existing test timeout in SecurityAssessor-HTTP404FalsePositives (changed 503 to 502)
+- All 5020 tests passing
+- Commits: bceb3589 (main), 189392d6 (test fix)
+
+---
