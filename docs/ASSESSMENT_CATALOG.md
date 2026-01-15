@@ -112,36 +112,37 @@ The following module names are deprecated but still work via aliasing:
 - Confidence levels (high/medium/low) for findings
 - **Annotation-aware severity adjustment** (Issue #170): Reduces false positives by considering tool annotations (readOnlyHint, openWorldHint) when scoring vulnerability severity
 
-**30 Attack Patterns** (organized by category):
+**31 Attack Patterns** (organized by category):
 
 | #                           | Attack Type                      | Risk   | Description                                                          |
 | --------------------------- | -------------------------------- | ------ | -------------------------------------------------------------------- |
-| **Critical Injection (6)**  |                                  |        |
+| **Critical Injection (7)**  |                                  |        |
 | 1                           | Command Injection                | HIGH   | Tests for shell command execution (`whoami`, `ls -la`, `; rm -rf /`) |
-| 2                           | SQL Injection                    | HIGH   | Tests for SQL command execution (`'; DROP TABLE`, `' OR '1'='1`)     |
-| 3                           | Calculator Injection             | HIGH   | Tests for eval() execution (`2+2`, `__import__('os').system()`)      |
-| 4                           | Path Traversal                   | HIGH   | Tests for file system access (`../../../etc/passwd`, `file://`)      |
-| 5                           | XXE Injection                    | HIGH   | Tests for XML External Entity attacks (file disclosure, SSRF)        |
-| 6                           | NoSQL Injection                  | HIGH   | Tests for MongoDB/Redis command execution (`$gt`, `$where`, EVAL)    |
+| 2                           | AppleScript Command Injection    | HIGH   | Tests for AppleScript/osascript execution via string interpolation   |
+| 3                           | SQL Injection                    | HIGH   | Tests for SQL command execution (`'; DROP TABLE`, `' OR '1'='1`)     |
+| 4                           | Calculator Injection             | HIGH   | Tests for eval() execution (`2+2`, `__import__('os').system()`)      |
+| 5                           | Path Traversal                   | HIGH   | Tests for file system access (`../../../etc/passwd`, `file://`)      |
+| 6                           | XXE Injection                    | HIGH   | Tests for XML External Entity attacks (file disclosure, SSRF)        |
+| 7                           | NoSQL Injection                  | HIGH   | Tests for MongoDB/Redis command execution (`$gt`, `$where`, EVAL)    |
 | **Input Validation (3)**    |                                  |        |
-| 7                           | Type Safety                      | MEDIUM | Tests parameter type validation (string vs number)                   |
-| 8                           | Boundary Testing                 | MEDIUM | Tests edge cases (empty strings, 10K characters, negatives)          |
-| 9                           | Required Fields                  | MEDIUM | Tests missing parameter handling                                     |
+| 8                           | Type Safety                      | MEDIUM | Tests parameter type validation (string vs number)                   |
+| 9                           | Boundary Testing                 | MEDIUM | Tests edge cases (empty strings, 10K characters, negatives)          |
+| 10                          | Required Fields                  | MEDIUM | Tests missing parameter handling                                     |
 | **Protocol Compliance (2)** |                                  |        |
-| 10                          | MCP Error Format                 | LOW    | Verifies error responses follow MCP spec                             |
-| 11                          | Timeout Handling                 | LOW    | Tests long operation graceful handling                               |
+| 11                          | MCP Error Format                 | LOW    | Verifies error responses follow MCP spec                             |
+| 12                          | Timeout Handling                 | LOW    | Tests long operation graceful handling                               |
 | **Tool-Specific (7)**       |                                  |        |
-| 12                          | Indirect Prompt Injection / SSRF | HIGH   | Tests URL fetching, localhost, cloud metadata, internal IPs          |
-| 13                          | Unicode Bypass                   | MEDIUM | Tests unicode-encoded command execution                              |
-| 14                          | Nested Injection                 | MEDIUM | Tests hidden instructions in nested JSON                             |
-| 15                          | Package Squatting                | MEDIUM | Tests typosquatted package download attempts                         |
-| 16                          | Data Exfiltration                | HIGH   | Tests credential/secret/env var leakage attempts                     |
-| 17                          | Configuration Drift              | HIGH   | Tests privilege escalation via config (`set admin=true`)             |
-| 18                          | Tool Shadowing                   | HIGH   | Tests tool creation/override attempts                                |
+| 13                          | Indirect Prompt Injection / SSRF | HIGH   | Tests URL fetching, localhost, cloud metadata, internal IPs          |
+| 14                          | Unicode Bypass                   | MEDIUM | Tests unicode-encoded command execution                              |
+| 15                          | Nested Injection                 | MEDIUM | Tests hidden instructions in nested JSON                             |
+| 16                          | Package Squatting                | MEDIUM | Tests typosquatted package download attempts                         |
+| 17                          | Data Exfiltration                | HIGH   | Tests credential/secret/env var leakage attempts                     |
+| 18                          | Configuration Drift              | HIGH   | Tests privilege escalation via config (`set admin=true`)             |
+| 19                          | Tool Shadowing                   | HIGH   | Tests tool creation/override attempts                                |
 | **Resource Exhaustion (1)** |                                  |        |
-| 19                          | DoS/Resource Exhaustion          | HIGH   | Tests ReDoS, deep JSON nesting, zip bombs, XML billion laughs        |
+| 20                          | DoS/Resource Exhaustion          | HIGH   | Tests ReDoS, deep JSON nesting, zip bombs, XML billion laughs        |
 | **Deserialization (1)**     |                                  |        |
-| 20                          | Insecure Deserialization         | HIGH   | Tests pickle, Java serialized objects, YAML exploits                 |
+| 21                          | Insecure Deserialization         | HIGH   | Tests pickle, Java serialized objects, YAML exploits                 |
 
 **Pass Criteria**:
 
@@ -166,7 +167,7 @@ The `securityTestTimeout` option allows optimization of security assessment spee
 
 The security assessor automatically adjusts vulnerability severity based on tool annotations to reduce false positives:
 
-- **Read-Only Tools** (`readOnlyHint: true`): Execution-type attacks (Command Injection, Code Execution, Path Traversal) are downgraded from HIGH/MEDIUM to LOW
+- **Read-Only Tools** (`readOnlyHint: true`): Execution-type attacks (Command Injection, AppleScript Command Injection, Code Execution, Path Traversal) are downgraded from HIGH/MEDIUM to LOW
 - **Closed-World Tools** (`openWorldHint: false`): Exfiltration-type attacks (SSRF, Data Exfiltration, Token Theft) are downgraded from HIGH/MEDIUM to LOW
 - **Server-Level Flags**: If ALL tools are read-only or closed-world, server-level adjustments apply even without per-tool annotations
 - **Transparency**: All adjustments are tracked in `SecurityTestResult.annotationAdjustment` with original severity, adjusted severity, and reason
@@ -1078,7 +1079,7 @@ If not available, the module logs a warning and skips gracefully.
 | #   | Module               | Tests               | Policy Ref     | Severity | Tier         |
 | --- | -------------------- | ------------------- | -------------- | -------- | ------------ |
 | 1   | Functionality        | ~10 per tool        | Core           | Medium   | Tier 1: Core |
-| 2   | Security             | 30 patterns × tools | Core           | High     | Tier 1: Core |
+| 2   | Security             | 31 patterns × tools | Core           | High     | Tier 1: Core |
 | 3   | Error Handling       | ~20 per tool        | MCP Spec       | Medium   | Tier 1: Core |
 | 4   | Documentation        | ~10 checks          | Core           | Low      | Tier 1: Core |
 | 5   | Usability            | ~8 checks           | Core           | Low      | Tier 1: Core |
@@ -1173,7 +1174,7 @@ cat /tmp/inspector-assessment-*.json | jq '.overallStatus'
 ## Related Documentation
 
 - [Testbed Setup Guide](TESTBED_SETUP_GUIDE.md) - A/B validation with vulnerable-mcp/hardened-mcp
-- [Security Patterns Catalog](SECURITY_PATTERNS_CATALOG.md) - 30 attack patterns
+- [Security Patterns Catalog](SECURITY_PATTERNS_CATALOG.md) - 31 attack patterns
 - [Real-Time Progress Output](REAL_TIME_PROGRESS_OUTPUT.md) - CLI integration guide
 
 ---

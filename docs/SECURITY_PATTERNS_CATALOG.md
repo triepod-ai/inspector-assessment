@@ -2,11 +2,11 @@
 
 ## Overview
 
-This catalog documents the **30 security attack patterns** used by the MCP Inspector to assess MCP server security. Each pattern includes attack vectors, example payloads, detection logic, and validation against the vulnerability testbed.
+This catalog documents the **31 security attack patterns** used by the MCP Inspector to assess MCP server security. Each pattern includes attack vectors, example payloads, detection logic, and validation against the vulnerability testbed.
 
-**Version**: 1.23.8
-**Pattern Count**: 30 attack categories
-**Total Payloads**: 125+ distinct payloads (updated with session management)
+**Version**: 1.24.2
+**Pattern Count**: 31 attack categories
+**Total Payloads**: 149 distinct payloads (updated with AppleScript injection)
 **Risk Levels**: HIGH (103+), MEDIUM (17+), LOW (5)
 
 **Core Principles**:
@@ -20,59 +20,60 @@ This catalog documents the **30 security attack patterns** used by the MCP Inspe
 
 ## Table of Contents
 
-1. [Critical Injection Patterns (6)](#critical-injection-patterns)
+1. [Critical Injection Patterns (7)](#critical-injection-patterns)
    - [1. Command Injection](#1-command-injection)
-   - [2. SQL Injection](#2-sql-injection)
-   - [3. Calculator Injection](#3-calculator-injection)
-   - [4. Path Traversal](#4-path-traversal)
-   - [5. XXE Injection](#5-xxe-injection-xml-external-entity)
-   - [6. NoSQL Injection](#6-nosql-injection)
+   - [2. AppleScript Command Injection](#2-applescript-command-injection)
+   - [3. SQL Injection](#3-sql-injection)
+   - [4. Calculator Injection](#4-calculator-injection)
+   - [5. Path Traversal](#5-path-traversal)
+   - [6. XXE Injection](#6-xxe-injection-xml-external-entity)
+   - [7. NoSQL Injection](#7-nosql-injection)
 
 2. [Input Validation Patterns (3)](#input-validation-patterns)
-   - [7. Type Safety](#7-type-safety)
-   - [8. Boundary Testing](#8-boundary-testing)
-   - [9. Required Fields](#9-required-fields)
+   - [8. Type Safety](#8-type-safety)
+   - [9. Boundary Testing](#9-boundary-testing)
+   - [10. Required Fields](#10-required-fields)
 
 3. [Protocol Compliance Patterns (2)](#protocol-compliance-patterns)
-   - [10. MCP Error Format](#10-mcp-error-format)
-   - [11. Timeout Handling](#11-timeout-handling)
+   - [11. MCP Error Format](#11-mcp-error-format)
+   - [12. Timeout Handling](#12-timeout-handling)
 
 4. [Tool-Specific Patterns (7)](#tool-specific-patterns)
-   - [12. Indirect Prompt Injection / SSRF](#12-indirect-prompt-injection--ssrf)
-   - [13. Unicode Bypass](#13-unicode-bypass)
-   - [14. Nested Injection](#14-nested-injection)
-   - [15. Package Squatting](#15-package-squatting)
-   - [16. Data Exfiltration](#16-data-exfiltration)
-   - [17. Configuration Drift](#17-configuration-drift)
-   - [18. Tool Shadowing](#18-tool-shadowing)
+   - [13. Indirect Prompt Injection / SSRF](#13-indirect-prompt-injection--ssrf)
+   - [14. Unicode Bypass](#14-unicode-bypass)
+   - [15. Nested Injection](#15-nested-injection)
+   - [16. Package Squatting](#16-package-squatting)
+   - [17. Data Exfiltration](#17-data-exfiltration)
+   - [18. Configuration Drift](#18-configuration-drift)
+   - [19. Tool Shadowing](#19-tool-shadowing)
 
 5. [Resource Exhaustion Patterns (1)](#resource-exhaustion-patterns)
-   - [19. DoS/Resource Exhaustion](#19-dosresource-exhaustion)
+   - [20. DoS/Resource Exhaustion](#20-dosresource-exhaustion)
 
 6. [Deserialization Patterns (1)](#deserialization-patterns)
-   - [20. Insecure Deserialization](#20-insecure-deserialization)
+   - [21. Insecure Deserialization](#21-insecure-deserialization)
 
 7. [Token Theft Patterns (1)](#token-theft-patterns)
-   - [21. Token Theft](#21-token-theft)
+   - [22. Token Theft](#22-token-theft)
 
 8. [Permission Scope Patterns (1)](#permission-scope-patterns)
-   - [22. Permission Scope](#22-permission-scope)
+   - [23. Permission Scope](#23-permission-scope)
 
 9. [Code Execution Patterns (1)](#code-execution-patterns)
-   - [23. Code Execution](#23-code-execution-language-aware)
+   - [24. Code Execution](#24-code-execution-language-aware)
 
 10. [Session Management Patterns (1)](#session-management-patterns)
 
-- [24. Session Management](#24-session-management)
+- [25. Session Management](#25-session-management)
 
 11. [Additional Security Patterns (6)](#additional-security-patterns)
 
-- [25. Tool Output Injection](#25-tool-output-injection-issue-103-challenge-8)
-- [26. Secret Leakage](#26-secret-leakage-issue-103-challenge-9)
-- [27. Blacklist Bypass](#27-blacklist-bypass-issue-103-challenge-11)
-- [28. Auth Bypass](#28-auth-bypass-issue-75)
-- [29. Cross-Tool State Bypass](#29-cross-tool-state-bypass-issue-92)
-- [30. Chained Exploitation](#30-chained-exploitation-issue-93)
+- [26. Tool Output Injection](#26-tool-output-injection-issue-103-challenge-8)
+- [27. Secret Leakage](#27-secret-leakage-issue-103-challenge-9)
+- [28. Blacklist Bypass](#28-blacklist-bypass-issue-103-challenge-11)
+- [29. Auth Bypass](#29-auth-bypass-issue-75)
+- [30. Cross-Tool State Bypass](#30-cross-tool-state-bypass-issue-92)
+- [31. Chained Exploitation](#31-chained-exploitation-issue-93)
 
 12. [Detection Architecture](#detection-architecture)
 13. [Zero False Positive Design](#zero-false-positive-design)
@@ -165,7 +166,97 @@ if (/\b(root|user|admin)\b/.test(response)) {
 
 ---
 
-### 2. SQL Injection
+### 2. AppleScript Command Injection
+
+**Attack Vector**: Tests if tools execute arbitrary AppleScript/osascript commands via string interpolation.
+
+**Risk Level**: HIGH (3), MEDIUM (1)
+**Payload Count**: 4
+**Target Tools**: macOS automation tools, AppleScript executors, osascript wrappers
+
+#### Payloads
+
+| ID  | Payload                                     | Evidence Pattern                            | Description                            |
+| --- | ------------------------------------------- | ------------------------------------------- | -------------------------------------- |
+| 2.1 | `" & do shell script "id" & "`              | `/uid=\d+\|gid=\d+\|\broot\b(?=:\|\s\|$)/i` | Double-quote escape to shell execution |
+| 2.2 | `' & do shell script 'whoami' & '`          | `/uid=\d+\|gid=\d+\|\broot\b(?=:\|\s\|$)/i` | Single-quote escape variant            |
+| 2.3 | `osascript -e 'return (system info)'`       | `/processor\|memory\|system.*version/i`     | System info extraction (MEDIUM risk)   |
+| 2.4 | `" & do shell script "cat /etc/passwd" & "` | `/root:.*:0:0\|\/bin\/(ba)?sh/i`            | File read via shell escape             |
+
+#### Expected Vulnerable Response
+
+```json
+{
+  "result": "uid=501(user) gid=20(staff)",
+  "executed": true
+}
+```
+
+**Vulnerability Indicators**:
+
+- User/group ID output (uid=N, gid=N)
+- System information disclosure
+- File contents from shell commands
+- Root user detection
+
+#### Expected Safe Response
+
+```json
+{
+  "result": "Script received and stored",
+  "safe": true
+}
+```
+
+**Safe Indicators**:
+
+- Reflection patterns ("stored", "received")
+- No execution evidence
+- MCP validation errors (-32602)
+- AppleScript parsing errors
+
+#### Detection Logic
+
+```typescript
+// Step 1: Check for MCP validation errors (highest priority)
+if (errorCode === -32602) {
+  return { safe: true, evidence: "MCP validation error" };
+}
+
+// Step 2: Check for reflection (safe echo)
+if (/stored.*script|received.*command/.test(response)) {
+  return { safe: true, evidence: "Safe reflection" };
+}
+
+// Step 3: Check for execution evidence (tightened regex)
+if (/uid=\d+|gid=\d+|\broot\b(?=:|\s|$)/.test(response)) {
+  return { vulnerable: true, evidence: "AppleScript command executed" };
+}
+```
+
+#### Enhanced Detection: Issue #174 Fix
+
+**Problem Solved**: False positives when responses contain words like "uid", "root", or "gid" in non-execution contexts.
+
+**Evidence Regex Refinement**:
+
+| Old Pattern                       | New Pattern                                             | Improvement                                      |
+| --------------------------------- | ------------------------------------------------------- | ------------------------------------------------ |
+| `/uid\|gid\|root\|user\|whoami/i` | `/uid=\d+\|gid=\d+\|\broot\b(?=:\|\s\|$)\|whoami\s*$/i` | Tightened to match actual command output formats |
+
+**Distinguishing Safe vs Vulnerable**:
+
+| Response Type        | Example                         | Vulnerable? | Detection Logic                                |
+| -------------------- | ------------------------------- | ----------- | ---------------------------------------------- |
+| **Execution Output** | `"uid=501(user) gid=20(staff)"` | ✅ YES      | Matches `uid=\d+` pattern                      |
+| **Safe Text**        | `"Invalid uid parameter"`       | ❌ NO       | Word "uid" without `=\d+` format               |
+| **Safe Text**        | `"root directory not found"`    | ❌ NO       | Word "root" not followed by `:`, space, or end |
+
+**Implementation**: `injectionPatterns.ts` lines 72, 80 (evidence regex refinement)
+
+---
+
+### 3. SQL Injection
 
 **Attack Vector**: Tests if tools properly escape SQL commands or execute them directly via string concatenation.
 
@@ -240,7 +331,7 @@ if (/validation failed.*invalid query/.test(response)) {
 
 ---
 
-### 3. Calculator Injection
+### 4. Calculator Injection
 
 **Attack Vector**: Tests if calculator/math tools execute arbitrary expressions via `eval()` instead of safely parsing them.
 
@@ -354,7 +445,7 @@ The enhanced detection distinguishes three response types:
 
 ---
 
-### 4. Path Traversal
+### 5. Path Traversal
 
 **Attack Vector**: Tests if tools allow access to files outside intended directory via `../` sequences.
 
@@ -428,7 +519,7 @@ if (/path validation failed/.test(response)) {
 
 ---
 
-### 5. XXE Injection (XML External Entity)
+### 6. XXE Injection (XML External Entity)
 
 **Attack Vector**: Tests if tools process XML external entities, allowing file disclosure or SSRF.
 
@@ -496,7 +587,7 @@ Payloads target parameters: `["xml", "data", "body", "payload", "content", "soap
 
 ---
 
-### 6. NoSQL Injection
+### 7. NoSQL Injection
 
 **Attack Vector**: Tests if tools are vulnerable to NoSQL injection attacks (MongoDB, Redis, etc.).
 
@@ -562,7 +653,7 @@ Payloads target parameters: `["query", "filter", "where", "search", "data", "use
 
 ## Input Validation Patterns
 
-### 7. Type Safety
+### 8. Type Safety
 
 **Attack Vector**: Tests if tools validate parameter types correctly.
 
@@ -615,7 +706,7 @@ if (/type.*error|invalid.*type/.test(response)) {
 
 ---
 
-### 8. Boundary Testing
+### 9. Boundary Testing
 
 **Attack Vector**: Tests edge cases and boundary conditions.
 
@@ -643,7 +734,7 @@ if (/type.*error|invalid.*type/.test(response)) {
 
 ---
 
-### 9. Required Fields
+### 10. Required Fields
 
 **Attack Vector**: Tests if tools validate required parameters.
 
@@ -671,7 +762,7 @@ if (/type.*error|invalid.*type/.test(response)) {
 
 ## Protocol Compliance Patterns
 
-### 10. MCP Error Format
+### 11. MCP Error Format
 
 **Attack Vector**: Verifies errors follow MCP protocol specification.
 
@@ -691,7 +782,7 @@ if (/type.*error|invalid.*type/.test(response)) {
 
 ---
 
-### 11. Timeout Handling
+### 12. Timeout Handling
 
 **Attack Vector**: Tests if tools handle long operations gracefully.
 
@@ -713,7 +804,7 @@ if (/type.*error|invalid.*type/.test(response)) {
 
 ## Tool-Specific Patterns
 
-### 12. Indirect Prompt Injection / SSRF
+### 13. Indirect Prompt Injection / SSRF
 
 **Attack Vector**: Tests if tools fetch external content or allow SSRF attacks against internal services.
 
@@ -812,7 +903,7 @@ Payloads target parameters: `["url", "uri", "link", "endpoint", "address"]`
 
 ---
 
-### 13. Unicode Bypass
+### 14. Unicode Bypass
 
 **Attack Vector**: Tests if tools decode and execute unicode-encoded commands.
 
@@ -850,7 +941,7 @@ Payloads target parameters: `["url", "uri", "link", "endpoint", "address"]`
 
 ---
 
-### 14. Nested Injection
+### 15. Nested Injection
 
 **Attack Vector**: Tests if tools execute hidden instructions in nested JSON.
 
@@ -878,7 +969,7 @@ Payloads target parameters: `["url", "uri", "link", "endpoint", "address"]`
 
 ---
 
-### 15. Package Squatting
+### 16. Package Squatting
 
 **Attack Vector**: Tests if tools download typosquatted packages.
 
@@ -902,7 +993,7 @@ Payloads target parameters: `["package", "pkg", "module", "library", "dependency
 
 ---
 
-### 16. Data Exfiltration
+### 17. Data Exfiltration
 
 **Attack Vector**: Tests if tools leak sensitive data like API keys, credentials, or environment variables.
 
@@ -947,7 +1038,7 @@ Payloads target parameters: `["package", "pkg", "module", "library", "dependency
 
 ---
 
-### 17. Configuration Drift
+### 18. Configuration Drift
 
 **Attack Vector**: Tests if tools allow unauthorized modification of runtime configuration.
 
@@ -969,7 +1060,7 @@ Payloads target parameters: `["package", "pkg", "module", "library", "dependency
 
 ---
 
-### 18. Tool Shadowing
+### 19. Tool Shadowing
 
 **Attack Vector**: Tests if tools allow shadowing, poisoning, or overriding other tools.
 
@@ -993,7 +1084,7 @@ Payloads target parameters: `["package", "pkg", "module", "library", "dependency
 
 ## Resource Exhaustion Patterns
 
-### 19. DoS/Resource Exhaustion
+### 20. DoS/Resource Exhaustion
 
 **Attack Vector**: Tests if tools are vulnerable to denial of service through resource exhaustion (ReDoS, memory allocation, timeout abuse).
 
@@ -1069,7 +1160,7 @@ if (/timeout|catastrophic|backtrack/.test(response)) {
 
 ## Deserialization Patterns
 
-### 20. Insecure Deserialization
+### 21. Insecure Deserialization
 
 **Attack Vector**: Tests if tools deserialize untrusted data using unsafe methods like `pickle.loads()`, potentially allowing RCE.
 
@@ -1133,7 +1224,7 @@ if (/deserialized|pickle|RCE|executed/.test(response)) {
 
 ## Token Theft Patterns
 
-### 21. Token Theft
+### 22. Token Theft
 
 **Attack Vector**: Tests if tools leak, expose, or allow theft of authentication tokens, API keys, or session credentials.
 
@@ -1171,7 +1262,7 @@ if (/deserialized|pickle|RCE|executed/.test(response)) {
 
 ## Permission Scope Patterns
 
-### 22. Permission Scope
+### 23. Permission Scope
 
 **Attack Vector**: Tests if tools expose or allow access to resources beyond authorized scope (privilege escalation).
 
@@ -1192,7 +1283,7 @@ if (/deserialized|pickle|RCE|executed/.test(response)) {
 
 ## Code Execution Patterns
 
-### 23. Code Execution (Language-Aware)
+### 24. Code Execution (Language-Aware)
 
 **Attack Vector**: Tests if tools execute arbitrary code in various languages (Python, JavaScript, SQL).
 
@@ -1251,7 +1342,7 @@ if (/\b(root|user|admin)\b/.test(response)) {
 
 ## Session Management Patterns
 
-### 24. Session Management
+### 25. Session Management
 
 **Attack Vector**: Tests if tools handle session tokens securely. Detects session fixation, predictable tokens, missing timeouts, and ID exposure in URLs (Issue #111: Challenge #12).
 
@@ -1347,37 +1438,37 @@ if (url.includes("session_id=")) {
 
 ## Additional Security Patterns
 
-### 25. Tool Output Injection (Issue #103, Challenge #8)
+### 26. Tool Output Injection (Issue #103, Challenge #8)
 
 **Description**: Tests if tool responses can be manipulated to inject content into other tools.
 
 **Status**: Referenced in codebase, pattern framework in place
 
-### 26. Secret Leakage (Issue #103, Challenge #9)
+### 27. Secret Leakage (Issue #103, Challenge #9)
 
 **Description**: Tests if tools leak secrets through responses or error messages.
 
 **Status**: Referenced in codebase, pattern framework in place
 
-### 27. Blacklist Bypass (Issue #103, Challenge #11)
+### 28. Blacklist Bypass (Issue #103, Challenge #11)
 
 **Description**: Tests if input validation blacklists can be bypassed.
 
 **Status**: Referenced in codebase, pattern framework in place
 
-### 28. Auth Bypass (Issue #75)
+### 29. Auth Bypass (Issue #75)
 
 **Description**: Tests for fail-open authentication vulnerabilities where tools respond successfully without proper authorization.
 
 **Status**: Referenced in codebase, pattern framework in place
 
-### 29. Cross-Tool State Bypass (Issue #92)
+### 30. Cross-Tool State Bypass (Issue #92)
 
 **Description**: Tests for cross-tool privilege escalation via shared state management.
 
 **Status**: Referenced in codebase, pattern framework in place
 
-### 30. Chained Exploitation (Issue #93)
+### 31. Chained Exploitation (Issue #93)
 
 **Description**: Tests for multi-tool attack chains where output of one tool feeds into vulnerability in another.
 
@@ -1814,11 +1905,11 @@ cat /tmp/inspector-assessment-vulnerable-mcp.json | \
 | vulnerable_unicode_processor_tool | Unicode Bypass (1)                | 1                |
 | vulnerable_package_installer_tool | Package Squatting (2)             | 60               |
 | vulnerable_rug_pull_tool          | Temporal Behavior                 | 80               |
-| **Total**                         | **30 patterns**                   | **200**          |
+| **Total**                         | **31 patterns**                   | **200**          |
 
 ### Safe Tool Validation (0 False Positives)
 
-All safe tools tested with **100+ patterns each** (30 attack types × ~3.5 payloads average):
+All safe tools tested with **100+ patterns each** (31 attack types × ~4.8 payloads average):
 
 - ✅ safe_storage_tool_mcp: 0 vulnerabilities
 - ✅ safe_search_tool_mcp: 0 vulnerabilities
@@ -1835,13 +1926,13 @@ All safe tools tested with **100+ patterns each** (30 attack types × ~3.5 paylo
 
 ```javascript
 {
-  totalAttackTypes: 30,
-  totalPayloads: 145,
-  highRiskPayloads: 125,
-  mediumRiskPayloads: 17,
+  totalAttackTypes: 31,
+  totalPayloads: 149,
+  highRiskPayloads: 128,
+  mediumRiskPayloads: 18,
   lowRiskPayloads: 5,
   payloadTypeBreakdown: {
-    injection: 115,
+    injection: 119,
     validation: 7,
     protocol: 2,
     sessionManagement: 6,

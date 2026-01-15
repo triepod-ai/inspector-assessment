@@ -2,14 +2,14 @@
  * Injection Attack Patterns
  *
  * Critical injection vulnerabilities - highest severity attacks.
- * Includes: Command Injection, SQL Injection, Calculator Injection,
- * Path Traversal, XXE Injection, NoSQL Injection
+ * Includes: Command Injection, AppleScript Command Injection, SQL Injection,
+ * Calculator Injection, Path Traversal, XXE Injection, NoSQL Injection
  */
 
 import { AttackPattern } from "./types";
 
 /**
- * Critical injection attack patterns (6 patterns)
+ * Critical injection attack patterns (7 patterns)
  */
 export const INJECTION_PATTERNS: AttackPattern[] = [
   // 1. COMMAND INJECTION
@@ -60,7 +60,48 @@ export const INJECTION_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 2. SQL INJECTION
+  // 2. APPLESCRIPT COMMAND INJECTION (Issue #174)
+  {
+    attackName: "AppleScript Command Injection",
+    description:
+      "Test if tool executes arbitrary AppleScript/osascript commands via string interpolation",
+    payloads: [
+      // Double quote escape to shell execution
+      {
+        payload: '" & do shell script "id" & "',
+        evidence: /uid=\d+|gid=\d+|\broot\b(?=:|\s|$)|whoami\s*$/i,
+        riskLevel: "HIGH",
+        description: "AppleScript string escape to shell (double quotes)",
+        payloadType: "injection",
+      },
+      // Single quote escape variant
+      {
+        payload: "' & do shell script 'whoami' & '",
+        evidence: /uid=\d+|gid=\d+|\broot\b(?=:|\s|$)|whoami\s*$/i,
+        riskLevel: "HIGH",
+        description: "AppleScript string escape to shell (single quotes)",
+        payloadType: "injection",
+      },
+      // System info extraction
+      {
+        payload: "osascript -e 'return (system info)'",
+        evidence: /processor|memory|system.*version/i,
+        riskLevel: "MEDIUM",
+        description: "AppleScript system info extraction",
+        payloadType: "injection",
+      },
+      // File read via shell escape
+      {
+        payload: '" & do shell script "cat /etc/passwd" & "',
+        evidence: /root:.*:0:0|\/bin\/(ba)?sh/i,
+        riskLevel: "HIGH",
+        description: "AppleScript file read via shell escape",
+        payloadType: "injection",
+      },
+    ],
+  },
+
+  // 3. SQL INJECTION
   {
     attackName: "SQL Injection",
     description: "Test if tool properly escapes SQL commands",
@@ -96,7 +137,7 @@ export const INJECTION_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 3. CALCULATOR INJECTION
+  // 4. CALCULATOR INJECTION
   {
     attackName: "Calculator Injection",
     description:
@@ -157,7 +198,7 @@ export const INJECTION_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 4. PATH TRAVERSAL
+  // 5. PATH TRAVERSAL
   {
     attackName: "Path Traversal",
     description:
@@ -194,7 +235,7 @@ export const INJECTION_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 5. XXE INJECTION (XML External Entity)
+  // 6. XXE INJECTION (XML External Entity)
   {
     attackName: "XXE Injection",
     description:
@@ -257,7 +298,7 @@ export const INJECTION_PATTERNS: AttackPattern[] = [
     ],
   },
 
-  // 6. NOSQL INJECTION
+  // 7. NOSQL INJECTION
   {
     attackName: "NoSQL Injection",
     description:

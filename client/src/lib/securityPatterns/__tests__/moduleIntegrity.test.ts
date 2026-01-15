@@ -22,12 +22,12 @@ import {
 
 describe("Security Patterns Module Integrity", () => {
   describe("Pattern Counts", () => {
-    it("should have exactly 32 attack patterns", () => {
-      expect(SECURITY_ATTACK_PATTERNS.length).toBe(32);
+    it("should have exactly 33 attack patterns", () => {
+      expect(SECURITY_ATTACK_PATTERNS.length).toBe(33);
     });
 
     it("should have correct pattern count per module", () => {
-      expect(INJECTION_PATTERNS.length).toBe(6);
+      expect(INJECTION_PATTERNS.length).toBe(7);
       expect(VALIDATION_PATTERNS.length).toBe(5);
       expect(TOOL_SPECIFIC_PATTERNS.length).toBe(7);
       expect(RESOURCE_EXHAUSTION_PATTERNS.length).toBe(2);
@@ -35,7 +35,7 @@ describe("Security Patterns Module Integrity", () => {
       expect(ADVANCED_EXPLOIT_PATTERNS.length).toBe(7);
     });
 
-    it("should aggregate to total of 32 patterns", () => {
+    it("should aggregate to total of 33 patterns", () => {
       const total =
         INJECTION_PATTERNS.length +
         VALIDATION_PATTERNS.length +
@@ -43,7 +43,7 @@ describe("Security Patterns Module Integrity", () => {
         RESOURCE_EXHAUSTION_PATTERNS.length +
         AUTH_SESSION_PATTERNS.length +
         ADVANCED_EXPLOIT_PATTERNS.length;
-      expect(total).toBe(32);
+      expect(total).toBe(33);
     });
   });
 
@@ -53,45 +53,45 @@ describe("Security Patterns Module Integrity", () => {
     });
 
     it("should maintain original pattern order - last pattern is Excessive Permissions Scope", () => {
-      expect(SECURITY_ATTACK_PATTERNS[31].attackName).toBe(
+      expect(SECURITY_ATTACK_PATTERNS[32].attackName).toBe(
         "Excessive Permissions Scope",
       );
     });
 
     it("should maintain module boundary order", () => {
-      // Injection patterns first (0-5)
+      // Injection patterns first (0-6) - Issue #174 added AppleScript at index 1
       expect(SECURITY_ATTACK_PATTERNS[0].attackName).toBe("Command Injection");
-      expect(SECURITY_ATTACK_PATTERNS[5].attackName).toBe("NoSQL Injection");
+      expect(SECURITY_ATTACK_PATTERNS[6].attackName).toBe("NoSQL Injection");
 
-      // Validation patterns next (6-10)
-      expect(SECURITY_ATTACK_PATTERNS[6].attackName).toBe("Type Safety");
-      expect(SECURITY_ATTACK_PATTERNS[10].attackName).toBe("Timeout Handling");
+      // Validation patterns next (7-11)
+      expect(SECURITY_ATTACK_PATTERNS[7].attackName).toBe("Type Safety");
+      expect(SECURITY_ATTACK_PATTERNS[11].attackName).toBe("Timeout Handling");
 
-      // Tool-specific patterns (11-17)
-      expect(SECURITY_ATTACK_PATTERNS[11].attackName).toBe(
+      // Tool-specific patterns (12-18)
+      expect(SECURITY_ATTACK_PATTERNS[12].attackName).toBe(
         "Indirect Prompt Injection",
       );
-      expect(SECURITY_ATTACK_PATTERNS[17].attackName).toBe("Tool Shadowing");
+      expect(SECURITY_ATTACK_PATTERNS[18].attackName).toBe("Tool Shadowing");
 
-      // Resource exhaustion patterns (18-19)
-      expect(SECURITY_ATTACK_PATTERNS[18].attackName).toBe(
+      // Resource exhaustion patterns (19-20)
+      expect(SECURITY_ATTACK_PATTERNS[19].attackName).toBe(
         "DoS/Resource Exhaustion",
       );
-      expect(SECURITY_ATTACK_PATTERNS[19].attackName).toBe(
+      expect(SECURITY_ATTACK_PATTERNS[20].attackName).toBe(
         "Insecure Deserialization",
       );
 
-      // Auth/Session patterns (20-24)
-      expect(SECURITY_ATTACK_PATTERNS[20].attackName).toBe("Token Theft");
-      expect(SECURITY_ATTACK_PATTERNS[24].attackName).toBe(
+      // Auth/Session patterns (21-25)
+      expect(SECURITY_ATTACK_PATTERNS[21].attackName).toBe("Token Theft");
+      expect(SECURITY_ATTACK_PATTERNS[25].attackName).toBe(
         "Session Management",
       );
 
-      // Advanced exploit patterns (25-31)
-      expect(SECURITY_ATTACK_PATTERNS[25].attackName).toBe(
+      // Advanced exploit patterns (26-32)
+      expect(SECURITY_ATTACK_PATTERNS[26].attackName).toBe(
         "Cross-Tool State Bypass",
       );
-      expect(SECURITY_ATTACK_PATTERNS[31].attackName).toBe(
+      expect(SECURITY_ATTACK_PATTERNS[32].attackName).toBe(
         "Excessive Permissions Scope",
       );
     });
@@ -113,14 +113,15 @@ describe("Security Patterns Module Integrity", () => {
       expect(stats.totalPayloads).toBe(manualCount);
     });
 
-    it("should have exactly 184 total payloads", () => {
+    it("should have exactly 188 total payloads", () => {
       // Explicit count assertion to catch unintended payload additions/removals
       // Issue #163: Locks in expected payload count after modularization
+      // Issue #174: Added 4 AppleScript Command Injection payloads (184 -> 188)
       const totalPayloads = SECURITY_ATTACK_PATTERNS.reduce(
         (sum, pattern) => sum + pattern.payloads.length,
         0,
       );
-      expect(totalPayloads).toBe(184);
+      expect(totalPayloads).toBe(188);
     });
 
     it("should have risk level distribution", () => {
@@ -138,7 +139,7 @@ describe("Security Patterns Module Integrity", () => {
 
   describe("Utility Functions", () => {
     it("getAllAttackPatterns should return all patterns", () => {
-      expect(getAllAttackPatterns().length).toBe(32);
+      expect(getAllAttackPatterns().length).toBe(33);
     });
 
     it("getPayloadsForAttack should return payloads for known attack", () => {
@@ -158,7 +159,7 @@ describe("Security Patterns Module Integrity", () => {
 
     it("getPatternStatistics should return valid statistics", () => {
       const stats = getPatternStatistics();
-      expect(stats.totalAttackTypes).toBe(32);
+      expect(stats.totalAttackTypes).toBe(33);
       expect(stats.averagePayloadsPerAttack).toBeGreaterThan(0);
       expect(Object.keys(stats.payloadTypeBreakdown).length).toBeGreaterThan(0);
     });

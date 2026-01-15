@@ -1336,7 +1336,7 @@ export class SecurityResponseAnalyzer {
 
   /**
    * Check for safe error responses that indicate proper input rejection
-   * Handles: MCP validation errors (-32602), HTTP 4xx/5xx errors
+   * Handles: MCP validation errors (-32602), HTTP 4xx/5xx errors, AppleScript syntax errors
    */
   private checkSafeErrorResponses(
     responseText: string,
@@ -1348,6 +1348,17 @@ export class SecurityResponseAnalyzer {
       return {
         isVulnerable: false,
         evidence: `MCP validation error${errorCode}: Tool properly rejected invalid input before processing`,
+      };
+    }
+
+    // Issue #175: AppleScript syntax errors (not XXE)
+    // AppleScript errors can trigger false positives when the XXE payload is echoed
+    // back in the error message, matching patterns like "parameter" + "entity"
+    if (this.safeDetector.isAppleScriptSyntaxError(responseText)) {
+      return {
+        isVulnerable: false,
+        evidence:
+          "AppleScript syntax error - not XXE vulnerability (echoed payload in error message)",
       };
     }
 

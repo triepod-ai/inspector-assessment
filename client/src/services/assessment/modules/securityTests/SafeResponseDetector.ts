@@ -19,6 +19,7 @@ import {
   matchesAny,
   hasLLMInjectionMarkers,
   hasOutputInjectionVulnerability,
+  isAppleScriptSyntaxError as isAppleScriptSyntaxErrorPattern,
 } from "./SecurityPatternLibrary";
 import { ExecutionArtifactDetector } from "./ExecutionArtifactDetector";
 
@@ -64,6 +65,15 @@ export class SafeResponseDetector {
    */
   isHttpErrorResponse(responseText: string): boolean {
     return isHttpError(responseText);
+  }
+
+  /**
+   * Check if response is an AppleScript syntax error (Issue #175)
+   * These errors should not be flagged as XXE vulnerabilities even when
+   * the XXE payload is echoed back in the error message.
+   */
+  isAppleScriptSyntaxError(responseText: string): boolean {
+    return isAppleScriptSyntaxErrorPattern(responseText);
   }
 
   /**

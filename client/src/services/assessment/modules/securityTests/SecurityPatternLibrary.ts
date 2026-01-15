@@ -371,6 +371,50 @@ export function isTransientErrorPattern(text: string): boolean {
 }
 
 // =============================================================================
+// APPLESCRIPT SYNTAX ERROR PATTERNS (Issue #175)
+// =============================================================================
+
+/**
+ * Issue #175: AppleScript syntax error patterns to exclude from XXE detection
+ *
+ * AppleScript errors can trigger false positives when:
+ * 1. The tool returns an AppleScript syntax error (e.g., -2750 duplicate parameter)
+ * 2. The XXE payload is echoed back in the error message
+ * 3. XXE evidence patterns match "parameter" + "entity" combination
+ *
+ * These patterns detect AppleScript-specific errors by:
+ * - Error code ranges (-27xx, -25xx are AppleScript domain)
+ * - AppleScript-specific syntax error messages
+ * - Common AppleScript error patterns
+ */
+export const APPLESCRIPT_SYNTAX_ERROR_PATTERNS: RegExp[] = [
+  // AppleScript error code ranges
+  /-27\d{2}/, // -2700 to -2799 (AppleScript errors)
+  /-25\d{2}/, // -2500 to -2599 (AppleScript/OSA errors)
+
+  // AppleScript-specific error messages
+  /syntax error:.*«class \d+»/i, // AppleScript class syntax error
+  /applescript.*syntax.*error/i, // Generic AppleScript syntax error
+  /osascript.*error/i, // osascript command errors
+
+  // Specific errors that might match XXE patterns
+  /parameter.*specified.*more than once/i, // -2750 duplicate parameter
+  /parameter.*is.*specified.*more/i, // Variant of above
+  /duplicate\s+parameter\s+specification/i, // Another variant
+];
+
+/**
+ * Check if error text indicates an AppleScript syntax error (Issue #175)
+ * @param text Error message or response text
+ * @returns true if error is an AppleScript syntax error
+ */
+export function isAppleScriptSyntaxError(text: string): boolean {
+  return APPLESCRIPT_SYNTAX_ERROR_PATTERNS.some((pattern) =>
+    pattern.test(text),
+  );
+}
+
+// =============================================================================
 // REFLECTION PATTERNS (safe response detection)
 // =============================================================================
 
