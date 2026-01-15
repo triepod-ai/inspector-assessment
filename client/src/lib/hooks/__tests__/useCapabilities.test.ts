@@ -354,4 +354,108 @@ describe("useCapabilities", () => {
       );
     });
   });
+
+  describe("FIX-003: readResource loading state management", () => {
+    it("should set isLoading true before request", async () => {
+      const options = createMockOptions();
+      let resolveRequest: (value: unknown) => void;
+      options.sendMCPRequest.mockReturnValue(
+        new Promise((resolve) => {
+          resolveRequest = resolve;
+        }),
+      );
+
+      const { result } = renderHook(() => useCapabilities(options));
+
+      // isLoading should be false initially
+      expect(result.current.isLoading).toBe(false);
+
+      let readPromise: Promise<void>;
+      act(() => {
+        readPromise = result.current.readResource("file:///test");
+      });
+
+      // Should be loading after call
+      expect(result.current.isLoading).toBe(true);
+
+      await act(async () => {
+        resolveRequest!({ contents: [{ text: "test" }] });
+        await readPromise;
+      });
+
+      // Should be false after completion
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    it("should reset isLoading on error", async () => {
+      const options = createMockOptions();
+      options.sendMCPRequest.mockRejectedValue(new Error("Test error"));
+
+      const { result } = renderHook(() => useCapabilities(options));
+
+      expect(result.current.isLoading).toBe(false);
+
+      await act(async () => {
+        try {
+          await result.current.readResource("file:///test");
+        } catch (error) {
+          // Expected error
+        }
+      });
+
+      // Should be false even after error
+      expect(result.current.isLoading).toBe(false);
+    });
+  });
+
+  describe("FIX-004: getPrompt loading state management", () => {
+    it("should set isLoading true before request", async () => {
+      const options = createMockOptions();
+      let resolveRequest: (value: unknown) => void;
+      options.sendMCPRequest.mockReturnValue(
+        new Promise((resolve) => {
+          resolveRequest = resolve;
+        }),
+      );
+
+      const { result } = renderHook(() => useCapabilities(options));
+
+      expect(result.current.isLoading).toBe(false);
+
+      let getPromptPromise: Promise<void>;
+      act(() => {
+        getPromptPromise = result.current.getPrompt("test_prompt");
+      });
+
+      // Should be loading after call
+      expect(result.current.isLoading).toBe(true);
+
+      await act(async () => {
+        resolveRequest!({ messages: [{ content: "test" }] });
+        await getPromptPromise;
+      });
+
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    it("should reset isLoading on error", async () => {
+      const options = createMockOptions();
+      options.sendMCPRequest.mockRejectedValue(new Error("Test error"));
+
+      const { result } = renderHook(() => useCapabilities(options));
+
+      expect(result.current.isLoading).toBe(false);
+
+      await act(async () => {
+        try {
+          await result.current.getPrompt("test_prompt");
+        } catch (error) {
+          // Expected error
+        }
+      });
+
+      // Should be false even after error
+      expect(result.current.isLoading).toBe(false);
+    });
+  });
 });

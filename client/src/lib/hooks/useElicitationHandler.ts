@@ -63,6 +63,7 @@ const getValidTabs = (
     "elicitations",
     "roots",
     "auth",
+    "metadata",
   ];
 };
 
@@ -100,13 +101,14 @@ export function useElicitationHandler({
       resolve: (response: ElicitationResponse) => void,
     ) => {
       const currentTab = lastToolCallOriginTabRef.current;
+      const requestId = nextRequestId.current++;
 
       setPendingRequests((prev) => [
         ...prev,
         {
-          id: nextRequestId.current++,
+          id: requestId,
           request: {
-            id: nextRequestId.current,
+            id: requestId,
             message: request.params.message,
             requestedSchema: request.params.requestedSchema,
           },

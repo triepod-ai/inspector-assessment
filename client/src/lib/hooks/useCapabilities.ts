@@ -195,21 +195,26 @@ export function useCapabilities({
   const readResource = useCallback(
     async (uri: string) => {
       lastToolCallOriginTabRef.current = currentTabRef.current;
+      setIsLoading(true);
 
-      const response = await sendMCPRequest(
-        {
-          method: "resources/read" as const,
-          params: { uri },
-        },
-        ReadResourceResultSchema,
-        "resources",
-      );
-      const content = JSON.stringify(response, null, 2);
-      setResourceContent(content);
-      setResourceContentMap((prev) => ({
-        ...prev,
-        [uri]: content,
-      }));
+      try {
+        const response = await sendMCPRequest(
+          {
+            method: "resources/read" as const,
+            params: { uri },
+          },
+          ReadResourceResultSchema,
+          "resources",
+        );
+        const content = JSON.stringify(response, null, 2);
+        setResourceContent(content);
+        setResourceContentMap((prev) => ({
+          ...prev,
+          [uri]: content,
+        }));
+      } finally {
+        setIsLoading(false);
+      }
     },
     [sendMCPRequest, lastToolCallOriginTabRef, currentTabRef],
   );
@@ -283,16 +288,21 @@ export function useCapabilities({
   const getPrompt = useCallback(
     async (name: string, args: Record<string, string> = {}) => {
       lastToolCallOriginTabRef.current = currentTabRef.current;
+      setIsLoading(true);
 
-      const response = await sendMCPRequest(
-        {
-          method: "prompts/get" as const,
-          params: { name, arguments: args },
-        },
-        GetPromptResultSchema,
-        "prompts",
-      );
-      setPromptContent(JSON.stringify(response, null, 2));
+      try {
+        const response = await sendMCPRequest(
+          {
+            method: "prompts/get" as const,
+            params: { name, arguments: args },
+          },
+          GetPromptResultSchema,
+          "prompts",
+        );
+        setPromptContent(JSON.stringify(response, null, 2));
+      } finally {
+        setIsLoading(false);
+      }
     },
     [sendMCPRequest, lastToolCallOriginTabRef, currentTabRef],
   );

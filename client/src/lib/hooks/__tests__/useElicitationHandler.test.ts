@@ -191,4 +191,133 @@ describe("useElicitationHandler", () => {
       expect(id3!).toBeGreaterThan(id2!);
     });
   });
+
+  describe("FIX-001: Request ID consistency (validates off-by-one fix)", () => {
+    it("should use identical request ID for both outer id and inner request.id", () => {
+      const options = createMockOptions();
+      const { result } = renderHook(() => useElicitationHandler(options));
+      const request = createMockRequest();
+      const resolve = jest.fn();
+
+      act(() => {
+        result.current.handleElicitationRequest(request, resolve);
+      });
+
+      const pendingRequest = result.current.pendingRequests[0];
+
+      // Both outer ID and inner request.id should be identical
+      expect(pendingRequest.id).toBe(pendingRequest.request.id);
+      expect(pendingRequest.id).toBe(0);
+    });
+
+    it("should have sequential and matching IDs for multiple requests", () => {
+      const options = createMockOptions();
+      const { result } = renderHook(() => useElicitationHandler(options));
+      const request = createMockRequest();
+      const resolve = jest.fn();
+
+      act(() => {
+        result.current.handleElicitationRequest(request, resolve);
+        result.current.handleElicitationRequest(request, resolve);
+        result.current.handleElicitationRequest(request, resolve);
+      });
+
+      const requests = result.current.pendingRequests;
+      expect(requests).toHaveLength(3);
+
+      requests.forEach((req, index) => {
+        // Outer ID and inner request.id should match
+        expect(req.id).toBe(req.request.id);
+        // IDs should be sequential
+        expect(req.id).toBe(index);
+      });
+    });
+  });
+
+  describe("FIX-002: Metadata tab navigation", () => {
+    it("should navigate back to metadata tab when it was the originating tab", () => {
+      const options = createMockOptions({ serverCapabilities: {} });
+      options.lastToolCallOriginTabRef.current = "metadata";
+
+      const { result } = renderHook(() => useElicitationHandler(options));
+
+      act(() => {
+        result.current.handleElicitationRequest(createMockRequest(), jest.fn());
+      });
+
+      const requestId = result.current.pendingRequests[0].id;
+
+      // Clear the setActiveTab calls from handleElicitationRequest
+      options.setActiveTab.mockClear();
+
+      act(() => {
+        result.current.resolveRequest(requestId, createMockResponse());
+      });
+
+      // Should have navigated back to metadata tab
+      expect(options.setActiveTab).toHaveBeenCalledWith("metadata");
+    });
+
+    it("should recognize all static tabs as valid tabs", () => {
+      const staticTabs = [
+        "resources",
+        "prompts",
+        "tools",
+        "ping",
+        "sampling",
+        "elicitations",
+        "roots",
+        "auth",
+        "metadata",
+      ];
+
+      staticTabs.forEach((tab) => {
+        // Provide full capabilities to ensure all tabs are valid
+        const options = createMockOptions({
+          serverCapabilities: { resources: {}, prompts: {}, tools: {} },
+        });
+        options.lastToolCallOriginTabRef.current = tab;
+
+        const { result } = renderHook(() => useElicitationHandler(options));
+
+        act(() => {
+          result.current.handleElicitationRequest(
+            createMockRequest(),
+            jest.fn(),
+          );
+        });
+
+        const requestId = result.current.pendingRequests[0].id;
+        options.setActiveTab.mockClear();
+
+        act(() => {
+          result.current.resolveRequest(requestId, createMockResponse());
+        });
+
+        // Should have navigated back to the originating tab
+        expect(options.setActiveTab).toHaveBeenCalledWith(tab);
+      });
+    });
+
+    it("should not navigate back to invalid tabs", () => {
+      const options = createMockOptions({ serverCapabilities: {} });
+      options.lastToolCallOriginTabRef.current = "invalid-tab";
+
+      const { result } = renderHook(() => useElicitationHandler(options));
+
+      act(() => {
+        result.current.handleElicitationRequest(createMockRequest(), jest.fn());
+      });
+
+      const requestId = result.current.pendingRequests[0].id;
+      options.setActiveTab.mockClear();
+
+      act(() => {
+        result.current.resolveRequest(requestId, createMockResponse());
+      });
+
+      // Should not have called setActiveTab for navigation back (invalid tab)
+      expect(options.setActiveTab).not.toHaveBeenCalledWith("invalid-tab");
+    });
+  });
 });
