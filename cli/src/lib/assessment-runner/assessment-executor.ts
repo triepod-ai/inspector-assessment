@@ -43,6 +43,7 @@ import type { AssessmentOptions } from "../cli-parser.js";
 import { loadServerConfig } from "./server-config.js";
 import { loadSourceFiles } from "./source-loader.js";
 import { resolveSourcePath } from "./path-resolver.js";
+import type { SourceFiles } from "./types.js";
 import { connectToServer } from "./server-connection.js";
 import { createCallToolWrapper } from "./tool-wrapper.js";
 import { buildConfig } from "./config-builder.js";
@@ -301,7 +302,7 @@ export async function runFullAssessment(
     }
   }
 
-  let sourceFiles = {};
+  let sourceFiles: Partial<SourceFiles> = {};
   if (options.sourceCodePath) {
     // Resolve path using utility (handles ~, relative paths, symlinks)
     const resolvedSourcePath = resolveSourcePath(options.sourceCodePath);
@@ -436,13 +437,24 @@ export async function runFullAssessment(
   // Issue #168: Detect external API dependencies before assessors run
   // This enables TemporalAssessor, FunctionalityAssessor, and ErrorHandlingAssessor
   // to adjust their behavior for tools that depend on external APIs
+  // Enhanced: Pass sourceCodeFiles when available for more accurate detection
   const apiDetector = new ExternalAPIDependencyDetector();
-  const externalAPIDependencies = apiDetector.detect(tools);
+  const externalAPIDependencies = apiDetector.detect(
+    tools,
+    sourceFiles.sourceCodeFiles,
+  );
 
   if (!options.jsonOnly && externalAPIDependencies.detectedCount > 0) {
     console.log(
       `🌐 Detected ${externalAPIDependencies.detectedCount} tool(s) with external API dependencies`,
     );
+    // Show domains if source code scanning found any
+    if (
+      externalAPIDependencies.domains &&
+      externalAPIDependencies.domains.length > 0
+    ) {
+      console.log(`   Domains: ${externalAPIDependencies.domains.join(", ")}`);
+    }
   }
 
   const context: AssessmentContext = {

@@ -561,9 +561,22 @@ See [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) for complete
 
 **Test Approach**:
 
-- Scan tool descriptions and code for API URLs
+- Scan tool descriptions and names for API indicators (always available)
+- Extract actual external API domains from source code when available (Issue #168)
 - Identify third-party service dependencies
 - Check for affiliation disclosure requirements
+
+**Detection Methods**:
+
+1. **Name/Description Patterns** (always runs)
+   - 18 name patterns: `api`, `weather`, `stock`, `fetch_from`, etc.
+   - 7 description regex patterns: `external api`, `fetches from`, `real-time`, etc.
+
+2. **Source Code Scanning** (when `--source` flag provided)
+   - Scans for actual HTTP client calls: `fetch()`, `axios.get()`, `requests.post()`, etc.
+   - Extracts real domain names from detected URLs
+   - Skips localhost and local network URLs
+   - ReDoS protected: max 500KB/file, max 100 matches/file
 
 **External API Categories**:
 
@@ -582,6 +595,11 @@ See [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) for complete
 - Affiliate relationships disclosed if required
 
 **Implementation**: `client/src/services/assessment/modules/ExternalAPIScannerAssessor.ts`
+
+**Helper**: `client/src/services/assessment/helpers/ExternalAPIDependencyDetector.ts` (Issue #168)
+
+- Shared helper used by TemporalAssessor, FunctionalityAssessor, and ErrorHandlingAssessor
+- Returns detection results with confidence levels and domain extraction
 
 ---
 

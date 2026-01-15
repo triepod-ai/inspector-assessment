@@ -110,7 +110,10 @@ client/src/services/assessment/modules/
 ├── ResourceAssessor.ts                # MCP Resources capability
 ├── PromptAssessor.ts                  # MCP Prompts capability
 ├── CrossCapabilitySecurityAssessor.ts # Cross-capability security
-└── AuthenticationAssessor.ts          # OAuth evaluation
+├── AuthenticationAssessor.ts          # OAuth evaluation
+└── helpers/
+    ├── ExternalAPIDependencyDetector.ts  # Shared helper: external API detection
+    └── ExternalAPIDependencyDetector.test.ts
 ```
 
 ### Base Interfaces
@@ -1539,6 +1542,136 @@ async assess(context: AssessmentContext): Promise<YourNewAssessment> {
   }
 
   // ... continue assessment
+}
+```
+
+### Pattern 8: Shared Detection Helpers (Issue #168)
+
+For detection logic used across multiple assessors, create shared helper classes in `helpers/` directory.
+
+**Example: ExternalAPIDependencyDetector**
+
+Used by TemporalAssessor, FunctionalityAssessor, and ErrorHandlingAssessor to detect external API dependencies with two-phase detection:
+
+```typescript
+// Location: client/src/services/assessment/helpers/ExternalAPIDependencyDetector.ts
+
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
+
+export interface ExternalAPIDependencyInfo {
+  toolsWithExternalAPIDependency: Set<string>;
+  detectedCount: number;
+  confidence: "high" | "medium" | "low";
+  detectedTools: string[];
+  domains?: string[]; // Extracted from source code
+  sourceCodeScanned?: boolean; // Whether source was available
+  implications?: ExternalAPIImplications; // Guidance for downstream assessors
+}
+
+export class ExternalAPIDependencyDetector {
+  /**
+   * Detect external API dependencies from tools and optional source code.
+   *
+   * @param tools - List of MCP tools to analyze
+   * @param sourceCodeFiles - Optional map of file paths to content for source scanning
+   * @returns Detection results with tool names, domains, and implications
+   */
+  detect(
+    tools: Tool[],
+    sourceCodeFiles?: Map<string, string>,
+  ): ExternalAPIDependencyInfo {
+    // Phase 1: Name/description pattern matching (always runs)
+    const toolsWithExternalAPI = new Set<string>();
+    for (const tool of tools) {
+      if (this.isExternalAPITool(tool)) {
+        toolsWithExternalAPI.add(tool.name);
+      }
+    }
+
+    // Phase 2: Source code scanning (when available)
+    let domains: string[] | undefined;
+    if (sourceCodeFiles && sourceCodeFiles.size > 0) {
+      domains = this.scanSourceCode(sourceCodeFiles);
+    }
+
+    // Combine results
+    return {
+      toolsWithExternalAPIDependency: toolsWithExternalAPI,
+      detectedCount: toolsWithExternalAPI.size,
+      confidence: this.computeConfidence(toolsWithExternalAPI.size, domains),
+      detectedTools: Array.from(toolsWithExternalAPI),
+      domains,
+      sourceCodeScanned: sourceCodeFiles?.size ?? 0 > 0,
+      implications: this.generateImplications(domains),
+    };
+  }
+
+  // Private methods: isExternalAPITool(), scanSourceCode(), computeConfidence(), etc.
+}
+```
+
+**Usage in an Assessor**:
+
+```typescript
+export class TemporalAssessor extends BaseAssessor {
+  private apiDetector = new ExternalAPIDependencyDetector();
+
+  async assess(context: AssessmentContext): Promise<TemporalAssessment> {
+    // Get external API detection info
+    const apiInfo = this.apiDetector.detect(
+      context.tools,
+      context.sourceCodeFiles, // Optional - improves accuracy
+    );
+
+    // Use detection info to adjust temporal thresholds
+    for (const tool of context.tools) {
+      const isExternal = apiInfo.toolsWithExternalAPIDependency.has(tool.name);
+      const variance = await this.measureVariance(tool);
+
+      // Relax variance thresholds for external API tools
+      const threshold = isExternal ? 0.4 : 0.1;
+      const isMutating = variance > threshold;
+
+      // Track domain information if available
+      if (apiInfo.domains?.length) {
+        this.log(
+          `Tool ${tool.name} may depend on: ${apiInfo.domains.join(", ")}`,
+        );
+      }
+    }
+
+    return {
+      /* ... */
+    };
+  }
+}
+```
+
+**Key Design Patterns**:
+
+1. **Two-Phase Detection**: Fast patterns (always) + accurate source code scanning (optional)
+2. **Confidence Levels**: Both methods combined boost confidence ("high" when both agree)
+3. **Downstream Guidance**: Helper returns `implications` object for other assessors
+4. **ReDoS Protection**: Source scanning has limits (500KB/file, 100 matches/file)
+5. **Locality Filtering**: Automatically skips localhost, test files, node_modules
+
+**When to Create Shared Helpers**:
+
+- Detection logic used by 2+ assessors
+- Complex pattern sets (50+ lines) repeated across modules
+- Information generated in context-prep phase (affects multiple assessors)
+- Reusable business logic (variance classification, pattern matching, etc.)
+
+**Registration Pattern**:
+
+Helpers don't need registry entries - just import and instantiate in assessors:
+
+```typescript
+import { ExternalAPIDependencyDetector } from "../helpers/ExternalAPIDependencyDetector";
+
+export class YourAssessor extends BaseAssessor {
+  private detector = new ExternalAPIDependencyDetector();
+  // ... use detector in assess() method
 }
 ```
 

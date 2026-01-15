@@ -2,7 +2,65 @@
 
 ## Current Version
 
-- **Version**: 1.36.4 (published to npm as "@bryan-thompson/inspector-assessment")
+- **Version**: 1.37.0 (published to npm as "@bryan-thompson/inspector-assessment")
+
+---
+
+## 2026-01-15: Issue #168 - Enhanced ExternalAPIDependencyDetector with Source Code Scanning
+
+**Summary:** Enhanced the ExternalAPIDependencyDetector helper to support source code scanning for more accurate external API dependency detection.
+
+**Session Focus:** Issue #168 implementation - source code scanning for external API detection
+
+**Changes Made:**
+- Extended `ExternalAPIDependencyInfo` interface with new fields: `domains`, `sourceCodeScanned`, `implications`
+- Added `ExternalAPIImplications` interface for downstream assessor guidance
+- Implemented `scanSourceCode()` method with 7 regex patterns for HTTP client calls:
+  - fetch() calls (JavaScript/TypeScript)
+  - axios HTTP client calls (get, post, put, patch, delete, request)
+  - URL construction (new URL())
+  - API base URL constants (API_BASE_URL, BASE_URL, API_URL, ENDPOINT)
+  - Generic HTTP client .get/.post calls
+  - Python requests library calls
+  - Python httpx library calls
+- Added localhost/local network URL filtering (127.0.0.1, 192.168.x, 10.x, .local, example.com)
+- Added test file skipping patterns (node_modules, .test.ts, .spec.ts, .d.ts, etc.)
+- Updated `detect()` method signature to accept optional `sourceCodeFiles` parameter
+- Added input sanitization limits (500KB max file size, 100 max matches per file)
+- Used `String.matchAll()` for thread-safe regex matching
+- Updated CLI (`assessment-executor.ts`) to pass `sourceCodeFiles` to detector
+- Fixed type safety issues (imported `SourceFiles` type, updated `PackageJson` type)
+- Added 36+ new tests for source code scanning functionality
+
+**Files Modified:**
+- `client/src/services/assessment/helpers/ExternalAPIDependencyDetector.ts` - Core implementation
+- `cli/src/lib/assessment-runner/assessment-executor.ts` - CLI integration
+- `cli/src/lib/assessment-runner/types.ts` - Type definitions
+- `client/src/services/assessment/__tests__/ExternalAPIDependencyDetector.test.ts` - Tests
+
+**Key Decisions:**
+- Enhanced existing helper rather than merging with ExternalAPIScannerAssessor (separate concerns)
+- Used `Map.forEach()` and `Array.from(matchAll())` for TypeScript compatibility
+- Added input sanitization to prevent ReDoS attacks on large/adversarial files
+- Backward compatible - existing callers without source code continue to work
+
+**Test Results:**
+- All 161 tests passing for ExternalAPIDependencyDetector
+- Build successful
+
+**Acceptance Criteria Met:**
+- ✅ Source code scanning extracts domains from fetch/axios/URL patterns
+- ✅ Localhost/local URLs are filtered out
+- ✅ Results include `domains`, `sourceCodeScanned`, and `implications`
+- ✅ CLI passes sourceCodeFiles to detector when available
+- ✅ All existing tests pass
+- ✅ New tests cover source code scanning scenarios
+
+**Next Steps:**
+- Test with world-bank MCP server (known external API)
+- Verify TemporalAssessor handles enhanced info correctly
+
+---
 
 **Session Focus:** Issue #160 complete fix and npm release v1.36.5
 
@@ -237,3 +295,117 @@
 - Commit: 112a6473 - feat(assessment): Add shared ExternalAPIDependencyDetector (Issue #168)
 - Testbed validation passed: vulnerable-mcp (451 vulns), hardened-mcp (0 vulns), 0 false positives on safe tools
 - A/B detection gap maintained with pure behavior-based detection
+
+---
+
+## 2026-01-15: npm Release v1.37.0 - Minor version bump with new features
+
+**Summary:** Published npm package version 1.37.0 with accumulated features and fixes
+
+**Session Focus:** Publishing npm package version 1.37.0 with accumulated features and fixes
+
+**Changes Made:**
+- Bumped version from 1.36.5 to 1.37.0 (minor bump for new features)
+- Committed pending PROJECT_STATUS.md changes
+- Built and published all 4 workspace packages to npm
+- Pushed v1.37.0 tag to GitHub
+
+**Key Decisions:**
+- Used minor version bump (not patch) due to 3 feature commits since last release
+
+**What's in 1.37.0:**
+
+Features:
+- ECONNRESET pattern and retry integration tests (#157)
+- Shared ExternalAPIDependencyDetector (#168)
+- Connection retry logic for transient errors (#157)
+
+Fixes:
+- try-finally for console spy cleanup (#149)
+- Handle isError variance for external API tools (#166)
+- Conditional severity for description length warnings (#167)
+
+**Next Steps:**
+- Continue development on upcoming features
+- Monitor npm package for any issues
+
+**Notes:**
+- Package: @bryan-thompson/inspector-assessment@1.37.0
+- All 4 workspace packages published successfully
+- Tag v1.37.0 pushed to GitHub
+
+---
+
+## 2026-01-15: Issue #163 Complete - Modularized securityPatterns.ts by attack category
+
+**Summary:** Split monolithic 2,202-line security patterns file into 7 focused modules for maintainability
+
+**Session Focus:** Modularizing securityPatterns.ts to improve code organization and maintainability
+
+**Changes Made:**
+- Split `securityPatterns.ts` (2,202 lines) into 7 focused modules:
+  - `injectionPatterns.ts` - 6 injection attack patterns (SQL, NoSQL, LDAP, XPath, Command, Template)
+  - `validationPatterns.ts` - 5 validation bypass patterns (Path Traversal, SSRF, XXE, Deserialization, Schema)
+  - `toolSpecificPatterns.ts` - 7 tool-specific patterns (Calculator, Filesystem, Code Exec, Network, Logging, Memory, LLM)
+  - `resourceExhaustionPatterns.ts` - 2 resource exhaustion patterns (Timeout, Memory)
+  - `authSessionPatterns.ts` - 5 auth/session patterns (Token, Session, Privilege, IDOR, Rate Limit)
+  - `advancedExploitPatterns.ts` - 7 advanced exploit patterns (Prototype Pollution, Unicode, Race, Payload Size, Type Confusion, Chained, Multi-step)
+- Updated `securityPatterns.ts` to re-export from modules (maintains backward compatibility)
+- Added explicit 184 payload count assertion in integrity tests (17 tests total)
+- Updated documentation: SECURITY_PATTERNS_CATALOG.md, ASSESSMENT_MODULE_DEVELOPER_GUIDE.md
+
+**Key Decisions:**
+- Organized by attack category rather than alphabetically for logical grouping
+- Used re-export pattern to maintain backward compatibility with existing imports
+- Added payload count assertion to catch accidental pattern loss during refactoring
+- Kept original file as aggregation point to avoid breaking changes
+
+**Next Steps:**
+- Consider similar modularization for other large files if needed
+- Monitor for any import issues in downstream code
+
+**Notes:**
+- Commit: e886353d - feat(security): Modularize securityPatterns.ts by attack category (Issue #163)
+- Full code review workflow passed (0 P0/P1 issues)
+- All 17 integrity tests passing with explicit payload count validation
+- Issue #163 closed on GitHub
+
+## 2026-01-15: Issue #168 Code Review & ReDoS Protection Tests
+
+**Summary:** Completed Issue #168 code review workflow and added ReDoS protection test coverage
+
+**Session Focus:** Issue #168 implementation validation through 6-stage code review and test enhancement
+
+**Changes Made:**
+- Executed 6-stage code review workflow on Issue #168 (shared ExternalAPIDependencyDetector)
+- Stage 1: Code review identified 4 issues (0 P0, 1 P1, 1 P2, 2 P3)
+- Stage 2: P1 validation - empty catch block in extractDomain() confirmed correct (URL parsing only throws TypeError)
+- Stage 3: QA validation - identified need for ReDoS (Regular Expression Denial of Service) protection tests
+- Stage 4: Added 3 new ReDoS protection tests to ExternalAPIDependencyDetector.test.ts
+  - Test 1: MAX_CONTENT_LENGTH enforcement (500KB limit)
+  - Test 2: MAX_MATCHES_PER_FILE enforcement (100 match limit)
+  - Test 3: Regex performance under pathological input patterns
+- Stage 5: Documentation enhancement
+  - docs/ASSESSMENT_CATALOG.md (+19 lines)
+  - docs/ASSESSMENT_MODULE_DEVELOPER_GUIDE.md (+131 lines)
+  - New section: "Pattern 8: Shared Detection Helpers" with ReDoS best practices
+- Stage 6: Final validation - all 164 tests passing, build successful
+
+**Key Decisions:**
+- Validated empty catch block as intentional design (only TypeError can occur)
+- Implemented explicit ReDoS protection limits rather than relying on timeout
+- Documented MAX_CONTENT_LENGTH and MAX_MATCHES_PER_FILE as critical security parameters
+- Enhanced developer guide with shared detector pattern documentation
+
+**Next Steps:**
+- Commit all Issue #168 changes to main branch
+- Close GitHub Issue #168 as complete
+- Consider applying similar ReDoS protection patterns to other regex-based detectors
+
+**Notes:**
+- Total files modified: 7 (980 insertions, 21 deletions)
+- New test suite: 3 ReDoS protection tests
+- Code review verdict: PASS - ready for production
+- Test coverage: 164/164 passing (100% success rate)
+
+---
