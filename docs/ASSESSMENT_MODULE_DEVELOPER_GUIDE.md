@@ -1576,7 +1576,7 @@ Before submitting a new module:
 - **Orchestrator**: `client/src/services/assessment/AssessmentOrchestrator.ts`
 - **Test Utilities**: `client/src/test/utils/testUtils.ts`
 - **Module Scoring**: `client/src/lib/moduleScoring.ts`
-- **Security Patterns**: `client/src/lib/securityPatterns.ts`
+- **Security Patterns**: `client/src/lib/securityPatterns/` (modularized in v1.37.0)
 - **Test Data Generation**: `client/src/services/assessment/TestDataGenerator.ts`
 - **Response Validation**: `client/src/services/assessment/ResponseValidator.ts`
 
