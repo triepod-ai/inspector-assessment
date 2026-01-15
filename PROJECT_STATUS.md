@@ -4,272 +4,236 @@
 
 - **Version**: 1.36.4 (published to npm as "@bryan-thompson/inspector-assessment")
 
-**Recent Releases:**
-- v1.36.4: Issue #160 fix - emitToolDiscovered() non-suffixed annotation fallback
-- v1.36.3: Issue #159 fix - transport interception for hint preservation
-- v1.36.2: Issue #158 fix - totalToolsFound legacy compatibility
-- v1.36.1: Issue #153, #154 fixes - connection error detection, skipped module scoring
-- v1.36.0: Issue #155 fix - tool annotation detection in events
-
----
-
-## 2026-01-13: v1.36.4 Release - Issue #160 Fix
-
-**Summary:** Fixed incomplete Issue #150 implementation by adding non-suffixed annotation fallback to `emitToolDiscovered()`.
-
-**Problem:** Servers using `annotations: { readOnly: true }` (non-suffixed) were incorrectly flagged as having missing annotations (0% detection rate).
-
-**Root Cause:** Issue #150 fix was applied to `AlignmentChecker.resolveAnnotationValue()` but not to `emitToolDiscovered()` in the CLI JSONL events module.
+**Session Focus:** Issue #160 complete fix and npm release v1.36.5
 
 **Changes Made:**
-- `cli/src/lib/jsonl-events.ts` - Added non-suffixed fallback for all 4 priority locations:
-  - Priority 1: tool.annotations object
-  - Priority 2: Direct properties on tool
-  - Priority 3: tool.metadata object
-  - Priority 4: tool._meta object
-- `cli/src/__tests__/jsonl-events.test.ts` - Added 8 test cases for non-suffixed detection
-
-**Fix Pattern:**
-```typescript
-// Before (only checked *Hint)
-readOnlyHint = annotationsAny.readOnlyHint;
-
-// After (checks both with fallback)
-if (typeof annotationsAny.readOnlyHint === "boolean") {
-  readOnlyHint = annotationsAny.readOnlyHint;
-} else if (typeof annotationsAny.readOnly === "boolean") {
-  readOnlyHint = annotationsAny.readOnly;
-}
-```
+- Implemented two-part solution for non-suffixed annotation property detection:
+  1. `cli/src/tools-with-hints.ts`: Transport interception to preserve non-suffixed properties (readOnly, destructive, idempotent, openWorldHint) before MCP SDK Zod validation strips them
+  2. `cli/src/jsonl-events.ts`: Fallback detection for non-suffixed properties in JSONL event emission
+- Published v1.36.5 to npm (all 4 packages: root, client, server, cli)
+- Updated GitHub Issue #160 with release comment
 
 **Commits:**
-- 5a32b6b1: fix(annotations): Add non-suffixed fallback to emitToolDiscovered() (Issue #160)
-- 760d906a: 1.36.4
-
-**Issue Closed:** #160
-
----
-
-## 2026-01-13: Fixed Issue #152 - Security Module Scoring Bug
-
-**Summary:** Fixed Issue #152 security module scoring bug and created follow-up Issue #157 for retry logic.
-
-**Session Focus:** Issue #152 - Security module returning empty results with 90% score
-
-**Changes Made:**
-- `client/src/lib/assessment/resultTypes.ts` - Added testExecutionMetadata interface
-- `client/src/lib/moduleScoring.ts` - Added score validation logic with coverage checks
-- `client/src/services/assessment/modules/SecurityAssessor.ts` - Populated test execution metadata
-- `client/src/lib/__tests__/moduleScoring.test.ts` - Added 10 new tests for scoring validation
-- Created GitHub Issue #157 for connection retry enhancement
+- e7728e0c: feat(cli): Transport interception for non-suffixed annotation properties (Issue #160)
+- 5a32b6b1: feat(cli): Add fallback detection for non-suffixed annotation properties in JSONL events
+- 2df75352: 1.36.5
 
 **Key Decisions:**
-- Score 0% when no tests completed due to connection errors
-- Cap score at 50% when test coverage < 50%
-- Metadata is optional for backward compatibility
-- Connection retry logic deferred to Issue #157
+- Two-part fix was required because MCP SDK Zod validation strips non-spec properties
+- Transport-level interception captures raw MCP messages before SDK processing
+- JSONL event emission includes fallback to ensure non-suffixed properties appear in output
+- Approach maintains compatibility with both spec-compliant (suffixed) and non-spec (non-suffixed) servers
 
 **Next Steps:**
-- Implement Issue #157 connection retry logic
-- Consider extracting magic numbers to named constants (P3)
-- Address remaining unstaged test file changes
+- Test with actual non-suffixed server (like Tomba MCP which reportedly uses readOnly instead of readOnlyHint)
+- Monitor GitHub Issues for reports from users with non-standard annotation servers
+- Consider documenting supported annotation property variants
 
 **Notes:**
-- Code review identified P1 comment clarification (fixed)
-- 10 new tests all passing
-- Commit: e40f2052
+- hardened-mcp validation showed 46/46 tools detected (100% detection rate)
+- Issue #160 was originally reported as annotations showing null despite server using readOnly property
+- This fix resolves false negatives where non-suffixed annotation properties were being stripped by SDK validation
 
 ---
 
-## 2026-01-13: Fixed Issue #153 - ErrorHandling Module Scoring Bug
+## 2026-01-14: GitHub Issue Triage - Closed Duplicate Issues #161 and #162
 
-**Summary:** Fixed errorHandling module returning 100% score when no tests executed due to connection errors.
+**Summary:** Issue triage - closed 2 duplicate issues (#161, #162) already fixed in v1.36.5
 
-**Session Focus:** Bug fix for errorHandling module scoring validation (Issue #153)
+**Session Focus:** GitHub issue review and cleanup
 
 **Changes Made:**
-- `client/src/lib/assessment/resultTypes.ts` - Added testExecutionMetadata interface to ErrorHandlingAssessment
-- `client/src/services/assessment/modules/ErrorHandlingAssessor.ts` - Populated testExecutionMetadata with tool-level coverage tracking
-- `client/src/lib/moduleScoring.ts` - Added score validation logic (0% for all failures, cap at 50% for <50% coverage)
-- `client/src/lib/__tests__/moduleScoring.test.ts` - Added 9 new test cases for errorHandling metadata validation
+- Reviewed 8 open GitHub issues
+- Investigated issues #161 and #162 - both reported 'post' keyword false positive in readOnlyHint detection
+- Confirmed fix was already implemented in v1.36.5 (commit 2eccd6a2)
+- Closed issue #161 as resolved
+- Closed issue #162 as duplicate of #161
 
 **Key Decisions:**
-- Followed same pattern as Issue #152 (security module) for consistency
-- Used tool-based counting for coverage (tracks connection failures per tool)
-- Code review identified P1 semantic inconsistency - user requested refactor to match SecurityAssessor's test-based counting
+- Identified both issues as duplicates of the same already-fixed problem
+- The noun-context detection fix using READONLY_PREFIX_PATTERNS and NOUN_KEYWORDS_IN_READONLY_CONTEXT resolved the false positive
 
 **Next Steps:**
-- Refactor to use test-based counting for semantic consistency with SecurityAssessor
-- Commit changes with proper conventional commit message
+- Continue with remaining 6 open issues
 
 **Notes:**
-- All 43 moduleScoring tests passing (9 new)
-- All 71 ErrorHandlingAssessor tests passing
-- Build succeeds with no TypeScript errors
-- Issue #153 identified same pattern as Issue #152
+- The 'post' keyword false positive occurred because 'post' matched HTTP method pattern but was actually referring to a blog/forum post noun
+- Fix implemented context-aware noun detection to distinguish between HTTP POST method and noun usage
 
----
+## 2026-01-14: GitHub Issue Triage - Closed Duplicate Issues #161 and #162
 
-## 2026-01-13: Fixed False-Positive Scoring Bugs (Issues #153, #154)
+**Summary:** Issue triage - closed 2 duplicate issues (#161, #162) already fixed in v1.36.5
 
-**Summary:** Fixed false-positive scoring bugs in prohibitedLibraries and errorHandling assessment modules.
-
-**Session Focus:** Issue #154 (prohibitedLibraries reports 0 files scanned returning PASS) and Issue #153 (errorHandling returns 100% score with no tests executed)
+**Session Focus:** GitHub issue review and cleanup
 
 **Changes Made:**
-- `client/src/lib/assessment/extendedTypes.ts` - Added skipped?, skipReason? fields to ProhibitedLibrariesAssessment
-- `client/src/services/assessment/modules/ProhibitedLibrariesAssessor.ts` - Added createSkippedResult() method and early return check
-- `client/src/services/assessment/modules/ProhibitedLibrariesAssessor.test.ts` - Added 8 tests for skip behavior (158 lines)
-- `cli/src/lib/assessment-runner/assessment-executor.ts` - CLI always shows warning when source path not found
-- `client/src/lib/moduleScoring.ts` - Validate test execution before returning score
-- `client/src/services/assessment/modules/ErrorHandlingAssessor.ts` - Added testExecutionMetadata tracking
-- `client/src/lib/assessment/resultTypes.ts` - Added TestExecutionMetadata interface
-- `client/src/lib/__tests__/moduleScoring.test.ts` - Added 119 lines of score validation tests
+- Reviewed 8 open GitHub issues
+- Investigated issues #161 and #162 - both reported 'post' keyword false positive in readOnlyHint detection
+- Confirmed fix was already implemented in v1.36.5 (commit 2eccd6a2)
+- Closed issue #161 as resolved
+- Closed issue #162 as duplicate of #161
 
 **Key Decisions:**
-- Used established createSkippedResult() pattern from ConformanceAssessor/FileModularizationAssessor
-- Return NEED_MORE_INFO (not new SKIPPED status) for backward compatibility
-- Test execution validation: 0 score if all tests fail, cap at 50 if >50% fail
-
-**Commits:**
-- c6b675a3: fix(prohibitedLibraries): Return NEED_MORE_INFO when no files to scan (Issue #154)
-- 4dc203bb: fix(errorHandling): Validate test execution before scoring (Issue #153)
-
-**Issues Closed:** #153, #154
+- Identified both issues as duplicates of the same already-fixed problem
+- The noun-context detection fix using READONLY_PREFIX_PATTERNS and NOUN_KEYWORDS_IN_READONLY_CONTEXT resolved the false positive
 
 **Next Steps:**
-- Monitor for any edge cases in production usage
-- Consider similar validation patterns for other assessment modules
+- Continue with remaining 6 open issues
 
 **Notes:**
-- Code review workflow found no P0 issues
-- All 35 ProhibitedLibraries tests passing including 8 new ones
+- The 'post' keyword false positive occurred because 'post' matched HTTP method pattern but was actually referring to a blog/forum post noun
+- Fix implemented context-aware noun detection to distinguish between HTTP POST method and noun usage
 
 ---
 
-## 2026-01-13: Added --debug-annotations CLI Flag (Issue #155)
+## 2026-01-14: Issue #160 Review - Non-Suffixed Annotation Properties Validation
 
-**Summary:** Added debug flag and expanded annotation detection to 5 locations for Issue #155.
+**Summary:** Reviewed Issue #160 fix completeness - verified GitHub validation and test coverage
 
-**Session Focus:** Issue #155 - Tool annotation detection returns 0% for servers with runtime annotations
+**Session Focus:** Issue #160 review - non-suffixed annotation property detection fix validation
 
 **Changes Made:**
-- `client/src/services/assessment/modules/annotations/AlignmentChecker.ts` - Added setAnnotationDebugMode(), debug logging, expanded to check _meta and annotations.hints
-- `cli/src/lib/cli-parser.ts` - Added --debug-annotations flag with help text
-- `cli/src/lib/assessment-runner/assessment-executor.ts` - Enable debug mode when flag is used
-- `client/src/services/assessment/modules/annotations/index.ts` - Export new debug functions
-- `client/src/services/assessment/__tests__/AlignmentChecker-Issue155.test.ts` - New test file with 12 test cases
+- Reviewed GitHub Issue #160 comments and validation notes
+- Analyzed test coverage for Issue #160 fix
+- Verified all 13 Issue #160 tests pass across jsonl-events.test.ts and tools-with-hints.test.ts
+- Confirmed GitHub validation from bryan-anthropic (Tomba MCP: 0% → 100% annotation coverage)
 
 **Key Decisions:**
-- Extraction logic was already correct; issue is server frameworks not serializing top-level hints
-- Added debug flag to help developers diagnose annotation location issues
-- Expanded to 5 annotation locations: annotations object, direct properties, metadata, _meta, annotations.hints
+- Issue #160 fix is complete with proper test coverage
+- No additional tests needed - existing 13 tests cover all code paths
+- GitHub validation confirms real-world effectiveness
 
 **Next Steps:**
-- Run tests to verify no regressions
-- Document the --debug-annotations flag in CLI docs
+- Monitor for any edge cases with other non-suffixed annotation servers
+- Consider documenting supported annotation property variants in user docs
 
 **Notes:**
-- Root cause identified: FastMCP doesn't serialize top-level readOnlyHint properties
-- Servers should use annotations=ToolAnnotations(readOnlyHint=True) instead of readOnlyHint: true at tool root
-- 12 new test cases covering all annotation location combinations
+- Test coverage: 8 tests in jsonl-events.test.ts + 5 tests in tools-with-hints.test.ts
+- Related Issue #150 has 22 additional tests in AlignmentChecker-Issue150.test.ts
+- All tests passing as of this session
 
 ---
 
-## 2026-01-13: Fixed Skipped Module Scoring in calculateModuleScore (Issue #154 Follow-up)
+## 2026-01-14: Issue #157 Code Review - Security Module Connection Retry Logic
 
-**Summary:** Fixed module scoring to properly return null for skipped modules, completing Issue #154 fix.
+**Summary:** Completed 7-stage code review and P1 fix for ECONNRESET retry handling
 
-**Session Focus:** Investigating reopened Issue #154 where prohibitedLibraries module still showed 100% score with 0 scanned files despite the initial fix.
+**Session Focus:** Code review and P1 issue resolution for Issue #157 Security Module Connection Retry Logic
 
 **Changes Made:**
-- `client/src/lib/moduleScoring.ts` - Added early return check for `skipped: true` flag to return `null` instead of calculating score
-- `client/src/lib/__tests__/moduleScoring-skipped.test.ts` - New test file with 6 comprehensive test cases for skipped module scoring behavior
+- Added /ECONNRESET/i pattern to TRANSIENT_ERROR_PATTERNS in SecurityPatternLibrary.ts
+- Added /ECONNRESET/i pattern to CONNECTION_ERROR_PATTERNS.unambiguous
+- Added 5 integration tests for testPayloadWithRetry() in SecurityPayloadTester-Retry.test.ts
+- Updated PERFORMANCE_TUNING_GUIDE.md with securityRetryMaxAttempts and securityRetryBackoffMs documentation
+- Updated test expectations (pattern count from 8 to 9, ECONNRESET test from false to true)
 
 **Key Decisions:**
-- Root cause: `calculateModuleScore()` wasn't honoring the `skipped: true` flag that modules set via `createSkippedResult()`
-- Fix location: Added check at the start of `calculateModuleScore()` before any score calculation
-- Return value: `null` for skipped modules (consistent with how UI should handle missing/unavailable data)
-- Test coverage: Added tests for direct skipped flag, nested result.skipped, and various edge cases
-
-**Commits:**
-- 1eb59519: fix(moduleScoring): Return null for skipped modules in calculateModuleScore (Issue #154)
-
-**Issues Updated:** #154 (added follow-up comments explaining the additional fix)
-
-**Related Issues Created:**
-- mcp-auditor#140: Investigate libraryMetrics display transformation (found during investigation)
+- Use real timers instead of fake timers for async retry metadata test due to Jest timer complexities
+- Added ECONNRESET as transient error since it is a common Node.js connection reset error code
+- P3 issues deferred (jitter for backoff, enhanced logging) as non-blocking enhancements
 
 **Next Steps:**
-- Monitor production usage to ensure skipped modules display correctly
-- Consider adding similar skipped handling to other scoring utilities if needed
+- P3 issues remain open for future enhancement consideration
+- Monitor retry behavior in production usage
 
 **Notes:**
-- The initial Issue #154 fix added `createSkippedResult()` call in ProhibitedLibrariesAssessor
-- This follow-up fix ensures the scoring layer respects that skipped flag
-- Both fixes together complete the full solution: module marks itself skipped AND scoring honors it
-- All 1566 tests passing including 6 new skipped module scoring tests
+- All 32 retry tests passing
+- Code review verdict: APPROVED
+- Commit reviewed: d81eaaf2
 
 ---
 
-## 2026-01-13: Fixed Tool Annotation Detection for Runtime Annotations (Issue #155)
+## 2026-01-14: Codebase Analysis and Refactoring Issue Creation
 
-**Summary:** Fixed annotation detection returning 0% for servers with runtime annotations
+**Summary:** Analyzed codebase for large files that could be modularized to improve LLM-friendliness
 
-**Session Focus:** Bug fix for annotation detection in CLI JSONL events where servers providing annotations at runtime were not being detected.
+**Session Focus:** Code analysis and refactoring issue creation
 
 **Changes Made:**
-- `cli/src/lib/jsonl-events.ts` - Fixed `emitToolDiscovered()` to check 4 annotation locations:
-  1. `tool.annotations` object (MCP spec standard location)
-  2. Direct properties (`tool.readOnlyHint`, etc.)
-  3. `tool.metadata` object
-  4. `tool._meta` object
-- `cli/src/__tests__/jsonl-events.test.ts` - Added 4 test cases covering annotation detection from various locations
-- Improved comment documentation per code review feedback explaining the design choice
+- Analyzed source files to find largest non-test TypeScript files
+- Identified `securityPatterns.ts` (2,202 lines), `extendedTypes.ts` (1,145 lines), and `App.tsx` (1,293 lines) as top candidates
+- Created GitHub issue #163: Modularize securityPatterns.ts by attack category
+- Created GitHub issue #164: Modularize extendedTypes.ts by domain (61 exports to 9 modules)
+- Created GitHub issue #165: Extract App.tsx logic into custom hooks
 
 **Key Decisions:**
-- Used simplified annotation extraction (only `*Hint`-suffixed properties) vs full AlignmentChecker logic
-- Documented this as intentional design choice in code comments - balances coverage vs complexity
-- Checked 4 annotation locations to handle various server framework implementations
-
-**Commits:**
-- 7ecb6fee: fix(annotations): Detect tool annotations from multiple locations (Issue #155)
-- b49fb305: fix(annotations): Add comment explaining extraction design choice (Issue #158 + code review)
-
-**Issues Closed:** #155
+- Proposed splitting securityPatterns.ts into 6-7 modules organized by attack category (injection, traversal, authentication, etc.)
+- Proposed splitting extendedTypes.ts into 9 domain-specific type files
+- Proposed extracting App.tsx callbacks into 6 custom hooks (useTabState, useToolExecution, useSamplingHandler, etc.)
+- All refactoring maintains backward compatibility via barrel exports
 
 **Next Steps:**
-- Monitor for any remaining annotation detection issues in production
-- Consider adding non-suffixed property fallbacks if needed (P2 suggestion from code review)
+- Implement refactoring starting with simpler extractions (useNotifications, useTabState)
+- Consider marking issues as "good first issue" for contributors
 
 **Notes:**
-- Root cause: Different MCP server frameworks serialize annotations to different locations
-- FastMCP uses `annotations` object, other frameworks may use direct properties or metadata
-- All 65 CLI tests passing after fix
+- Refactoring improves LLM context efficiency by reducing file sizes to 100-300 lines each
+- No code changes made this session - planning/issue creation only
+- Issues created: #163, #164, #165
 
 ---
 
-## 2026-01-13: Published v1.36.3 with Issue #155 Fix
+## 2026-01-14: Fixed False Positive Issues #166 and #167
 
-**Summary:** Published v1.36.3 to npm with Issue #155 fix for tool annotation detection
+**Summary:** Fixed two false positive issues in Temporal and Annotation assessors
 
-**Session Focus:** Publishing the transport-level interception fix for tool annotation detection that was merged but not yet published to npm.
+**Session Focus:** Reducing false positives in Inspector assessment modules
 
 **Changes Made:**
-- Published @bryan-thompson/inspector-assessment@1.36.3 to npm
-- Created and pushed git tag v1.36.3
-- Added confirmation comment to GitHub Issue #155
+- Issue #166: Added external API tool detection and isError variance handling in VarianceClassifier.ts and TemporalAssessor.ts
+- Issue #167: Implemented conditional severity for description length warnings (LOW for length-only, MEDIUM for length+patterns)
+- Created 34 new tests for external API handling (TemporalAssessor-ExternalAPI.test.ts)
+- Added 5 new tests for conditional severity logic
+- Commits: 1aa7d380 (Issue #167), b5fc1492 (Issue #166)
 
 **Key Decisions:**
-- Stashed pending PROJECT_STATUS.md changes to ensure clean publish
-- Used standard publish workflow (build -> publish-all -> tag -> push)
+- External API tools detected via name patterns (16) and description patterns (7 regex)
+- isError variance (error vs success responses) treated as LEGITIMATE for external/stateful tools
+- Length-only description warnings get LOW severity (informational, no FAIL)
+
+**Testbed Validation:**
+- Vulnerable-MCP: 456 vulnerabilities, 1594 vulnerable tests
+- Hardened-MCP: 0 vulnerabilities, 0 vulnerable tests
+- A/B detection gap maintained, zero false positives
 
 **Next Steps:**
-- Monitor for any remaining annotation detection issues
-- Update stashed PROJECT_STATUS.md content if needed
+- 9 open issues remaining (#168, #165, #164, #163, #149, #133, #130, #129, #48)
 
 **Notes:**
-- Issue #155 fix uses transport-level interception to capture raw MCP messages before SDK validation strips hint properties
-- This resolves false negatives where servers with `readOnlyHint: true` as direct properties showed `annotations: null`
+- Both issues closed with comprehensive test coverage
+- No regressions in testbed validation
+- Pattern-based detection preserves precision while reducing false positives
 
 ---
+
+## 2025-01-14: Implemented External API Dependency Detector (Issue #168)
+
+**Summary:** Created shared ExternalAPIDependencyDetector helper for cross-assessor external API detection
+
+**Session Focus:** Create shared ExternalAPIDependencyDetector helper for cross-assessor external API detection
+
+**Changes Made:**
+- NEW: `client/src/services/assessment/helpers/ExternalAPIDependencyDetector.ts` - shared helper with 18 name patterns + 7 description patterns
+- NEW: `client/src/services/assessment/__tests__/ExternalAPIDependencyDetector.test.ts` - 122 unit tests
+- MODIFIED: AssessmentOrchestrator.ts - added externalAPIDependencies to AssessmentContext
+- MODIFIED: assessment-executor.ts - runs detector during context preparation
+- MODIFIED: TemporalAssessor.ts - uses context-based detection with VarianceClassifier fallback
+- MODIFIED: FunctionalityAssessor.ts - accepts expected API errors as "working" status
+- MODIFIED: ErrorHandlingAssessor.ts - accounts for external service failures
+- MODIFIED: VarianceClassifier.ts - delegates to shared detector, removed duplicate patterns
+- MODIFIED: resultTypes.ts - added note field to ToolTestResult
+
+**Key Decisions:**
+- Pattern-only MVP approach (no source code URL scanning in this release)
+- Context enrichment pattern - detection runs during preparation phase before assessors
+- Word-boundary matching to prevent false positives (e.g., "api" shouldn't match "capital")
+
+**Next Steps:**
+- Future: Source code URL scanning for higher confidence detection
+- Future: JSONL event for external_api_detected
+- Future: Report section for "External Dependencies"
+
+**Notes:**
+- Commit: 112a6473 - feat(assessment): Add shared ExternalAPIDependencyDetector (Issue #168)
+- Testbed validation passed: vulnerable-mcp (451 vulns), hardened-mcp (0 vulns), 0 false positives on safe tools
+- A/B detection gap maintained with pure behavior-based detection
