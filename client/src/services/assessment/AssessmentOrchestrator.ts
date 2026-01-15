@@ -14,6 +14,7 @@ import {
   ProgressCallback,
   ServerInfo,
   PackageJson,
+  ToolAnnotationsContext,
 } from "@/lib/assessmentTypes";
 import {
   Tool,
@@ -42,6 +43,9 @@ import {
 
 // External API dependency detection (Issue #168)
 import { ExternalAPIDependencyInfo } from "./helpers/ExternalAPIDependencyDetector";
+
+// Stdio transport detection (Issue #172)
+import { TransportDetectionResult } from "./helpers/StdioTransportDetector";
 
 // Registry pattern for assessor management (Issue #91)
 import { AssessorRegistry, ASSESSOR_DEFINITIONS } from "./registry";
@@ -160,6 +164,16 @@ export interface AssessmentContext {
   // When provided, enables assessors to adjust behavior for external API tools
   // Populated during context preparation by ExternalAPIDependencyDetector
   externalAPIDependencies?: ExternalAPIDependencyInfo;
+
+  // Stdio transport detection (Issue #172)
+  // When provided, enables accurate C6/F6 compliance for stdio servers
+  // Populated during context preparation by StdioTransportDetector
+  transportDetection?: TransportDetectionResult;
+
+  // Tool annotations context (Issue #170)
+  // Pre-extracted tool annotations for security severity adjustment
+  // Enables annotation-aware false positive reduction for read-only servers
+  toolAnnotationsContext?: ToolAnnotationsContext;
 }
 
 /**

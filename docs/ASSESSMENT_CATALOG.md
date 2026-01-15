@@ -275,6 +275,7 @@ These core modules validate compliance with Anthropic's MCP Directory Policy req
 - Error response format validation
 - Content type support validation
 - Initialization handshake validation
+- Multi-source transport detection (server.json, package.json, source code, runtime config)
 
 **Protocol Checks**:
 | Check | Description |
@@ -296,7 +297,26 @@ These core modules validate compliance with Anthropic's MCP Directory Policy req
 - Error responses include `isError: true` flag
 - Server provides name during initialization
 
-**Implementation**: `client/src/services/assessment/modules/ProtocolComplianceAssessor.ts`
+**Transport Detection** (Issue #172):
+
+The module uses `StdioTransportDetector` to accurately detect stdio transport from multiple sources, fixing false failures (C6/F6) for valid stdio servers:
+
+1. **server.json manifest** - `packages[0].transport.type` field (highest confidence)
+2. **package.json bin entries** - Indicates CLI/stdio capability (high confidence)
+3. **Source code patterns** - Scans for `StdioServerTransport`, `mcp.run(transport="stdio")`, stdin/stdout usage (medium confidence)
+4. **Runtime config** - Actual transport used for the assessment connection (highest confidence)
+
+Detection results include:
+
+- Set of detected transport modes (stdio, http, sse)
+- Overall confidence level (high/medium/low)
+- Detailed evidence from each source
+- Boolean flags for quick checks (supportsStdio, supportsHTTP, supportsSSE)
+
+**Implementation**:
+
+- `client/src/services/assessment/modules/ProtocolComplianceAssessor.ts`
+- `client/src/services/assessment/helpers/StdioTransportDetector.ts` (Issue #172)
 
 ---
 

@@ -121,6 +121,17 @@ export function loadSourceFiles(
     }
   }
 
+  // Issue #172: Load server.json for transport configuration
+  const serverJsonPath = path.join(sourcePath, "server.json");
+  if (fs.existsSync(serverJsonPath)) {
+    try {
+      result.serverJson = JSON.parse(fs.readFileSync(serverJsonPath, "utf-8"));
+      log(`  ✓ Found server.json`);
+    } catch {
+      console.warn("[Assessment] Failed to parse server.json");
+    }
+  }
+
   result.sourceCodeFiles = new Map<string, string>();
   // Include config files for portability analysis
   const sourceExtensions = [

@@ -53,6 +53,10 @@ import { setAnnotationDebugMode } from "../../../../client/lib/services/assessme
 import { getToolsWithPreservedHints } from "./tools-with-hints.js";
 // Issue #168: Import external API dependency detector
 import { ExternalAPIDependencyDetector } from "../../../../client/lib/services/assessment/helpers/ExternalAPIDependencyDetector.js";
+// Issue #172: Import stdio transport detector for C6/F6 compliance
+import { StdioTransportDetector } from "../../../../client/lib/services/assessment/helpers/StdioTransportDetector.js";
+// Issue #170: Import tool annotation extractor for security severity adjustment
+import { extractToolAnnotationsContext } from "../../../../client/lib/services/assessment/helpers/ToolAnnotationExtractor.js";
 
 /**
  * Run full assessment against an MCP server
@@ -457,6 +461,37 @@ export async function runFullAssessment(
     }
   }
 
+  // Issue #172: Detect transport capabilities from source code before assessors run
+  // This enables C6/F6 to correctly identify stdio servers without serverInfo metadata
+  const transportDetector = new StdioTransportDetector();
+  const transportDetection = transportDetector.detect(
+    sourceFiles.sourceCodeFiles,
+    sourceFiles.packageJson as { bin?: Record<string, string> | string },
+    sourceFiles.serverJson as {
+      packages?: Array<{ transport?: { type?: string } }>;
+    },
+    serverConfig.transport as "stdio" | "http" | "sse" | undefined,
+  );
+
+  if (!options.jsonOnly && transportDetection.evidence.length > 0) {
+    const transports = Array.from(transportDetection.detectedTransports).join(
+      ", ",
+    );
+    console.log(
+      `🚀 Detected transport(s): ${transports} (${transportDetection.confidence} confidence)`,
+    );
+  }
+
+  // Issue #170: Extract tool annotations context for security severity adjustment
+  // This enables SecurityAssessor to reduce false positives for read-only servers
+  const toolAnnotationsContext = extractToolAnnotationsContext(tools);
+
+  if (!options.jsonOnly && toolAnnotationsContext.serverIsReadOnly) {
+    console.log(
+      `📖 Server is 100% read-only (${toolAnnotationsContext.annotatedToolCount}/${toolAnnotationsContext.totalToolCount} tools annotated)`,
+    );
+  }
+
   const context: AssessmentContext = {
     serverName: options.serverName,
     tools,
@@ -481,6 +516,10 @@ export async function runFullAssessment(
       serverCapabilities as AssessmentContext["serverCapabilities"],
     // Issue #168: External API dependency detection for assessor behavior adjustment
     externalAPIDependencies,
+    // Issue #172: Transport detection for C6/F6 compliance
+    transportDetection,
+    // Issue #170: Tool annotations context for security severity adjustment
+    toolAnnotationsContext,
   };
 
   if (!options.jsonOnly) {

@@ -20,6 +20,8 @@ export interface SourceFiles {
   packageJson?: PackageJson;
   manifestJson?: ManifestJsonSchema;
   manifestRaw?: string;
+  /** server.json for MCP server transport configuration (Issue #172) */
+  serverJson?: Record<string, unknown>;
   sourceCodeFiles?: Map<string, string>;
 }
 

@@ -409,3 +409,58 @@ Fixes:
 - Test coverage: 164/164 passing (100% success rate)
 
 ---
+
+## 2026-01-15: GitHub Issue Triage and Cleanup
+
+**Summary:** Closed issue #169 as duplicate/completed, v1.37.0 already contains requested fixes
+
+**Session Focus:** GitHub issue triage and cleanup
+
+**Changes Made:**
+- Reviewed 9 open GitHub issues
+- Examined issue #169 (Release v1.36.6 with temporal and annotation fixes)
+- Checked status of related issues: #166 (CLOSED), #167 (CLOSED), #168 (OPEN), #157 (CLOSED)
+- Verified all 4 commits (b5fc1492, 1aa7d380, 112a6473, cbd6c711) are on main
+- Confirmed v1.37.0 was already released containing all requested fixes
+- Closed issue #169 with comment noting release was in v1.37.0 instead of v1.36.6
+
+**Key Decisions:**
+- Issue #169 closed as duplicate/completed since v1.37.0 already includes all requested fixes
+
+**Next Steps:**
+- Issue #168 remains open (may need additional work or verification)
+- Continue with remaining 8 open issues
+
+**Notes:**
+- Quick maintenance session, no code changes
+- Issue consolidation helps keep backlog accurate
+
+---
+
+## 2026-01-15: Issue #168 Commit and world-bank Verification
+
+**Summary:** Committed Issue #168, verified world-bank detection, closed issue
+
+**Session Focus:** Issue #168 commit, GitHub comment responses, and world-bank verification
+
+**Changes Made:**
+- Committed 95fbbe63: feat(assessment): Add source code scanning to ExternalAPIDependencyDetector (Issue #168)
+- Posted GitHub comment explaining integration architecture (ExternalAPIDependencyDetector → AssessmentContext → TemporalAssessor/FunctionalityAssessor/ErrorHandlingAssessor)
+- Cloned world-bank MCP server and verified source code scanning detects search.worldbank.org from API_BASE_URL constant
+- Posted verification comment with test results
+- Issue #168 closed (already closed by maintainer after review)
+
+**Key Decisions:**
+- Verified API_BASE_URL pattern works with real-world server
+- Confirmed cross-module integration is complete
+
+**Next Steps:**
+- Monitor for any issues with external API detection in production
+- Consider adding more API constant patterns if needed
+
+**Notes:**
+- Commit: 95fbbe63
+- Issue #168 closed
+- world-bank detection: search.worldbank.org verified
+
+---

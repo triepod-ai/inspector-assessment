@@ -119,6 +119,39 @@ const context: ArchitectureContext = {
 };
 ```
 
+### Multi-Source Transport Detection (Issue #172)
+
+For more accurate stdio transport detection, the `StdioTransportDetector` helper provides enhanced detection from multiple sources:
+
+- **server.json manifest** - `packages[0].transport.type` field
+- **package.json bin entries** - CLI entry points indicate stdio capability
+- **Source code patterns** - Scans for `StdioServerTransport`, `mcp.run(transport="stdio")`, stdin/stdout usage
+- **Runtime config** - Actual transport used during assessment
+
+This multi-source approach fixes false negatives where stdio servers were incorrectly flagged as non-conformant.
+
+**Usage:**
+
+```typescript
+import { StdioTransportDetector } from "@/services/assessment/helpers/StdioTransportDetector";
+
+const detector = new StdioTransportDetector();
+const result = detector.detect({
+  serverJson: { packages: [{ transport: { type: "stdio" } }] },
+  packageJson: { bin: { "my-server": "./bin/server.js" } },
+  sourceFiles: new Map([["src/index.ts", sourceCode]]),
+  runtimeTransport: "stdio",
+});
+
+console.log(result.supportsStdio); // true
+console.log(result.confidence); // "high"
+console.log(result.evidence); // Array of detection evidence
+```
+
+**Integration:**
+
+The `StdioTransportDetector` is primarily used by `ProtocolComplianceAssessor` to prevent false failures (C6/F6 errors) on valid stdio servers. See [Protocol Compliance in Assessment Catalog](ASSESSMENT_CATALOG.md#6-protocol-compliance-unified) for details.
+
 ---
 
 ## Server Classification

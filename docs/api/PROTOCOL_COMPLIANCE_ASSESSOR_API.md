@@ -45,6 +45,17 @@ The assessor performs 8 protocol checks organized in two sections:
 2. Content Type Support - Validates content structure in responses
 3. Initialization Handshake - Validates server info and capabilities
 
+### Transport Detection (Issue #172)
+
+The assessor uses `StdioTransportDetector` to accurately identify stdio transport support from multiple sources:
+
+1. **server.json manifest** - `packages[0].transport.type` field (highest confidence)
+2. **package.json bin entries** - CLI entry points indicate stdio capability (high confidence)
+3. **Source code patterns** - Scans for `StdioServerTransport`, `mcp.run(transport="stdio")`, stdin/stdout (medium confidence)
+4. **Runtime config** - Actual transport used for the assessment connection (highest confidence)
+
+This multi-source detection fixes false failures (C6/F6 errors) for valid stdio servers that were previously misidentified as non-conformant.
+
 ### Return Values
 
 All checks return:
@@ -344,6 +355,108 @@ Status determination:
 - complianceScore >= 70%               → status = "NEED_MORE_INFO"
 - complianceScore < 70%                → status = "FAIL"
 ```
+
+---
+
+## Helper Classes
+
+### StdioTransportDetector (Issue #172)
+
+**Module**: `@/services/assessment/helpers/StdioTransportDetector`
+**Purpose**: Multi-source detection of stdio transport support to prevent false failures
+
+The `StdioTransportDetector` identifies stdio transport capabilities from multiple evidence sources.
+
+#### Constructor
+
+```typescript
+constructor();
+```
+
+Creates a new transport detector instance.
+
+#### Methods
+
+##### `detect(sources: TransportDetectionSources): TransportDetectionResult`
+
+Analyzes all provided sources and returns aggregated transport detection results.
+
+**Parameters:**
+
+```typescript
+interface TransportDetectionSources {
+  serverJson?: ServerJsonTransport; // server.json manifest
+  packageJson?: PackageJsonBin; // package.json with bin entries
+  sourceFiles?: Map<string, string>; // Source code files (filename → content)
+  runtimeTransport?: string; // Actual transport used (stdio/http/sse)
+}
+```
+
+**Returns:**
+
+```typescript
+interface TransportDetectionResult {
+  detectedTransports: Set<TransportMode>; // All detected transport modes
+  confidence: "high" | "medium" | "low"; // Overall detection confidence
+  evidence: TransportEvidence[]; // All evidence collected
+  supportsStdio: boolean; // Quick check for stdio support
+  supportsHTTP: boolean; // Quick check for HTTP support
+  supportsSSE: boolean; // Quick check for SSE support
+  sourceCodeScanned: boolean; // Whether source code was analyzed
+}
+
+interface TransportEvidence {
+  source: "server.json" | "package.json" | "source-code" | "runtime-config";
+  transport: TransportMode;
+  confidence: "high" | "medium" | "low";
+  detail: string; // Human-readable description
+}
+```
+
+**Evidence Sources (Priority Order):**
+
+1. **runtime-config** (highest confidence) - Actual transport used for connection
+2. **server.json** (high confidence) - Explicit manifest declaration
+3. **package.json** (high confidence) - CLI bin entries indicate stdio capability
+4. **source-code** (medium confidence) - Transport patterns in source code
+
+**Source Code Patterns Detected:**
+
+- TypeScript/JavaScript: `StdioServerTransport`, `new StdioTransport()`, `process.stdin`/`process.stdout`
+- Python: `mcp.run(transport="stdio")`, `sys.stdin`/`sys.stdout`
+- General: `stdio`, `standard input`, `standard output`, `stdin`, `stdout` in comments
+
+**Example:**
+
+```typescript
+import { StdioTransportDetector } from "@/services/assessment/helpers/StdioTransportDetector";
+
+const detector = new StdioTransportDetector();
+
+const result = detector.detect({
+  serverJson: {
+    packages: [{ transport: { type: "stdio" } }],
+  },
+  packageJson: {
+    bin: { "my-server": "./bin/server.js" },
+  },
+  sourceFiles: new Map([
+    [
+      "src/index.ts",
+      "import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';",
+    ],
+  ]),
+  runtimeTransport: "stdio",
+});
+
+console.log(result.supportsStdio); // true
+console.log(result.confidence); // "high"
+console.log(result.evidence.length); // 4 (one per source)
+```
+
+**Integration with ProtocolComplianceAssessor:**
+
+The detector is automatically invoked by `ProtocolComplianceAssessor` when source code files are available via the assessment context. This prevents false failures (C6/F6 conformance errors) for valid stdio servers.
 
 ---
 

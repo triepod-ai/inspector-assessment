@@ -227,6 +227,16 @@ export interface SecurityTestResult {
   executionContext?: "CONFIRMED" | "LIKELY_FALSE_POSITIVE" | "SUSPECTED";
   contextEvidence?: string; // Evidence supporting the context classification
   operationSucceeded?: boolean; // Whether the operation succeeded or failed
+  // Issue #170: Annotation-based severity adjustment tracking
+  // Records when severity was adjusted based on tool annotations
+  annotationAdjustment?: {
+    /** Original risk level before annotation adjustment */
+    original: SecurityRiskLevel;
+    /** Adjusted risk level after considering annotations */
+    adjusted: SecurityRiskLevel;
+    /** Reason for adjustment (e.g., "Tool has readOnlyHint=true") */
+    reason?: string;
+  };
 }
 
 // ============================================================================
@@ -847,9 +857,12 @@ export interface TransportComplianceMetrics {
 
   // Detection metadata
   confidence?: "high" | "medium" | "low";
-  detectionMethod?: "automated" | "manual-required";
+  /** Detection method: automated (metadata), manual-required, or source-code-analysis (Issue #172) */
+  detectionMethod?: "automated" | "manual-required" | "source-code-analysis";
   requiresManualCheck?: boolean;
   manualVerificationSteps?: string[];
+  /** Evidence collected during transport detection (Issue #172) */
+  transportEvidence?: string[];
 }
 
 export interface OAuthComplianceMetrics {

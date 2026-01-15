@@ -347,3 +347,47 @@ export interface NamespaceDetectionResult {
   /** Sample tool names showing the pattern */
   evidence?: string[];
 }
+
+// ============================================================================
+// Tool Annotations Context (Issue #170)
+// Pre-extracted annotations for security severity adjustment
+// ============================================================================
+
+/**
+ * Simplified extracted annotations for security context.
+ * Contains only the fields needed for severity adjustment.
+ *
+ * Note: Uses inline union type for source to avoid circular dependency
+ * with extendedTypes.ts which also defines AnnotationSource.
+ * @public
+ */
+export interface SecurityAnnotations {
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+  /** Source of annotations (inline type to avoid circular dep) */
+  source: "mcp" | "source-code" | "inferred" | "none";
+}
+
+/**
+ * Pre-extracted tool annotations context for security assessment.
+ *
+ * Issue #170: Enables annotation-aware security severity adjustment.
+ * Extracted once during context preparation, consumed by SecurityAssessor
+ * to reduce false positives for read-only servers.
+ *
+ * @public
+ */
+export interface ToolAnnotationsContext {
+  /** Map of tool name to extracted annotations */
+  toolAnnotations: Map<string, SecurityAnnotations>;
+  /** True if ALL annotated tools have readOnlyHint: true */
+  serverIsReadOnly: boolean;
+  /** True if ALL annotated tools have openWorldHint: false */
+  serverIsClosed: boolean;
+  /** Count of tools with annotations */
+  annotatedToolCount: number;
+  /** Total tool count */
+  totalToolCount: number;
+}

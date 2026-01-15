@@ -790,6 +790,44 @@ export class ProtocolComplianceAssessor extends BaseAssessor<ProtocolComplianceA
   private assessTransportCompliance(
     context: AssessmentContext,
   ): TransportComplianceMetrics {
+    // Issue #172: Check source-based transport detection first
+    // This fixes incorrect FAIL for valid stdio servers without serverInfo metadata
+    if (context.transportDetection?.supportsStdio) {
+      return {
+        supportsStreamableHTTP: context.transportDetection.supportsHTTP,
+        deprecatedSSE: context.transportDetection.supportsSSE,
+        transportValidation: "passed",
+        supportsStdio: true,
+        supportsSSE: context.transportDetection.supportsSSE,
+        confidence: context.transportDetection.confidence,
+        detectionMethod: "source-code-analysis",
+        requiresManualCheck: false,
+        transportEvidence: context.transportDetection.evidence.map(
+          (e) => `${e.source}: ${e.detail}`,
+        ),
+      };
+    }
+
+    // Also check HTTP-only detection (no serverInfo but HTTP transport detected)
+    if (
+      context.transportDetection?.supportsHTTP &&
+      !context.transportDetection?.supportsStdio
+    ) {
+      return {
+        supportsStreamableHTTP: true,
+        deprecatedSSE: context.transportDetection.supportsSSE,
+        transportValidation: "passed",
+        supportsStdio: false,
+        supportsSSE: context.transportDetection.supportsSSE,
+        confidence: context.transportDetection.confidence,
+        detectionMethod: "source-code-analysis",
+        requiresManualCheck: false,
+        transportEvidence: context.transportDetection.evidence.map(
+          (e) => `${e.source}: ${e.detail}`,
+        ),
+      };
+    }
+
     if (!context.serverInfo) {
       return {
         supportsStreamableHTTP: false,
