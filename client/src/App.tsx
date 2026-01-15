@@ -1,20 +1,7 @@
 import {
   ClientRequest,
-  CompatibilityCallToolResult,
-  CompatibilityCallToolResultSchema,
-  CreateMessageResult,
   EmptyResultSchema,
-  GetPromptResultSchema,
-  ListPromptsResultSchema,
-  ListResourcesResultSchema,
-  ListResourceTemplatesResultSchema,
-  ListToolsResultSchema,
-  ReadResourceResultSchema,
-  Resource,
-  ResourceTemplate,
-  Root,
   ServerNotification,
-  Tool,
   LoggingLevel,
 } from "@modelcontextprotocol/sdk/types.js";
 import { OAuthTokensSchema } from "@modelcontextprotocol/sdk/shared/auth.js";
@@ -30,22 +17,22 @@ import {
 } from "@/utils/metaUtils";
 import { AuthDebuggerState, EMPTY_DEBUGGER_STATE } from "./lib/auth-types";
 import { OAuthStateMachine } from "./lib/oauth-state-machine";
-import { cacheToolOutputSchemas } from "./utils/schemaUtils";
-import { cleanParams } from "./utils/paramUtils";
-import type { JsonSchemaType } from "./utils/jsonUtils";
-import React, {
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
+
+// Hooks
 import { useConnection } from "./lib/hooks/useConnection";
 import {
   useDraggablePane,
   useDraggableSidebar,
 } from "./lib/hooks/useDraggablePane";
+import { useNotifications } from "./lib/hooks/useNotifications";
+import { useTabState } from "./lib/hooks/useTabState";
+import { useSamplingHandler } from "./lib/hooks/useSamplingHandler";
+import { useElicitationHandler } from "./lib/hooks/useElicitationHandler";
+import { useToolExecution } from "./lib/hooks/useToolExecution";
+import { useCapabilities } from "./lib/hooks/useCapabilities";
 
+// UI Components
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,10 +51,10 @@ import AuthDebugger from "./components/AuthDebugger";
 import ConsoleTab from "./components/ConsoleTab";
 import HistoryAndNotifications from "./components/HistoryAndNotifications";
 import PingTab from "./components/PingTab";
-import PromptsTab, { Prompt } from "./components/PromptsTab";
+import PromptsTab from "./components/PromptsTab";
 import ResourcesTab from "./components/ResourcesTab";
 import RootsTab from "./components/RootsTab";
-import SamplingTab, { PendingRequest } from "./components/SamplingTab";
+import SamplingTab from "./components/SamplingTab";
 import Sidebar from "./components/Sidebar";
 import ToolsTab from "./components/ToolsTab";
 import { InspectorConfig } from "./lib/configurationTypes";
@@ -81,10 +68,7 @@ import {
   initializeInspectorConfig,
   saveInspectorConfig,
 } from "./utils/configUtils";
-import ElicitationTab, {
-  PendingElicitationRequest,
-  ElicitationResponse,
-} from "./components/ElicitationTab";
+import ElicitationTab from "./components/ElicitationTab";
 import {
   CustomHeaders,
   migrateFromLegacyAuth,
@@ -112,27 +96,11 @@ const filterReservedMetadata = (
 };
 
 const App = () => {
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [resourceTemplates, setResourceTemplates] = useState<
-    ResourceTemplate[]
-  >([]);
-  const [resourceContent, setResourceContent] = useState<string>("");
-  const [resourceContentMap, setResourceContentMap] = useState<
-    Record<string, string>
-  >({});
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [promptContent, setPromptContent] = useState<string>("");
-  const [tools, setTools] = useState<Tool[]>([]);
-  const [toolResult, setToolResult] =
-    useState<CompatibilityCallToolResult | null>(null);
-  const [errors, setErrors] = useState<Record<string, string | null>>({
-    resources: null,
-    prompts: null,
-    tools: null,
-  });
+  // ============================================
+  // Connection Configuration State
+  // ============================================
   const [command, setCommand] = useState<string>(getInitialCommand);
   const [args, setArgs] = useState<string>(getInitialArgs);
-
   const [sseUrl, setSseUrl] = useState<string>(getInitialSseUrl);
   const [transportType, setTransportType] = useState<
     "stdio" | "sse" | "streamable-http"
@@ -146,33 +114,29 @@ const App = () => {
     },
   );
   const [logLevel, setLogLevel] = useState<LoggingLevel>("debug");
-  const [notifications, setNotifications] = useState<ServerNotification[]>([]);
-  const [roots, setRoots] = useState<Root[]>([]);
   const [env, setEnv] = useState<Record<string, string>>({});
-
   const [config, setConfig] = useState<InspectorConfig>(() =>
     initializeInspectorConfig(CONFIG_LOCAL_STORAGE_KEY),
   );
+
+  // ============================================
+  // Authentication State
+  // ============================================
   const [bearerToken, setBearerToken] = useState<string>(() => {
     return localStorage.getItem("lastBearerToken") || "";
   });
-
   const [headerName, setHeaderName] = useState<string>(() => {
     return localStorage.getItem("lastHeaderName") || "";
   });
-
   const [oauthClientId, setOauthClientId] = useState<string>(() => {
     return localStorage.getItem("lastOauthClientId") || "";
   });
-
   const [oauthScope, setOauthScope] = useState<string>(() => {
     return localStorage.getItem("lastOauthScope") || "";
   });
-
   const [oauthClientSecret, setOauthClientSecret] = useState<string>(() => {
     return localStorage.getItem("lastOauthClientSecret") || "";
   });
-  // Custom headers state with migration from legacy auth
   const [customHeaders, setCustomHeaders] = useState<CustomHeaders>(() => {
     const savedHeaders = localStorage.getItem("lastCustomHeaders");
     if (savedHeaders) {
@@ -183,50 +147,26 @@ const App = () => {
           `Failed to parse custom headers: "${savedHeaders}", will try legacy migration`,
           error,
         );
-        // Fall back to migration if JSON parsing fails
       }
     }
-
-    // Migrate from legacy auth if available
     const legacyToken = localStorage.getItem("lastBearerToken") || "";
     const legacyHeaderName = localStorage.getItem("lastHeaderName") || "";
-
     if (legacyToken) {
       return migrateFromLegacyAuth(legacyToken, legacyHeaderName);
     }
-
-    // Default to empty array
-    return [
-      {
-        name: "Authorization",
-        value: "Bearer ",
-        enabled: false,
-      },
-    ];
+    return [{ name: "Authorization", value: "Bearer ", enabled: false }];
   });
-
-  const [pendingSampleRequests, setPendingSampleRequests] = useState<
-    Array<
-      PendingRequest & {
-        resolve: (result: CreateMessageResult) => void;
-        reject: (error: Error) => void;
-      }
-    >
-  >([]);
-  const [pendingElicitationRequests, setPendingElicitationRequests] = useState<
-    Array<
-      PendingElicitationRequest & {
-        resolve: (response: ElicitationResponse) => void;
-        decline: (error: Error) => void;
-      }
-    >
-  >([]);
   const [isAuthDebuggerVisible, setIsAuthDebuggerVisible] = useState(false);
-
   const [authState, setAuthState] =
     useState<AuthDebuggerState>(EMPTY_DEBUGGER_STATE);
 
-  // Metadata state - persisted in localStorage
+  const updateAuthState = (updates: Partial<AuthDebuggerState>) => {
+    setAuthState((prev) => ({ ...prev, ...updates }));
+  };
+
+  // ============================================
+  // Metadata State
+  // ============================================
   const [metadata, setMetadata] = useState<Record<string, string>>(() => {
     const savedMetadata = localStorage.getItem("lastMetadata");
     if (savedMetadata) {
@@ -242,52 +182,32 @@ const App = () => {
     return {};
   });
 
-  const updateAuthState = (updates: Partial<AuthDebuggerState>) => {
-    setAuthState((prev) => ({ ...prev, ...updates }));
-  };
-
   const handleMetadataChange = (newMetadata: Record<string, string>) => {
     const sanitizedMetadata = filterReservedMetadata(newMetadata);
     setMetadata(sanitizedMetadata);
     localStorage.setItem("lastMetadata", JSON.stringify(sanitizedMetadata));
   };
-  const nextRequestId = useRef(0);
-  const rootsRef = useRef<Root[]>([]);
 
-  const [selectedResource, setSelectedResource] = useState<Resource | null>(
-    null,
-  );
-  const [resourceSubscriptions, setResourceSubscriptions] = useState<
-    Set<string>
-  >(new Set<string>());
-
-  const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
-  const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
-  const [nextResourceCursor, setNextResourceCursor] = useState<
-    string | undefined
-  >();
-  const [nextResourceTemplateCursor, setNextResourceTemplateCursor] = useState<
-    string | undefined
-  >();
-  const [nextPromptCursor, setNextPromptCursor] = useState<
-    string | undefined
-  >();
-  const [nextToolCursor, setNextToolCursor] = useState<string | undefined>();
-  const progressTokenRef = useRef(0);
-
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    const hash = window.location.hash.slice(1);
-    const initialTab = hash || "resources";
-    return initialTab;
+  // ============================================
+  // Error State
+  // ============================================
+  const [errors, setErrors] = useState<Record<string, string | null>>({
+    resources: null,
+    prompts: null,
+    tools: null,
   });
 
-  const currentTabRef = useRef<string>(activeTab);
-  const lastToolCallOriginTabRef = useRef<string>(activeTab);
+  const clearError = useCallback((tabKey: keyof typeof errors) => {
+    setErrors((prev) => ({ ...prev, [tabKey]: null }));
+  }, []);
 
-  useEffect(() => {
-    currentTabRef.current = activeTab;
-  }, [activeTab]);
+  const setError = useCallback((tabKey: keyof typeof errors, error: string) => {
+    setErrors((prev) => ({ ...prev, [tabKey]: error }));
+  }, []);
 
+  // ============================================
+  // Draggable Panes
+  // ============================================
   const { height: historyPaneHeight, handleDragStart } = useDraggablePane(300);
   const {
     width: sidebarWidth,
@@ -295,6 +215,28 @@ const App = () => {
     handleDragStart: handleSidebarDragStart,
   } = useDraggableSidebar(320);
 
+  // ============================================
+  // Notifications Hook
+  // ============================================
+  const {
+    notifications,
+    addNotification,
+    clearNotifications: handleClearNotifications,
+  } = useNotifications();
+
+  // ============================================
+  // Sampling Handler Hook
+  // ============================================
+  const {
+    pendingRequests: pendingSampleRequests,
+    handleSamplingRequest,
+    approveRequest: handleApproveSampling,
+    rejectRequest: handleRejectSampling,
+  } = useSamplingHandler();
+
+  // ============================================
+  // Connection Hook
+  // ============================================
   const {
     connectionStatus,
     serverCapabilities,
@@ -321,74 +263,126 @@ const App = () => {
     config,
     connectionType,
     onNotification: (notification) => {
-      setNotifications((prev) => [...prev, notification as ServerNotification]);
+      addNotification(notification as ServerNotification);
     },
     onPendingRequest: (request, resolve, reject) => {
-      setPendingSampleRequests((prev) => [
-        ...prev,
-        { id: nextRequestId.current++, request, resolve, reject },
-      ]);
+      handleSamplingRequest(request, resolve, reject);
     },
     onElicitationRequest: (request, resolve) => {
-      const currentTab = lastToolCallOriginTabRef.current;
-
-      setPendingElicitationRequests((prev) => [
-        ...prev,
-        {
-          id: nextRequestId.current++,
-          request: {
-            id: nextRequestId.current,
-            message: request.params.message,
-            requestedSchema: request.params.requestedSchema,
-          },
-          originatingTab: currentTab,
-          resolve,
-          decline: (error: Error) => {
-            console.error("Elicitation request rejected:", error);
-          },
-        },
-      ]);
-
-      setActiveTab("elicitations");
-      window.location.hash = "elicitations";
+      handleElicitationRequest(request, resolve);
     },
     getRoots: () => rootsRef.current,
     defaultLoggingLevel: logLevel,
     metadata,
   });
 
-  useEffect(() => {
-    if (serverCapabilities) {
-      const hash = window.location.hash.slice(1);
+  // ============================================
+  // Tab State Hook
+  // ============================================
+  const { activeTab, setActiveTab, currentTabRef, lastToolCallOriginTabRef } =
+    useTabState({
+      serverCapabilities,
+      isConnected: !!mcpClient,
+    });
 
-      const validTabs = [
-        ...(serverCapabilities?.resources ? ["resources"] : []),
-        ...(serverCapabilities?.prompts ? ["prompts"] : []),
-        ...(serverCapabilities?.tools ? ["tools"] : []),
-        "ping",
-        "sampling",
-        "elicitations",
-        "roots",
-        "auth",
-      ];
+  // ============================================
+  // Elicitation Handler Hook
+  // ============================================
+  const {
+    pendingRequests: pendingElicitationRequests,
+    handleElicitationRequest,
+    resolveRequest: handleResolveElicitation,
+  } = useElicitationHandler({
+    setActiveTab,
+    lastToolCallOriginTabRef,
+    serverCapabilities,
+  });
 
-      const isValidTab = validTabs.includes(hash);
-
-      if (!isValidTab) {
-        const defaultTab = serverCapabilities?.resources
-          ? "resources"
-          : serverCapabilities?.prompts
-            ? "prompts"
-            : serverCapabilities?.tools
-              ? "tools"
-              : "ping";
-
-        setActiveTab(defaultTab);
-        window.location.hash = defaultTab;
+  // ============================================
+  // MCP Request Wrapper (with error handling)
+  // ============================================
+  const sendMCPRequest = useCallback(
+    async <T extends AnySchema>(
+      request: ClientRequest,
+      schema: T,
+      tabKey?: keyof typeof errors,
+    ): Promise<SchemaOutput<T>> => {
+      try {
+        const response = await makeRequest(request, schema);
+        if (tabKey !== undefined) {
+          clearError(tabKey);
+        }
+        return response;
+      } catch (e) {
+        const errorString = (e as Error).message ?? String(e);
+        if (tabKey !== undefined) {
+          setErrors((prev) => ({ ...prev, [tabKey]: errorString }));
+        }
+        throw e;
       }
-    }
-  }, [serverCapabilities]);
+    },
+    [makeRequest, clearError],
+  );
 
+  // ============================================
+  // Capabilities Hook
+  // ============================================
+  const {
+    resources,
+    resourceTemplates,
+    selectedResource,
+    setSelectedResource,
+    resourceContent,
+    resourceContentMap,
+    resourceSubscriptions,
+    nextResourceCursor,
+    nextResourceTemplateCursor,
+    listResources,
+    listResourceTemplates,
+    clearResources,
+    clearResourceTemplates,
+    readResource,
+    subscribeToResource,
+    unsubscribeFromResource,
+    prompts,
+    selectedPrompt,
+    setSelectedPrompt,
+    promptContent,
+    nextPromptCursor,
+    listPrompts,
+    clearPrompts,
+    getPrompt,
+    tools,
+    selectedTool,
+    setSelectedTool,
+    nextToolCursor,
+    listTools,
+    clearTools,
+    roots,
+    setRoots,
+    rootsRef,
+  } = useCapabilities({
+    sendMCPRequest,
+    lastToolCallOriginTabRef,
+    currentTabRef,
+  });
+
+  // ============================================
+  // Tool Execution Hook
+  // ============================================
+  const { toolResult, clearToolResult, callTool } = useToolExecution({
+    makeRequest,
+    tools,
+    metadata,
+    lastToolCallOriginTabRef,
+    currentTabRef,
+    clearError: () => clearError("tools"),
+    setError: (_, error) => setError("tools", error),
+  });
+
+  // ============================================
+  // LocalStorage Persistence Effects
+  // ============================================
   useEffect(() => {
     localStorage.setItem("lastCommand", command);
   }, [command]);
@@ -429,18 +423,16 @@ const App = () => {
     localStorage.setItem("lastCustomHeaders", JSON.stringify(customHeaders));
   }, [customHeaders]);
 
-  // Auto-migrate from legacy auth when custom headers are empty but legacy auth exists
   useEffect(() => {
     if (customHeaders.length === 0 && (bearerToken || headerName)) {
       const migratedHeaders = migrateFromLegacyAuth(bearerToken, headerName);
       if (migratedHeaders.length > 0) {
         setCustomHeaders(migratedHeaders);
-        // Clear legacy auth after migration
         setBearerToken("");
         setHeaderName("");
       }
     }
-  }, [bearerToken, headerName, customHeaders, setCustomHeaders]);
+  }, [bearerToken, headerName, customHeaders]);
 
   useEffect(() => {
     localStorage.setItem("lastOauthClientId", oauthClientId);
@@ -458,6 +450,9 @@ const App = () => {
     saveInspectorConfig(CONFIG_LOCAL_STORAGE_KEY, config);
   }, [config]);
 
+  // ============================================
+  // OAuth and Config Loading Effects
+  // ============================================
   const onOAuthConnect = useCallback(
     (serverUrl: string) => {
       setSseUrl(serverUrl);
@@ -480,9 +475,7 @@ const App = () => {
       setIsAuthDebuggerVisible(true);
 
       if (errorMsg) {
-        updateAuthState({
-          latestError: new Error(errorMsg),
-        });
+        updateAuthState({ latestError: new Error(errorMsg) });
         return;
       }
 
@@ -560,7 +553,6 @@ const App = () => {
         console.error("Error loading OAuth tokens:", error);
       }
     };
-
     loadOAuthTokens();
   }, [sseUrl]);
 
@@ -576,351 +568,38 @@ const App = () => {
       .then((response) => response.json())
       .then((data) => {
         setEnv(data.defaultEnvironment);
-        if (data.defaultCommand) {
-          setCommand(data.defaultCommand);
-        }
-        if (data.defaultArgs) {
-          setArgs(data.defaultArgs);
-        }
+        if (data.defaultCommand) setCommand(data.defaultCommand);
+        if (data.defaultArgs) setArgs(data.defaultArgs);
         if (data.defaultTransport) {
           setTransportType(
             data.defaultTransport as "stdio" | "sse" | "streamable-http",
           );
         }
-        if (data.defaultServerUrl) {
-          setSseUrl(data.defaultServerUrl);
-        }
+        if (data.defaultServerUrl) setSseUrl(data.defaultServerUrl);
       })
       .catch((error) =>
         console.error("Error fetching default environment:", error),
       );
   }, [config]);
 
-  useEffect(() => {
-    rootsRef.current = roots;
-  }, [roots]);
-
-  useEffect(() => {
-    if (mcpClient && !window.location.hash) {
-      const defaultTab = serverCapabilities?.resources
-        ? "resources"
-        : serverCapabilities?.prompts
-          ? "prompts"
-          : serverCapabilities?.tools
-            ? "tools"
-            : "ping";
-      window.location.hash = defaultTab;
-    } else if (!mcpClient && window.location.hash) {
-      // Clear hash when disconnected - completely remove the fragment
-      window.history.replaceState(
-        null,
-        "",
-        window.location.pathname + window.location.search,
-      );
-    }
-  }, [mcpClient, serverCapabilities]);
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.slice(1);
-      if (hash && hash !== activeTab) {
-        setActiveTab(hash);
-      }
-    };
-
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, [activeTab]);
-
-  const handleApproveSampling = (id: number, result: CreateMessageResult) => {
-    setPendingSampleRequests((prev) => {
-      const request = prev.find((r) => r.id === id);
-      request?.resolve(result);
-      return prev.filter((r) => r.id !== id);
-    });
-  };
-
-  const handleRejectSampling = (id: number) => {
-    setPendingSampleRequests((prev) => {
-      const request = prev.find((r) => r.id === id);
-      request?.reject(new Error("Sampling request rejected"));
-      return prev.filter((r) => r.id !== id);
-    });
-  };
-
-  const handleResolveElicitation = (
-    id: number,
-    response: ElicitationResponse,
-  ) => {
-    setPendingElicitationRequests((prev) => {
-      const request = prev.find((r) => r.id === id);
-      if (request) {
-        request.resolve(response);
-
-        if (request.originatingTab) {
-          const originatingTab = request.originatingTab;
-
-          const validTabs = [
-            ...(serverCapabilities?.resources ? ["resources"] : []),
-            ...(serverCapabilities?.prompts ? ["prompts"] : []),
-            ...(serverCapabilities?.tools ? ["tools"] : []),
-            "ping",
-            "sampling",
-            "elicitations",
-            "roots",
-            "auth",
-          ];
-
-          if (validTabs.includes(originatingTab)) {
-            setActiveTab(originatingTab);
-            window.location.hash = originatingTab;
-
-            setTimeout(() => {
-              setActiveTab(originatingTab);
-              window.location.hash = originatingTab;
-            }, 100);
-          }
-        }
-      }
-      return prev.filter((r) => r.id !== id);
-    });
-  };
-
-  const clearError = (tabKey: keyof typeof errors) => {
-    setErrors((prev) => ({ ...prev, [tabKey]: null }));
-  };
-
-  const sendMCPRequest = async <T extends AnySchema>(
-    request: ClientRequest,
-    schema: T,
-    tabKey?: keyof typeof errors,
-  ): Promise<SchemaOutput<T>> => {
-    try {
-      const response = await makeRequest(request, schema);
-      if (tabKey !== undefined) {
-        clearError(tabKey);
-      }
-      return response;
-    } catch (e) {
-      const errorString = (e as Error).message ?? String(e);
-      if (tabKey !== undefined) {
-        setErrors((prev) => ({
-          ...prev,
-          [tabKey]: errorString,
-        }));
-      }
-      throw e;
-    }
-  };
-
-  const listResources = async () => {
-    const response = await sendMCPRequest(
-      {
-        method: "resources/list" as const,
-        params: nextResourceCursor ? { cursor: nextResourceCursor } : {},
-      },
-      ListResourcesResultSchema,
-      "resources",
-    );
-    setResources(resources.concat(response.resources ?? []));
-    setNextResourceCursor(response.nextCursor);
-  };
-
-  const listResourceTemplates = async () => {
-    const response = await sendMCPRequest(
-      {
-        method: "resources/templates/list" as const,
-        params: nextResourceTemplateCursor
-          ? { cursor: nextResourceTemplateCursor }
-          : {},
-      },
-      ListResourceTemplatesResultSchema,
-      "resources",
-    );
-    setResourceTemplates(
-      resourceTemplates.concat(response.resourceTemplates ?? []),
-    );
-    setNextResourceTemplateCursor(response.nextCursor);
-  };
-
-  const getPrompt = async (name: string, args: Record<string, string> = {}) => {
-    lastToolCallOriginTabRef.current = currentTabRef.current;
-
-    const response = await sendMCPRequest(
-      {
-        method: "prompts/get" as const,
-        params: { name, arguments: args },
-      },
-      GetPromptResultSchema,
-      "prompts",
-    );
-    setPromptContent(JSON.stringify(response, null, 2));
-  };
-
-  const readResource = async (uri: string) => {
-    lastToolCallOriginTabRef.current = currentTabRef.current;
-
-    const response = await sendMCPRequest(
-      {
-        method: "resources/read" as const,
-        params: { uri },
-      },
-      ReadResourceResultSchema,
-      "resources",
-    );
-    const content = JSON.stringify(response, null, 2);
-    setResourceContent(content);
-    setResourceContentMap((prev) => ({
-      ...prev,
-      [uri]: content,
-    }));
-  };
-
-  const subscribeToResource = async (uri: string) => {
-    if (!resourceSubscriptions.has(uri)) {
-      await sendMCPRequest(
-        {
-          method: "resources/subscribe" as const,
-          params: { uri },
-        },
-        EmptyResultSchema,
-        "resources",
-      );
-      const clone = new Set(resourceSubscriptions);
-      clone.add(uri);
-      setResourceSubscriptions(clone);
-    }
-  };
-
-  const unsubscribeFromResource = async (uri: string) => {
-    if (resourceSubscriptions.has(uri)) {
-      await sendMCPRequest(
-        {
-          method: "resources/unsubscribe" as const,
-          params: { uri },
-        },
-        EmptyResultSchema,
-        "resources",
-      );
-      const clone = new Set(resourceSubscriptions);
-      clone.delete(uri);
-      setResourceSubscriptions(clone);
-    }
-  };
-
-  const listPrompts = async () => {
-    const response = await sendMCPRequest(
-      {
-        method: "prompts/list" as const,
-        params: nextPromptCursor ? { cursor: nextPromptCursor } : {},
-      },
-      ListPromptsResultSchema,
-      "prompts",
-    );
-    setPrompts(response.prompts as Prompt[]);
-    setNextPromptCursor(response.nextCursor);
-  };
-
-  const listTools = async () => {
-    const response = await sendMCPRequest(
-      {
-        method: "tools/list" as const,
-        params: nextToolCursor ? { cursor: nextToolCursor } : {},
-      },
-      ListToolsResultSchema,
-      "tools",
-    );
-    setTools(response.tools);
-    setNextToolCursor(response.nextCursor);
-    cacheToolOutputSchemas(response.tools);
-  };
-
-  const callTool = async (
-    name: string,
-    params: Record<string, unknown>,
-    toolMetadata?: Record<string, unknown>,
-  ) => {
-    lastToolCallOriginTabRef.current = currentTabRef.current;
-
-    try {
-      // Find the tool schema to clean parameters properly
-      const tool = tools.find((t) => t.name === name);
-      const cleanedParams = tool?.inputSchema
-        ? cleanParams(params, tool.inputSchema as JsonSchemaType)
-        : params;
-
-      // Merge general metadata with tool-specific metadata
-      // Tool-specific metadata takes precedence over general metadata
-      const mergedMetadata = {
-        ...metadata, // General metadata
-        progressToken: progressTokenRef.current++,
-        ...toolMetadata, // Tool-specific metadata
-      };
-
-      const response = await sendMCPRequest(
-        {
-          method: "tools/call" as const,
-          params: {
-            name,
-            arguments: cleanedParams,
-            _meta: mergedMetadata,
-          },
-        },
-        CompatibilityCallToolResultSchema,
-        "tools",
-      );
-
-      setToolResult(response);
-      // Clear any validation errors since tool execution completed
-      setErrors((prev) => ({ ...prev, tools: null }));
-      return response;
-    } catch (e) {
-      const toolResult: CompatibilityCallToolResult = {
-        content: [
-          {
-            type: "text",
-            text: (e as Error).message ?? String(e),
-          },
-        ],
-        isError: true,
-      };
-      setToolResult(toolResult);
-      // Clear validation errors - tool execution errors are shown in ToolResults
-      setErrors((prev) => ({ ...prev, tools: null }));
-      return toolResult;
-    }
-  };
-
+  // ============================================
+  // Action Handlers
+  // ============================================
   const handleRootsChange = async () => {
     await sendNotification({ method: "notifications/roots/list_changed" });
   };
 
-  const handleClearNotifications = () => {
-    setNotifications([]);
-  };
-
   const sendLogLevelRequest = async (level: LoggingLevel) => {
     await sendMCPRequest(
-      {
-        method: "logging/setLevel" as const,
-        params: { level },
-      },
+      { method: "logging/setLevel" as const, params: { level } },
       EmptyResultSchema,
     );
     setLogLevel(level);
   };
 
-  const AuthDebuggerWrapper = () => (
-    <TabsContent value="auth">
-      <AuthDebugger
-        serverUrl={sseUrl}
-        onBack={() => setIsAuthDebuggerVisible(false)}
-        authState={authState}
-        updateAuthState={updateAuthState}
-      />
-    </TabsContent>
-  );
-
+  // ============================================
+  // OAuth Callback Routes
+  // ============================================
   if (window.location.pathname === "/oauth/callback") {
     const OAuthCallback = React.lazy(
       () => import("./components/OAuthCallback"),
@@ -943,6 +622,23 @@ const App = () => {
     );
   }
 
+  // ============================================
+  // Component Wrappers
+  // ============================================
+  const AuthDebuggerWrapper = () => (
+    <TabsContent value="auth">
+      <AuthDebugger
+        serverUrl={sseUrl}
+        onBack={() => setIsAuthDebuggerVisible(false)}
+        authState={authState}
+        updateAuthState={updateAuthState}
+      />
+    </TabsContent>
+  );
+
+  // ============================================
+  // Render
+  // ============================================
   return (
     <div className="flex h-screen bg-background">
       <div
@@ -1084,9 +780,7 @@ const App = () => {
                     <PingTab
                       onPingClick={() => {
                         void sendMCPRequest(
-                          {
-                            method: "ping" as const,
-                          },
+                          { method: "ping" as const },
                           EmptyResultSchema,
                         );
                       }}
@@ -1101,18 +795,12 @@ const App = () => {
                         clearError("resources");
                         listResources();
                       }}
-                      clearResources={() => {
-                        setResources([]);
-                        setNextResourceCursor(undefined);
-                      }}
+                      clearResources={clearResources}
                       listResourceTemplates={() => {
                         clearError("resources");
                         listResourceTemplates();
                       }}
-                      clearResourceTemplates={() => {
-                        setResourceTemplates([]);
-                        setNextResourceTemplateCursor(undefined);
-                      }}
+                      clearResourceTemplates={clearResourceTemplates}
                       readResource={(uri) => {
                         clearError("resources");
                         readResource(uri);
@@ -1147,10 +835,7 @@ const App = () => {
                         clearError("prompts");
                         listPrompts();
                       }}
-                      clearPrompts={() => {
-                        setPrompts([]);
-                        setNextPromptCursor(undefined);
-                      }}
+                      clearPrompts={clearPrompts}
                       getPrompt={(name, args) => {
                         clearError("prompts");
                         getPrompt(name, args);
@@ -1159,7 +844,6 @@ const App = () => {
                       setSelectedPrompt={(prompt) => {
                         clearError("prompts");
                         setSelectedPrompt(prompt);
-                        setPromptContent("");
                       }}
                       handleCompletion={handleCompletion}
                       completionsSupported={completionsSupported}
@@ -1173,25 +857,21 @@ const App = () => {
                         clearError("tools");
                         listTools();
                       }}
-                      clearTools={() => {
-                        setTools([]);
-                        setNextToolCursor(undefined);
-                        cacheToolOutputSchemas([]);
-                      }}
+                      clearTools={clearTools}
                       callTool={async (
                         name: string,
                         params: Record<string, unknown>,
                         metadata?: Record<string, unknown>,
                       ) => {
                         clearError("tools");
-                        setToolResult(null);
+                        clearToolResult();
                         await callTool(name, params, metadata);
                       }}
                       selectedTool={selectedTool}
                       setSelectedTool={(tool) => {
                         clearError("tools");
                         setSelectedTool(tool);
-                        setToolResult(null);
+                        clearToolResult();
                       }}
                       toolResult={toolResult}
                       nextCursor={nextToolCursor}
@@ -1206,9 +886,7 @@ const App = () => {
                     <PingTab
                       onPingClick={() => {
                         void sendMCPRequest(
-                          {
-                            method: "ping" as const,
-                          },
+                          { method: "ping" as const },
                           EmptyResultSchema,
                         );
                       }}
@@ -1266,9 +944,7 @@ const App = () => {
         </div>
         <div
           className="relative border-t border-border"
-          style={{
-            height: `${historyPaneHeight}px`,
-          }}
+          style={{ height: `${historyPaneHeight}px` }}
         >
           <div
             className="absolute w-full h-4 -top-2 cursor-row-resize flex items-center justify-center hover:bg-accent/50 dark:hover:bg-input/40"
