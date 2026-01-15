@@ -49,3 +49,8 @@ export {
   type TestValidityConfig,
   type TestValidityResult,
 } from "./TestValidityAnalyzer";
+
+export {
+  adjustSeverityForAnnotations,
+  type SeverityAdjustment,
+} from "./AnnotationAwareSeverity";

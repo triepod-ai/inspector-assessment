@@ -110,6 +110,7 @@ The following module names are deprecated but still work via aliasing:
 - Pure behavior-based detection (no metadata reliance)
 - Domain-specific payloads based on parameter semantics
 - Confidence levels (high/medium/low) for findings
+- **Annotation-aware severity adjustment** (Issue #170): Reduces false positives by considering tool annotations (readOnlyHint, openWorldHint) when scoring vulnerability severity
 
 **30 Attack Patterns** (organized by category):
 
@@ -161,7 +162,20 @@ The following module names are deprecated but still work via aliasing:
 
 The `securityTestTimeout` option allows optimization of security assessment speed. It sets a timeout specifically for payload-based security tests, enabling faster scans on servers with slow-responding tools without impacting functionality test timeouts. See [CLI Assessment Guide](CLI_ASSESSMENT_GUIDE.md#option-security-test-timeout) for configuration examples.
 
-**Implementation**: `client/src/services/assessment/modules/SecurityAssessor.ts` (443 lines)
+**Annotation-Aware Severity Adjustment** (Issue #170):
+
+The security assessor automatically adjusts vulnerability severity based on tool annotations to reduce false positives:
+
+- **Read-Only Tools** (`readOnlyHint: true`): Execution-type attacks (Command Injection, Code Execution, Path Traversal) are downgraded from HIGH/MEDIUM to LOW
+- **Closed-World Tools** (`openWorldHint: false`): Exfiltration-type attacks (SSRF, Data Exfiltration, Token Theft) are downgraded from HIGH/MEDIUM to LOW
+- **Server-Level Flags**: If ALL tools are read-only or closed-world, server-level adjustments apply even without per-tool annotations
+- **Transparency**: All adjustments are tracked in `SecurityTestResult.annotationAdjustment` with original severity, adjusted severity, and reason
+
+**Implementation**:
+
+- Core: `client/src/services/assessment/modules/SecurityAssessor.ts` (443 lines)
+- Severity Adjustment: `client/src/services/assessment/modules/securityTests/AnnotationAwareSeverity.ts`
+- Annotation Extraction: `client/src/services/assessment/helpers/ToolAnnotationExtractor.ts`
 
 ---
 

@@ -6,6 +6,51 @@
 
 ---
 
+## 2026-01-15: Documentation Update - Issue #170 Annotation-Aware Severity Adjustment
+
+**Summary:** Updated documentation to reflect the Issue #170 implementation (annotation-aware severity adjustment for security testing).
+
+**Session Focus:** Documentation sync for Issue #170 - comprehensive documentation of new APIs and types
+
+**Documentation Changes:**
+- **ASSESSMENT_CATALOG.md**: Added annotation-aware severity adjustment section to Security Assessment module
+  - Documented read-only tool downgrading for execution-type attacks
+  - Documented closed-world tool downgrading for exfiltration-type attacks
+  - Listed implementation files (AnnotationAwareSeverity.ts, ToolAnnotationExtractor.ts)
+- **ASSESSMENT_MODULE_DEVELOPER_GUIDE.md**: Added Pattern 4 - Annotation-Aware Security Testing
+  - Complete usage example with extractToolAnnotationsContext() and adjustSeverityForAnnotations()
+  - Key concepts: execution-type vs exfiltration-type attacks
+  - Server-level flags and transparency tracking
+  - Updated SecurityTestResult fields documentation to include annotationAdjustment
+- **TYPE_REFERENCE.md**: Added new type definitions
+  - SecurityAnnotations interface with usage example
+  - ToolAnnotationsContext interface with server-level flags
+  - SeverityAdjustment interface with example
+  - Updated SecurityTestResult to show Issue #170 annotationAdjustment field
+
+**Files Updated:**
+- docs/ASSESSMENT_CATALOG.md - Security Assessment module enhancements
+- docs/ASSESSMENT_MODULE_DEVELOPER_GUIDE.md - New advanced pattern and field documentation
+- docs/TYPE_REFERENCE.md - New type definitions and examples
+
+**Items Documented:**
+- 3 new interfaces (SecurityAnnotations, ToolAnnotationsContext, SeverityAdjustment)
+- 1 new SecurityTestResult field (annotationAdjustment)
+- 2 new helper functions (extractToolAnnotationsContext, adjustSeverityForAnnotations)
+- 1 new SecurityPayloadTester method (setToolAnnotationsContext)
+- 3 implementation files referenced
+- Complete usage patterns and examples
+
+**Completeness Check:**
+- [x] All new fields documented (SecurityAnnotations, ToolAnnotationsContext, SeverityAdjustment)
+- [x] All new parameters documented (attackName, annotations, server flags)
+- [x] All new methods documented (setToolAnnotationsContext, extractToolAnnotationsContext, adjustSeverityForAnnotations)
+- [x] All new return types documented (SeverityAdjustment)
+- [x] Usage examples provided for all new APIs
+- [x] Related documentation cross-referenced
+
+---
+
 ## 2026-01-15: Issue #168 - Enhanced ExternalAPIDependencyDetector with Source Code Scanning
 
 **Summary:** Enhanced the ExternalAPIDependencyDetector helper to support source code scanning for more accurate external API dependency detection.
@@ -462,5 +507,36 @@ Fixes:
 - Commit: 95fbbe63
 - Issue #168 closed
 - world-bank detection: search.worldbank.org verified
+
+---
+
+## 2026-01-15: Issue #172 StdioTransportDetector Implementation
+
+**Summary:** Added StdioTransportDetector for C6/F6 stdio compliance, ready to work
+
+**Session Focus:** Fix C6 (Protocol Compliance) and F6 (Transport Protocol) incorrect failures for valid stdio servers by implementing multi-source transport detection.
+
+**Changes Made:**
+- Created StdioTransportDetector helper class with pattern-based detection
+- Support detection from server.json, package.json bin, source code patterns, runtime config
+- Integrated with ProtocolComplianceAssessor.assessTransportCompliance()
+- Added server.json loading to source-loader.ts
+- Added transportDetection to AssessmentContext interface
+- Added 49 comprehensive tests for transport detection (15 new from code review)
+- Updated documentation (ASSESSMENT_CATALOG, ARCHITECTURE_DETECTION_GUIDE, API docs)
+- Ran /review-my-code workflow: found 7 issues (0 P0, 2 P1, 2 P2, 3 P3), fixed both P1 issues
+
+**Key Decisions:**
+- Detection priority: server.json > package.json bin > source code patterns
+- Confidence levels: High for explicit config, Medium for source code inference
+- Followed ExternalAPIDependencyDetector pattern for consistency
+
+**Next Steps:**
+- Test against magentaa11y-mcp server (mentioned in issue)
+- Consider P2/P3 improvements: static regex patterns, error handling around pattern.test()
+
+**Notes:**
+- Commit: 220c2848
+- 13 files changed, +1569 lines
 
 ---

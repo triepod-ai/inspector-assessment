@@ -328,6 +328,7 @@ export interface SecurityAssessment {
 - `hasSuccessContext(response)` - Detects success indicators in response (72 patterns)
 - `hasErrorContext(response)` - Detects error indicators in response (61 patterns)
 - `classifyVulnerabilityContext(response, payload, toolName)` - Classifies execution context to reduce false positives
+- `adjustSeverityForAnnotations(attackName, riskLevel, annotations, serverReadOnly, serverClosed)` - Adjusts severity based on tool annotations (Issue #170)
 
 **False Positive Reduction** (Issue #146):
 
@@ -347,11 +348,15 @@ if (context.executionContext === "LIKELY_FALSE_POSITIVE") {
 }
 ```
 
-**New SecurityTestResult Fields**:
+**SecurityTestResult Fields**:
 
-- `executionContext`: Classification of execution context
+- `executionContext`: Classification of execution context (Issue #146)
 - `contextEvidence`: Human-readable explanation
 - `operationSucceeded`: Whether operation succeeded or failed
+- `annotationAdjustment`: Tracks severity adjustments based on tool annotations (Issue #170)
+  - `original`: Original risk level before adjustment
+  - `adjusted`: Adjusted risk level after considering annotations
+  - `reason`: Human-readable explanation for the adjustment
 
 **Pattern Arrays** (SecurityPatternLibrary):
 
@@ -1350,7 +1355,59 @@ private scanForPatterns(
 }
 ```
 
-### Pattern 4: Configuration-Driven Assessment
+### Pattern 4: Annotation-Aware Security Testing (Issue #170)
+
+Use tool annotations to reduce false positives in security assessments:
+
+```typescript
+import { extractToolAnnotationsContext } from "../helpers/ToolAnnotationExtractor";
+import { adjustSeverityForAnnotations } from "../modules/securityTests/AnnotationAwareSeverity";
+import type {
+  ToolAnnotationsContext,
+  SecurityAnnotations,
+} from "@/lib/assessment/coreTypes";
+
+// Step 1: Extract annotations context during assessment preparation
+const annotationsContext = extractToolAnnotationsContext(context.tools);
+
+// Step 2: Pass context to security tester
+const tester = new SecurityPayloadTester(/* ... */);
+tester.setToolAnnotationsContext(annotationsContext);
+
+// Step 3: Severity adjustment is applied automatically during testing
+// Results include annotationAdjustment field when severity was adjusted
+
+// Step 4: Manually adjust severity for custom security tests
+const adjustment = adjustSeverityForAnnotations(
+  "Command Injection", // Attack name
+  "HIGH", // Original risk level
+  toolAnnotations, // Per-tool annotations
+  annotationsContext.serverIsReadOnly, // Server-level read-only flag
+  annotationsContext.serverIsClosed, // Server-level closed-world flag
+);
+
+if (adjustment.wasAdjusted) {
+  console.log(adjustment.adjustmentReason);
+  // Use adjustment.adjustedRiskLevel instead of original
+}
+```
+
+**Key Concepts**:
+
+- **Execution-Type Attacks**: Command Injection, Code Execution, Path Traversal, etc.
+  - Downgraded to LOW for tools with `readOnlyHint: true`
+- **Exfiltration-Type Attacks**: SSRF, Data Exfiltration, Token Theft, etc.
+  - Downgraded to LOW for tools with `openWorldHint: false`
+- **Server-Level Flags**: Apply when ALL annotated tools have the same annotation
+- **Transparency**: All adjustments tracked in `SecurityTestResult.annotationAdjustment`
+
+**Implementation Files**:
+
+- `client/src/services/assessment/helpers/ToolAnnotationExtractor.ts` - Context extraction
+- `client/src/services/assessment/modules/securityTests/AnnotationAwareSeverity.ts` - Adjustment logic
+- `client/src/services/assessment/modules/securityTests/SecurityPayloadTester.ts` - Integration point
+
+### Pattern 5: Configuration-Driven Assessment
 
 Use `this.isFeatureEnabled()` to conditionally run assessment features:
 

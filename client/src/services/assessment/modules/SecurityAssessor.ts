@@ -155,6 +155,17 @@ export class SecurityAssessor extends BaseAssessor {
     // Select tools for testing first
     const toolsToTest = this.selectToolsForTesting(context.tools);
 
+    // Issue #170: Set tool annotations context for severity adjustment
+    // This enables annotation-aware false positive reduction for read-only servers
+    if (!context.toolAnnotationsContext) {
+      this.logger.warn(
+        "No tool annotations context provided - severity adjustment disabled",
+      );
+    }
+    this.payloadTester.setToolAnnotationsContext(
+      context.toolAnnotationsContext,
+    );
+
     // Run universal security testing via extracted payload tester
     const allTests = await this.payloadTester.runUniversalSecurityTests(
       toolsToTest,

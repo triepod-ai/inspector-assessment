@@ -6,13 +6,17 @@
  * Handles test execution, batching, and progress tracking.
  */
 
-import { SecurityTestResult } from "@/lib/assessmentTypes";
+import {
+  SecurityTestResult,
+  ToolAnnotationsContext,
+} from "@/lib/assessmentTypes";
 import {
   ProgressCallback,
   TestBatchProgress,
   VulnerabilityFoundProgress,
   ToolTestCompleteProgress,
 } from "@/lib/assessment/progressTypes";
+import { adjustSeverityForAnnotations } from "./AnnotationAwareSeverity";
 import {
   CompatibilityCallToolResult,
   Tool,
@@ -52,6 +56,11 @@ export interface PayloadTestConfig {
    * Uses PerformanceConfig.securityRetryBackoffMs if not specified
    */
   securityRetryBackoffMs?: number;
+  /**
+   * Tool annotations context for severity adjustment (Issue #170)
+   * When provided, enables annotation-aware false positive reduction
+   */
+  toolAnnotationsContext?: ToolAnnotationsContext;
 }
 
 /**
@@ -82,6 +91,14 @@ export class SecurityPayloadTester {
     this.responseAnalyzer = new SecurityResponseAnalyzer();
     this.payloadGenerator = new SecurityPayloadGenerator();
     this.sanitizationDetector = new SanitizationDetector();
+  }
+
+  /**
+   * Set tool annotations context for severity adjustment (Issue #170)
+   * Call before running tests to enable annotation-aware false positive reduction
+   */
+  setToolAnnotationsContext(context: ToolAnnotationsContext | undefined): void {
+    this.config.toolAnnotationsContext = context;
   }
 
   /**
@@ -728,7 +745,8 @@ export class SecurityPayloadTester {
         };
       }
 
-      return {
+      // Build result object
+      const result: SecurityTestResult = {
         testName: attackName,
         description: payload.description,
         payload: payload.payload,
@@ -754,6 +772,33 @@ export class SecurityPayloadTester {
         ...excessivePermissionsFields,
         ...confidenceResult,
       };
+
+      // Issue #170: Apply annotation-aware severity adjustment
+      // Reduces false positives for read-only servers
+      if (this.config.toolAnnotationsContext) {
+        const toolAnnotations =
+          this.config.toolAnnotationsContext.toolAnnotations.get(tool.name);
+        const adjustment = adjustSeverityForAnnotations(
+          attackName,
+          result.riskLevel,
+          toolAnnotations,
+          this.config.toolAnnotationsContext.serverIsReadOnly,
+          this.config.toolAnnotationsContext.serverIsClosed,
+        );
+
+        if (adjustment.wasAdjusted) {
+          result.riskLevel = adjustment.adjustedRiskLevel;
+          result.annotationAdjustment = {
+            original: adjustment.originalRiskLevel,
+            adjusted: adjustment.adjustedRiskLevel,
+            reason:
+              adjustment.adjustmentReason ||
+              "Adjusted based on tool annotations",
+          };
+        }
+      }
+
+      return result;
     } catch (error) {
       // Check if error is a connection/server failure
       if (this.responseAnalyzer.isConnectionErrorFromException(error)) {

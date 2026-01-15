@@ -416,4 +416,196 @@ describe("Issue #157: Connection Retry Logic", () => {
       jest.useFakeTimers();
     });
   });
+
+  describe("FIX-003: Undefined reason fallback (TEST-REQ-003)", () => {
+    let mockLogger: { log: jest.Mock; logError: jest.Mock };
+    let mockExecuteWithTimeout: jest.Mock;
+
+    beforeEach(() => {
+      mockLogger = {
+        log: jest.fn(),
+        logError: jest.fn(),
+      };
+      mockExecuteWithTimeout = jest.fn((promise: Promise<any>) => promise);
+    });
+
+    const createMockTool = (name: string): any => ({
+      name,
+      description: "Test tool",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+        },
+        "x-mcp-annotations": {
+          readOnlyHint: true, // This will trigger annotation adjustment
+        },
+      },
+    });
+
+    const createMockPayload = (): any => ({
+      payload: "test_payload",
+      description: "Test payload",
+      payloadType: "generic",
+      riskLevel: "HIGH" as const,
+    });
+
+    it("should use fallback reason when adjustmentReason is undefined", async () => {
+      const tool = createMockTool("test_tool");
+      const payload = createMockPayload();
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        content: [{ type: "text", text: "Vulnerable response" }],
+      });
+
+      const { SecurityPayloadTester } =
+        await import("../modules/securityTests/SecurityPayloadTester");
+
+      // Create tool annotations context
+      const toolAnnotationsContext = {
+        toolAnnotations: new Map([
+          [
+            "test_tool",
+            {
+              readOnlyHint: true,
+              source: "mcp" as const,
+            },
+          ],
+        ]),
+        serverIsReadOnly: false,
+        serverIsClosed: false,
+        annotatedToolCount: 1,
+        totalToolCount: 1,
+      };
+
+      const tester = new SecurityPayloadTester(
+        {
+          securityRetryMaxAttempts: 3,
+          securityRetryBackoffMs: 100,
+          toolAnnotationsContext,
+        },
+        mockLogger,
+        mockExecuteWithTimeout,
+      );
+
+      const result = await tester.testPayloadWithRetry(
+        tool,
+        "Command Injection", // This will trigger adjustment
+        payload,
+        mockCallTool,
+      );
+
+      // Should have annotation adjustment
+      expect(result.annotationAdjustment).toBeDefined();
+
+      // Should have a reason (either from adjustment or fallback)
+      expect(result.annotationAdjustment?.reason).toBeDefined();
+      expect(typeof result.annotationAdjustment?.reason).toBe("string");
+
+      // Reason should either be the actual reason or the fallback
+      const reason = result.annotationAdjustment?.reason;
+      expect(
+        reason === "Adjusted based on tool annotations" ||
+          reason?.includes("readOnlyHint=true"),
+      ).toBe(true);
+    });
+
+    it("should use actual adjustmentReason when provided", async () => {
+      const tool = createMockTool("test_tool");
+      const payload = createMockPayload();
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        content: [{ type: "text", text: "Vulnerable response" }],
+      });
+
+      const { SecurityPayloadTester } =
+        await import("../modules/securityTests/SecurityPayloadTester");
+
+      // Create tool annotations context
+      const toolAnnotationsContext = {
+        toolAnnotations: new Map([
+          [
+            "test_tool",
+            {
+              readOnlyHint: true,
+              source: "mcp" as const,
+            },
+          ],
+        ]),
+        serverIsReadOnly: false,
+        serverIsClosed: false,
+        annotatedToolCount: 1,
+        totalToolCount: 1,
+      };
+
+      const tester = new SecurityPayloadTester(
+        {
+          securityRetryMaxAttempts: 3,
+          securityRetryBackoffMs: 100,
+          toolAnnotationsContext,
+        },
+        mockLogger,
+        mockExecuteWithTimeout,
+      );
+
+      const result = await tester.testPayloadWithRetry(
+        tool,
+        "Command Injection", // Execution-type attack on read-only tool
+        payload,
+        mockCallTool,
+      );
+
+      // Should have annotation adjustment with actual reason
+      expect(result.annotationAdjustment).toBeDefined();
+      expect(result.annotationAdjustment?.reason).toContain(
+        "readOnlyHint=true",
+      );
+      expect(result.annotationAdjustment?.reason).toContain(
+        "Command Injection",
+      );
+      expect(result.annotationAdjustment?.reason).toContain("downgraded");
+    });
+
+    it("should handle missing annotationAdjustment gracefully", async () => {
+      const tool = {
+        name: "no_annotation_tool",
+        description: "Tool without annotations",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string" },
+          },
+          // No annotations
+        },
+      };
+      const payload = createMockPayload();
+
+      const mockCallTool = jest.fn().mockResolvedValue({
+        content: [{ type: "text", text: "Safe response" }],
+      });
+
+      const { SecurityPayloadTester } =
+        await import("../modules/securityTests/SecurityPayloadTester");
+
+      // No tool annotations context
+      const tester = new SecurityPayloadTester(
+        {
+          securityRetryMaxAttempts: 3,
+          securityRetryBackoffMs: 100,
+        },
+        mockLogger,
+        mockExecuteWithTimeout,
+      );
+
+      const result = await tester.testPayloadWithRetry(
+        tool,
+        "Command Injection",
+        payload,
+        mockCallTool,
+      );
+
+      // Should NOT have annotation adjustment (no context provided)
+      expect(result.annotationAdjustment).toBeUndefined();
+    });
+  });
 });

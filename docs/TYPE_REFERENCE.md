@@ -621,8 +621,20 @@ interface SecurityTestResult {
   connectionError?: boolean;
   errorType?: "connection" | "server" | "protocol";
   testReliability?: "completed" | "failed" | "retried";
+  // Issue #146: Execution context classification
+  executionContext?: "CONFIRMED" | "LIKELY_FALSE_POSITIVE" | "SUSPECTED";
+  contextEvidence?: string;
+  operationSucceeded?: boolean;
+  // Issue #170: Annotation-based severity adjustment tracking
+  annotationAdjustment?: {
+    original: SecurityRiskLevel;
+    adjusted: SecurityRiskLevel;
+    reason?: string;
+  };
 }
 ```
+
+**New in v1.37.0 (Issue #170)**: `annotationAdjustment` field tracks when vulnerability severity was adjusted based on tool annotations (e.g., read-only tools, closed-world tools). See [Annotation-Aware Security Testing](ASSESSMENT_MODULE_DEVELOPER_GUIDE.md#pattern-4-annotation-aware-security-testing-issue-170) for usage.
 
 ---
 
@@ -774,6 +786,86 @@ interface ToolAnnotationAssessment {
     unknown: number;
   };
   poisonedDescriptionsDetected?: number;
+}
+```
+
+### SecurityAnnotations (Issue #170)
+
+Simplified extracted annotations for security context. Used for annotation-aware severity adjustment.
+
+```typescript
+interface SecurityAnnotations {
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+  source: "mcp" | "source-code" | "inferred" | "none";
+}
+```
+
+### ToolAnnotationsContext (Issue #170)
+
+Pre-extracted tool annotations context for security assessment. Enables annotation-aware severity adjustment to reduce false positives.
+
+```typescript
+interface ToolAnnotationsContext {
+  /** Map of tool name to extracted annotations */
+  toolAnnotations: Map<string, SecurityAnnotations>;
+  /** True if ALL annotated tools have readOnlyHint: true */
+  serverIsReadOnly: boolean;
+  /** True if ALL annotated tools have openWorldHint: false */
+  serverIsClosed: boolean;
+  /** Count of tools with annotations */
+  annotatedToolCount: number;
+  /** Total tool count */
+  totalToolCount: number;
+}
+```
+
+**Usage Example**:
+
+```typescript
+import { extractToolAnnotationsContext } from "@/services/assessment/helpers/ToolAnnotationExtractor";
+
+const context = extractToolAnnotationsContext(tools);
+if (context.serverIsReadOnly) {
+  // All annotated tools are read-only - execution attacks less relevant
+}
+```
+
+### SeverityAdjustment (Issue #170)
+
+Result of annotation-aware severity adjustment.
+
+```typescript
+interface SeverityAdjustment {
+  /** Adjusted risk level after considering annotations */
+  adjustedRiskLevel: SecurityRiskLevel;
+  /** Whether an adjustment was made */
+  wasAdjusted: boolean;
+  /** Reason for adjustment (human-readable) */
+  adjustmentReason?: string;
+  /** Original risk level before adjustment */
+  originalRiskLevel: SecurityRiskLevel;
+}
+```
+
+**Usage Example**:
+
+```typescript
+import { adjustSeverityForAnnotations } from "@/services/assessment/modules/securityTests/AnnotationAwareSeverity";
+
+const adjustment = adjustSeverityForAnnotations(
+  "Command Injection",
+  "HIGH",
+  { readOnlyHint: true, source: "mcp" },
+  true, // serverIsReadOnly
+  false, // serverIsClosed
+);
+
+if (adjustment.wasAdjusted) {
+  console.log(adjustment.adjustmentReason);
+  // "Tool has readOnlyHint=true; Command Injection downgraded from HIGH to LOW (cannot execute)"
 }
 ```
 
