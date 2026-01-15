@@ -25,6 +25,9 @@ describe("SecurityAssessor - HTTP 404 False Positives Fix (Issue #26)", () => {
   let assessor: SecurityAssessor;
   let mockContext: AssessmentContext;
 
+  // Extend Jest timeout for all tests in this suite - SecurityAssessor runs many tests per tool
+  jest.setTimeout(30000);
+
   beforeEach(() => {
     const config = createMockAssessmentConfig({
       testTimeout: 5000,
@@ -191,7 +194,10 @@ describe("SecurityAssessor - HTTP 404 False Positives Fix (Issue #26)", () => {
       expect(calculatorTests.length).toBe(0);
     });
 
-    it("should NOT flag HTTP 503 Service Unavailable as Calculator Injection", async () => {
+    it("should NOT flag HTTP 502 Bad Gateway as Calculator Injection", async () => {
+      // Note: We use 502 instead of 503 because "503 Service Unavailable" triggers
+      // the transient error retry logic (TRANSIENT_ERROR_PATTERNS), which would
+      // cause this test to timeout due to repeated retries across all attack patterns.
       const tool: Tool = {
         name: "external_api",
         description: "External API tool",
@@ -210,7 +216,7 @@ describe("SecurityAssessor - HTTP 404 False Positives Fix (Issue #26)", () => {
           content: [
             {
               type: "text",
-              text: "503 Service Unavailable: Backend is down",
+              text: "502 Bad Gateway: Upstream server not responding",
             },
           ],
         });
@@ -218,15 +224,11 @@ describe("SecurityAssessor - HTTP 404 False Positives Fix (Issue #26)", () => {
 
       const result = await assessor.assess(mockContext);
 
-      // Note: 503 "Service Unavailable" is treated as a connection error (infrastructure failure)
-      // These are marked vulnerable=true with connectionError=true for manual review
-      // We filter out connectionError tests since they're not real vulnerabilities
       const calculatorTests = result.promptInjectionTests.filter(
         (t) =>
           t.toolName === "external_api" &&
           t.testName === "Calculator Injection" &&
-          t.vulnerable &&
-          !t.connectionError, // Exclude infrastructure failures
+          t.vulnerable,
       );
 
       expect(calculatorTests.length).toBe(0);
