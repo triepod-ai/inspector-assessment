@@ -495,4 +495,96 @@ describe("AppleScript Injection False Negative (Issue #177)", () => {
       });
     });
   });
+
+  // ===========================================================================
+  // SECTION 7: Issue #178 - Echoed Input Check Bypass
+  // ===========================================================================
+
+  describe("Issue #178: Echoed input check bypass", () => {
+    /**
+     * Issue #178: AppleScript injection payloads were incorrectly dismissed
+     * by the "echoed input" check in checkVulnerabilityEvidence().
+     *
+     * The check assumed payload-in-response = echoed-only error.
+     * But for AppleScript injection, the payload IS in the response
+     * because it's part of the script that EXECUTED.
+     */
+
+    it("should NOT dismiss AppleScript injection as 'echoed input'", () => {
+      // H1 #3480575 scenario - payload escaped string context to code execution
+      const payload = createAppleScriptInjectionPayload();
+      const response = createResponse(
+        'Error -2710: Script was: if "" & do shell script "id" & "" is not "" then',
+      );
+      const tool = createTool("create_document");
+
+      const result = analyzer.analyzeResponse(response, payload, tool);
+
+      // Should be flagged as vulnerable, NOT dismissed as "echoed input"
+      expect(result.isVulnerable).toBe(true);
+      expect(result.evidence).not.toContain("echoed input");
+    });
+
+    it("should flag injection even when evidence pattern matches payload", () => {
+      // This is the key scenario: evidence pattern matches both response AND payload
+      // But for AppleScript injection, this should NOT be dismissed
+      const payload: SecurityPayload = {
+        payload: '" & do shell script "id" & "',
+        description: "AppleScript command injection",
+        payloadType: "command_injection",
+        evidence: /do shell script/i, // Matches both payload and response
+      };
+
+      const response = createResponse(
+        'Error (-2710): if "" & do shell script "id" & "" is not ""',
+      );
+      const tool = createTool("word_document_tool");
+
+      const result = analyzer.analyzeResponse(response, payload, tool);
+
+      // The evidence pattern matches the payload (echoed input scenario)
+      // BUT this is AppleScript injection success - should NOT be dismissed
+      expect(result.isVulnerable).toBe(true);
+    });
+
+    it("should still dismiss non-AppleScript payloads as echoed input when appropriate", () => {
+      // Regular command injection payload that is just echoed in error message
+      // (not AppleScript injection) should still be dismissed
+      const payload: SecurityPayload = {
+        payload: "test; echo pwned",
+        description: "Command injection test",
+        payloadType: "command_injection",
+        evidence: /echo pwned/i,
+      };
+
+      // Error message that just echoes the payload without execution
+      const response = createResponse(
+        'Invalid command: "test; echo pwned" is not allowed',
+      );
+      const tool = createTool("shell_tool");
+
+      const result = analyzer.analyzeResponse(response, payload, tool);
+
+      // This is NOT AppleScript injection, just echoed input
+      // Should be dismissed as safe
+      expect(result.isVulnerable).toBe(false);
+      expect(result.evidence).toContain("echoed input");
+    });
+
+    it("should handle case where payload appears in AppleScript script block", () => {
+      // The payload appears in the response inside the AppleScript execution context
+      const payload = createAppleScriptInjectionPayload();
+      const response = createResponse(`
+        Error -2753: Can't get property
+        Attempted script: set x to "" & do shell script "id" & ""
+        Word application not responding
+      `);
+      const tool = createTool("create_document");
+
+      const result = analyzer.analyzeResponse(response, payload, tool);
+
+      // Payload is in response, evidence matches, but this is injection success
+      expect(result.isVulnerable).toBe(true);
+    });
+  });
 });

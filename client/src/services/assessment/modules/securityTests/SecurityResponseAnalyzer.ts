@@ -1506,14 +1506,43 @@ export class SecurityResponseAnalyzer {
   ): AnalysisResult {
     const payloadText = payload.payload.toLowerCase();
 
+    // Issue #178: Early check for AppleScript injection success
+    // AppleScript injection may not match standard evidence patterns but IS code execution
+    // This check must come BEFORE evidence pattern matching to catch all cases
+    // IMPORTANT: Only flag if we're in an AppleScript context (has AppleScript error patterns)
+    // to avoid false positives when non-AppleScript tools echo AppleScript-like payloads
+    if (
+      this.safeDetector.isAppleScriptSyntaxError(responseText) &&
+      this.safeDetector.isAppleScriptInjectionSuccess(
+        responseText,
+        payload.payload,
+      )
+    ) {
+      return {
+        isVulnerable: true,
+        evidence:
+          "AppleScript injection: payload escaped string context to code execution position",
+      };
+    }
+
     // Check for expected evidence of execution
     if (payload.evidence && payload.evidence.test(responseText)) {
       const evidenceMatchesInput = payload.evidence.test(payloadText);
       if (evidenceMatchesInput && responseText.includes(payloadText)) {
-        return {
-          isVulnerable: false,
-          evidence: "Evidence pattern matched echoed input, not execution",
-        };
+        // Issue #178: Don't dismiss as echoed input if AppleScript injection detected
+        // AppleScript injection payloads appear in response but ARE code execution
+        if (
+          !this.safeDetector.isAppleScriptInjectionSuccess(
+            responseText,
+            payload.payload,
+          )
+        ) {
+          return {
+            isVulnerable: false,
+            evidence: "Evidence pattern matched echoed input, not execution",
+          };
+        }
+        // AppleScript injection detected - continue to flag as vulnerable
       }
 
       // For validation-type patterns, require execution evidence
@@ -1600,13 +1629,23 @@ export class SecurityResponseAnalyzer {
     // LIKELY_FALSE_POSITIVE: Error context with payload reflection
     // The server rejected the operation but echoed the payload in the error message
     if (payloadInError && hasError) {
-      return {
-        isVulnerable: false,
-        evidence:
-          `Operation failed with error containing reflected payload. ` +
-          `Original detection: ${vulnResult.evidence} ` +
-          `[Context: LIKELY_FALSE_POSITIVE - payload reflected in error message, not executed]`,
-      };
+      // Issue #178: Don't dismiss as false positive if AppleScript injection detected
+      // AppleScript injection payloads appear in error context but ARE code execution
+      if (
+        !this.safeDetector.isAppleScriptInjectionSuccess(
+          responseText,
+          payload.payload,
+        )
+      ) {
+        return {
+          isVulnerable: false,
+          evidence:
+            `Operation failed with error containing reflected payload. ` +
+            `Original detection: ${vulnResult.evidence} ` +
+            `[Context: LIKELY_FALSE_POSITIVE - payload reflected in error message, not executed]`,
+        };
+      }
+      // AppleScript injection detected - continue to flag as vulnerable
     }
 
     // SUSPECTED: Ambiguous (neither clear success nor clear error)
