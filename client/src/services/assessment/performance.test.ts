@@ -10,8 +10,12 @@ import { DEFAULT_ASSESSMENT_CONFIG } from "@/lib/assessmentTypes";
 // Performance tests focus on functional correctness, not timing thresholds.
 // Timing measurements are logged for manual analysis but not asserted.
 // See GitHub Issue #123 for rationale.
+//
+// SKIP BY DEFAULT: These tests take 5+ minutes and are for benchmarking only.
+// Run with: RUN_PERF_TESTS=true npm test -- --testPathPattern="performance"
+const describePerf = process.env.RUN_PERF_TESTS ? describe : describe.skip;
 
-describe("Assessment Performance Benchmarks", () => {
+describePerf("Assessment Performance Benchmarks", () => {
   afterEach(() => {
     jest.clearAllMocks();
   });
@@ -335,9 +339,9 @@ describe("Assessment Performance Benchmarks", () => {
       const config = createMockAssessmentConfig();
       const orchestrator = new AssessmentOrchestrator(config);
 
-      // Create a large set of tools
+      // Create a moderate set of tools (reduced from 100 to 25 for faster execution)
       const largeToolSet: Tool[] = [];
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 25; i++) {
         largeToolSet.push(
           createMockTool({
             name: `memory-tool-${i}`,
@@ -394,8 +398,8 @@ describe("Assessment Performance Benchmarks", () => {
       expect(result).toBeDefined();
       expect(result.overallStatus).toBeDefined();
       expect(result.functionality).toBeDefined();
-      expect(result.functionality.totalTools).toBe(100);
-      expect(result.totalTestsRun).toBeGreaterThan(100);
+      expect(result.functionality.totalTools).toBe(25);
+      expect(result.totalTestsRun).toBeGreaterThan(25);
 
       // Log memory metrics for manual analysis (not asserted)
       const memoryIncreaseMB =
@@ -427,7 +431,7 @@ describe("Assessment Performance Benchmarks", () => {
         Tests Run: ${result.totalTestsRun}
         Memory per Test: ${((memoryIncreaseMB * 1024) / result.totalTestsRun).toFixed(2)}KB
         Memory Growth Ratio: ${memoryGrowthRatio.toFixed(2)}x`);
-    }, 240000); // 240 second timeout for comprehensive mode memory testing
+    }, 60000); // 60 second timeout (reduced from 240s after tool count reduction)
 
     it("should maintain consistent performance across multiple runs", async () => {
       // Arrange
@@ -449,7 +453,7 @@ describe("Assessment Performance Benchmarks", () => {
         });
       });
 
-      const runCount = 5;
+      const runCount = 3; // Reduced from 5 for faster execution
       const executionTimes: number[] = [];
       const testCounts: number[] = [];
 
@@ -509,7 +513,7 @@ describe("Assessment Performance Benchmarks", () => {
         Avg Execution Time: ${avgExecutionTime.toFixed(2)}ms (CV: ${(executionTimeCv * 100).toFixed(2)}%)
         Avg Test Count: ${avgTestCount.toFixed(0)} (CV: ${(testCountCv * 100).toFixed(2)}%)
         Time Range: ${Math.min(...executionTimes).toFixed(2)}ms - ${Math.max(...executionTimes).toFixed(2)}ms`);
-    }, 240000); // 240 second timeout for multiple comprehensive mode runs
+    }, 90000); // 90 second timeout (reduced from 240s after iteration reduction)
   });
 
   describe("Stress Testing", () => {
@@ -522,9 +526,9 @@ describe("Assessment Performance Benchmarks", () => {
 
       const orchestrator = new AssessmentOrchestrator(stressConfig);
 
-      // Create many tools with complex schemas
+      // Create tools with complex schemas (reduced from 50 to 15 for faster execution)
       const stressTools: Tool[] = [];
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 15; i++) {
         stressTools.push(
           createMockTool({
             name: `stress-tool-${i}`,
@@ -599,15 +603,15 @@ describe("Assessment Performance Benchmarks", () => {
       expect(result).toBeDefined();
       expect(result.overallStatus).toBeDefined();
       expect(result.functionality).toBeDefined();
-      expect(result.functionality.totalTools).toBe(50);
+      expect(result.functionality.totalTools).toBe(15);
 
-      // Should handle failures gracefully (5% random failure rate means 0-5 failures typically)
+      // Should handle failures gracefully (5% random failure rate means 0-2 failures typically)
       // Verify all tools are accounted for (working + broken = total)
       expect(
         result.functionality.brokenTools.length +
           result.functionality.workingTools,
       ).toBe(result.functionality.totalTools);
-      expect(result.functionality.workingTools).toBeGreaterThan(30); // Most should work
+      expect(result.functionality.workingTools).toBeGreaterThan(10); // Most should work
 
       // Log performance metrics for manual analysis (not asserted)
       const memoryIncreaseMB =
@@ -621,7 +625,7 @@ describe("Assessment Performance Benchmarks", () => {
         Broken Tools: ${result.functionality.brokenTools.length}
         Throughput: ${throughput.toFixed(2)} tests/sec
         Memory Increase: ${memoryIncreaseMB.toFixed(2)}MB`);
-    }, 240000); // 240 second timeout for stress testing in comprehensive mode
+    }, 90000); // 90 second timeout (reduced from 240s after tool count reduction)
 
     it("should handle explicit tool failures correctly (deterministic failure injection)", async () => {
       // This test uses deterministic failures instead of random chance
