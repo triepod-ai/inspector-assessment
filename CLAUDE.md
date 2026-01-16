@@ -80,7 +80,7 @@ Note: `--http`, `--sse`, and `--config` are mutually exclusive.
 **Module Execution Options:**
 
 - `--module <name>` - Run single module directly (bypasses orchestrator, fastest execution)
-- Valid modules: functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance, toolAnnotations, prohibitedLibraries, manifestValidation, authentication, resources, prompts, crossCapability, developerExperience, portability, externalAPIScanner
+- Valid modules: functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance, toolAnnotations, prohibitedLibraries, manifestValidation, authentication, resources, prompts, crossCapability, developerExperience, portability, externalAPIScanner, fileModularization, conformance
 - Mutual exclusivity: `--module` cannot be used with `--profile`, `--skip-modules`, or `--only-modules`
 - Output format: `/tmp/inspector-{module}-{server}.json` (e.g., `/tmp/inspector-functionality-my-server.json`)
 

@@ -264,6 +264,7 @@ All 19 assessment modules can be run individually:
 | **Tier 2 (4)** | `toolAnnotations`, `prohibitedLibraries`, `manifestValidation`, `authentication`                |
 | **Tier 3 (3)** | `resources`, `prompts`, `crossCapability`                                                       |
 | **Tier 4 (3)** | `developerExperience`, `portability`, `externalAPIScanner`                                      |
+| **Tier 5 (2)** | `fileModularization`, `conformance`                                                             |
 
 **Mutual Exclusivity:**
 
@@ -2545,7 +2546,7 @@ mcp-assess-full --server my-server --config config.json \
   --only-modules security
 ```
 
-**Valid module names (16 total, v1.25.0+):**
+**Valid module names (18 total, v1.40.0+):**
 
 | Tier           | Module Names                                                                                    |
 | -------------- | ----------------------------------------------------------------------------------------------- |
@@ -2553,6 +2554,7 @@ mcp-assess-full --server my-server --config config.json \
 | **Tier 2 (4)** | `toolAnnotations`, `prohibitedLibraries`, `manifestValidation`, `authentication`                |
 | **Tier 3 (3)** | `resources`, `prompts`, `crossCapability`                                                       |
 | **Tier 4 (3)** | `developerExperience`, `portability`, `externalAPIScanner`                                      |
+| **Tier 5 (2)** | `fileModularization`, `conformance`                                                             |
 
 **Deprecated module names** (still supported with warnings):
 

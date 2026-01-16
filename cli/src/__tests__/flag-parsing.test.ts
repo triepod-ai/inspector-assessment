@@ -501,6 +501,8 @@ describe("Module Name Validation", () => {
     "developerExperience",
     "portability",
     "externalAPIScanner",
+    "fileModularization",
+    "conformance",
   ];
 
   function validateModuleNames(input: string): {

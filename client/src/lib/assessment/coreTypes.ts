@@ -121,6 +121,28 @@ const ASSESSMENT_CATEGORY_METADATA_INTERNAL = {
     tier: "core" as const,
     description: "MCP protocol conformance",
   },
+  // New unified modules (v1.25.0+)
+  protocolCompliance: {
+    tier: "core" as const,
+    description:
+      "MCP protocol compliance (replaces mcpSpecCompliance/protocolConformance)",
+  },
+  developerExperience: {
+    tier: "optional" as const,
+    description: "Documentation + usability assessment",
+    applicableTo: "Servers with tool descriptions",
+  },
+  // Quality tier modules (v1.40.0+)
+  fileModularization: {
+    tier: "optional" as const,
+    description: "Code modularization analysis",
+    applicableTo: "Servers with source code access",
+  },
+  conformance: {
+    tier: "optional" as const,
+    description: "Official MCP conformance tests",
+    applicableTo: "HTTP/SSE servers",
+  },
 } satisfies Record<string, AssessmentCategoryMetadata>;
 
 /**

@@ -48,9 +48,9 @@ describe("Assessment Types", () => {
 
   describe("ASSESSMENT_CATEGORY_METADATA constant", () => {
     describe("category count", () => {
-      it("should have exactly 18 assessment categories", () => {
+      it("should have exactly 22 assessment categories", () => {
         const categoryKeys = Object.keys(ASSESSMENT_CATEGORY_METADATA);
-        expect(categoryKeys).toHaveLength(18);
+        expect(categoryKeys).toHaveLength(22);
       });
     });
 
@@ -131,18 +131,18 @@ describe("Assessment Types", () => {
         expect(ASSESSMENT_CATEGORY_METADATA.crossCapability.tier).toBe("core");
       });
 
-      it("should have exactly 2 optional tier categories", () => {
+      it("should have exactly 5 optional tier categories", () => {
         const optionalCategories = Object.values(
           ASSESSMENT_CATEGORY_METADATA,
         ).filter((metadata) => metadata.tier === "optional");
-        expect(optionalCategories).toHaveLength(2);
+        expect(optionalCategories).toHaveLength(5);
       });
 
-      it("should have exactly 16 core tier categories", () => {
+      it("should have exactly 17 core tier categories", () => {
         const coreCategories = Object.values(
           ASSESSMENT_CATEGORY_METADATA,
         ).filter((metadata) => metadata.tier === "core");
-        expect(coreCategories).toHaveLength(16);
+        expect(coreCategories).toHaveLength(17);
       });
     });
 
