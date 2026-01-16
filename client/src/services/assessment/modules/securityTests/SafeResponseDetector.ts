@@ -20,6 +20,7 @@ import {
   hasLLMInjectionMarkers,
   hasOutputInjectionVulnerability,
   isAppleScriptSyntaxError as isAppleScriptSyntaxErrorPattern,
+  isAppleScriptInjectionSuccess as isAppleScriptInjectionSuccessPattern,
 } from "./SecurityPatternLibrary";
 import { ExecutionArtifactDetector } from "./ExecutionArtifactDetector";
 
@@ -74,6 +75,22 @@ export class SafeResponseDetector {
    */
   isAppleScriptSyntaxError(responseText: string): boolean {
     return isAppleScriptSyntaxErrorPattern(responseText);
+  }
+
+  /**
+   * Check if response shows AppleScript injection SUCCESS (Issue #177)
+   * This indicates the injection payload reached execution context.
+   * Takes precedence over syntax error detection for injection payloads.
+   *
+   * @param responseText Response text to analyze
+   * @param payload Optional - the injection payload that was sent (for context)
+   * @returns true if injection appears to have succeeded (vulnerability EXISTS)
+   */
+  isAppleScriptInjectionSuccess(
+    responseText: string,
+    payload?: string,
+  ): boolean {
+    return isAppleScriptInjectionSuccessPattern(responseText, payload);
   }
 
   /**

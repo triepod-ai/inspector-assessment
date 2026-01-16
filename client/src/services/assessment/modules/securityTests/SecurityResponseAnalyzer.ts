@@ -1351,10 +1351,31 @@ export class SecurityResponseAnalyzer {
       };
     }
 
-    // Issue #175: AppleScript syntax errors (not XXE)
-    // AppleScript errors can trigger false positives when the XXE payload is echoed
-    // back in the error message, matching patterns like "parameter" + "entity"
+    // Issue #175 + Issue #177: AppleScript error handling
+    //
+    // CRITICAL: Check injection SUCCESS first, THEN syntax errors
+    //
+    // Issue #175: AppleScript syntax errors can trigger XXE false positives when
+    // the XXE payload is echoed back in the error message.
+    //
+    // Issue #177: AppleScript injection payloads that SUCCESSFULLY escape string
+    // context will also produce AppleScript errors, but these are VULNERABILITIES
+    // not false positives. The error occurs AFTER the injection point is reached.
+    //
+    // Example: Payload: " & do shell script "id" & "
+    //          Response: if "" & do shell script "id" & "" ...
+    //          Error: -2710 (Word not running)
+    //          This is INJECTION SUCCESS - the payload reached execution context!
     if (this.safeDetector.isAppleScriptSyntaxError(responseText)) {
+      // Issue #177: Check if this looks like INJECTION SUCCESS before dismissing
+      // If injection patterns are detected, this is a vulnerability, not a safe error
+      if (this.safeDetector.isAppleScriptInjectionSuccess(responseText)) {
+        // This is NOT a safe syntax error - it's successful injection!
+        // Return null to continue analysis and potentially flag as vulnerable
+        return null;
+      }
+
+      // Genuine syntax error (payload rejected before reaching interpreter)
       return {
         isVulnerable: false,
         evidence:

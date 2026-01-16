@@ -415,6 +415,101 @@ export function isAppleScriptSyntaxError(text: string): boolean {
 }
 
 // =============================================================================
+// APPLESCRIPT INJECTION SUCCESS PATTERNS (Issue #177)
+// =============================================================================
+
+/**
+ * Issue #177: AppleScript injection SUCCESS patterns
+ *
+ * These patterns indicate that the injection payload SUCCESSFULLY escaped
+ * the string context and reached the AppleScript interpreter. Even if the
+ * script then fails (e.g., Word not running), the injection point was reached,
+ * proving the vulnerability exists.
+ *
+ * Key insight: Distinguish between:
+ * - Syntax error FROM the payload itself (malformed input → safe, payload rejected)
+ * - Runtime error AFTER payload executed (injection succeeded → vulnerable!)
+ *
+ * H1 #3480575 scenario:
+ *   Payload: " & do shell script "id" & "
+ *   Response shows: if "" & do shell script "id" & "" is not "" then
+ *   Error: -2710 (Word not running)
+ *   This is INJECTION SUCCESS - payload escaped into executable code context
+ */
+export const APPLESCRIPT_INJECTION_SUCCESS_PATTERNS: RegExp[] = [
+  // Pattern 1: Double-quote escape to shell execution
+  // Matches: "" & do shell script (closed empty string + concatenation to shell)
+  /""?\s*&\s*do\s+shell\s+script/i,
+
+  // Pattern 2: Single-quote escape variant
+  // Matches: '' & do shell script
+  /''?\s*&\s*do\s+shell\s+script/i,
+
+  // Pattern 3: Shell command with concatenation after (injection wrapper)
+  // Matches: do shell script "X" & (command followed by concatenation)
+  /do\s+shell\s+script\s*["'][^"']+["']\s*&/i,
+
+  // Pattern 4: if statement with injected command (common wrapper pattern)
+  // Matches: if "" & do shell script
+  /if\s*""?\s*&\s*do\s+shell\s+script/i,
+];
+
+/**
+ * Runtime error codes that occur AFTER AppleScript interpretation begins
+ * These indicate the injection reached the execution stage
+ *
+ * -2710: "Can't make class" - object creation failed (app not running, but injection succeeded)
+ * -2753: "Can't get" - property access failed (but script was parsed and executed)
+ * -1708: "Application isn't running" - target app not available (injection reached tell block)
+ * -10810: "Application launch failed" - tried to launch app (injection executed)
+ */
+export const APPLESCRIPT_RUNTIME_ERROR_CODES: RegExp[] = [
+  /-2710\b/, // Can't make class (app not running, but injection succeeded)
+  /-2753\b/, // Can't get property (script executed but object not found)
+  /-1708\b/, // Application isn't running (tell block reached)
+  /-10810\b/, // Application launch failed (execution attempted)
+];
+
+/**
+ * Check if response shows AppleScript injection SUCCESS (Issue #177)
+ * This takes PRECEDENCE over syntax error detection for injection payloads.
+ *
+ * @param text Response text to analyze
+ * @param payload Optional - the injection payload that was sent (for context)
+ * @returns true if injection appears to have succeeded (vulnerability EXISTS)
+ */
+export function isAppleScriptInjectionSuccess(
+  text: string,
+  payload?: string,
+): boolean {
+  // Check for injection success patterns in the response
+  const hasInjectionPattern = APPLESCRIPT_INJECTION_SUCCESS_PATTERNS.some(
+    (pattern) => pattern.test(text),
+  );
+
+  if (hasInjectionPattern) {
+    return true;
+  }
+
+  // Check for runtime errors (vs syntax errors) that indicate execution started
+  // Only consider runtime errors as injection success if the payload contained
+  // shell script injection patterns
+  if (payload && /do\s+shell\s+script/i.test(payload)) {
+    const hasRuntimeError = APPLESCRIPT_RUNTIME_ERROR_CODES.some((pattern) =>
+      pattern.test(text),
+    );
+
+    // If we have a runtime error AND the response echoes the injection pattern,
+    // the injection succeeded even though execution failed
+    if (hasRuntimeError && /do\s+shell\s+script/i.test(text)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// =============================================================================
 // REFLECTION PATTERNS (safe response detection)
 // =============================================================================
 
