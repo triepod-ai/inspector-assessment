@@ -24,9 +24,15 @@
 //   coreTypes.ts      - Foundational types (AssessmentStatus, enums, metadata)
 //   configTypes.ts    - Configuration interfaces and presets
 //
-// Tier 1 - Depends on Tier 0 only:
-//   extendedTypes.ts  - Extended assessment types (AUP, Annotations, etc.)
-//   progressTypes.ts  - Progress event types for JSONL streaming
+// Tier 1 - Depends on Tier 0 only (modularized per Issue #164):
+//   aupComplianceTypes.ts      - AUP category compliance types
+//   toolAnnotationTypes.ts     - Tool annotations, behavior inference, architecture
+//   policyComplianceTypes.ts   - Prohibited libraries, manifest, portability
+//   externalServicesTypes.ts   - External APIs, authentication
+//   temporalSecurityTypes.ts   - Temporal/rug pull detection, variance
+//   capabilityAssessmentTypes.ts - Resources, prompts, protocol, conformance, devex
+//   progressTypes.ts           - Progress event types for JSONL streaming
+//   extendedTypes.ts           - DEPRECATED: Re-export shim for backward compatibility
 //
 // Tier 2 - Depends on Tier 0 and Tier 1:
 //   resultTypes.ts    - Core result interfaces (MCPDirectoryAssessment, etc.)
@@ -43,8 +49,13 @@
 export * from "./coreTypes";
 export * from "./configTypes";
 
-// Tier 1: Types depending on coreTypes
-export * from "./extendedTypes";
+// Tier 1: Types depending on coreTypes (modularized per Issue #164)
+export * from "./aupComplianceTypes";
+export * from "./toolAnnotationTypes";
+export * from "./policyComplianceTypes";
+export * from "./externalServicesTypes";
+export * from "./temporalSecurityTypes";
+export * from "./capabilityAssessmentTypes";
 export * from "./progressTypes";
 
 // Tier 2: Result types depending on coreTypes and extendedTypes
