@@ -295,6 +295,151 @@ describe("CodeReviewClient - JSON Extraction and Validation (TEST-REQ-002, TEST-
       expect(result.summary).toBe("Test review");
     });
 
+    // Issue #130: Additional tests for robust regex extraction
+    it("should handle JSON with extra whitespace in code block", async () => {
+      const jsonContent = {
+        summary: "Test review with whitespace",
+        findings: [],
+      };
+
+      const mockResponse = {
+        id: "msg_123",
+        type: "message" as const,
+        role: "assistant" as const,
+        content: [
+          {
+            type: "text" as const,
+            text: "```json  \n\n" + JSON.stringify(jsonContent) + "\n\n```",
+          },
+        ],
+        model: "claude-sonnet-4-20250514",
+        stop_reason: "end_turn" as const,
+        stop_sequence: null,
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+        },
+      };
+
+      vi.spyOn(client["client"].messages, "create").mockResolvedValue(
+        mockResponse,
+      );
+
+      const diff: PRDiff = {
+        files: [
+          {
+            filename: "test.js",
+            status: "modified",
+            additions: 1,
+            deletions: 0,
+            patch: "test",
+          },
+        ],
+        totalAdditions: 1,
+        totalDeletions: 0,
+      };
+
+      const result = await client.reviewDiff(diff);
+
+      expect(result.summary).toBe("Test review with whitespace");
+    });
+
+    it("should handle code block with no newlines (compact format)", async () => {
+      const jsonContent = {
+        summary: "Compact format test",
+        findings: [],
+      };
+
+      const mockResponse = {
+        id: "msg_123",
+        type: "message" as const,
+        role: "assistant" as const,
+        content: [
+          {
+            type: "text" as const,
+            text: "```json" + JSON.stringify(jsonContent) + "```",
+          },
+        ],
+        model: "claude-sonnet-4-20250514",
+        stop_reason: "end_turn" as const,
+        stop_sequence: null,
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+        },
+      };
+
+      vi.spyOn(client["client"].messages, "create").mockResolvedValue(
+        mockResponse,
+      );
+
+      const diff: PRDiff = {
+        files: [
+          {
+            filename: "test.js",
+            status: "modified",
+            additions: 1,
+            deletions: 0,
+            patch: "test",
+          },
+        ],
+        totalAdditions: 1,
+        totalDeletions: 0,
+      };
+
+      const result = await client.reviewDiff(diff);
+
+      expect(result.summary).toBe("Compact format test");
+    });
+
+    it("should handle plain JSON without code block fences", async () => {
+      const jsonContent = {
+        summary: "Plain JSON test",
+        findings: [],
+      };
+
+      const mockResponse = {
+        id: "msg_123",
+        type: "message" as const,
+        role: "assistant" as const,
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(jsonContent),
+          },
+        ],
+        model: "claude-sonnet-4-20250514",
+        stop_reason: "end_turn" as const,
+        stop_sequence: null,
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+        },
+      };
+
+      vi.spyOn(client["client"].messages, "create").mockResolvedValue(
+        mockResponse,
+      );
+
+      const diff: PRDiff = {
+        files: [
+          {
+            filename: "test.js",
+            status: "modified",
+            additions: 1,
+            deletions: 0,
+            patch: "test",
+          },
+        ],
+        totalAdditions: 1,
+        totalDeletions: 0,
+      };
+
+      const result = await client.reviewDiff(diff);
+
+      expect(result.summary).toBe("Plain JSON test");
+    });
+
     it("should handle empty findings array", async () => {
       const mockResponse = {
         id: "msg_123",
