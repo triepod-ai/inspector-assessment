@@ -54,12 +54,35 @@ The project is organized as a monorepo with workspaces:
 Run security assessments from the command line without the web UI:
 
 ```bash
-# Test all tools on a server
+# Quick HTTP/SSE testing (no config file needed):
+npm run assess -- --server my-server --http http://localhost:10900/mcp
+npm run assess -- --server my-server --sse http://localhost:9002/sse
+
+# Config-based testing (for STDIO or complex setups):
 npm run assess -- --server <server-name> --config <path-to-config.json>
 
 # Test specific tool
 npm run assess -- --server <server-name> --config <config.json> --tool <tool-name>
+
+# Single-module execution (fastest, bypasses orchestrator):
+npm run assess -- --server my-server --http http://localhost:10900/mcp --module toolAnnotations
+npm run assess:full -- --server my-server --sse http://localhost:9002/sse --module functionality
 ```
+
+**Transport Options:**
+
+- `--http <url>` - Quick HTTP transport (no config file needed)
+- `--sse <url>` - Quick SSE transport (no config file needed)
+- `--config <path>` - Load from JSON config file (required for STDIO)
+
+Note: `--http`, `--sse`, and `--config` are mutually exclusive.
+
+**Module Execution Options:**
+
+- `--module <name>` - Run single module directly (bypasses orchestrator, fastest execution)
+- Valid modules: functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance, toolAnnotations, prohibitedLibraries, manifestValidation, authentication, resources, prompts, crossCapability, developerExperience, portability, externalAPIScanner
+- Mutual exclusivity: `--module` cannot be used with `--profile`, `--skip-modules`, or `--only-modules`
+- Output format: `/tmp/inspector-{module}-{server}.json` (e.g., `/tmp/inspector-functionality-my-server.json`)
 
 **Config File Format** (HTTP transport):
 

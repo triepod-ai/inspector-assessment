@@ -30,3 +30,10 @@ export { buildConfig } from "./config-builder.js";
 
 // Assessment Execution
 export { runFullAssessment } from "./assessment-executor.js";
+
+// Single Module Execution (Issue #184)
+export {
+  runSingleModule,
+  getValidModuleNames,
+  type SingleModuleResult,
+} from "./single-module-runner.js";

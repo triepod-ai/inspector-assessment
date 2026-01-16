@@ -25,6 +25,7 @@ import {
 import { emitTieredOutput } from "./jsonl-events.js";
 
 import type { AssessmentOptions } from "./cli-parser.js";
+import type { SingleModuleResult } from "./assessment-runner/single-module-runner.js";
 
 // ============================================================================
 // Result Output
@@ -415,4 +416,166 @@ export function displaySummary(results: MCPDirectoryAssessment): void {
   }
 
   console.log("\n" + "=".repeat(70));
+}
+
+// ============================================================================
+// Single Module Output (Issue #184)
+// ============================================================================
+
+/**
+ * Save single module results to file.
+ *
+ * @param serverName - Server name
+ * @param moduleName - Module ID that was executed
+ * @param result - Single module result
+ * @param options - Assessment options
+ * @returns Path to output file
+ */
+export function saveSingleModuleResults(
+  serverName: string,
+  moduleName: string,
+  result: SingleModuleResult,
+  options: AssessmentOptions,
+): string {
+  const defaultPath = `/tmp/inspector-${moduleName}-${serverName}.json`;
+  const finalPath = options.outputPath || defaultPath;
+
+  fs.writeFileSync(finalPath, JSON.stringify(result, null, 2));
+
+  return finalPath;
+}
+
+/**
+ * Display single module summary to console.
+ *
+ * @param result - Single module result
+ */
+export function displaySingleModuleSummary(result: SingleModuleResult): void {
+  const statusIcon =
+    result.status === "PASS"
+      ? "✅"
+      : result.status === "FAIL"
+        ? "❌"
+        : result.status === "PARTIAL"
+          ? "⚠️"
+          : "❓";
+
+  console.log("\n" + "=".repeat(60));
+  console.log(`MODULE: ${result.displayName.toUpperCase()}`);
+  console.log("=".repeat(60));
+  console.log(`Server: ${result.serverName}`);
+  console.log(`Status: ${statusIcon} ${result.status}`);
+  console.log(`Estimated Tests: ${result.estimatedTestCount}`);
+  console.log(`Execution Time: ${result.executionTime}ms`);
+  console.log("=".repeat(60));
+
+  // Display module-specific highlights based on result type
+  displayModuleHighlights(result);
+}
+
+/**
+ * Display module-specific highlights from the result.
+ */
+function displayModuleHighlights(result: SingleModuleResult): void {
+  const r = result.result as Record<string, unknown> | null;
+  if (!r) return;
+
+  // Security module
+  if (result.module === "security") {
+    const vulnCount = Array.isArray(r.vulnerabilities)
+      ? r.vulnerabilities.length
+      : 0;
+    if (vulnCount > 0) {
+      console.log(`\n🔒 VULNERABILITIES FOUND: ${vulnCount}`);
+      const vulns = r.vulnerabilities as Array<{
+        toolName?: string;
+        testName?: string;
+        riskLevel?: string;
+      }>;
+      for (const vuln of vulns.slice(0, 5)) {
+        console.log(
+          `   • ${vuln.toolName || "unknown"}: ${vuln.testName || "unknown"} (${vuln.riskLevel || "unknown"})`,
+        );
+      }
+      if (vulnCount > 5) {
+        console.log(`   ... and ${vulnCount - 5} more`);
+      }
+    } else {
+      console.log("\n✅ No vulnerabilities detected");
+    }
+  }
+
+  // Functionality module
+  if (result.module === "functionality") {
+    const working = r.workingTools;
+    const broken = r.brokenTools;
+    if (typeof working === "number" || typeof broken === "number") {
+      console.log(
+        `\n📊 TOOL STATUS: ${working || 0} working, ${Array.isArray(broken) ? broken.length : 0} broken`,
+      );
+    }
+  }
+
+  // Tool Annotations module
+  if (result.module === "toolAnnotations") {
+    const missing = r.missingAnnotationsCount;
+    const misaligned = r.misalignedAnnotationsCount;
+    const annotated = r.annotatedCount;
+    console.log(`\n🏷️  ANNOTATION STATUS:`);
+    if (typeof annotated === "number") {
+      console.log(`   Annotated tools: ${annotated}`);
+    }
+    if (typeof missing === "number" && missing > 0) {
+      console.log(`   ⚠️  Missing annotations: ${missing}`);
+    }
+    if (typeof misaligned === "number" && misaligned > 0) {
+      console.log(`   ⚠️  Misaligned annotations: ${misaligned}`);
+    }
+  }
+
+  // Error Handling module
+  if (result.module === "errorHandling") {
+    const metrics = r.metrics as Record<string, unknown> | undefined;
+    if (metrics) {
+      console.log(`\n🛡️  ERROR HANDLING METRICS:`);
+      if (typeof metrics.invalidParamHandledCorrectly === "number") {
+        console.log(
+          `   Invalid param handling: ${metrics.invalidParamHandledCorrectly}%`,
+        );
+      }
+      if (typeof metrics.missingParamHandledCorrectly === "number") {
+        console.log(
+          `   Missing param handling: ${metrics.missingParamHandledCorrectly}%`,
+        );
+      }
+    }
+  }
+
+  // AUP Compliance module
+  if (result.module === "aupCompliance") {
+    const violations = r.violations;
+    if (Array.isArray(violations) && violations.length > 0) {
+      const critical = violations.filter(
+        (v: Record<string, unknown>) => v.severity === "CRITICAL",
+      );
+      console.log(`\n⚖️  AUP FINDINGS:`);
+      console.log(`   Total flagged: ${violations.length}`);
+      if (critical.length > 0) {
+        console.log(`   🚨 CRITICAL violations: ${critical.length}`);
+      }
+    }
+  }
+
+  // Temporal module
+  if (result.module === "temporal") {
+    const overallRisk = r.overallRisk;
+    const detectedChanges = r.detectedChanges;
+    console.log(`\n⏱️  TEMPORAL ANALYSIS:`);
+    if (typeof overallRisk === "string") {
+      console.log(`   Overall Risk: ${overallRisk}`);
+    }
+    if (typeof detectedChanges === "number") {
+      console.log(`   Detected Changes: ${detectedChanges}`);
+    }
+  }
 }

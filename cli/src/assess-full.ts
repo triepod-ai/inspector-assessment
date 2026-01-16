@@ -15,12 +15,14 @@ import { ScopedListenerConfig } from "./lib/event-config.js";
 
 // Import from extracted modules
 import { parseArgs } from "./lib/cli-parser.js";
-import { runFullAssessment } from "./lib/assessment-runner.js";
+import { runFullAssessment, runSingleModule } from "./lib/assessment-runner.js";
 import {
   saveResults,
   saveTieredResults,
   saveSummaryOnly,
   displaySummary,
+  saveSingleModuleResults,
+  displaySingleModuleSummary,
 } from "./lib/result-output.js";
 import {
   handleComparison,
@@ -56,6 +58,32 @@ async function main() {
 
     // Apply scoped listener configuration for assessment
     listenerConfig.apply();
+
+    // Single module mode - bypass orchestrator for lightweight execution (Issue #184)
+    if (options.singleModule) {
+      const result = await runSingleModule(options.singleModule, options);
+
+      if (!options.jsonOnly) {
+        displaySingleModuleSummary(result);
+      }
+
+      const outputPath = saveSingleModuleResults(
+        options.serverName,
+        options.singleModule,
+        result,
+        options,
+      );
+
+      if (options.jsonOnly) {
+        console.log(outputPath);
+      } else {
+        console.log(`\n📄 Results saved to: ${outputPath}\n`);
+      }
+
+      const exitCode = result.status === "FAIL" ? 1 : 0;
+      setTimeout(() => process.exit(exitCode), 10);
+      return;
+    }
 
     const results = await runFullAssessment(options);
 

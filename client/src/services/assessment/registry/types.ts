@@ -168,6 +168,15 @@ export interface AssessorDefinition<T extends BaseAssessor = BaseAssessor> {
    * Examples: Load pattern config for ToolAnnotationAssessor
    */
   customSetup?: AssessorSetupFn<T>;
+
+  /**
+   * Context requirements for lightweight single-module execution.
+   * Used by --module flag to skip orchestrator and build minimal context.
+   * If not specified, DEFAULT_CONTEXT_REQUIREMENTS is used.
+   *
+   * @see GitHub Issue #184
+   */
+  contextRequirements?: ModuleContextRequirements;
 }
 
 /**
@@ -222,3 +231,50 @@ export function supportsClaudeBridge(
     "function"
   );
 }
+
+/**
+ * Context requirements for lightweight single-module execution.
+ * Used by --module flag to build minimal context instead of full orchestration.
+ *
+ * @see GitHub Issue #184
+ */
+export interface ModuleContextRequirements {
+  /** Whether the module needs tools list from server */
+  needsTools: boolean;
+
+  /** Whether the module needs to call tools (requires callTool wrapper) */
+  needsCallTool: boolean;
+
+  /** Whether the module needs listTools function (for TemporalAssessor baseline) */
+  needsListTools: boolean;
+
+  /** Whether the module needs resources capability */
+  needsResources: boolean;
+
+  /** Whether the module needs prompts capability */
+  needsPrompts: boolean;
+
+  /** Whether the module needs source code files (optional - enhances analysis) */
+  needsSourceCode: boolean;
+
+  /** Whether the module needs manifest.json */
+  needsManifest: boolean;
+
+  /** Whether the module needs server info and capabilities */
+  needsServerInfo: boolean;
+}
+
+/**
+ * Default context requirements - used as fallback if not specified.
+ * Most modules need tools and callTool but nothing else.
+ */
+export const DEFAULT_CONTEXT_REQUIREMENTS: ModuleContextRequirements = {
+  needsTools: true,
+  needsCallTool: true,
+  needsListTools: false,
+  needsResources: false,
+  needsPrompts: false,
+  needsSourceCode: false,
+  needsManifest: false,
+  needsServerInfo: false,
+};

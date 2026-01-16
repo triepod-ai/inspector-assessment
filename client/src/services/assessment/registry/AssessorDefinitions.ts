@@ -10,7 +10,7 @@
  */
 
 import type { AssessorDefinition } from "./types";
-import { AssessmentPhase } from "./types";
+import { AssessmentPhase, DEFAULT_CONTEXT_REQUIREMENTS } from "./types";
 
 // Core assessor imports
 import { FunctionalityAssessor } from "../modules/FunctionalityAssessor";
@@ -99,6 +99,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: false,
     estimateTests: estimateTemporalTests,
+    contextRequirements: {
+      needsTools: true,
+      needsCallTool: true,
+      needsListTools: true, // For baseline capture before/after
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: false,
+      needsManifest: false,
+      needsServerInfo: false,
+    },
   },
 
   // ============================================================================
@@ -117,6 +127,7 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: false,
     supportsClaudeBridge: false,
     estimateTests: estimateFunctionalityTests,
+    contextRequirements: DEFAULT_CONTEXT_REQUIREMENTS, // needsTools + needsCallTool
   },
   {
     id: "security",
@@ -131,6 +142,7 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: false,
     supportsClaudeBridge: true, // Supports Claude semantic analysis
     estimateTests: estimateSecurityTests,
+    contextRequirements: DEFAULT_CONTEXT_REQUIREMENTS, // needsTools + needsCallTool
   },
   {
     id: "documentation",
@@ -145,6 +157,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: false,
     supportsClaudeBridge: false,
     estimateTests: estimateDocumentationTests,
+    contextRequirements: {
+      needsTools: true,
+      needsCallTool: false, // Analyzes tool definitions, doesn't call
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: false,
+      needsManifest: false,
+      needsServerInfo: false,
+    },
   },
   {
     id: "errorHandling",
@@ -159,6 +181,7 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: false,
     supportsClaudeBridge: false,
     estimateTests: estimateErrorHandlingTests,
+    contextRequirements: DEFAULT_CONTEXT_REQUIREMENTS, // needsTools + needsCallTool
   },
   {
     id: "usability",
@@ -173,6 +196,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: false,
     supportsClaudeBridge: false,
     estimateTests: estimateUsabilityTests,
+    contextRequirements: {
+      needsTools: true,
+      needsCallTool: false, // Analyzes tool definitions
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: false,
+      needsManifest: false,
+      needsServerInfo: false,
+    },
   },
 
   // ============================================================================
@@ -193,6 +226,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: false,
     estimateTests: estimateProtocolComplianceTests,
+    contextRequirements: {
+      needsTools: true,
+      needsCallTool: true,
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: false,
+      needsManifest: false,
+      needsServerInfo: true, // Needs server capabilities
+    },
   },
 
   // ============================================================================
@@ -211,6 +254,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: true, // Supports Claude semantic analysis
     estimateTests: estimateAUPComplianceTests,
+    contextRequirements: {
+      needsTools: true,
+      needsCallTool: false, // Analyzes tool definitions
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: true, // Optional - enhances analysis
+      needsManifest: false,
+      needsServerInfo: false,
+    },
   },
   {
     id: "toolAnnotations",
@@ -236,6 +289,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
         (assessor as ToolAnnotationAssessor).setPatterns(compiledPatterns);
       }
     },
+    contextRequirements: {
+      needsTools: true,
+      needsCallTool: false, // Analyzes tool annotations, doesn't call
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: true, // Optional - enhances detection via source
+      needsManifest: false,
+      needsServerInfo: false,
+    },
   },
   {
     id: "prohibitedLibraries",
@@ -250,6 +313,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: false,
     estimateTests: estimateProhibitedLibrariesTests,
+    contextRequirements: {
+      needsTools: false, // Analyzes source/manifest only
+      needsCallTool: false,
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: true, // Required - scans dependencies
+      needsManifest: true, // Required - checks package.json
+      needsServerInfo: false,
+    },
   },
   {
     id: "manifestValidation",
@@ -264,6 +337,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: false,
     estimateTests: estimateManifestValidationTests,
+    contextRequirements: {
+      needsTools: false, // Validates manifest.json only
+      needsCallTool: false,
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: false,
+      needsManifest: true, // Required
+      needsServerInfo: false,
+    },
   },
   {
     id: "portability",
@@ -278,6 +361,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: false,
     estimateTests: estimatePortabilityTests,
+    contextRequirements: {
+      needsTools: false, // Scans source code only
+      needsCallTool: false,
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: true, // Required - analyzes platform-specific code
+      needsManifest: false,
+      needsServerInfo: false,
+    },
   },
   {
     id: "externalAPIScanner",
@@ -292,6 +385,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: false,
     estimateTests: estimateExternalAPIScannerTests,
+    contextRequirements: {
+      needsTools: false, // Scans source code only
+      needsCallTool: false,
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: true, // Required - detects API calls
+      needsManifest: false,
+      needsServerInfo: false,
+    },
   },
   {
     id: "authentication",
@@ -306,6 +409,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: false,
     estimateTests: estimateAuthenticationTests,
+    contextRequirements: {
+      needsTools: true,
+      needsCallTool: false, // Analyzes tool definitions
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: true, // Optional - enhances detection
+      needsManifest: true, // Checks OAuth config in manifest
+      needsServerInfo: true, // Checks server auth capabilities
+    },
   },
 
   // ============================================================================
@@ -324,6 +437,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: false,
     estimateTests: estimateResourceTests,
+    contextRequirements: {
+      needsTools: false,
+      needsCallTool: false,
+      needsListTools: false,
+      needsResources: true, // Required - tests resources capability
+      needsPrompts: false,
+      needsSourceCode: false,
+      needsManifest: false,
+      needsServerInfo: false,
+    },
   },
   {
     id: "prompts",
@@ -338,6 +461,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: false,
     estimateTests: estimatePromptTests,
+    contextRequirements: {
+      needsTools: false,
+      needsCallTool: false,
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: true, // Required - tests prompts capability
+      needsSourceCode: false,
+      needsManifest: false,
+      needsServerInfo: false,
+    },
   },
   {
     id: "crossCapability",
@@ -352,6 +485,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: false,
     estimateTests: estimateCrossCapabilityTests,
+    contextRequirements: {
+      needsTools: true,
+      needsCallTool: true,
+      needsListTools: false,
+      needsResources: true, // Tests resource→tool chains
+      needsPrompts: true, // Tests prompt→tool chains
+      needsSourceCode: false,
+      needsManifest: false,
+      needsServerInfo: false,
+    },
   },
 
   // ============================================================================
@@ -370,6 +513,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: false,
     estimateTests: estimateFileModularizationTests,
+    contextRequirements: {
+      needsTools: false, // Analyzes source code structure only
+      needsCallTool: false,
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: true, // Required - analyzes file structure
+      needsManifest: false,
+      needsServerInfo: false,
+    },
   },
   {
     id: "conformance",
@@ -384,6 +537,16 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     requiresExtended: true,
     supportsClaudeBridge: false,
     estimateTests: estimateConformanceTests,
+    contextRequirements: {
+      needsTools: true,
+      needsCallTool: true, // Runs conformance protocol tests
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: false,
+      needsManifest: false,
+      needsServerInfo: true, // Tests server protocol compliance
+    },
   },
 ];
 

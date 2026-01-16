@@ -1114,6 +1114,28 @@ describe("Transport Flags (--http, --sse)", () => {
         expect.stringContaining("--http requires a URL argument"),
       );
     });
+
+    it("should reject non-HTTP protocol (file://)", () => {
+      const result = parseArgs(["test-server", "--http", "file:///etc/passwd"]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "--http requires HTTP or HTTPS URL, got: file:",
+        ),
+      );
+    });
+
+    it("should reject non-HTTP protocol (ftp://)", () => {
+      const result = parseArgs([
+        "test-server",
+        "--http",
+        "ftp://example.com/file",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--http requires HTTP or HTTPS URL, got: ftp:"),
+      );
+    });
   });
 
   describe("--sse flag", () => {
@@ -1150,6 +1172,14 @@ describe("Transport Flags (--http, --sse)", () => {
       expect(result.helpRequested).toBe(true);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining("--sse requires a URL argument"),
+      );
+    });
+
+    it("should reject non-HTTP protocol (file://)", () => {
+      const result = parseArgs(["test-server", "--sse", "file:///etc/passwd"]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--sse requires HTTP or HTTPS URL, got: file:"),
       );
     });
   });
@@ -1260,6 +1290,469 @@ describe("Transport Flags (--http, --sse)", () => {
       expect(result.httpUrl).toBe("http://localhost:10900/mcp");
       expect(result.outputPath).toBe("/tmp/results.json");
       expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should work with --http and --conformance", () => {
+      const result = parseArgs([
+        "test-server",
+        "--http",
+        "http://localhost:10900/mcp",
+        "--conformance",
+      ]);
+      expect(result.httpUrl).toBe("http://localhost:10900/mcp");
+      expect(result.conformanceEnabled).toBe(true);
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should work with --sse and --conformance", () => {
+      const result = parseArgs([
+        "test-server",
+        "--sse",
+        "http://localhost:9002/sse",
+        "--conformance",
+      ]);
+      expect(result.sseUrl).toBe("http://localhost:9002/sse");
+      expect(result.conformanceEnabled).toBe(true);
+      expect(result.helpRequested).toBeFalsy();
+    });
+  });
+});
+
+/**
+ * Module Flag Tests (--module, -m)
+ *
+ * Tests for the single module execution flag that bypasses orchestrator.
+ * Issue #184: Single module runner for focused testing without orchestration overhead.
+ */
+describe("Module Flag (--module, -m)", () => {
+  let processExitSpy: jest.SpiedFunction<typeof process.exit>;
+  let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    processExitSpy = jest
+      .spyOn(process, "exit")
+      .mockImplementation((() => {}) as never);
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.runAllTimers();
+    jest.useRealTimers();
+    processExitSpy?.mockRestore();
+    consoleErrorSpy?.mockRestore();
+  });
+
+  describe("valid module names", () => {
+    it("should accept valid module name with long flag", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "toolAnnotations",
+      ]);
+      expect(result.singleModule).toBe("toolAnnotations");
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should accept valid module name with short flag", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "-m",
+        "security",
+      ]);
+      expect(result.singleModule).toBe("security");
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should accept all valid core module names", () => {
+      const coreModules = [
+        "functionality",
+        "security",
+        "documentation",
+        "errorHandling",
+        "usability",
+        "mcpSpecCompliance",
+        "aupCompliance",
+        "toolAnnotations",
+        "prohibitedLibraries",
+        "externalAPIScanner",
+        "authentication",
+        "temporal",
+        "resources",
+        "prompts",
+        "crossCapability",
+        "protocolConformance",
+      ];
+
+      for (const moduleName of coreModules) {
+        consoleErrorSpy.mockClear();
+        const result = parseArgs([
+          "test-server",
+          "--config",
+          "config.json",
+          "--module",
+          moduleName,
+        ]);
+        expect(result.singleModule).toBe(moduleName);
+        expect(result.helpRequested).toBeFalsy();
+      }
+    });
+
+    it("should accept optional module names", () => {
+      const optionalModules = ["manifestValidation", "portability"];
+
+      for (const moduleName of optionalModules) {
+        consoleErrorSpy.mockClear();
+        const result = parseArgs([
+          "test-server",
+          "--config",
+          "config.json",
+          "--module",
+          moduleName,
+        ]);
+        expect(result.singleModule).toBe(moduleName);
+        expect(result.helpRequested).toBeFalsy();
+      }
+    });
+  });
+
+  describe("invalid module names", () => {
+    it("should reject invalid module name", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "invalidModule",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid module name"),
+      );
+    });
+
+    it("should reject missing module argument", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--module requires a module name"),
+      );
+    });
+
+    it("should reject when next argument is another flag", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "--verbose",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--module requires a module name"),
+      );
+    });
+
+    it("should reject case-sensitive mismatch", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "SECURITY",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid module name"),
+      );
+    });
+
+    it("should reject module name with typo", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "functionalaty",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid module name"),
+      );
+    });
+  });
+
+  describe("mutual exclusivity with orchestrator flags", () => {
+    it("should reject --module with --profile", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "security",
+        "--profile",
+        "quick",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "--module cannot be used with --skip-modules, --only-modules, or --profile",
+        ),
+      );
+    });
+
+    it("should reject --module with --skip-modules", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "security",
+        "--skip-modules",
+        "temporal",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--module cannot be used with"),
+      );
+    });
+
+    it("should reject --module with --only-modules", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "security",
+        "--only-modules",
+        "functionality",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--module cannot be used with"),
+      );
+    });
+
+    it("should reject --profile with --module (order reversed)", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--profile",
+        "quick",
+        "--module",
+        "security",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--module cannot be used with"),
+      );
+    });
+  });
+
+  describe("combined with transport flags", () => {
+    it("should work with --http", () => {
+      const result = parseArgs([
+        "test-server",
+        "--http",
+        "http://localhost:10900/mcp",
+        "--module",
+        "security",
+      ]);
+      expect(result.httpUrl).toBe("http://localhost:10900/mcp");
+      expect(result.singleModule).toBe("security");
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should work with --sse", () => {
+      const result = parseArgs([
+        "test-server",
+        "--sse",
+        "http://localhost:9002/sse",
+        "--module",
+        "functionality",
+      ]);
+      expect(result.sseUrl).toBe("http://localhost:9002/sse");
+      expect(result.singleModule).toBe("functionality");
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should work with --config", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "temporal",
+      ]);
+      expect(result.serverConfigPath).toBe("config.json");
+      expect(result.singleModule).toBe("temporal");
+      expect(result.helpRequested).toBeFalsy();
+    });
+  });
+
+  describe("combined with other compatible flags", () => {
+    it("should work with --output", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "security",
+        "--output",
+        "/tmp/results.json",
+      ]);
+      expect(result.singleModule).toBe("security");
+      expect(result.outputPath).toBe("/tmp/results.json");
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should work with --verbose", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "toolAnnotations",
+        "--verbose",
+      ]);
+      expect(result.singleModule).toBe("toolAnnotations");
+      expect(result.verbose).toBe(true);
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should work with --log-level", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "errorHandling",
+        "--log-level",
+        "debug",
+      ]);
+      expect(result.singleModule).toBe("errorHandling");
+      expect(result.logLevel).toBe("debug");
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should work with --temporal-invocations", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "temporal",
+        "--temporal-invocations",
+        "10",
+      ]);
+      expect(result.singleModule).toBe("temporal");
+      expect(result.temporalInvocations).toBe(10);
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should work with --conformance", () => {
+      const result = parseArgs([
+        "test-server",
+        "--http",
+        "http://localhost:10900/mcp",
+        "--module",
+        "protocolConformance",
+        "--conformance",
+      ]);
+      expect(result.singleModule).toBe("protocolConformance");
+      expect(result.conformanceEnabled).toBe(true);
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should work with --format", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "--module",
+        "security",
+        "--format",
+        "markdown",
+      ]);
+      expect(result.singleModule).toBe("security");
+      expect(result.format).toBe("markdown");
+      expect(result.helpRequested).toBeFalsy();
+    });
+  });
+
+  describe("short flag behavior", () => {
+    it("should accept -m with all transport types", () => {
+      // Test with --http
+      let result = parseArgs([
+        "test-server",
+        "--http",
+        "http://localhost:10900/mcp",
+        "-m",
+        "security",
+      ]);
+      expect(result.singleModule).toBe("security");
+      expect(result.helpRequested).toBeFalsy();
+
+      // Test with --sse
+      consoleErrorSpy.mockClear();
+      result = parseArgs([
+        "test-server",
+        "--sse",
+        "http://localhost:9002/sse",
+        "-m",
+        "functionality",
+      ]);
+      expect(result.singleModule).toBe("functionality");
+      expect(result.helpRequested).toBeFalsy();
+
+      // Test with --config
+      consoleErrorSpy.mockClear();
+      result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "-m",
+        "temporal",
+      ]);
+      expect(result.singleModule).toBe("temporal");
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should reject -m with missing argument", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "-m",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--module requires a module name"),
+      );
+    });
+
+    it("should reject -m with invalid module", () => {
+      const result = parseArgs([
+        "test-server",
+        "--config",
+        "config.json",
+        "-m",
+        "notAModule",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid module name"),
+      );
     });
   });
 });

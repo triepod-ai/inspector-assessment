@@ -32,7 +32,7 @@ mcp-assess-full --server memory-mcp --config /tmp/config.json
 
 ## Table of Contents
 
-1. [Three Assessment Modes](#three-assessment-modes)
+1. [Four Assessment Modes](#four-assessment-modes)
 2. [Configuration Files](#configuration-files)
 3. [Logging & Diagnostics](#logging--diagnostics)
 4. [Output & Results](#output--results)
@@ -44,9 +44,9 @@ mcp-assess-full --server memory-mcp --config /tmp/config.json
 
 ---
 
-## Three Assessment Modes
+## Four Assessment Modes
 
-The MCP Inspector provides three distinct CLI modes for different workflows:
+The MCP Inspector provides four distinct CLI modes for different workflows:
 
 ### Mode 1: Local Development Script
 
@@ -61,6 +61,10 @@ npm run assess:full -- --server <server-name>
 
 # With config file
 npm run assess:full -- --server my-server --config /tmp/config.json
+
+# Quick HTTP/SSE testing (no config file needed) - Issue #183
+npm run assess:full -- --server my-server --http http://localhost:10900/mcp
+npm run assess:full -- --server my-server --sse http://localhost:9002/sse
 
 # Output goes to /tmp/inspector-full-assessment-my-server.json
 ```
@@ -85,6 +89,8 @@ npm run assess:full -- [options] [server-name]
 Options:
   --server, -s <name>        Server name (required or positional)
   --config, -c <path>        Server config JSON file
+  --http <url>               Quick HTTP transport (no config file needed)
+  --sse <url>                Quick SSE transport (no config file needed)
   --output, -o <path>        Output JSON path
   --source <path>            Source code path for AUP/portability analysis
   --pattern-config <path>    Custom annotation patterns
@@ -93,10 +99,19 @@ Options:
   --full                     Enable all modules (default)
   --skip-modules <list>      Skip specific modules (comma-separated)
   --only-modules <list>      Run only specific modules (comma-separated)
+  --module, -m <name>        Run single module directly (Issue #184)
   --json                     Output only JSON path (no console summary)
   --verbose, -v              Enable verbose logging
   --help, -h                 Show help
 ```
+
+**Transport Options (Issue #183):**
+
+- `--http <url>` - Quick HTTP transport testing without config file
+- `--sse <url>` - Quick SSE transport testing without config file
+- `--config <path>` - Load from JSON config file (required for STDIO)
+
+**Note**: `--http`, `--sse`, and `--config` are mutually exclusive. Use `--http` or `--sse` for rapid testing, or `--config` for complex setups (STDIO, environment variables, custom timeouts).
 
 ### Mode 2: Published npm Binary
 
@@ -159,6 +174,10 @@ All local script options, plus:
 # Local development
 npm run assess -- --server my-server --config config.json
 
+# Quick HTTP/SSE testing (no config file) - Issue #183
+npm run assess -- --server my-server --http http://localhost:10900/mcp
+npm run assess -- --server my-server --sse http://localhost:9002/sse
+
 # From npm binary
 mcp-assess-security --server my-server --config config.json
 
@@ -207,6 +226,103 @@ The `--stage-b-verbose` flag enhances Claude semantic analysis with additional e
 - **Confidence breakdowns**: Shows per-test confidence scores and reasoning
 
 **How Claude Reduces False Positives:** Pattern-based detection runs first for speed. Claude semantic analysis then validates medium/low confidence findings by examining tool behavior, reducing false positives while maintaining detection accuracy.
+
+---
+
+### Mode 4: Single-Module Execution (Issue #184)
+
+**Purpose**: Run individual assessment modules for rapid validation, CI/CD checks, or debugging
+**Command**: Use `--module <name>` flag with any assessment command
+**Performance**: Fastest execution - bypasses orchestrator overhead
+
+```bash
+# Local development
+npm run assess:full -- --server my-server --http http://localhost:10900/mcp --module toolAnnotations
+npm run assess:full -- --server my-server --config config.json --module functionality
+
+# Published npm package
+mcp-assess-full --server my-server --sse http://localhost:9002/sse --module security
+
+# Quick transport testing + single module
+npm run assess:full -- --server my-server --http http://localhost:10900/mcp --module protocolCompliance
+```
+
+**Key Characteristics:**
+
+- **Fastest execution**: Bypasses AssessmentOrchestrator for minimal overhead
+- **Targeted testing**: Run only the module you need (e.g., toolAnnotations during development)
+- **Simple output**: Results saved to `/tmp/inspector-{module}-{server}.json`
+- **CI/CD friendly**: Perfect for automated module-specific checks
+
+**Valid Module Names:**
+
+All 19 assessment modules can be run individually:
+
+| Tier           | Module Names                                                                                    |
+| -------------- | ----------------------------------------------------------------------------------------------- |
+| **Tier 1 (6)** | `functionality`, `security`, `errorHandling`, `protocolCompliance`, `temporal`, `aupCompliance` |
+| **Tier 2 (4)** | `toolAnnotations`, `prohibitedLibraries`, `manifestValidation`, `authentication`                |
+| **Tier 3 (3)** | `resources`, `prompts`, `crossCapability`                                                       |
+| **Tier 4 (3)** | `developerExperience`, `portability`, `externalAPIScanner`                                      |
+
+**Mutual Exclusivity:**
+
+`--module` cannot be used with:
+
+- `--profile` (use single module OR profile, not both)
+- `--skip-modules` (single module execution doesn't need skipping)
+- `--only-modules` (single module is more direct than whitelist)
+
+```bash
+# ❌ Invalid - conflicting flags
+npm run assess:full -- --server my-server --module security --profile quick
+
+# ✅ Valid - single module execution
+npm run assess:full -- --server my-server --module security
+
+# ✅ Valid - orchestrated profile execution
+npm run assess:full -- --server my-server --profile quick
+```
+
+**Output Format:**
+
+```
+/tmp/inspector-{module}-{server}.json
+
+Examples:
+  /tmp/inspector-functionality-my-server.json
+  /tmp/inspector-toolAnnotations-my-server.json
+  /tmp/inspector-security-my-server.json
+```
+
+**Use Cases:**
+
+1. **Development iteration**: Test annotation changes without full assessment
+
+   ```bash
+   npm run assess:full -- --server my-server --http http://localhost:10900/mcp --module toolAnnotations
+   ```
+
+2. **CI/CD gates**: Run specific checks in pipeline stages
+
+   ```bash
+   # Stage 1: Functionality validation
+   mcp-assess-full --server my-server --config config.json --module functionality
+
+   # Stage 2: Security scan
+   mcp-assess-full --server my-server --config config.json --module security
+   ```
+
+3. **Debugging**: Isolate module issues
+
+   ```bash
+   npm run assess:full -- --server my-server --config config.json --module protocolCompliance --verbose
+   ```
+
+4. **Quick validation**: Verify single aspect after code changes
+   ```bash
+   npm run assess:full -- --server my-server --http http://localhost:10900/mcp --module manifestValidation
+   ```
 
 ---
 
@@ -2461,6 +2577,9 @@ mcp-assess-full --server my-server --config config.json \
 | -------------------- | ------------------------------------------------------------------------- |
 | Quick security audit | `npm run assess -- --server S`                                            |
 | Full assessment      | `mcp-assess-full --server S --config C`                                   |
+| Quick HTTP testing   | `mcp-assess-full --server S --http http://localhost:10900/mcp`            |
+| Quick SSE testing    | `mcp-assess-full --server S --sse http://localhost:9002/sse`              |
+| Single module run    | `mcp-assess-full --server S --http URL --module toolAnnotations`          |
 | Pre-flight check     | `mcp-assess-full --server S --config C --preflight`                       |
 | Markdown report      | `mcp-assess-full --server S --config C --format markdown`                 |
 | Baseline comparison  | `mcp-assess-full --server S --config C --compare baseline.json`           |

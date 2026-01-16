@@ -104,6 +104,8 @@ export interface AssessmentOptions {
   httpUrl?: string;
   /** Direct SSE URL (--sse flag, mutually exclusive with --config) */
   sseUrl?: string;
+  /** Run single module directly, bypassing orchestrator (Issue #184) */
+  singleModule?: string;
 }
 
 /**
@@ -341,7 +343,22 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
           return options as AssessmentOptions;
         }
         try {
-          new URL(httpUrlValue); // Validate URL format
+          const parsedHttpUrl = new URL(httpUrlValue);
+          // Validate protocol is HTTP or HTTPS (reject file://, ftp://, etc.)
+          if (
+            parsedHttpUrl.protocol !== "http:" &&
+            parsedHttpUrl.protocol !== "https:"
+          ) {
+            console.error(
+              `Error: --http requires HTTP or HTTPS URL, got: ${parsedHttpUrl.protocol}`,
+            );
+            console.error(
+              "  Expected format: http://hostname:port/path or https://hostname:port/path",
+            );
+            setTimeout(() => process.exit(1), 10);
+            options.helpRequested = true;
+            return options as AssessmentOptions;
+          }
           options.httpUrl = httpUrlValue;
         } catch {
           console.error(`Error: Invalid URL for --http: ${httpUrlValue}`);
@@ -364,7 +381,22 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
           return options as AssessmentOptions;
         }
         try {
-          new URL(sseUrlValue); // Validate URL format
+          const parsedSseUrl = new URL(sseUrlValue);
+          // Validate protocol is HTTP or HTTPS (reject file://, ftp://, etc.)
+          if (
+            parsedSseUrl.protocol !== "http:" &&
+            parsedSseUrl.protocol !== "https:"
+          ) {
+            console.error(
+              `Error: --sse requires HTTP or HTTPS URL, got: ${parsedSseUrl.protocol}`,
+            );
+            console.error(
+              "  Expected format: http://hostname:port/path or https://hostname:port/path",
+            );
+            setTimeout(() => process.exit(1), 10);
+            options.helpRequested = true;
+            return options as AssessmentOptions;
+          }
           options.sseUrl = sseUrlValue;
         } catch {
           console.error(`Error: Invalid URL for --sse: ${sseUrlValue}`);
@@ -375,6 +407,27 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
           options.helpRequested = true;
           return options as AssessmentOptions;
         }
+        break;
+      }
+      case "--module":
+      case "-m": {
+        // Issue #184: Single module execution (bypasses orchestrator)
+        const moduleValue = args[++i];
+        if (!moduleValue || moduleValue.startsWith("-")) {
+          console.error("Error: --module requires a module name");
+          console.error(`  Valid modules: ${VALID_MODULE_NAMES.join(", ")}`);
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        // Validate the module name
+        const validated = validateModuleNames(moduleValue, "--module");
+        if (validated.length === 0) {
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        // Only accept a single module (first one if multiple provided)
+        options.singleModule = validated[0];
         break;
       }
       case "--conformance":
@@ -519,6 +572,24 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
     return options as AssessmentOptions;
   }
 
+  // Validate mutual exclusivity of --module with orchestrator options (Issue #184)
+  if (
+    options.singleModule &&
+    (options.skipModules?.length ||
+      options.onlyModules?.length ||
+      options.profile)
+  ) {
+    console.error(
+      "Error: --module cannot be used with --skip-modules, --only-modules, or --profile",
+    );
+    console.error(
+      "  Use --module for single-module runs, or the other flags for orchestrated runs",
+    );
+    setTimeout(() => process.exit(1), 10);
+    options.helpRequested = true;
+    return options as AssessmentOptions;
+  }
+
   // Validate mutual exclusivity of --http, --sse, and --config
   if ((options.httpUrl || options.sseUrl) && options.serverConfigPath) {
     console.error(
@@ -633,6 +704,8 @@ Options:
   --stage-b-verbose      Enable Stage B enrichment for Claude semantic analysis
                          Adds evidence samples, payload correlations, and confidence
                          breakdowns to tiered output (Tier 2 + Tier 3)
+  --module, -m <name>    Run single module directly (bypasses orchestrator for faster execution)
+                         Mutually exclusive with --skip-modules, --only-modules, --profile
   --skip-modules <list>  Skip specific modules (comma-separated)
   --only-modules <list>  Run only specific modules (comma-separated)
   --json                 Output only JSON path (no console summary)
@@ -650,7 +723,8 @@ Environment Variables:
 
 ${getProfileHelpText()}
 Module Selection:
-  --profile, --skip-modules, and --only-modules are mutually exclusive.
+  --module, --profile, --skip-modules, and --only-modules are mutually exclusive.
+  Use --module for single-module runs (fastest, bypasses orchestrator).
   Use --profile for common assessment scenarios.
   Use --skip-modules for custom runs by disabling expensive modules.
   Use --only-modules to focus on specific areas (e.g., tool annotation PRs).
@@ -707,6 +781,11 @@ Examples:
   mcp-assess-full my-server --profile security      # Security audit (~2-3min)
   mcp-assess-full my-server --profile compliance    # Directory submission (~5min)
   mcp-assess-full my-server --profile full          # Comprehensive audit (~10-15min)
+
+  # Single module (fastest - bypasses orchestrator):
+  mcp-assess-full my-server --http http://localhost:10900/mcp --module toolAnnotations
+  mcp-assess-full my-server --http http://localhost:10900/mcp --module functionality
+  mcp-assess-full my-server --http http://localhost:10900/mcp --module security
 
   # Custom module selection:
   mcp-assess-full my-server --skip-modules temporal,resources  # Skip expensive modules
