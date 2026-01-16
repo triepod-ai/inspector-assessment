@@ -63,8 +63,10 @@ describe("Issue #103 - Detection Patterns", () => {
   }
 
   describe("Pattern Registration", () => {
-    it("should have 33 attack patterns total", () => {
+    it("should have 33 attack patterns total (includes Issue #144 Excessive Permissions Scope pattern)", () => {
       expect(SECURITY_ATTACK_PATTERNS.length).toBe(33);
+      // Pattern #33 (index 32): Excessive Permissions Scope (Issue #144, Challenge #22)
+      // Verifies CWE-250/CWE-269 detection for tools exceeding declared scope
     });
 
     it("should have Tool Output Injection pattern (#27)", () => {

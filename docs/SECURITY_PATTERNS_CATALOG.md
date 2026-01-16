@@ -254,6 +254,70 @@ if (/uid=\d+|gid=\d+|\broot\b(?=:|\s|$)/.test(response)) {
 
 **Implementation**: `injectionPatterns.ts` lines 72, 80 (evidence regex refinement)
 
+#### Enhanced Detection: Issue #177 Fix (False Negative Prevention)
+
+**Problem Solved**: False negatives when AppleScript injection successfully escapes quotes but produces runtime errors.
+
+**Background**: H1 report #3480575 identified a critical RCE where the payload `" & do shell script "id" &"` successfully escaped string context and reached shell execution, but was marked safe because AppleScript error -2710 appeared in the response.
+
+**The Issue**:
+
+- Issue #175 fix (XXE false positive prevention) was too aggressive
+- It dismissed ALL AppleScript errors as "safe", including injection SUCCESS cases
+- Need to distinguish: syntax error (safe) vs runtime error after injection (vulnerable)
+
+**New Detection Flow**:
+
+```typescript
+// Step 1: Check for injection SUCCESS patterns FIRST
+if (isAppleScriptInjectionSuccess(response, payload)) {
+  // Payload successfully escaped quotes to shell - vulnerable regardless of subsequent errors
+  return { vulnerable: true, evidence: "AppleScript quote escape to shell" };
+}
+
+// Step 2: THEN check for syntax errors (Issue #175 fix)
+if (isAppleScriptSyntaxError(response)) {
+  return { safe: true, evidence: "AppleScript syntax error (no execution)" };
+}
+```
+
+**Injection Success Patterns** (7 patterns):
+
+| Pattern               | Example                                       | Description                                      |
+| --------------------- | --------------------------------------------- | ------------------------------------------------ |
+| Quote escape to shell | `" & do shell script "id"`                    | Double-quote escape with shell command           |
+| Quote escape to shell | `' & do shell script 'id'`                    | Single-quote escape with shell command           |
+| Shell script result   | `uid=123(user) gid=456(staff)`                | Shell command output indicates injection success |
+| Shell access          | Response contains `do shell script` execution | Shell script execution confirmed                 |
+| Command execution     | `id` command output patterns                  | Unix command results in response                 |
+| Runtime error context | Error -2710, -2763 (Word/app not running)     | Error AFTER injection point, not before          |
+| Injection artifacts   | Quote manipulation patterns in response       | Evidence of string context escape                |
+
+**Runtime Error Codes** (4 patterns):
+
+| Error Code | Description                | Injection Status             |
+| ---------- | -------------------------- | ---------------------------- |
+| -2710      | Microsoft Word not running | AFTER injection (vulnerable) |
+| -2763      | Application isn't running  | AFTER injection (vulnerable) |
+| -10810     | Application not found      | AFTER injection (vulnerable) |
+| -600       | Application not responding | AFTER injection (vulnerable) |
+
+**Distinguishing Safe vs Vulnerable Errors**:
+
+| Error Type                          | Example                                                                                                | Vulnerable? | Detection Logic                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------- | ----------------------------------------------------------------- |
+| **Syntax Error**                    | `Expected end of line but found identifier`                                                            | ❌ NO       | Payload never parsed - no execution                               |
+| **Runtime Error (after injection)** | `Microsoft Word got an error: Application isn't running. (-2710)` + payload `" & do shell script "id"` | ✅ YES      | Payload escaped quotes, error occurred AFTER shell access attempt |
+| **Safe Reflection**                 | `Script received: " & do shell script "id" & "`                                                        | ❌ NO       | Payload stored as string, no parsing                              |
+
+**Implementation**:
+
+- `SecurityPatternLibrary.ts`: APPLESCRIPT_INJECTION_SUCCESS_PATTERNS (7 patterns), APPLESCRIPT_RUNTIME_ERROR_CODES (4 patterns)
+- `SecurityResponseAnalyzer.ts`: checkSafeErrorResponses() now checks injection success BEFORE dismissing errors
+- `SafeResponseDetector.ts`: Updated to pass payload parameter for injection context analysis
+
+**Regression Prevention**: Issue #175 fix (XXE false positives) is preserved - syntax errors WITHOUT injection patterns are still marked safe.
+
 ---
 
 ### 3. SQL Injection

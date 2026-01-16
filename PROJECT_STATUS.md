@@ -79,6 +79,59 @@
 
 ---
 
+## 2026-01-16: Issue #177 AppleScript Injection False Negative Fix
+
+**Summary:** Fixed critical false negative where AppleScript injection was marked safe due to runtime errors
+
+**Session Focus:** Issue #177 implementation addressing H1 report #3480575
+
+**Changes Made:**
+- Fixed AppleScript injection false negative (Issue #177)
+  - FIX-001: Updated test description documenting pattern #33 (Excessive Permissions Scope, Issue #144)
+  - FIX-002: Added payload parameter to checkSafeErrorResponses() and isAppleScriptInjectionSuccess()
+- Added APPLESCRIPT_INJECTION_SUCCESS_PATTERNS (7 patterns) to SecurityPatternLibrary.ts
+  - Quote escape patterns: `" & do shell script`, `' & do shell script`
+  - Shell execution evidence: `uid=`, `gid=`, command output patterns
+  - Runtime error context detection (errors AFTER injection)
+- Added APPLESCRIPT_RUNTIME_ERROR_CODES (4 patterns) to distinguish runtime vs syntax errors
+  - -2710 (Word not running), -2763 (app not running), -10810 (app not found), -600 (not responding)
+- Modified SecurityResponseAnalyzer.checkSafeErrorResponses() to check injection SUCCESS before dismissing as syntax error
+- Updated SafeResponseDetector to pass payload parameter for context analysis
+- All 106 tests passing (43 + 39 + 24 across 3 test files)
+- Updated docs/SECURITY_PATTERNS_CATALOG.md with new subsection documenting Issue #177 fix (+63 lines)
+
+**Root Cause:**
+- Issue #175 fix (XXE false positive prevention) was too aggressive
+- It dismissed ALL AppleScript errors as "safe", including injection SUCCESS cases
+- Needed to distinguish: syntax error (safe) vs runtime error after injection (vulnerable)
+
+**Fix Architecture:**
+1. Check for injection SUCCESS patterns FIRST (quote escape to shell)
+2. THEN check for syntax errors (preserves Issue #175 fix)
+3. Runtime errors AFTER injection point indicate vulnerability
+
+**Example Vulnerable Case (H1 #3480575):**
+```
+Payload: " & do shell script "id" & "
+Response: "Microsoft Word got an error: Application isn't running. (-2710)"
+Detection: VULNERABLE (quote escape successful, error occurred AFTER injection point)
+```
+
+**Regression Prevention:**
+- Issue #175 fix preserved: XXE syntax errors still marked safe
+- 24 existing XXE false positive tests still passing
+
+**Key Decisions:**
+- Injection success patterns take priority over error dismissal
+- Runtime errors (-2710, -2763) indicate vulnerability, not safety
+- Syntax errors without injection patterns remain safe (Issue #175 preserved)
+
+**Next Steps:**
+- Monitor for any false positives in production
+- Consider adding more runtime error codes if discovered
+
+---
+
 ## 2026-01-15: Issue #168 Commit and world-bank Verification
 
 **Summary:** Committed Issue #168, verified world-bank detection, closed issue
@@ -438,5 +491,36 @@
 **Notes:**
 - Issue #48 now ~80% complete (up from ~60%)
 - Removal checklist provides exact file paths and exports for clean v2.0.0 release
+
+---
+
+## 2026-01-16: v1.38.1 Published - AppleScript and Shell Injection Security Enhancements
+
+**Summary:** Published v1.38.1 with enhanced AppleScript and shell injection detection patterns
+
+**Session Focus:** Security pattern enhancements and npm package release
+
+**Changes Made:**
+- Enhanced AppleScript injection detection with more comprehensive patterns (Issue #177)
+- Enhanced shell injection detection with additional evasion techniques
+- Version bump: 1.38.0 -> 1.38.1
+- Published all 4 workspace packages to npm:
+  - @bryan-thompson/inspector-assessment (root)
+  - @bryan-thompson/inspector-assessment-client
+  - @bryan-thompson/inspector-assessment-server
+  - @bryan-thompson/inspector-assessment-cli
+- Git tag v1.38.1 pushed to GitHub
+
+**Key Decisions:**
+- Patch release (1.38.1) appropriate for security pattern additions (no API changes)
+- Published all workspace packages together for consistency
+
+**Next Steps:**
+- Monitor for any issues with published package
+- Continue addressing deprecation items for v2.0.0
+
+**Notes:**
+- Package verified working via `bunx @bryan-thompson/inspector-assessment`
+- Security enhancements improve detection of obfuscated injection attempts
 
 ---

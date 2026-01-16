@@ -261,7 +261,11 @@ export class SecurityResponseAnalyzer {
     const errorInfo = this.errorClassifier.extractErrorInfo(response);
 
     // Check 1: Safe error responses (MCP validation, HTTP errors)
-    const errorResult = this.checkSafeErrorResponses(responseText, errorInfo);
+    const errorResult = this.checkSafeErrorResponses(
+      responseText,
+      errorInfo,
+      payload,
+    );
     if (errorResult) return errorResult;
 
     // Check 2: Safe tool behavior (categories, reflection, math, validation)
@@ -1341,6 +1345,7 @@ export class SecurityResponseAnalyzer {
   private checkSafeErrorResponses(
     responseText: string,
     errorInfo: { code?: string | number; message?: string },
+    payload: SecurityPayload,
   ): AnalysisResult | null {
     // MCP validation errors (HIGHEST PRIORITY)
     if (this.safeDetector.isMCPValidationError(errorInfo, responseText)) {
@@ -1369,7 +1374,13 @@ export class SecurityResponseAnalyzer {
     if (this.safeDetector.isAppleScriptSyntaxError(responseText)) {
       // Issue #177: Check if this looks like INJECTION SUCCESS before dismissing
       // If injection patterns are detected, this is a vulnerability, not a safe error
-      if (this.safeDetector.isAppleScriptInjectionSuccess(responseText)) {
+      // Pass payload for enhanced runtime error + payload context detection
+      if (
+        this.safeDetector.isAppleScriptInjectionSuccess(
+          responseText,
+          payload.payload,
+        )
+      ) {
         // This is NOT a safe syntax error - it's successful injection!
         // Return null to continue analysis and potentially flag as vulnerable
         return null;
