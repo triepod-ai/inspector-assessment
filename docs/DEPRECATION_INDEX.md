@@ -84,6 +84,8 @@ This index provides a quick navigation guide to all deprecation-related document
 
 ## Deprecation Categories at a Glance
 
+**Total: 18 deprecated items** (12 documented originally + 6 additional)
+
 ### Assessment Modules (4 modules)
 
 | Module                        | Replacement                   | Status                               |
@@ -106,6 +108,14 @@ This index provides a quick navigation guide to all deprecation-related document
 **Guide**: [DEPRECATION_GUIDE.md#configuration-flags-migration](DEPRECATION_GUIDE.md#configuration-flags-migration)
 **Examples**: [DEPRECATION_MIGRATION_EXAMPLES.md#configuration-examples](DEPRECATION_MIGRATION_EXAMPLES.md#configuration-examples)
 
+### Config Parameters (1 parameter)
+
+| Parameter                 | Replacement               | Status                               |
+| ------------------------- | ------------------------- | ------------------------------------ |
+| `maxToolsToTestForErrors` | `selectedToolsForTesting` | Warning in v1.25.2, remove in v2.0.0 |
+
+**Guide**: [DEPRECATION_GUIDE.md#config-parameter-migration](DEPRECATION_GUIDE.md#config-parameter-migration)
+
 ### BaseAssessor Methods (2 methods)
 
 | Method                                            | Replacement                            | Status                                            |
@@ -115,6 +125,25 @@ This index provides a quick navigation guide to all deprecation-related document
 
 **Guide**: [DEPRECATION_GUIDE.md#baseassessor-method-migration](DEPRECATION_GUIDE.md#baseassessor-method-migration)
 **Examples**: [DEPRECATION_MIGRATION_EXAMPLES.md#custom-assessor-examples](DEPRECATION_MIGRATION_EXAMPLES.md#custom-assessor-examples)
+
+### Method-Level APIs (4 methods)
+
+| Method                                              | Replacement                   | Module                     |
+| --------------------------------------------------- | ----------------------------- | -------------------------- |
+| `DocumentationAssessor.extractFunctionalExamples()` | N/A (removed)                 | `DocumentationAssessor`    |
+| `SecurityResponseAnalyzer.computeMathResult()`      | `analyzeComputedMathResult()` | `SecurityResponseAnalyzer` |
+| `MathAnalyzer.computeMathResult()`                  | `analyzeComputedMathResult()` | `MathAnalyzer`             |
+| `AssessmentOrchestrator.runFullAssessment()`        | Direct orchestrator usage     | `AssessmentOrchestrator`   |
+
+**Guide**: [DEPRECATION_GUIDE.md#method-level-api-migration](DEPRECATION_GUIDE.md#method-level-api-migration)
+
+### Transport Support (1 item)
+
+| Transport                               | Status  | Replacement                  |
+| --------------------------------------- | ------- | ---------------------------- |
+| `MCPSpecComplianceAssessor` SSE support | Partial | `ProtocolComplianceAssessor` |
+
+**Guide**: [DEPRECATION_GUIDE.md#deprecated-transport-support-1-item](DEPRECATION_GUIDE.md#deprecated-transport-support-1-item)
 
 ## Migration Paths by Use Case
 
@@ -340,17 +369,32 @@ See [PROJECT_STATUS.md](../PROJECT_STATUS.md) for implementation details and sta
 
 ---
 
-## Document Statistics
+## Deprecation Summary
 
-| Document                                                               | Lines     | Size    | Focus                  |
-| ---------------------------------------------------------------------- | --------- | ------- | ---------------------- |
-| [DEPRECATION_GUIDE.md](DEPRECATION_GUIDE.md)                           | 875       | 28K     | User guide & timelines |
-| [DEPRECATION_API_REFERENCE.md](DEPRECATION_API_REFERENCE.md)           | 846       | 24K     | Technical reference    |
-| [DEPRECATION_MIGRATION_EXAMPLES.md](DEPRECATION_MIGRATION_EXAMPLES.md) | 954       | 28K     | Code examples          |
-| **Total**                                                              | **2,675** | **80K** | Complete system        |
+| Category             | Count  | Status     |
+| -------------------- | ------ | ---------- |
+| Assessment Modules   | 4      | Documented |
+| Config Flags         | 2      | Documented |
+| Config Parameters    | 1      | **NEW**    |
+| BaseAssessor Methods | 2      | Documented |
+| Method-Level APIs    | 4      | **NEW**    |
+| Transport Support    | 1      | **NEW**    |
+| Output Keys          | 4      | Documented |
+| **Total**            | **18** | Complete   |
 
 ---
 
-**Last Updated**: 2026-01-08
+## Document Statistics
+
+| Document                                                               | Lines      | Size    | Focus                  |
+| ---------------------------------------------------------------------- | ---------- | ------- | ---------------------- |
+| [DEPRECATION_GUIDE.md](DEPRECATION_GUIDE.md)                           | ~1,100     | 35K     | User guide & timelines |
+| [DEPRECATION_API_REFERENCE.md](DEPRECATION_API_REFERENCE.md)           | 846        | 24K     | Technical reference    |
+| [DEPRECATION_MIGRATION_EXAMPLES.md](DEPRECATION_MIGRATION_EXAMPLES.md) | 954        | 28K     | Code examples          |
+| **Total**                                                              | **~2,900** | **87K** | Complete system        |
+
+---
+
+**Last Updated**: 2026-01-16
 **Maintained By**: API Documentation Team
 **Contact**: For questions, see [docs/README.md](README.md)

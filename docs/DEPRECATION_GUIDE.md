@@ -134,7 +134,32 @@ Protected logging methods in `BaseAssessor`:
 | `this.log(message: string)`                       | `this.logger.info(message)`            | Protected method |
 | `this.logError(message: string, error?: unknown)` | `this.logger.error(message, context?)` | Protected method |
 
-### 4. Deprecated Output Keys (4 keys) - Issue #124
+### 4. Deprecated Config Parameters (1 parameter)
+
+Configuration parameters that are being replaced:
+
+| Deprecated Parameter      | Replacement               | Location                  |
+| ------------------------- | ------------------------- | ------------------------- |
+| `maxToolsToTestForErrors` | `selectedToolsForTesting` | `AssessmentConfiguration` |
+
+### 5. Deprecated Method-Level APIs (4 methods)
+
+Individual methods within modules that are being removed or replaced:
+
+| Deprecated Method                                   | Replacement                   | Module                     |
+| --------------------------------------------------- | ----------------------------- | -------------------------- |
+| `DocumentationAssessor.extractFunctionalExamples()` | N/A (removed)                 | `DocumentationAssessor`    |
+| `SecurityResponseAnalyzer.computeMathResult()`      | `analyzeComputedMathResult()` | `SecurityResponseAnalyzer` |
+| `MathAnalyzer.computeMathResult()`                  | `analyzeComputedMathResult()` | `MathAnalyzer`             |
+| `AssessmentOrchestrator.runFullAssessment()`        | Direct orchestrator usage     | `AssessmentOrchestrator`   |
+
+### 6. Deprecated Transport Support (1 item)
+
+| Deprecated Transport                    | Status  | Module                           |
+| --------------------------------------- | ------- | -------------------------------- |
+| `MCPSpecComplianceAssessor` SSE support | Partial | Use `ProtocolComplianceAssessor` |
+
+### 7. Deprecated Output Keys (4 keys) - Issue #124
 
 **Added**: v1.32.0
 **Removal**: v2.0.0
@@ -799,6 +824,102 @@ return this.handleError(error, "Failed to parse response", { passed: false });
 
 ---
 
+### Config Parameter Migration
+
+#### From maxToolsToTestForErrors to selectedToolsForTesting
+
+**Location**: `AssessmentConfiguration`
+
+**What's changing**:
+
+- Integer-based tool limiting replaced with explicit tool name selection
+- Provides finer control over which tools to test
+- Empty array = test none, undefined = test all
+
+**Migration steps**:
+
+```typescript
+// OLD (v1.25.x) - Limit by count
+const config: AssessmentConfiguration = {
+  maxToolsToTestForErrors: 5, // Test first 5 tools
+};
+
+// NEW (v1.26.0+) - Select by name
+const config: AssessmentConfiguration = {
+  selectedToolsForTesting: ["tool1", "tool2", "tool3", "tool4", "tool5"],
+  // Or undefined to test all tools
+};
+```
+
+**Timeline**: Warnings in v1.25.2, removal in v2.0.0
+
+---
+
+### Method-Level API Migration
+
+#### DocumentationAssessor.extractFunctionalExamples()
+
+**Status**: Removed (no replacement)
+
+**What's changing**:
+
+- Internal helper method removed from public API
+- Functionality consolidated into `DeveloperExperienceAssessor`
+- If you were using this method directly, use the full assessor instead
+
+**Migration**:
+
+```typescript
+// OLD - Direct method call (not recommended)
+const examples = docAssessor.extractFunctionalExamples(tools);
+
+// NEW - Use full assessor
+const dxAssessor = new DeveloperExperienceAssessor(config);
+const result = await dxAssessor.assess(context);
+// Examples are included in result.documentation
+```
+
+---
+
+#### SecurityResponseAnalyzer.computeMathResult() and MathAnalyzer.computeMathResult()
+
+**What's changing**:
+
+- Method renamed to `analyzeComputedMathResult()` for clarity
+- Same functionality, better naming
+
+**Migration**:
+
+```typescript
+// OLD
+const result = analyzer.computeMathResult(response);
+
+// NEW
+const result = analyzer.analyzeComputedMathResult(response);
+```
+
+---
+
+#### AssessmentOrchestrator.runFullAssessment()
+
+**What's changing**:
+
+- Method deprecated in favor of direct orchestrator method calls
+- Provides more control over assessment execution
+
+**Migration**:
+
+```typescript
+// OLD
+const result = await orchestrator.runFullAssessment(context);
+
+// NEW
+const result = await orchestrator.runAssessment(context);
+// Or use individual assessor methods for fine-grained control
+```
+
+---
+
 ## Migration Checklist
 
 ### For CLI Users (No action needed)
@@ -906,16 +1027,30 @@ try {
 
 Removal of deprecated items:
 
-| Item                              | Status  |
-| --------------------------------- | ------- |
-| `DocumentationAssessor`           | Removed |
-| `UsabilityAssessor`               | Removed |
-| `MCPSpecComplianceAssessor`       | Removed |
-| `ProtocolConformanceAssessor`     | Removed |
-| `mcpSpecCompliance` config flag   | Removed |
-| `protocolConformance` config flag | Removed |
-| `BaseAssessor.log()` method       | Removed |
-| `BaseAssessor.logError()` method  | Removed |
+| Item                                                | Status  |
+| --------------------------------------------------- | ------- |
+| **Assessment Modules (4)**                          |         |
+| `DocumentationAssessor`                             | Removed |
+| `UsabilityAssessor`                                 | Removed |
+| `MCPSpecComplianceAssessor`                         | Removed |
+| `ProtocolConformanceAssessor`                       | Removed |
+| **Config Flags (2)**                                |         |
+| `mcpSpecCompliance` config flag                     | Removed |
+| `protocolConformance` config flag                   | Removed |
+| **Config Parameters (1)**                           |         |
+| `maxToolsToTestForErrors`                           | Removed |
+| **BaseAssessor Methods (2)**                        |         |
+| `BaseAssessor.log()` method                         | Removed |
+| `BaseAssessor.logError()` method                    | Removed |
+| **Method-Level APIs (4)**                           |         |
+| `DocumentationAssessor.extractFunctionalExamples()` | Removed |
+| `SecurityResponseAnalyzer.computeMathResult()`      | Removed |
+| `MathAnalyzer.computeMathResult()`                  | Removed |
+| `AssessmentOrchestrator.runFullAssessment()`        | Removed |
+| **Transport Support (1)**                           |         |
+| `MCPSpecComplianceAssessor` SSE support             | Removed |
+
+**Total: 18 items removed in v2.0.0**
 
 **Migration is mandatory** after v2.0.0 is released.
 
