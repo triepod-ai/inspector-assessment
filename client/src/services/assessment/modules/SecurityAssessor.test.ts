@@ -211,7 +211,7 @@ describe("SecurityAssessor", () => {
           result.promptInjectionTests.some((t) => t.testName.includes(pattern)),
         ).toBe(true);
       }
-    }, 240000); // 240 second timeout for comprehensive mode testing all 8 backend patterns
+    }, 60000); // 60 second timeout (reduced from 240s - unit test with mocks)
 
     it("should properly categorize risk levels", async () => {
       // Arrange
@@ -254,7 +254,7 @@ describe("SecurityAssessor", () => {
 
       expect(highRisk.length).toBeGreaterThan(0);
       expect(mediumRisk.length).toBeGreaterThan(0);
-    }, 240000); // 240 second timeout for comprehensive risk categorization testing
+    }, 60000); // 60 second timeout (reduced from 240s - unit test with mocks)
 
     // Skip: This test takes too long (>480s) due to comprehensive assessment
     it.skip("should handle timeout scenarios", async () => {

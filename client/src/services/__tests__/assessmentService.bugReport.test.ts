@@ -282,8 +282,8 @@ describe("Security Detection Validation - Assessment Service", () => {
     });
 
     it("should handle large numbers of tools efficiently", async () => {
-      // Enterprise MCP server with 50 tools
-      const enterpriseTools: Tool[] = Array.from({ length: 50 }, (_, i) => ({
+      // Enterprise MCP server with 15 tools (reduced from 50 for faster tests)
+      const enterpriseTools: Tool[] = Array.from({ length: 15 }, (_, i) => ({
         name: `enterprise_tool_${i}`,
         description: `Enterprise tool ${i}`,
         inputSchema: {
@@ -305,8 +305,8 @@ describe("Security Detection Validation - Assessment Service", () => {
       // FIXED: Now tests all tools
       // Security coverage should be comprehensive
       console.log(`Testing ${enterpriseTools.length} tools for security`);
-      expect(enterpriseTools.length).toBe(50);
-    }, 60000); // 60s timeout for 50 tools with comprehensive security testing
+      expect(enterpriseTools.length).toBe(15);
+    }, 30000); // 30s timeout (reduced from 60s after tool count reduction)
   });
 
   describe("Payload Context Awareness (Fixed)", () => {

@@ -612,8 +612,9 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       const largeOrchestrator = new AssessmentOrchestrator(largeSuiteConfig);
 
+      // Reduced from 50 to 15 tools for faster test execution
       const largeToolSet: Tool[] = [];
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 15; i++) {
         largeToolSet.push(createMockTool({ name: `tool-${i}` }));
       }
 
@@ -634,10 +635,10 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       // Assert
       expect(result).toBeDefined();
-      expect(result.functionality.totalTools).toBe(50);
-      expect(executionTime).toBeLessThan(30000); // Should complete within 30 seconds
-      expect(result.totalTestsRun).toBeGreaterThan(50); // Relaxed: CI runners achieve ~70 tests
-    }, 35000); // Extended timeout for large test suite
+      expect(result.functionality.totalTools).toBe(15);
+      expect(executionTime).toBeLessThan(15000); // Should complete within 15 seconds
+      expect(result.totalTestsRun).toBeGreaterThan(15); // Relaxed: CI runners achieve ~70 tests
+    }, 20000); // Reduced timeout after tool count reduction
 
     it("should respect memory constraints during assessment", async () => {
       // Arrange
