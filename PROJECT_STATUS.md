@@ -249,3 +249,186 @@
 - All security pattern integrity tests passing
 
 ---
+
+## 2026-01-16: Issue #130 Code Block Extraction Regex Fix
+
+**Summary:** Fixed code-review regex for Claude response code block extraction, plus code review follow-up
+
+**Session Focus:** Implement Issue #130 (robust regex for code block extraction) and address code review findings
+
+**Changes Made:**
+- `.github/actions/code-review/src/anthropic-client.ts` - Replaced 4 sequential slice() operations with single regex pattern
+- `.github/actions/code-review/src/anthropic-client.test.ts` - Added 8 new tests (3 for Issue #130, 5 for code review P1 fix)
+- Regex pattern: `/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/` (handles all code block format variations)
+
+**Key Decisions:**
+- Used regex instead of string operations for more robust handling of edge cases
+- Added `\s*` before closing fence after code review identified P1 edge case (whitespace handling)
+- No documentation updates needed (internal implementation detail)
+
+**Next Steps:**
+- Continue with remaining open issues (#176, #164, #149, #133, #129, #48)
+
+**Notes:**
+- Commits: 1b800f13 (initial fix), c203bd52 (code review follow-up)
+- Issue #130 closed on GitHub
+- 36 tests passing in code-review action test suite
+- Code review workflow found and fixed 1 P1 issue (whitespace before closing fence)
+
+---
+
+## 2026-01-16: Memory Leak Scanner Analysis and Test Fixes
+
+**Summary:** Ran memory leak scanner on test files, fixed 3 minor issues across 110 files
+
+**Session Focus:** Test reliability improvements via automated memory leak detection
+
+**Changes Made:**
+- `client/src/services/assessment/__tests__/claudeCodeBridge-security.integration.test.ts` - Added try-finally block for AbortController cleanup (MEDIUM severity)
+- `client/src/services/assessment/__tests__/SecurityPayloadTester-Retry.test.ts` - Added try-finally block for timer state restoration (LOW severity)
+- Both fixes ensure proper resource cleanup even when tests fail or throw exceptions
+
+**Key Decisions:**
+- Used try-finally pattern for cleanup to guarantee resource release regardless of test outcome
+- Prioritized AbortController fix as MEDIUM severity (potential resource leak in long test runs)
+- Timer state issues classified as LOW (Jest handles timer restoration between tests)
+
+**Next Steps:**
+- None immediate - codebase is in good shape
+
+**Notes:**
+- Memory leak scanner analyzed 110 Jest test files
+- Found only 3 issues total: 1 MEDIUM (AbortController), 2 LOW (timer state)
+- Excellent test hygiene overall - 97% of files had no issues
+- Commit: 7e5fc0a4 - fix(tests): Add try-finally cleanup for timer and AbortController resources
+
+---
+
+## 2026-01-16: AppleScript Injection Bypass Fix (Issue #178)
+
+**Summary:** Fixed AppleScript injection false negative caused by echoed input check bypass
+
+**Session Focus:** Prevent AppleScript injection patterns from being incorrectly dismissed by the "echoed input" and "LIKELY_FALSE_POSITIVE" checks in SecurityResponseAnalyzer
+
+**Changes Made:**
+- `client/src/services/assessment/modules/securityTests/SecurityResponseAnalyzer.ts` - Added early AppleScript injection detection with context requirement, prevented echoed input dismissal for AppleScript patterns, prevented LIKELY_FALSE_POSITIVE classification for AppleScript
+- `client/src/services/assessment/__tests__/AppleScriptInjection-FalseNegative-Issue177.test.ts` - Added Section 7 with 4 new test cases covering the bypass scenario
+- `CHANGELOG.md` - Added Issue #178 entry under v1.38.3
+
+**Key Decisions:**
+- Root cause: Issue #177 fix correctly detected injection, but checkVulnerabilityEvidence's "echoed input" check incorrectly dismissed it when input was reflected in error messages
+- Added `isAppleScriptSyntaxError` context check to require AppleScript-specific error context before early detection
+- Blocked "echoed input" dismissal path specifically for AppleScript injection patterns (do shell script, tell application)
+- Blocked LIKELY_FALSE_POSITIVE classification in classifyVulnerabilityContext() for AppleScript patterns
+
+**Next Steps:**
+- Continue with remaining open issues (#176, #164, #149, #133, #129, #48)
+
+**Notes:**
+- Commit: 26f638bc fix(security): Prevent AppleScript injection bypass via echoed input check (Issue #178)
+- Version bumped: 1.38.2 -> 1.38.3
+- Published to npm: @bryan-thompson/inspector-assessment@1.38.3
+- All 5230 tests passing, 0 regressions
+- Issue #178 closed on GitHub
+
+---
+
+## 2026-01-16: Issue #164 Type Modularization Complete
+
+**Summary:** Modularized extendedTypes.ts (1,145 lines to 6 domain modules), analyzed code review workflow improvements
+
+**Session Focus:** Issue #164 modularization of extendedTypes.ts and /review-my-code workflow comparison analysis
+
+**Changes Made:**
+- `client/src/services/assessment/types/aupComplianceTypes.ts` - AUP compliance and policy violation types
+- `client/src/services/assessment/types/toolAnnotationTypes.ts` - Tool annotation and description poisoning types
+- `client/src/services/assessment/types/policyComplianceTypes.ts` - Policy compliance and manifest requirement types
+- `client/src/services/assessment/types/externalServicesTypes.ts` - External service and mcp-auditor integration types
+- `client/src/services/assessment/types/temporalSecurityTypes.ts` - Temporal security and rug-pull detection types
+- `client/src/services/assessment/types/capabilityAssessmentTypes.ts` - Capability assessment and resource/prompt types
+- `client/src/services/assessment/__tests__/modularizedTypes.test.ts` - 21 new tests validating module exports and backward compatibility
+- Updated 4 documentation files with migration guides (+106 lines total)
+- Created GitHub Issues #179, #180, #181 for future modularization work
+
+**Key Decisions:**
+- Maintained full backward compatibility via re-export shim in extendedTypes.ts (consumers can migrate gradually)
+- Full workflow execution proved valuable: shortcuts missed 21 tests + 4 documentation updates
+- Identified 5 improvements needed for /review-my-code slash command (explicit agent requirements, anti-patterns section)
+- Domain-based organization provides clear import paths and better IDE support
+
+**Next Steps:**
+- Apply /review-my-code command improvements based on workflow analysis
+- Address Issue #179 (SecurityResponseAnalyzer.ts modularization - 1,847 lines)
+- Address Issue #180 (ResourceAssessor.ts modularization - 1,200+ lines)
+- Address Issue #181 (TestDataGenerator.ts modularization)
+
+**Notes:**
+- Commits: 0977ca4d (refactor), b50c837d (docs)
+- Issue #164 closed on GitHub
+- Migration path: Import from domain modules for new code, existing imports continue to work
+- Pattern established for remaining modularization issues
+
+---
+
+## 2026-01-16: Issue #183 Code Review - Transport Flag Implementation
+
+**Summary:** Completed 7-stage code review of --http and --sse CLI flags, added protocol validation security fix
+
+**Session Focus:** Code review workflow for transport flag implementation (commit 290e6ff4)
+
+**Changes Made:**
+- Added URL protocol validation (http/https only) to `cli/src/lib/cli-parser.ts`
+- Added 5 new tests: protocol validation (file://, ftp://) and --conformance integration
+- Updated CLAUDE.md with transport options documentation section
+
+**Key Decisions:**
+- Protocol validation prevents non-HTTP URLs (security improvement)
+- Existing behavior for missing transport option is acceptable (not fixed)
+- Review verdict: PASS WITH WARNINGS
+
+**Next Steps:**
+- Commit the review fixes as follow-up to Issue #183
+- Consider extracting URL parsing helper to reduce code duplication (P3 priority)
+
+**Notes:**
+- Original commit had 0 P0, 0 P1, 2 P2, 4 P3 issues
+- All P0/P1/P2 issues addressed in review
+- P2 fixes: URL protocol validation, test coverage for --conformance integration
+- P3 deferred: URL parsing helper extraction, minor documentation enhancements
+
+---
+
+## 2026-01-16: Issue #184 --module Flag for Single-Module CLI Execution
+
+**Summary:** Implemented Issue #184 --module flag for single-module CLI execution with full code review workflow
+
+**Session Focus:** Add --module flag to mcp-assess-full CLI for running individual assessment modules directly, bypassing orchestrator for faster targeted execution
+
+**Changes Made:**
+- `cli/src/lib/assessment-runner/single-module-runner.ts` - NEW file with single module execution logic
+- `cli/src/lib/cli-parser.ts` - Added --module/-m flag parsing with validation
+- `cli/src/__tests__/flag-parsing.test.ts` - Added 25 new tests for --module flag
+- `client/src/services/assessment/registry/types.ts` - ModuleContextRequirements interface
+- `client/src/services/assessment/registry/AssessorDefinitions.ts` - contextRequirements for 19 modules
+- `cli/src/assess-full.ts` - Single module execution path integration
+- `cli/src/lib/result-output.ts` - saveSingleModuleResults, displaySingleModuleSummary
+- `CLAUDE.md` - Added --module documentation
+- `docs/CLI_ASSESSMENT_GUIDE.md` - Mode 4 (Single-Module Execution) section
+
+**Key Decisions:**
+- ModuleContextRequirements interface enables declarative context building per module
+- Mutual exclusivity with --profile, --skip-modules, --only-modules
+- P1 fix: Added try/finally for client.close() to prevent resource leaks
+- 25 new tests follow existing transport flag test patterns
+
+**Next Steps:**
+- Consider adding integration tests for single-module-runner.ts (P1 from QA analysis)
+- Address remaining P3 items in future iterations
+
+**Notes:**
+- Commit: 66cb2087 feat(cli): Add --module flag for single-module execution (Issue #184)
+- Issue #184 created and closed on GitHub
+- 7-stage code review completed: 0 P0, 1 P1 (fixed), 2 P2 (1 fixed, 1 deferred), 5 P3 (deferred)
+- All 5253 tests passing
+
+---
