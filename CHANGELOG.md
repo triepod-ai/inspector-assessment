@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **AppleScript Injection Echoed Input Bypass** (Issue #178): Fixed bypass where AppleScript injection was dismissed by generic checks
+  - Added early AppleScript injection detection in `checkVulnerabilityEvidence()` with context requirement
+  - Prevented "echoed input" dismissal for AppleScript injection patterns
+  - Prevented "LIKELY_FALSE_POSITIVE" dismissal in `classifyVulnerabilityContext()` for AppleScript
+  - Root cause: Issue #177 correctly detected injection, but subsequent checks incorrectly dismissed it
+  - 4 new test cases validating H1 #3480575 scenario and edge cases
+
 - **AppleScript Injection False Negative Prevention** (Issue #177): Fixed critical false negative where AppleScript injection was marked safe
   - Added `APPLESCRIPT_INJECTION_SUCCESS_PATTERNS` (7 patterns) for detecting quote escape to shell execution
   - Added `APPLESCRIPT_RUNTIME_ERROR_CODES` (4 patterns) for distinguishing runtime vs syntax errors
