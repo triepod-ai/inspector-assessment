@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **AppleScript Injection False Negative Prevention** (Issue #177): Fixed critical false negative where AppleScript injection was marked safe
+  - Added `APPLESCRIPT_INJECTION_SUCCESS_PATTERNS` (7 patterns) for detecting quote escape to shell execution
+  - Added `APPLESCRIPT_RUNTIME_ERROR_CODES` (4 patterns) for distinguishing runtime vs syntax errors
+  - Modified `checkSafeErrorResponses()` to check injection success BEFORE dismissing as syntax error
+  - Added payload context parameter for enhanced runtime error detection (H1 #3480575 scenario)
+  - Maintains backward compatibility with Issue #175 (XXE false positive prevention)
+  - 106 security pattern tests verified passing
+
 - **ManifestValidation Performance Optimization** (Issue #140): Improved Levenshtein distance algorithm
   - Optimized from O(n\*m) matrix to O(min(n,m)) two-row algorithm
   - Added early termination with maxDist parameter for faster rejection
