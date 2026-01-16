@@ -400,20 +400,23 @@ describe("Issue #157: Connection Retry Logic", () => {
       // Use real timers for this test since fake timers interfere with async retry logic
       jest.useRealTimers();
 
-      const result = await tester.testPayloadWithRetry(
-        tool,
-        "Command Injection",
-        payload,
-        mockCallTool,
-      );
+      try {
+        const result = await tester.testPayloadWithRetry(
+          tool,
+          "Command Injection",
+          payload,
+          mockCallTool,
+        );
 
-      expect(result.retryAttempts).toBe(2);
-      expect(result.retriedSuccessfully).toBe(true);
-      expect(result.testReliability).toBe("retried");
-      expect(mockCallTool).toHaveBeenCalledTimes(3);
-
-      // Restore fake timers for other tests
-      jest.useFakeTimers();
+        expect(result.retryAttempts).toBe(2);
+        expect(result.retriedSuccessfully).toBe(true);
+        expect(result.testReliability).toBe("retried");
+        expect(mockCallTool).toHaveBeenCalledTimes(3);
+      } finally {
+        // Restore fake timers - afterEach expects fake timers to be active
+        // so it can call useRealTimers() for cleanup
+        jest.useFakeTimers();
+      }
     });
   });
 

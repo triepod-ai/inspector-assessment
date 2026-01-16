@@ -43,19 +43,15 @@ function createHttpConfig(
 
 // Pre-test setup - check server availability
 beforeAll(async () => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT);
+
   try {
     // Check if mcp-auditor is running
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      HEALTH_CHECK_TIMEOUT,
-    );
-
     const healthResponse = await fetch(`${MCP_AUDITOR_BASE_URL}/api/health`, {
       signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
     serverAvailable = healthResponse.ok;
 
     if (serverAvailable) {
@@ -69,6 +65,8 @@ beforeAll(async () => {
   } catch {
     serverAvailable = false;
     claudeConfigured = false;
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (!serverAvailable) {
