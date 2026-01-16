@@ -712,7 +712,7 @@ See [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) for complete
 
 **Test Approach**:
 
-- Invoke each tool multiple times (default: 25 invocations)
+- Invoke each tool multiple times (default: 3 invocations)
 - Compare responses for consistency
 - Detect behavior drift patterns
 
@@ -1091,7 +1091,7 @@ If not available, the module logs a warning and skips gracefully.
 | 11  | Portability          | ~8 patterns         | Cross-platform | Low      | Tier 4: Ext  |
 | 12  | External API Scanner | API detection       | Disclosure     | Medium   | Tier 2: Comp |
 | 13  | Authentication       | Auth patterns       | Security       | High     | Tier 2: Comp |
-| 14  | Temporal             | 25 invocations/tool | Rug pull       | High     | Tier 1: Core |
+| 14  | Temporal             | 3 invocations/tool  | Rug pull       | High     | Tier 1: Core |
 | 15  | Resources            | Per resource        | MCP Spec       | Medium   | Tier 3: Cap  |
 | 16  | Prompts              | Per prompt          | MCP Spec       | Medium   | Tier 3: Cap  |
 | 17  | Cross-Capability     | Multi-tool chains   | Security       | High     | Tier 3: Cap  |

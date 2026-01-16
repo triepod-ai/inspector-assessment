@@ -49,8 +49,9 @@ export class TemporalAssessor extends BaseAssessor {
 
   constructor(config: AssessmentConfiguration) {
     super(config);
-    // Issue #119: Changed default from 25 to 15 for more efficient temporal testing
-    this.invocationsPerTool = config.temporalInvocations ?? 15;
+    // Issue #182: Changed default to 3 for slow servers (AppleScript MCP)
+    // History: Originally 25, Issue #119 changed to 15, Issue #182 changed to 3
+    this.invocationsPerTool = config.temporalInvocations ?? 3;
     this.mutationDetector = new MutationDetector();
     this.varianceClassifier = new VarianceClassifier(this.mutationDetector);
   }

@@ -167,7 +167,7 @@ Logger messages use a consistent format:
 **Examples:**
 
 ```
-[TemporalAssessor] Starting temporal assessment with 25 invocations per tool
+[TemporalAssessor] Starting temporal assessment with 3 invocations per tool
 [FunctionalityAssessor] Testing tool: add_memory with params: {"key":"test"}
 [SecurityAssessor] Testing add_memory with all attack patterns
 [AssessmentOrchestrator] Claude Code Bridge initialized

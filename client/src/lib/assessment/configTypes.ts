@@ -92,7 +92,7 @@ export interface AssessmentConfiguration {
   // Claude Code integration for intelligent analysis
   claudeCode?: ClaudeCodeConfig;
   // Temporal/rug pull detection configuration
-  temporalInvocations?: number; // Number of invocations per tool for rug pull detection (default 25)
+  temporalInvocations?: number; // Number of invocations per tool for rug pull detection (default 3)
   /** Logging configuration for diagnostic output */
   logging?: LoggingConfig;
   assessmentCategories?: {

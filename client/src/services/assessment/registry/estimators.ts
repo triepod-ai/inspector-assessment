@@ -47,11 +47,11 @@ function getPromptCount(context: AssessmentContext): number {
 // ============================================================================
 
 /**
- * Temporal assessor: toolCount × temporalInvocations (default 25)
+ * Temporal assessor: toolCount × temporalInvocations (default 3)
  */
 export const estimateTemporalTests: TestEstimatorFn = (context, config) => {
   const toolCount = getToolCount(context, config);
-  const invocationsPerTool = config.temporalInvocations ?? 25;
+  const invocationsPerTool = config.temporalInvocations ?? 3;
   return toolCount * invocationsPerTool;
 };
 

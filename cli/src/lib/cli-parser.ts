@@ -549,7 +549,7 @@ Options:
   --mcp-auditor-url <url>  mcp-auditor URL for HTTP transport (default: http://localhost:8085)
   --full                 Enable all assessment modules (default)
   --profile <name>       Use predefined module profile (quick, security, compliance, full)
-  --temporal-invocations <n>  Number of invocations per tool for rug pull detection (default: 25)
+  --temporal-invocations <n>  Number of invocations per tool for rug pull detection (default: 3)
   --skip-temporal        Skip temporal/rug pull testing (faster assessment)
   --conformance          Enable official MCP conformance tests (experimental, requires HTTP/SSE transport)
   --output-format <fmt>  Output format: full (default), tiered, summary-only

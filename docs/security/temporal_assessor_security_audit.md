@@ -24,6 +24,10 @@ The TemporalAssessor module has undergone security hardening with 6 fixes (2 Pri
 
 ---
 
+> **Note (Issue #182):** The default temporal invocations changed from 25 to 3 in v1.39.0 to prevent timeouts on slow servers. The security analysis below uses 25 invocations as a worst-case scenario (for users who use `--temporal-invocations 25` for deep rug pull testing). With the new 3-invocation default, resource consumption is 8× lower.
+
+---
+
 ## Priority 1 Fixes (Direct Security)
 
 ### P1-1: ReDoS Prevention in ISO Timestamp Regex

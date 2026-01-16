@@ -681,7 +681,7 @@ manifestValidation?: boolean;  // Only enabled in bundle-specific assessment mod
 
 ```typescript
 {
-  temporalInvocations?: number;  // Invocations per tool (default 25)
+  temporalInvocations?: number;  // Invocations per tool (default 3)
 }
 ```
 

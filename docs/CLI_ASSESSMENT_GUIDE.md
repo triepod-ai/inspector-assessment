@@ -142,7 +142,7 @@ All local script options, plus:
   --diff-only                  Show only the diff, not full assessment
   --resume                     Resume interrupted assessment
   --no-resume                  Force fresh start
-  --temporal-invocations <n>   Rug pull detection invocations (default: 25)
+  --temporal-invocations <n>   Rug pull detection invocations (default: 3)
   --skip-temporal              Skip temporal/rug pull testing
   --skip-modules <list>        Skip specific modules (comma-separated)
   --only-modules <list>        Run only specific modules (comma-separated)
@@ -598,9 +598,9 @@ LOG_LEVEL=debug mcp-assess-full --server my-server --silent
 ✅ Connected to MCP server
 🔧 Found 12 tools
 🏃 Running assessment with 18 modules...
-[TemporalAssessor] Starting temporal assessment with 25 invocations per tool
-[TemporalAssessor] Testing add_memory with 25 invocations
-[TemporalAssessor] Testing get_memory with 25 invocations
+[TemporalAssessor] Starting temporal assessment with 3 invocations per tool
+[TemporalAssessor] Testing add_memory with 3 invocations
+[TemporalAssessor] Testing get_memory with 3 invocations
 [FunctionalityAssessor] Testing tool: add_memory with params: {"key":"test","value":"hello"}
 [SecurityAssessor] Testing add_memory with all attack patterns
 [SecurityAssessor] Pattern: Command Injection - testing 8 payloads
@@ -2163,7 +2163,7 @@ Temporal testing invokes each tool multiple times and compares responses to dete
 - State mutations (side effects)
 - Non-deterministic behavior
 
-**Default**: 25 invocations per tool
+**Default**: 3 invocations per tool
 **Tradeoff**: More invocations = slower but more thorough
 
 ---

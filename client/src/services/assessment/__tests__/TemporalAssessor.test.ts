@@ -651,4 +651,45 @@ describe("TemporalAssessor", () => {
       expect(result.status).toBe("PASS");
     });
   });
+
+  // Issue #182: Verify default invocation count
+  describe("default configuration (Issue #182)", () => {
+    it("uses default of 3 invocations when temporalInvocations not specified", async () => {
+      // Create config WITHOUT temporalInvocations to test the default
+      const minimalConfig = {
+        testTimeout: 5000,
+        skipBrokenTools: false,
+        // temporalInvocations intentionally omitted
+      };
+      const assessor = new TemporalAssessor(minimalConfig as never);
+      const tools = [createTool("test_default")];
+
+      let invocationCount = 0;
+      const context = createMockContext(tools, async () => {
+        invocationCount++;
+        return { ok: true };
+      });
+
+      await assessor.assess(context);
+
+      // Default should be 3 invocations per Issue #182
+      expect(invocationCount).toBe(3);
+    });
+
+    it("allows override of default invocations via config", async () => {
+      const config = createConfig({ temporalInvocations: 7 });
+      const assessor = new TemporalAssessor(config);
+      const tools = [createTool("test_override")];
+
+      let invocationCount = 0;
+      const context = createMockContext(tools, async () => {
+        invocationCount++;
+        return { ok: true };
+      });
+
+      await assessor.assess(context);
+
+      expect(invocationCount).toBe(7);
+    });
+  });
 });

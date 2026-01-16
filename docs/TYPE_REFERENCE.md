@@ -248,7 +248,7 @@ interface AssessmentConfiguration {
   claudeCode?: ClaudeCodeConfig;
 
   // Temporal detection
-  temporalInvocations?: number; // Rug pull detection invocations (default: 25)
+  temporalInvocations?: number; // Rug pull detection invocations (default: 3)
 
   // Module selection
   assessmentCategories?: {
