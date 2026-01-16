@@ -842,14 +842,21 @@ The assessment types are organized into focused modules. Choose the correct modu
 
 **Module Selection Guide:**
 
-| Type Purpose                                | Target Module        | Add To                               |
-| ------------------------------------------- | -------------------- | ------------------------------------ |
-| Status, enums, metadata                     | `coreTypes.ts`       | Base type definitions                |
-| Configuration-related types                 | `configTypes.ts`     | AssessmentConfiguration interfaces   |
-| **Main assessment result (recommended)**    | **`resultTypes.ts`** | **MCPDirectoryAssessment interface** |
-| Extended/compliance types (AUP, Annotation) | `extendedTypes.ts`   | Extended assessment types            |
-| Progress/streaming events                   | `progressTypes.ts`   | Event type definitions               |
-| Constant values or lookup arrays            | `constants.ts`       | Constant exports                     |
+| Type Purpose                                    | Target Module                  | Add To                               |
+| ----------------------------------------------- | ------------------------------ | ------------------------------------ |
+| Status, enums, metadata                         | `coreTypes.ts`                 | Base type definitions                |
+| Configuration-related types                     | `configTypes.ts`               | AssessmentConfiguration interfaces   |
+| **Main assessment result (recommended)**        | **`resultTypes.ts`**           | **MCPDirectoryAssessment interface** |
+| Progress/streaming events                       | `progressTypes.ts`             | Event type definitions               |
+| Constant values or lookup arrays                | `constants.ts`                 | Constant exports                     |
+| **Extended Types (Issue #164 - Modularized):**  |
+| AUP compliance types                            | `aupComplianceTypes.ts`        | AUP violation detection              |
+| Tool annotation validation                      | `toolAnnotationTypes.ts`       | Annotation alignment checks          |
+| Policy compliance (libraries, manifest)         | `policyComplianceTypes.ts`     | MCP Directory policies               |
+| External API & authentication                   | `externalServicesTypes.ts`     | External service detection           |
+| Temporal security & rug pull                    | `temporalSecurityTypes.ts`     | Temporal mutation detection          |
+| Capability assessments (resources, prompts)     | `capabilityAssessmentTypes.ts` | MCP capability testing               |
+| ~~Extended/compliance types (AUP, Annotation)~~ | ~~`extendedTypes.ts`~~         | **SHIM** - use focused modules above |
 
 **For most new assessments, add your type to `client/src/lib/assessment/resultTypes.ts`:**
 
@@ -914,6 +921,14 @@ export const ASSESSMENT_CATEGORY_METADATA: Record<
 
 - Exports continue to work via barrel export: `import type { YourNewAssessment } from "@/lib/assessment"`
 - Or import from specific modules: `import type { YourNewAssessment } from "@/lib/assessment/resultTypes"`
+- **Issue #164**: Extended types are now modularized - use focused domain modules for better tree-shaking:
+  - `from "@/lib/assessment/aupComplianceTypes"` - AUP compliance
+  - `from "@/lib/assessment/toolAnnotationTypes"` - Tool annotations
+  - `from "@/lib/assessment/policyComplianceTypes"` - Policy compliance
+  - `from "@/lib/assessment/externalServicesTypes"` - External services
+  - `from "@/lib/assessment/temporalSecurityTypes"` - Temporal security
+  - `from "@/lib/assessment/capabilityAssessmentTypes"` - Capabilities
+  - `from "@/lib/assessment/extendedTypes"` - **SHIM** (backward compat only)
 - See [ASSESSMENT_TYPES_IMPORT_GUIDE.md](ASSESSMENT_TYPES_IMPORT_GUIDE.md) for detailed module organization
 
 ### Step 3: Export from index.ts
@@ -1760,9 +1775,16 @@ Before submitting a new module:
   - `coreTypes.ts` - Foundational types and enums
   - `configTypes.ts` - Configuration interfaces
   - `resultTypes.ts` - Assessment result types
-  - `extendedTypes.ts` - Extended assessment types
   - `progressTypes.ts` - Progress event types
   - `constants.ts` - Constant values
+  - **Extended Types (Issue #164 - Modularized):**
+    - `aupComplianceTypes.ts` - AUP compliance
+    - `toolAnnotationTypes.ts` - Tool annotations
+    - `policyComplianceTypes.ts` - Policy compliance
+    - `externalServicesTypes.ts` - External services
+    - `temporalSecurityTypes.ts` - Temporal security
+    - `capabilityAssessmentTypes.ts` - Capabilities
+    - `extendedTypes.ts` - **SHIM** (backward compat)
 - **Orchestrator**: `client/src/services/assessment/AssessmentOrchestrator.ts`
 - **Test Utilities**: `client/src/test/utils/testUtils.ts`
 - **Module Scoring**: `client/src/lib/moduleScoring.ts`

@@ -649,7 +649,7 @@ score = (passedChecks / totalChecks) * 100
 
 ### ProtocolConformanceAssessment
 
-**Location**: `client/src/lib/assessment/extendedTypes.ts`, lines 570-592
+**Location**: `client/src/lib/assessment/policyComplianceTypes.ts` (was `extendedTypes.ts` lines 570-592 before Issue #164 modularization)
 
 ```typescript
 export interface ProtocolConformanceAssessment {
@@ -679,7 +679,7 @@ export interface ProtocolConformanceAssessment {
 
 ### ProtocolCheck
 
-**Location**: `client/src/lib/assessment/extendedTypes.ts`, lines 550-563
+**Location**: `client/src/lib/assessment/policyComplianceTypes.ts` (was `extendedTypes.ts` lines 550-563 before Issue #164 modularization)
 
 ```typescript
 export interface ProtocolCheck {
@@ -848,12 +848,14 @@ for (const line of lines) {
 
 ### 3. Type Definitions
 
-**File**: `client/src/lib/assessment/extendedTypes.ts`
+**File**: `client/src/lib/assessment/policyComplianceTypes.ts` (modularized from `extendedTypes.ts` in Issue #164)
 
 **Types Exported**:
 
-- `ProtocolCheck` (lines 550-563)
-- `ProtocolConformanceAssessment` (lines 570-592)
+- `ProtocolCheck`
+- `ProtocolConformanceAssessment`
+
+**Backward Compatible Import**: `import type { ProtocolCheck } from "@/lib/assessment/extendedTypes"` still works via shim
 
 ### 4. Module Export
 

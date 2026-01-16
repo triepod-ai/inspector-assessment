@@ -38,14 +38,21 @@ Complete TypeScript type reference for the programmatic API. All types are fully
 
 The type system is organized into focused modules for better tree-shaking and maintainability:
 
-| Module          | Purpose                              | Key Exports                                                |
-| --------------- | ------------------------------------ | ---------------------------------------------------------- |
-| `coreTypes`     | Foundational enums and status types  | `AssessmentStatus`, `SecurityRiskLevel`, `AlignmentStatus` |
-| `configTypes`   | Configuration interfaces and presets | `AssessmentConfiguration`, `ClaudeCodeConfig`              |
-| `resultTypes`   | Assessment result structures         | `MCPDirectoryAssessment`, `FunctionalityAssessment`        |
-| `extendedTypes` | Extended assessment types            | `AUPComplianceAssessment`, `ToolAnnotationAssessment`      |
-| `progressTypes` | Real-time progress events            | `ProgressEvent`, `ProgressCallback`                        |
-| `constants`     | Security test definitions            | `PROMPT_INJECTION_TESTS`                                   |
+| Module                                       | Purpose                              | Key Exports                                                     |
+| -------------------------------------------- | ------------------------------------ | --------------------------------------------------------------- |
+| `coreTypes`                                  | Foundational enums and status types  | `AssessmentStatus`, `SecurityRiskLevel`, `AlignmentStatus`      |
+| `configTypes`                                | Configuration interfaces and presets | `AssessmentConfiguration`, `ClaudeCodeConfig`                   |
+| `resultTypes`                                | Assessment result structures         | `MCPDirectoryAssessment`, `FunctionalityAssessment`             |
+| `progressTypes`                              | Real-time progress events            | `ProgressEvent`, `ProgressCallback`                             |
+| `constants`                                  | Security test definitions            | `PROMPT_INJECTION_TESTS`                                        |
+| **Modularized Extended Types (Issue #164):** |
+| `aupComplianceTypes`                         | AUP compliance validation            | `AUPComplianceAssessment`, `AUPViolation`                       |
+| `toolAnnotationTypes`                        | Tool annotation validation           | `ToolAnnotationAssessment`, `AlignmentStatus`                   |
+| `policyComplianceTypes`                      | Policy compliance checks             | `ProhibitedLibrariesAssessment`, `ManifestValidationAssessment` |
+| `externalServicesTypes`                      | External API & authentication        | `ExternalAPIScannerAssessment`, `AuthenticationAssessment`      |
+| `temporalSecurityTypes`                      | Temporal security testing            | `TemporalAssessment`, `VarianceClassification`                  |
+| `capabilityAssessmentTypes`                  | Capability assessments               | `ResourceAssessment`, `PromptAssessment`                        |
+| `extendedTypes` (shim)                       | Backward-compatible re-export        | Re-exports all 6 modules above                                  |
 
 ---
 

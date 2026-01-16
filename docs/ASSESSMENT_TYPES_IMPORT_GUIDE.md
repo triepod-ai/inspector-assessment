@@ -39,14 +39,22 @@ The assessment types are organized into 6 focused modules under `client/src/lib/
 
 ```
 client/src/lib/assessment/
-├── coreTypes.ts          (183 lines) - Foundational types and enums
-├── configTypes.ts        (273 lines) - Configuration interfaces
-├── extendedTypes.ts      (539 lines) - Extended assessment types
-├── resultTypes.ts        (695 lines) - Assessment result interfaces
-├── progressTypes.ts      (181 lines) - Progress event types
-├── constants.ts          (68 lines)  - Security test constants
-├── index.ts              (53 lines)  - Barrel export + dependency graph
-└── assessmentTypes.ts    (26 lines)  - Deprecation wrapper (legacy)
+├── coreTypes.ts                    (183 lines)  - Foundational types and enums
+├── configTypes.ts                  (273 lines)  - Configuration interfaces
+├── resultTypes.ts                  (695 lines)  - Assessment result interfaces
+├── progressTypes.ts                (181 lines)  - Progress event types
+├── constants.ts                    (68 lines)   - Security test constants
+│
+├── extendedTypes.ts                (30 lines)   - SHIM: Backward-compatible re-export
+│   ├── aupComplianceTypes.ts       (120 lines)  - AUP compliance types
+│   ├── toolAnnotationTypes.ts      (145 lines)  - Tool annotation validation
+│   ├── policyComplianceTypes.ts    (190 lines)  - Policy compliance (libraries, manifest, portability)
+│   ├── externalServicesTypes.ts    (95 lines)   - External API & authentication
+│   ├── temporalSecurityTypes.ts    (105 lines)  - Temporal security & rug pull
+│   └── capabilityAssessmentTypes.ts (180 lines) - Resources, prompts, cross-capability
+│
+├── index.ts                        (70 lines)   - Barrel export + dependency graph
+└── assessmentTypes.ts              (26 lines)   - Deprecation wrapper (legacy)
 ```
 
 ### Module Descriptions
@@ -127,34 +135,65 @@ import type {
 } from "@/lib/assessment/resultTypes";
 ```
 
-#### 4. **extendedTypes.ts** - Extended Assessment Types
+#### 4. **extendedTypes.ts** - Extended Assessment Types (Modularized)
 
-Extended assessment types for MCP directory compliance and advanced features.
+**IMPORTANT**: As of v1.38.0 (Issue #164), extended types have been modularized into 6 focused domain modules for better organization and tree-shaking. The `extendedTypes.ts` file is now a backward-compatible shim that re-exports all types.
 
-**What's Inside:**
+**Modularized Structure** (Recommended for new code):
 
-- `AUPComplianceAssessment` - Acceptable Use Policy compliance
-- `ToolAnnotationAssessment` - Tool annotation validation
-- `ProhibitedLibrariesAssessment` - Library restriction detection
-- `ManifestValidationAssessment` - MCPB manifest validation
-- `PortabilityAssessment` - Bundle portability checks
-- `ExternalAPIScannerAssessment` - API usage detection
-- `AuthenticationAssessor` - OAuth/authentication evaluation
-- `TemporalAssessment` - Rug pull temporal detection
-- `ResourceAssessment` - MCP resources capability assessment
-- `PromptAssessment` - MCP prompts capability assessment
-- `CrossCapabilitySecurityAssessment` - Cross-capability security
+| Domain Module                  | What's Inside                                                  | Import Pattern                                      |
+| ------------------------------ | -------------------------------------------------------------- | --------------------------------------------------- |
+| `aupComplianceTypes.ts`        | AUP violation types, categories, severity levels               | `from "@/lib/assessment/aupComplianceTypes"`        |
+| `toolAnnotationTypes.ts`       | Tool annotation validation, alignment statuses, poisoning      | `from "@/lib/assessment/toolAnnotationTypes"`       |
+| `policyComplianceTypes.ts`     | Prohibited libraries, manifest validation, portability         | `from "@/lib/assessment/policyComplianceTypes"`     |
+| `externalServicesTypes.ts`     | External API detection, authentication assessment              | `from "@/lib/assessment/externalServicesTypes"`     |
+| `temporalSecurityTypes.ts`     | Rug pull detection, temporal mutation, variance classification | `from "@/lib/assessment/temporalSecurityTypes"`     |
+| `capabilityAssessmentTypes.ts` | Resources, prompts, cross-capability security assessments      | `from "@/lib/assessment/capabilityAssessmentTypes"` |
 
-**Import when you need:** Extended assessment types, advanced compliance checks
+**Backward Compatibility**:
 
-**Example:**
+The original `extendedTypes.ts` import path **still works** and will remain supported through v1.x:
 
 ```typescript
+// ✅ STILL WORKS - Backward compatible (shim)
 import type {
   AUPComplianceAssessment,
   ToolAnnotationAssessment,
 } from "@/lib/assessment/extendedTypes";
 ```
+
+**Recommended: Focused Module Imports** (better tree-shaking):
+
+```typescript
+// ✅ RECOMMENDED - Import from specific domain modules
+import type { AUPComplianceAssessment } from "@/lib/assessment/aupComplianceTypes";
+import type { ToolAnnotationAssessment } from "@/lib/assessment/toolAnnotationTypes";
+import type { TemporalAssessment } from "@/lib/assessment/temporalSecurityTypes";
+```
+
+**Complete Type Listing by Module:**
+
+- **AUP Compliance** (`aupComplianceTypes.ts`):
+  - `AUPComplianceAssessment`, `AUPViolation`, `AUPCategory`, `AUPSeverity`
+
+- **Tool Annotations** (`toolAnnotationTypes.ts`):
+  - `ToolAnnotationAssessment`, `ToolAnnotationResult`, `AlignmentStatus`, `DescriptionPoisoningResult`
+
+- **Policy Compliance** (`policyComplianceTypes.ts`):
+  - `ProhibitedLibrariesAssessment`, `ManifestValidationAssessment`, `PortabilityAssessment`
+
+- **External Services** (`externalServicesTypes.ts`):
+  - `ExternalAPIScannerAssessment`, `AuthenticationAssessment`, `ExternalServiceDetection`
+
+- **Temporal Security** (`temporalSecurityTypes.ts`):
+  - `TemporalAssessment`, `TemporalToolResult`, `VarianceClassification`, `VarianceType`
+
+- **Capability Assessment** (`capabilityAssessmentTypes.ts`):
+  - `ResourceAssessment`, `PromptAssessment`, `CrossCapabilitySecurityAssessment`
+
+**Import when you need:** Extended assessment types, advanced compliance checks, MCP directory policy validation
+
+**Migration Path:** See [Issue #164](https://github.com/triepod-ai/inspector-assessment/issues/164) for detailed migration guidance
 
 #### 5. **progressTypes.ts** - Progress Event Types
 
@@ -230,39 +269,53 @@ import {
 The modules follow a strict acyclic dependency graph (DAG) with 4 tiers:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ Tier 0: No internal dependencies                             │
-├─────────────────────────────────────────────────────────────┤
-│  • coreTypes.ts      ← Foundational enums and base types     │
-│  • configTypes.ts    ← Configuration interfaces              │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Tier 0: No internal dependencies                                 │
+├──────────────────────────────────────────────────────────────────┤
+│  • coreTypes.ts      ← Foundational enums and base types         │
+│  • configTypes.ts    ← Configuration interfaces                  │
+└──────────────────────────────────────────────────────────────────┘
          ↓                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Tier 1: Depends on Tier 0 only                               │
-├─────────────────────────────────────────────────────────────┤
-│  • extendedTypes.ts  ← Extended assessment types             │
-│  • progressTypes.ts  ← Progress event types                  │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Tier 1: Depends on Tier 0 only                                   │
+├──────────────────────────────────────────────────────────────────┤
+│  • aupComplianceTypes.ts          ← AUP compliance types         │
+│  • toolAnnotationTypes.ts         ← Tool annotation validation   │
+│  • policyComplianceTypes.ts       ← Policy compliance types      │
+│  • externalServicesTypes.ts       ← External API & auth types    │
+│  • temporalSecurityTypes.ts       ← Temporal security types      │
+│  • capabilityAssessmentTypes.ts   ← Capability assessment types  │
+│  • progressTypes.ts               ← Progress event types         │
+│  • extendedTypes.ts (SHIM)        ← Re-exports Tier 1 modules    │
+└──────────────────────────────────────────────────────────────────┘
          ↓                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Tier 2: Depends on Tier 0 and Tier 1                        │
-├─────────────────────────────────────────────────────────────┤
-│  • resultTypes.ts    ← Core assessment result interfaces     │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Tier 2: Depends on Tier 0 and Tier 1                            │
+├──────────────────────────────────────────────────────────────────┤
+│  • resultTypes.ts    ← Core assessment result interfaces         │
+└──────────────────────────────────────────────────────────────────┘
          ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Tier 3: Depends on Tier 2                                   │
-├─────────────────────────────────────────────────────────────┤
-│  • constants.ts      ← Constant values                       │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Tier 3: Depends on Tier 2                                       │
+├──────────────────────────────────────────────────────────────────┤
+│  • constants.ts      ← Constant values                           │
+└──────────────────────────────────────────────────────────────────┘
          ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Public API: Barrel Export                                   │
-├─────────────────────────────────────────────────────────────┤
-│  • index.ts          ← Re-exports all (Tier 0 → Tier 3)     │
-│  • assessmentTypes.ts ← Deprecated wrapper for compatibility │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Public API: Barrel Export                                       │
+├──────────────────────────────────────────────────────────────────┤
+│  • index.ts          ← Re-exports all (Tier 0 → Tier 3)         │
+│  • assessmentTypes.ts ← Deprecated wrapper for compatibility     │
+└──────────────────────────────────────────────────────────────────┘
 ```
+
+**Important Notes** (Issue #164):
+
+- The 6 focused domain modules (`aupComplianceTypes`, `toolAnnotationTypes`, etc.) replaced the monolithic `extendedTypes.ts`
+- `extendedTypes.ts` is now a **shim** that re-exports all 6 modules for backward compatibility
+- All focused modules are at Tier 1 (depend only on `coreTypes` and `configTypes`)
+- No circular dependencies between focused modules
+- Tree-shaking works best when importing from specific modules (not the shim)
 
 **Why this matters:**
 
@@ -572,7 +625,7 @@ import {
 Organize by module for better tree-shaking:
 
 ```typescript
-// Split imports by module
+// Split imports by module (v1.38.0+ with focused modules)
 import { AssessmentStatus } from "@/lib/assessment/coreTypes";
 import {
   AssessmentConfiguration,
@@ -583,7 +636,14 @@ import type {
   SecurityAssessment,
   FunctionalityAssessment,
 } from "@/lib/assessment/resultTypes";
-import type { AUPComplianceAssessment } from "@/lib/assessment/extendedTypes";
+
+// ✅ NEW (Issue #164): Import from focused domain modules
+import type { AUPComplianceAssessment } from "@/lib/assessment/aupComplianceTypes";
+import type { ToolAnnotationAssessment } from "@/lib/assessment/toolAnnotationTypes";
+import type { TemporalAssessment } from "@/lib/assessment/temporalSecurityTypes";
+
+// Still works (backward compatible shim):
+// import type { AUPComplianceAssessment } from "@/lib/assessment/extendedTypes";
 ```
 
 **Benefits of Option 3:**
@@ -607,6 +667,28 @@ import type { AUPComplianceAssessment } from "@/lib/assessment/extendedTypes";
    - Organize imports by tier/module
    - Enables tree-shaking and better organization
    - Can be done incrementally (module by module)
+
+4. **Phase 4 (v1.38.0+): Use Focused Domain Modules (Issue #164)**
+   - Replace `extendedTypes` imports with specific domain modules
+   - Example: `from "@/lib/assessment/extendedTypes"` → `from "@/lib/assessment/aupComplianceTypes"`
+   - Benefits: Better code organization, improved tree-shaking, clearer dependencies
+   - Migration is optional - shim maintains full backward compatibility
+
+**Domain Module Mapping Guide (Issue #164)**:
+
+| Old Import (extendedTypes)          | New Focused Module          | When to Use                       |
+| ----------------------------------- | --------------------------- | --------------------------------- |
+| `AUPComplianceAssessment`           | `aupComplianceTypes`        | AUP policy validation             |
+| `ToolAnnotationAssessment`          | `toolAnnotationTypes`       | Tool annotation validation        |
+| `ProhibitedLibrariesAssessment`     | `policyComplianceTypes`     | Policy compliance checks          |
+| `ManifestValidationAssessment`      | `policyComplianceTypes`     | MCPB manifest validation          |
+| `PortabilityAssessment`             | `policyComplianceTypes`     | Bundle portability                |
+| `ExternalAPIScannerAssessment`      | `externalServicesTypes`     | External API detection            |
+| `AuthenticationAssessment`          | `externalServicesTypes`     | OAuth/auth evaluation             |
+| `TemporalAssessment`                | `temporalSecurityTypes`     | Rug pull / temporal mutation      |
+| `ResourceAssessment`                | `capabilityAssessmentTypes` | MCP resources capability          |
+| `PromptAssessment`                  | `capabilityAssessmentTypes` | MCP prompts capability            |
+| `CrossCapabilitySecurityAssessment` | `capabilityAssessmentTypes` | Cross-capability security testing |
 
 ---
 
