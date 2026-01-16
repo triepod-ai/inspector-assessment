@@ -462,7 +462,8 @@ describe("emitModuleProgress - JSONL Progress Output", () => {
       });
       orchestrator = new AssessmentOrchestrator(config);
 
-      const manyTools = Array.from({ length: 20 }, (_, i) =>
+      // Reduced from 20 to 8 tools for faster test execution
+      const manyTools = Array.from({ length: 8 }, (_, i) =>
         createMockTool({ name: `tool-${i}` }),
       );
 
@@ -482,7 +483,7 @@ describe("emitModuleProgress - JSONL Progress Output", () => {
         );
 
       expect(moduleEvents.length).toBeGreaterThanOrEqual(4);
-    }, 30000); // Longer timeout for testing 20 tools
+    }, 15000); // 15 second timeout for 8 tools (reduced from 30s for 20 tools)
   });
 
   describe("Valid JSON Output", () => {

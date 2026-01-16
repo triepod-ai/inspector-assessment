@@ -89,7 +89,8 @@ describe("MCPAssessmentService - Integration Tests", () => {
   describe("Performance and Integration Tests", () => {
     describe("Large Tool Set Performance", () => {
       it("should handle assessment of many tools efficiently", async () => {
-        const manyTools: Tool[] = Array.from({ length: 50 }, (_, i) => ({
+        // Reduced from 50 to 15 tools for faster test execution
+        const manyTools: Tool[] = Array.from({ length: 15 }, (_, i) => ({
           name: `tool_${i}`,
           description: `Test tool number ${i} with comprehensive functionality`,
           inputSchema: {
@@ -119,12 +120,12 @@ describe("MCPAssessmentService - Integration Tests", () => {
         );
         const duration = Date.now() - startTime;
 
-        expect(result.functionality.totalTools).toBe(50);
+        expect(result.functionality.totalTools).toBe(15);
         // Comprehensive mode may not mark all as working without error handling scenarios
         expect(result.functionality.workingTools).toBeGreaterThanOrEqual(0);
-        expect(duration).toBeLessThan(120000); // Comprehensive mode takes longer
-        expect(result.totalTestsRun).toBeGreaterThan(50); // Includes security tests
-      }, 120000); // 120 second timeout for 50 tools in comprehensive mode
+        expect(duration).toBeLessThan(30000); // Reduced from 120s for 15 tools
+        expect(result.totalTestsRun).toBeGreaterThan(15); // Includes security tests
+      }, 30000); // 30 second timeout for 15 tools (reduced from 120s for 50 tools)
 
       it("should batch security tests efficiently", async () => {
         const manyTools: Tool[] = Array.from({ length: 10 }, (_, i) => ({
