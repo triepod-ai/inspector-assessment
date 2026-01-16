@@ -93,18 +93,14 @@ ${diffContent}`;
       if (!textContent || textContent.type !== "text") {
         throw new Error("No text response from Claude");
       }
-      // Extract JSON from response (handle potential markdown code blocks)
+      // Extract JSON from response (handle markdown code blocks - Issue #130)
       let jsonText = textContent.text.trim();
-      if (jsonText.startsWith("```json")) {
-        jsonText = jsonText.slice(7);
+      const codeBlockMatch = jsonText.match(
+        /^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/,
+      );
+      if (codeBlockMatch) {
+        jsonText = codeBlockMatch[1].trim();
       }
-      if (jsonText.startsWith("```")) {
-        jsonText = jsonText.slice(3);
-      }
-      if (jsonText.endsWith("```")) {
-        jsonText = jsonText.slice(0, -3);
-      }
-      jsonText = jsonText.trim();
       // Parse and validate JSON response with Zod schema
       const parsedJson = JSON.parse(jsonText);
       const review = ClaudeReviewResponseSchema.parse(parsedJson);

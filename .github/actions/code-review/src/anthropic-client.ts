@@ -117,7 +117,7 @@ ${diffContent}`;
       // Extract JSON from response (handle markdown code blocks - Issue #130)
       let jsonText = textContent.text.trim();
       const codeBlockMatch = jsonText.match(
-        /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/,
+        /^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/,
       );
       if (codeBlockMatch) {
         jsonText = codeBlockMatch[1].trim();
