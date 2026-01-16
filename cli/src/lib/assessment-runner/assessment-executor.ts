@@ -39,7 +39,7 @@ import {
   emitValidationSummary,
 } from "../jsonl-events.js";
 
-import type { AssessmentOptions } from "../cli-parser.js";
+import type { AssessmentOptions, ServerConfig } from "../cli-parser.js";
 import { loadServerConfig } from "./server-config.js";
 import { loadSourceFiles } from "./source-loader.js";
 import { resolveSourcePath } from "./path-resolver.js";
@@ -79,13 +79,35 @@ export async function runFullAssessment(
     console.log(`\n🔍 Starting full assessment for: ${options.serverName}`);
   }
 
-  const serverConfig = loadServerConfig(
-    options.serverName,
-    options.serverConfigPath,
-  );
-
-  if (!options.jsonOnly) {
-    console.log("✅ Server config loaded");
+  // Determine server config: --http/--sse flags take precedence over --config
+  let serverConfig: ServerConfig;
+  if (options.httpUrl) {
+    // Direct HTTP URL provided via --http flag (no config file needed)
+    serverConfig = {
+      transport: "http",
+      url: options.httpUrl,
+    };
+    if (!options.jsonOnly) {
+      console.log(`✅ Using HTTP transport: ${options.httpUrl}`);
+    }
+  } else if (options.sseUrl) {
+    // Direct SSE URL provided via --sse flag (no config file needed)
+    serverConfig = {
+      transport: "sse",
+      url: options.sseUrl,
+    };
+    if (!options.jsonOnly) {
+      console.log(`✅ Using SSE transport: ${options.sseUrl}`);
+    }
+  } else {
+    // Load from config file (existing behavior)
+    serverConfig = loadServerConfig(
+      options.serverName,
+      options.serverConfigPath,
+    );
+    if (!options.jsonOnly) {
+      console.log("✅ Server config loaded");
+    }
   }
 
   // Phase 1: Discovery

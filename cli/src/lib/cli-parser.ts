@@ -100,6 +100,10 @@ export interface AssessmentOptions {
   autoTier?: boolean;
   /** Enable Stage B enrichment for Claude semantic analysis (Issue #137) */
   stageBVerbose?: boolean;
+  /** Direct HTTP URL (--http flag, mutually exclusive with --config) */
+  httpUrl?: string;
+  /** Direct SSE URL (--sse flag, mutually exclusive with --config) */
+  sseUrl?: string;
 }
 
 /**
@@ -327,6 +331,52 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
       case "--skip-temporal":
         options.skipTemporal = true;
         break;
+      case "--http": {
+        const httpUrlValue = args[++i];
+        if (!httpUrlValue || httpUrlValue.startsWith("-")) {
+          console.error("Error: --http requires a URL argument");
+          console.error("  Example: --http http://localhost:10900/mcp");
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        try {
+          new URL(httpUrlValue); // Validate URL format
+          options.httpUrl = httpUrlValue;
+        } catch {
+          console.error(`Error: Invalid URL for --http: ${httpUrlValue}`);
+          console.error(
+            "  Expected format: http://hostname:port/path or https://hostname:port/path",
+          );
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        break;
+      }
+      case "--sse": {
+        const sseUrlValue = args[++i];
+        if (!sseUrlValue || sseUrlValue.startsWith("-")) {
+          console.error("Error: --sse requires a URL argument");
+          console.error("  Example: --sse http://localhost:9002/sse");
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        try {
+          new URL(sseUrlValue); // Validate URL format
+          options.sseUrl = sseUrlValue;
+        } catch {
+          console.error(`Error: Invalid URL for --sse: ${sseUrlValue}`);
+          console.error(
+            "  Expected format: http://hostname:port/path or https://hostname:port/path",
+          );
+          setTimeout(() => process.exit(1), 10);
+          options.helpRequested = true;
+          return options as AssessmentOptions;
+        }
+        break;
+      }
       case "--conformance":
         // Enable official MCP conformance tests (requires HTTP/SSE transport with serverUrl)
         options.conformanceEnabled = true;
@@ -469,6 +519,27 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
     return options as AssessmentOptions;
   }
 
+  // Validate mutual exclusivity of --http, --sse, and --config
+  if ((options.httpUrl || options.sseUrl) && options.serverConfigPath) {
+    console.error(
+      "Error: --http/--sse cannot be used with --config (they are mutually exclusive)",
+    );
+    console.error(
+      "  Use --http or --sse for direct URL, or --config for JSON file",
+    );
+    setTimeout(() => process.exit(1), 10);
+    options.helpRequested = true;
+    return options as AssessmentOptions;
+  }
+
+  if (options.httpUrl && options.sseUrl) {
+    console.error("Error: --http and --sse are mutually exclusive");
+    console.error("  Use --http for HTTP transport or --sse for SSE transport");
+    setTimeout(() => process.exit(1), 10);
+    options.helpRequested = true;
+    return options as AssessmentOptions;
+  }
+
   if (!options.serverName) {
     console.error("Error: --server is required");
     printHelp();
@@ -530,6 +601,8 @@ Run comprehensive MCP server assessment with 16 assessor modules organized in 4 
 Options:
   --server, -s <name>    Server name (required, or pass as first positional arg)
   --config, -c <path>    Path to server config JSON
+  --http <url>           Use HTTP transport with specified URL (no config file needed)
+  --sse <url>            Use SSE transport with specified URL (no config file needed)
   --output, -o <path>    Output path (default: /tmp/inspector-full-assessment-<server>.<ext>)
   --source <path>        Source code path for deep analysis (AUP, portability, etc.)
   --debug-source         Enable debug logging for source file loading (Issue #151)
@@ -619,7 +692,16 @@ Module Tiers (16 total):
     • Portability        - Cross-platform compatibility
     • External API       - External service detection
 
+Transport Options:
+  --config, --http, and --sse are mutually exclusive.
+  Use --http or --sse for quick testing without a config file.
+  Use --config for complex setups (STDIO, env vars, etc.).
+
 Examples:
+  # Quick HTTP/SSE testing (no config file needed):
+  mcp-assess-full my-server --http http://localhost:10900/mcp
+  mcp-assess-full my-server --sse http://localhost:9002/sse
+
   # Profile-based (recommended):
   mcp-assess-full my-server --profile quick         # CI/CD fast check (~30s)
   mcp-assess-full my-server --profile security      # Security audit (~2-3min)

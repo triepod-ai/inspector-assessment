@@ -1044,3 +1044,222 @@ describe("parseArgs Zod Schema Integration", () => {
     });
   });
 });
+
+/**
+ * Transport Flag Tests (--http, --sse)
+ *
+ * Tests for the convenience transport flags that allow quick testing
+ * without creating a config file.
+ */
+describe("Transport Flags (--http, --sse)", () => {
+  let processExitSpy: jest.SpiedFunction<typeof process.exit>;
+  let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    processExitSpy = jest
+      .spyOn(process, "exit")
+      .mockImplementation((() => {}) as never);
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.runAllTimers();
+    jest.useRealTimers();
+    processExitSpy?.mockRestore();
+    consoleErrorSpy?.mockRestore();
+  });
+
+  describe("--http flag", () => {
+    it("should accept valid HTTP URL", () => {
+      const result = parseArgs([
+        "test-server",
+        "--http",
+        "http://localhost:10900/mcp",
+      ]);
+      expect(result.httpUrl).toBe("http://localhost:10900/mcp");
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should accept valid HTTPS URL", () => {
+      const result = parseArgs([
+        "test-server",
+        "--http",
+        "https://api.example.com/mcp",
+      ]);
+      expect(result.httpUrl).toBe("https://api.example.com/mcp");
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should reject invalid URL", () => {
+      const result = parseArgs(["test-server", "--http", "not-a-valid-url"]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid URL for --http"),
+      );
+    });
+
+    it("should reject missing URL argument", () => {
+      const result = parseArgs(["test-server", "--http"]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--http requires a URL argument"),
+      );
+    });
+
+    it("should reject when next argument is another flag", () => {
+      const result = parseArgs(["test-server", "--http", "--verbose"]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--http requires a URL argument"),
+      );
+    });
+  });
+
+  describe("--sse flag", () => {
+    it("should accept valid SSE URL", () => {
+      const result = parseArgs([
+        "test-server",
+        "--sse",
+        "http://localhost:9002/sse",
+      ]);
+      expect(result.sseUrl).toBe("http://localhost:9002/sse");
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should accept valid HTTPS SSE URL", () => {
+      const result = parseArgs([
+        "test-server",
+        "--sse",
+        "https://api.example.com/sse",
+      ]);
+      expect(result.sseUrl).toBe("https://api.example.com/sse");
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should reject invalid URL", () => {
+      const result = parseArgs(["test-server", "--sse", "invalid-url"]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid URL for --sse"),
+      );
+    });
+
+    it("should reject missing URL argument", () => {
+      const result = parseArgs(["test-server", "--sse"]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--sse requires a URL argument"),
+      );
+    });
+  });
+
+  describe("mutual exclusivity", () => {
+    it("should reject --http with --config", () => {
+      const result = parseArgs([
+        "test-server",
+        "--http",
+        "http://localhost:10900/mcp",
+        "--config",
+        "config.json",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--http/--sse cannot be used with --config"),
+      );
+    });
+
+    it("should reject --sse with --config", () => {
+      const result = parseArgs([
+        "test-server",
+        "--sse",
+        "http://localhost:9002/sse",
+        "--config",
+        "config.json",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--http/--sse cannot be used with --config"),
+      );
+    });
+
+    it("should reject --http with --sse", () => {
+      const result = parseArgs([
+        "test-server",
+        "--http",
+        "http://localhost:10900/mcp",
+        "--sse",
+        "http://localhost:9002/sse",
+      ]);
+      expect(result.helpRequested).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--http and --sse are mutually exclusive"),
+      );
+    });
+
+    it("should allow --http without --config or --sse", () => {
+      const result = parseArgs([
+        "test-server",
+        "--http",
+        "http://localhost:10900/mcp",
+      ]);
+      expect(result.httpUrl).toBe("http://localhost:10900/mcp");
+      expect(result.sseUrl).toBeUndefined();
+      expect(result.serverConfigPath).toBeUndefined();
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should allow --sse without --config or --http", () => {
+      const result = parseArgs([
+        "test-server",
+        "--sse",
+        "http://localhost:9002/sse",
+      ]);
+      expect(result.sseUrl).toBe("http://localhost:9002/sse");
+      expect(result.httpUrl).toBeUndefined();
+      expect(result.serverConfigPath).toBeUndefined();
+      expect(result.helpRequested).toBeFalsy();
+    });
+  });
+
+  describe("combined with other options", () => {
+    it("should work with --http and --temporal-invocations", () => {
+      const result = parseArgs([
+        "test-server",
+        "--http",
+        "http://localhost:10900/mcp",
+        "--temporal-invocations",
+        "5",
+      ]);
+      expect(result.httpUrl).toBe("http://localhost:10900/mcp");
+      expect(result.temporalInvocations).toBe(5);
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should work with --sse and --profile", () => {
+      const result = parseArgs([
+        "test-server",
+        "--sse",
+        "http://localhost:9002/sse",
+        "--profile",
+        "quick",
+      ]);
+      expect(result.sseUrl).toBe("http://localhost:9002/sse");
+      expect(result.profile).toBe("quick");
+      expect(result.helpRequested).toBeFalsy();
+    });
+
+    it("should work with --http and --output", () => {
+      const result = parseArgs([
+        "test-server",
+        "--http",
+        "http://localhost:10900/mcp",
+        "--output",
+        "/tmp/results.json",
+      ]);
+      expect(result.httpUrl).toBe("http://localhost:10900/mcp");
+      expect(result.outputPath).toBe("/tmp/results.json");
+      expect(result.helpRequested).toBeFalsy();
+    });
+  });
+});
