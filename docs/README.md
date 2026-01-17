@@ -90,6 +90,16 @@ Integration documentation for using the npm package programmatically.
 | [Test Utilities Reference](TEST_UTILITIES_REFERENCE.md)   | Mock factory API for assessment testing  |
 | [Test Organization Pattern](TEST_ORGANIZATION_PATTERN.md) | Split test file conventions and patterns |
 
+### Lessons Learned
+
+Documented patterns and practices from real-world development:
+
+| Document                                                                                | Purpose                                       |
+| --------------------------------------------------------------------------------------- | --------------------------------------------- |
+| [Lessons Learned Index](lessons-learned/README.md)                                      | Navigation hub for all lessons learned        |
+| [Type-Safe Testing Patterns](lessons-learned/type-safe-testing-patterns.md)             | Patterns from Issue #186 (189 any type fixes) |
+| [Test Automator Implementation](lessons-learned/test-automator-implementation-guide.md) | Guide for automated test generation           |
+
 ---
 
 ## JSONL Events API
@@ -182,6 +192,10 @@ docs/
 │   ├── README.md
 │   ├── temporal_assessor_security_audit.md
 │   └── temporal_assessor_security_summary.md
+├── lessons-learned/                        # Development lessons and patterns
+│   ├── README.md
+│   ├── type-safe-testing-patterns.md
+│   └── test-automator-implementation-guide.md
 ├── BASE_INSPECTOR_GUIDE.md                 # Base inspector UI/operations
 ├── FORK_HISTORY.md                         # Upstream relationship
 ├── CLI_ASSESSMENT_GUIDE.md                 # CLI modes and options
@@ -225,4 +239,4 @@ docs/
 
 ---
 
-**Last Updated**: 2026-01-09
+**Last Updated**: 2026-01-17
