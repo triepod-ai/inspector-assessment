@@ -13,8 +13,14 @@ import {
   createMockAssessmentConfig,
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import {
+  Tool,
+  CompatibilityCallToolResult,
+} from "@modelcontextprotocol/sdk/types.js";
 import { SecurityResponseAnalyzer } from "../modules/securityTests/SecurityResponseAnalyzer";
+
+// Type for test responses matching CompatibilityCallToolResult structure
+type TestResponse = Pick<CompatibilityCallToolResult, "content">;
 
 describe("SecurityAssessor - Auth Bypass Detection (Issue #75)", () => {
   let assessor: SecurityAssessor;
@@ -362,7 +368,9 @@ describe("SecurityResponseAnalyzer - Auth Bypass Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeAuthBypassResponse(response as any);
+      const result = analyzer.analyzeAuthBypassResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.failureMode).toBe("FAIL_OPEN");
@@ -383,7 +391,9 @@ describe("SecurityResponseAnalyzer - Auth Bypass Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeAuthBypassResponse(response as any);
+      const result = analyzer.analyzeAuthBypassResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(false);
       expect(result.failureMode).toBe("FAIL_CLOSED");
@@ -403,7 +413,9 @@ describe("SecurityResponseAnalyzer - Auth Bypass Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeAuthBypassResponse(response as any);
+      const result = analyzer.analyzeAuthBypassResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(false);
       expect(result.failureMode).toBe("UNKNOWN");
@@ -419,7 +431,9 @@ describe("SecurityResponseAnalyzer - Auth Bypass Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeAuthBypassResponse(response as any);
+      const result = analyzer.analyzeAuthBypassResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.failureMode).toBe("FAIL_OPEN");
@@ -435,7 +449,9 @@ describe("SecurityResponseAnalyzer - Auth Bypass Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeAuthBypassResponse(response as any);
+      const result = analyzer.analyzeAuthBypassResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(false);
       expect(result.failureMode).toBe("FAIL_CLOSED");

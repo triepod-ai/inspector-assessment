@@ -13,8 +13,14 @@ import {
   createMockAssessmentConfig,
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import {
+  Tool,
+  CompatibilityCallToolResult,
+} from "@modelcontextprotocol/sdk/types.js";
 import { SecurityResponseAnalyzer } from "../modules/securityTests/SecurityResponseAnalyzer";
+
+// Type for test responses matching CompatibilityCallToolResult structure
+type TestResponse = Pick<CompatibilityCallToolResult, "content">;
 
 describe("SecurityAssessor - Blacklist Bypass Detection (Issue #110)", () => {
   let assessor: SecurityAssessor;
@@ -285,7 +291,9 @@ describe("SecurityResponseAnalyzer - Blacklist Bypass Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeBlacklistBypassResponse(response as any);
+      const result = analyzer.analyzeBlacklistBypassResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.bypassType).toBe("BLACKLIST_BYPASS");
@@ -306,7 +314,9 @@ describe("SecurityResponseAnalyzer - Blacklist Bypass Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeBlacklistBypassResponse(response as any);
+      const result = analyzer.analyzeBlacklistBypassResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.bypassType).toBe("BLACKLIST_BYPASS");
@@ -327,7 +337,9 @@ describe("SecurityResponseAnalyzer - Blacklist Bypass Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeBlacklistBypassResponse(response as any);
+      const result = analyzer.analyzeBlacklistBypassResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(false);
       expect(result.bypassType).toBe("ALLOWLIST_BLOCKED");
@@ -347,7 +359,9 @@ describe("SecurityResponseAnalyzer - Blacklist Bypass Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeBlacklistBypassResponse(response as any);
+      const result = analyzer.analyzeBlacklistBypassResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(false);
       expect(result.bypassType).toBe("ALLOWLIST_BLOCKED");
@@ -366,7 +380,9 @@ describe("SecurityResponseAnalyzer - Blacklist Bypass Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeBlacklistBypassResponse(response as any);
+      const result = analyzer.analyzeBlacklistBypassResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(false);
       expect(result.bypassType).toBe("UNKNOWN");
@@ -382,7 +398,9 @@ describe("SecurityResponseAnalyzer - Blacklist Bypass Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeBlacklistBypassResponse(response as any);
+      const result = analyzer.analyzeBlacklistBypassResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.bypassType).toBe("BLACKLIST_BYPASS");
@@ -401,7 +419,9 @@ describe("SecurityResponseAnalyzer - Blacklist Bypass Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeBlacklistBypassResponse(response as any);
+      const result = analyzer.analyzeBlacklistBypassResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.bypassMethod).toBe("wget");

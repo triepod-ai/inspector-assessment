@@ -14,7 +14,18 @@ import {
   TRANSIENT_ERROR_PATTERNS,
   PERMANENT_ERROR_PATTERNS,
 } from "../modules/securityTests/SecurityPatternLibrary";
-import type { CompatibilityCallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type {
+  CompatibilityCallToolResult,
+  Tool,
+} from "@modelcontextprotocol/sdk/types.js";
+
+// Type for test payloads
+interface TestPayload {
+  payload: string;
+  description: string;
+  payloadType: string;
+  riskLevel: "low" | "medium" | "HIGH";
+}
 
 describe("Issue #157: Connection Retry Logic", () => {
   // Helper to create mock response
@@ -205,7 +216,9 @@ describe("Issue #157: Connection Retry Logic", () => {
         log: jest.fn(),
         logError: jest.fn(),
       };
-      mockExecuteWithTimeout = jest.fn((promise: Promise<any>) => promise);
+      mockExecuteWithTimeout = jest.fn(
+        <T>(promise: Promise<T>): Promise<T> => promise,
+      );
       _callCounter = 0;
       jest.useFakeTimers();
     });
@@ -214,7 +227,7 @@ describe("Issue #157: Connection Retry Logic", () => {
       jest.useRealTimers();
     });
 
-    const createMockTool = (name: string): any => ({
+    const createMockTool = (name: string): Tool => ({
       name,
       description: "Test tool",
       inputSchema: {
@@ -225,11 +238,11 @@ describe("Issue #157: Connection Retry Logic", () => {
       },
     });
 
-    const createMockPayload = (): any => ({
+    const createMockPayload = (): TestPayload => ({
       payload: "test_payload",
       description: "Test payload",
       payloadType: "generic",
-      riskLevel: "medium" as const,
+      riskLevel: "medium",
     });
 
     it("should return immediately on success without retry", async () => {
@@ -429,10 +442,12 @@ describe("Issue #157: Connection Retry Logic", () => {
         log: jest.fn(),
         logError: jest.fn(),
       };
-      mockExecuteWithTimeout = jest.fn((promise: Promise<any>) => promise);
+      mockExecuteWithTimeout = jest.fn(
+        <T>(promise: Promise<T>): Promise<T> => promise,
+      );
     });
 
-    const createMockTool = (name: string): any => ({
+    const createMockTool = (name: string): Tool => ({
       name,
       description: "Test tool",
       inputSchema: {
@@ -446,11 +461,11 @@ describe("Issue #157: Connection Retry Logic", () => {
       },
     });
 
-    const createMockPayload = (): any => ({
+    const createMockPayload = (): TestPayload => ({
       payload: "test_payload",
       description: "Test payload",
       payloadType: "generic",
-      riskLevel: "HIGH" as const,
+      riskLevel: "HIGH",
     });
 
     it("should use fallback reason when adjustmentReason is undefined", async () => {

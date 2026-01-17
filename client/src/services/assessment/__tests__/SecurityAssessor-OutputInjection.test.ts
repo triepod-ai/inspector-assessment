@@ -13,8 +13,14 @@ import {
   createMockAssessmentConfig,
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import {
+  Tool,
+  CompatibilityCallToolResult,
+} from "@modelcontextprotocol/sdk/types.js";
 import { SecurityResponseAnalyzer } from "../modules/securityTests/SecurityResponseAnalyzer";
+
+// Type for test responses matching CompatibilityCallToolResult structure
+type TestResponse = Pick<CompatibilityCallToolResult, "content">;
 
 describe("SecurityAssessor - Output Injection Detection (Issue #110)", () => {
   let assessor: SecurityAssessor;
@@ -287,7 +293,9 @@ describe("SecurityResponseAnalyzer - Output Injection Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeOutputInjectionResponse(response as any);
+      const result = analyzer.analyzeOutputInjectionResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.injectionType).toBe("LLM_INJECTION_MARKERS");
@@ -305,7 +313,9 @@ describe("SecurityResponseAnalyzer - Output Injection Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeOutputInjectionResponse(response as any);
+      const result = analyzer.analyzeOutputInjectionResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.injectionType).toBe("LLM_INJECTION_MARKERS");
@@ -322,7 +332,9 @@ describe("SecurityResponseAnalyzer - Output Injection Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeOutputInjectionResponse(response as any);
+      const result = analyzer.analyzeOutputInjectionResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.markers).toContain("{{SYSTEM_PROMPT}}");
@@ -338,7 +350,9 @@ describe("SecurityResponseAnalyzer - Output Injection Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeOutputInjectionResponse(response as any);
+      const result = analyzer.analyzeOutputInjectionResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.injectionType).toBe("LLM_INJECTION_MARKERS");
@@ -358,7 +372,9 @@ describe("SecurityResponseAnalyzer - Output Injection Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeOutputInjectionResponse(response as any);
+      const result = analyzer.analyzeOutputInjectionResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.injectionType).toBe("RAW_CONTENT_INCLUDED");
@@ -377,7 +393,9 @@ describe("SecurityResponseAnalyzer - Output Injection Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeOutputInjectionResponse(response as any);
+      const result = analyzer.analyzeOutputInjectionResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.injectionType).toBe("RAW_CONTENT_INCLUDED");
@@ -397,7 +415,9 @@ describe("SecurityResponseAnalyzer - Output Injection Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeOutputInjectionResponse(response as any);
+      const result = analyzer.analyzeOutputInjectionResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(false);
       expect(result.injectionType).toBe("SANITIZED");
@@ -416,7 +436,9 @@ describe("SecurityResponseAnalyzer - Output Injection Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeOutputInjectionResponse(response as any);
+      const result = analyzer.analyzeOutputInjectionResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(false);
       expect(result.injectionType).toBe("UNKNOWN");
@@ -432,7 +454,9 @@ describe("SecurityResponseAnalyzer - Output Injection Patterns", () => {
         ],
       };
 
-      const result = analyzer.analyzeOutputInjectionResponse(response as any);
+      const result = analyzer.analyzeOutputInjectionResponse(
+        response as TestResponse,
+      );
 
       expect(result.detected).toBe(true);
       expect(result.markers?.length).toBeGreaterThanOrEqual(2);

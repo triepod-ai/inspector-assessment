@@ -24,6 +24,13 @@ import {
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
+// Extended type for test results with semantic analysis (Issue #186)
+interface TestResultWithSemantics {
+  semanticAnalysis?: {
+    source: string;
+  };
+}
+
 // Mock child_process for ClaudeCodeBridge availability check
 jest.mock("child_process", () => ({
   execSync: jest.fn(),
@@ -340,15 +347,18 @@ describe("SecurityAssessor - ClaudeCodeBridge Integration", () => {
 
       // Check that semantic analysis was attached to any refined tests
       const refinedTests = result.promptInjectionTests.filter(
-        (t) => (t as any).semanticAnalysis !== undefined,
+        (t) =>
+          (t as unknown as TestResultWithSemantics).semanticAnalysis !==
+          undefined,
       );
 
       // If there were medium/low confidence tests, they should have semanticAnalysis attached
       if (refinedTests.length > 0) {
         expect(refinedTests[0]).toHaveProperty("semanticAnalysis");
-        expect((refinedTests[0] as any).semanticAnalysis.source).toBe(
-          "claude-refined",
-        );
+        expect(
+          (refinedTests[0] as unknown as TestResultWithSemantics)
+            .semanticAnalysis?.source,
+        ).toBe("claude-refined");
       }
     });
   });
