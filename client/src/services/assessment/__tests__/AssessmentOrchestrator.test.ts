@@ -11,6 +11,8 @@
 import { AssessmentOrchestrator } from "../AssessmentOrchestrator";
 import { DEFAULT_ASSESSMENT_CONFIG } from "@/lib/assessmentTypes";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { determineOverallStatus } from "../orchestratorHelpers";
+import { calculateModuleScore } from "@/lib/moduleScoring";
 
 // Helper to create mock tools
 const createMockTools = (count: number): Tool[] =>
@@ -452,9 +454,7 @@ describe("Issue #124: Dual-key output for v2.0.0 transition", () => {
         recommendations: [],
       };
 
-      // Import the helper and module scoring for testing
-      const { determineOverallStatus } = require("../orchestratorHelpers");
-      const { calculateModuleScore } = require("@/lib/moduleScoring");
+      // Use imported helpers for testing
 
       // Simulate the dual-key output logic from AssessmentOrchestrator
       const assessmentResults: Record<string, unknown> = {
@@ -499,7 +499,7 @@ describe("Issue #124: Dual-key output for v2.0.0 transition", () => {
     });
 
     it("should calculate developerExperience.score as average of documentation and usability scores", () => {
-      const { calculateModuleScore } = require("@/lib/moduleScoring");
+      // Use imported calculateModuleScore
 
       // Test with known scores (status-based defaults: PASS=100, FAIL=0)
       const docResult = { status: "PASS" }; // calculateModuleScore returns 100

@@ -1,4 +1,4 @@
-import { renderHook, act, waitFor } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { useToolExecution } from "../useToolExecution";
 import {
   Tool,
@@ -29,7 +29,7 @@ describe("useToolExecution", () => {
     };
   };
 
-  const createMockTool = (overrides?: Partial<Tool>): Tool => ({
+  const _createMockTool = (overrides?: Partial<Tool>): Tool => ({
     name: "test_tool",
     description: "A test tool",
     inputSchema: {

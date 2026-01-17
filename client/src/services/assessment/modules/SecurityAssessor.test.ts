@@ -8,7 +8,7 @@ import {
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { SECURITY_ATTACK_PATTERNS } from "@/lib/securityPatterns";
-import { SecurityAssessment } from "@/lib/assessment/resultTypes";
+import { SecurityAssessment as _SecurityAssessment } from "@/lib/assessment/resultTypes";
 
 describe("SecurityAssessor", () => {
   let assessor: SecurityAssessor;

@@ -21,8 +21,8 @@
 
 import { SecurityResponseAnalyzer } from "../modules/securityTests/SecurityResponseAnalyzer";
 import {
-  ERROR_CONTEXT_PATTERNS,
-  SUCCESS_CONTEXT_PATTERNS,
+  ERROR_CONTEXT_PATTERNS as _ERROR_CONTEXT_PATTERNS,
+  SUCCESS_CONTEXT_PATTERNS as _SUCCESS_CONTEXT_PATTERNS,
   isPayloadInErrorContext,
   hasErrorContext,
   hasSuccessContext,

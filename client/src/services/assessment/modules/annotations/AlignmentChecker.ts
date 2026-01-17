@@ -199,6 +199,7 @@ export function extractAnnotations(tool: Tool): ExtractedAnnotations {
 
   // Issue #155: Debug logging when --debug-annotations flag is enabled
   if (annotationDebugMode) {
+    // eslint-disable-next-line no-console -- Intentional debug output controlled by flag
     console.log(
       "[DEBUG-ANNOTATIONS]",
       tool.name,

@@ -18,7 +18,7 @@ import {
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { SecurityAssessment } from "@/lib/assessment/resultTypes";
+import { SecurityAssessment as _SecurityAssessment } from "@/lib/assessment/resultTypes";
 
 describe("SecurityAssessor - Validation False Positives Fix", () => {
   let assessor: SecurityAssessor;

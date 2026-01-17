@@ -11,7 +11,7 @@
 import { SecurityTestResult } from "@/lib/assessment/resultTypes";
 import {
   TestValidityAnalyzer,
-  TestValidityConfig,
+  TestValidityConfig as _TestValidityConfig,
 } from "../modules/securityTests/TestValidityAnalyzer";
 
 // Helper to create mock security test results

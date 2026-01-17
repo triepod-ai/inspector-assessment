@@ -6,8 +6,8 @@
 
 import { MCPAssessmentService } from "../assessmentService";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { SecurityAssessment } from "@/lib/assessment/resultTypes";
-import { expectSecureStatus } from "@/test/utils/testUtils";
+import { SecurityAssessment as _SecurityAssessment } from "@/lib/assessment/resultTypes";
+import { expectSecureStatus as _expectSecureStatus } from "@/test/utils/testUtils";
 
 // Mock data for testing
 const MOCK_TOOLS: Tool[] = [

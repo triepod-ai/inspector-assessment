@@ -222,7 +222,7 @@ describe("ToolAnnotationExtractor", () => {
         const context = extractToolAnnotationsContext(tools);
 
         // Tool should not be in the map (skipped due to source: "none" or undefined)
-        const annotations = context.toolAnnotations.get("no_source_tool");
+        const _annotations = context.toolAnnotations.get("no_source_tool");
 
         // The tool may be skipped entirely or have source: "none"
         // Either way, it shouldn't count as annotated

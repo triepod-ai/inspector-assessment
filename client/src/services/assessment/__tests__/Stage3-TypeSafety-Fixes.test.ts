@@ -16,7 +16,7 @@ import { ErrorHandlingAssessor } from "../modules/ErrorHandlingAssessor";
 import {
   createMockAssessmentContext,
   createMockTool,
-  createMockCallToolResponse,
+  createMockCallToolResponse as _createMockCallToolResponse,
   createMockAssessmentConfig,
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";

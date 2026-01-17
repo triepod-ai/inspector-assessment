@@ -13,6 +13,14 @@
 
 import { SecurityResponseAnalyzer } from "../modules/securityTests/SecurityResponseAnalyzer";
 import type { CompatibilityCallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import {
+  SCOPE_VIOLATION_PATTERNS,
+  SCOPE_ENFORCED_PATTERNS,
+  PRIVILEGED_ACTIONS,
+  ESCALATION_KEYWORDS,
+  hasScopeViolation,
+  hasScopeEnforcement,
+} from "../modules/securityTests/SecurityPatternLibrary";
 
 describe("SecurityAssessor - Excessive Permissions Scope Detection (Issue #144)", () => {
   let analyzer: SecurityResponseAnalyzer;
@@ -375,15 +383,7 @@ describe("SecurityAssessor - Excessive Permissions Scope Detection (Issue #144)"
 });
 
 describe("SecurityPatternLibrary - Excessive Permissions Patterns", () => {
-  // Import after describe to avoid circular dependency issues
-  const {
-    SCOPE_VIOLATION_PATTERNS,
-    SCOPE_ENFORCED_PATTERNS,
-    PRIVILEGED_ACTIONS,
-    ESCALATION_KEYWORDS,
-    hasScopeViolation,
-    hasScopeEnforcement,
-  } = require("../modules/securityTests/SecurityPatternLibrary");
+  // Using top-level ES imports instead of require()
 
   describe("Pattern Constants", () => {
     it("should have scope violation patterns defined", () => {

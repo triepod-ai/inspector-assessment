@@ -29,10 +29,9 @@ jobs:
       - name: Check version consistency
         run: npm run check-version
 
-      # Linting disabled - pre-existing tech debt in test files (Issue #TBD)
-      # - name: Check linting
-      #   working-directory: ./client
-      #   run: npm run lint
+      - name: Check linting
+        working-directory: ./client
+        run: npm run lint
 
       # Client tests disabled - flaky timing-sensitive tests fail in CI
       # - name: Run client tests

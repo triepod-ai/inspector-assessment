@@ -398,7 +398,7 @@ describe("useCapabilities", () => {
       await act(async () => {
         try {
           await result.current.readResource("file:///test");
-        } catch (error) {
+        } catch (_error) {
           // Expected error
         }
       });
@@ -449,7 +449,7 @@ describe("useCapabilities", () => {
       await act(async () => {
         try {
           await result.current.getPrompt("test_prompt");
-        } catch (error) {
+        } catch (_error) {
           // Expected error
         }
       });

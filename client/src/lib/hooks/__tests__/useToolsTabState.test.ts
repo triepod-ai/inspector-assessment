@@ -4,7 +4,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 // Mock the schemaUtils module
 jest.mock("@/utils/schemaUtils", () => ({
-  generateDefaultValue: jest.fn((schema, key) => {
+  generateDefaultValue: jest.fn((schema, _key) => {
     if (schema?.type === "string") return "";
     if (schema?.type === "number") return 0;
     if (schema?.type === "boolean") return false;

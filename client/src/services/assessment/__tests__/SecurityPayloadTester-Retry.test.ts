@@ -198,7 +198,7 @@ describe("Issue #157: Connection Retry Logic", () => {
     // Mock SecurityPayloadTester for integration testing
     let mockLogger: { log: jest.Mock; logError: jest.Mock };
     let mockExecuteWithTimeout: jest.Mock;
-    let callCounter: number;
+    let _callCounter: number;
 
     beforeEach(() => {
       mockLogger = {
@@ -206,7 +206,7 @@ describe("Issue #157: Connection Retry Logic", () => {
         logError: jest.fn(),
       };
       mockExecuteWithTimeout = jest.fn((promise: Promise<any>) => promise);
-      callCounter = 0;
+      _callCounter = 0;
       jest.useFakeTimers();
     });
 

@@ -352,6 +352,7 @@ export const DESCRIPTION_POISONING_PATTERNS: PoisoningPattern[] = [
   },
   {
     name: "multiple_zero_width_chars",
+    // eslint-disable-next-line no-misleading-character-class -- Intentional: detecting individual zero-width chars for security scanning
     pattern: /[\u200B\u200C\u200D\u2060\uFEFF]{2,}/g, // Multiple consecutive zero-width chars
     severity: "HIGH",
     category: "obfuscation",

@@ -25,7 +25,7 @@ import {
   InferredBehaviorSchema,
   AUPViolationSampleSchema,
   AUPViolationMetricsSchema,
-  AUPScannedLocationsSchema,
+  AUPScannedLocationsSchema as _AUPScannedLocationsSchema,
   BaseEventSchema,
   // Event schemas (1-13)
   ServerConnectedEventSchema,
@@ -603,7 +603,8 @@ describe("jsonlEventSchemas", () => {
     });
 
     test("rejects missing serverName", () => {
-      const { serverName, ...rest } = VALID_FIXTURES.serverConnected;
+      const { serverName: _serverName, ...rest } =
+        VALID_FIXTURES.serverConnected;
       const result = ServerConnectedEventSchema.safeParse(rest);
       expect(result.success).toBe(false);
     });
@@ -650,7 +651,7 @@ describe("jsonlEventSchemas", () => {
     });
 
     test("rejects missing name", () => {
-      const { name, ...rest } = VALID_FIXTURES.toolDiscovered;
+      const { name: _name, ...rest } = VALID_FIXTURES.toolDiscovered;
       const result = ToolDiscoveredEventSchema.safeParse(rest);
       expect(result.success).toBe(false);
     });
@@ -799,7 +800,7 @@ describe("jsonlEventSchemas", () => {
     });
 
     test("accepts event without payload", () => {
-      const { payload, ...rest } = VALID_FIXTURES.vulnerabilityFound;
+      const { payload: _payload, ...rest } = VALID_FIXTURES.vulnerabilityFound;
       const result = VulnerabilityFoundEventSchema.safeParse(rest);
       expect(result.success).toBe(true);
     });
@@ -830,13 +831,18 @@ describe("jsonlEventSchemas", () => {
     });
 
     test("accepts event without optional title/description", () => {
-      const { title, description, ...rest } = VALID_FIXTURES.annotationMissing;
+      const {
+        title: _title,
+        description: _description,
+        ...rest
+      } = VALID_FIXTURES.annotationMissing;
       const result = AnnotationMissingEventSchema.safeParse(rest);
       expect(result.success).toBe(true);
     });
 
     test("rejects missing inferredBehavior", () => {
-      const { inferredBehavior, ...rest } = VALID_FIXTURES.annotationMissing;
+      const { inferredBehavior: _inferredBehavior, ...rest } =
+        VALID_FIXTURES.annotationMissing;
       const result = AnnotationMissingEventSchema.safeParse(rest);
       expect(result.success).toBe(false);
     });
@@ -1057,7 +1063,7 @@ describe("jsonlEventSchemas", () => {
     });
 
     test("rejects missing phase", () => {
-      const { phase, ...rest } = VALID_FIXTURES.phaseStarted;
+      const { phase: _phase, ...rest } = VALID_FIXTURES.phaseStarted;
       const result = PhaseStartedEventSchema.safeParse(rest);
       expect(result.success).toBe(false);
     });
@@ -1088,7 +1094,7 @@ describe("jsonlEventSchemas", () => {
     });
 
     test("rejects missing duration", () => {
-      const { duration, ...rest } = VALID_FIXTURES.phaseComplete;
+      const { duration: _duration, ...rest } = VALID_FIXTURES.phaseComplete;
       const result = PhaseCompleteEventSchema.safeParse(rest);
       expect(result.success).toBe(false);
     });

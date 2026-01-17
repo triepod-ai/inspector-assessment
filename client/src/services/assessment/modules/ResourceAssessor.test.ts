@@ -33,7 +33,7 @@ function createUriAwareMock(expectedUri: string, content: string) {
  * Helper function for multi-URI mocks.
  * Returns content only for URIs in the map, rejects all others.
  */
-function createMultiUriMock(uriContentMap: Record<string, string>) {
+function _createMultiUriMock(uriContentMap: Record<string, string>) {
   return jest.fn().mockImplementation((uri: string) => {
     if (uri in uriContentMap) {
       return Promise.resolve(uriContentMap[uri]);

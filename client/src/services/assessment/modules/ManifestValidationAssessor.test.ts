@@ -842,7 +842,7 @@ describe("ManifestValidationAssessor", () => {
           { version: "1.0.0.0", expected: false, label: "quad version" },
         ];
 
-        for (const { version, expected, label } of testCases) {
+        for (const { version, expected, label: _label } of testCases) {
           mockContext.manifestJson = createMockManifestJson({
             version,
             icon: "icon.png",

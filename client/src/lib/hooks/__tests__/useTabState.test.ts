@@ -3,8 +3,8 @@ import { useTabState } from "../useTabState";
 import { ServerCapabilities } from "@modelcontextprotocol/sdk/types.js";
 
 describe("useTabState", () => {
-  // Save original window.location
-  const originalLocation = window.location;
+  // Save original window.location (kept for potential future restoration)
+  const _originalLocation = window.location;
 
   beforeEach(() => {
     // Reset hash before each test

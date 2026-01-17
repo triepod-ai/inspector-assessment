@@ -25,8 +25,8 @@
 
 import { MCPAssessmentService } from "../assessmentService";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { SecurityAssessment } from "@/lib/assessment/resultTypes";
-import { expectSecureStatus } from "@/test/utils/testUtils";
+import { SecurityAssessment as _SecurityAssessment } from "@/lib/assessment/resultTypes";
+import { expectSecureStatus as _expectSecureStatus } from "@/test/utils/testUtils";
 
 describe("Security Detection Validation - Assessment Service", () => {
   // Increase timeout for full assessment tests
