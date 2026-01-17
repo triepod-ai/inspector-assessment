@@ -8,6 +8,63 @@ import {
   CompatibilityCallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 
+// ============================================
+// Type-Safe Test Helpers (Issue #186)
+// ============================================
+
+/**
+ * Tool annotations interface matching MCP SDK Tool.annotations
+ * Used for type-safe tool annotation mocking without `any`
+ */
+export interface ToolAnnotations {
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+}
+
+/**
+ * Extended Tool type that includes annotations
+ * This matches the actual SDK Tool type which has optional annotations
+ */
+export interface ToolWithAnnotations extends Tool {
+  annotations?: ToolAnnotations;
+}
+
+/**
+ * Type-safe accessor for private/internal properties in tests.
+ * Use this instead of `(instance as any).property` to avoid ESLint warnings.
+ *
+ * @example
+ * // Before: (engine as any).testTimeout
+ * // After: getPrivateProperty<TestScenarioEngine, number>(engine, "testTimeout")
+ */
+export function getPrivateProperty<T, R>(instance: T, propName: string): R {
+  return (instance as Record<string, unknown>)[propName] as R;
+}
+
+/**
+ * Type for intentionally invalid/partial tool schemas in edge case tests.
+ * Use when testing how code handles malformed or missing schemas.
+ *
+ * @example
+ * // Before: inputSchema: undefined as any
+ * // After: inputSchema: undefined as PartialToolSchema
+ */
+export type PartialToolSchema = Partial<Tool["inputSchema"]> | undefined;
+
+/**
+ * Typed test response structure for error handling tests.
+ * Replaces `any` type for mock response objects.
+ */
+export interface TypedTestResponse {
+  isError: boolean;
+  errorCode?: number;
+  errorMessage?: string;
+  rawResponse?: unknown;
+}
+
 // Mock tool factory
 export function createMockTool(overrides?: Partial<Tool>): Tool {
   return {
@@ -138,14 +195,14 @@ export function createMockToolWithAnnotations(overrides?: {
   destructiveHint?: boolean;
   idempotentHint?: boolean;
   openWorldHint?: boolean;
-}): Tool {
+}): ToolWithAnnotations {
   const tool = createMockTool({
     name: overrides?.name ?? "test-tool",
     description: overrides?.description ?? "A test tool",
-  });
+  }) as ToolWithAnnotations;
 
-  // Add annotations to tool
-  (tool as any).annotations = {
+  // Add annotations to tool (type-safe via ToolWithAnnotations)
+  tool.annotations = {
     readOnlyHint: overrides?.readOnlyHint,
     destructiveHint: overrides?.destructiveHint,
     idempotentHint: overrides?.idempotentHint,
