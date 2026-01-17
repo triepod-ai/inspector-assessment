@@ -11,11 +11,7 @@ import {
   Tool,
   CompatibilityCallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
-
-// Helper to access private methods
-const getPrivateMethod = <T>(instance: T, methodName: string) => {
-  return (instance as any)[methodName].bind(instance);
-};
+import { getPrivateMethod } from "@/test/utils/testUtils";
 
 // Mock tool factory
 const createTool = (

@@ -7,11 +7,14 @@
 import { TestScenarioEngine } from "../TestScenarioEngine";
 import { TestDataGenerator } from "../TestDataGenerator";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { getPrivateMethod, PartialToolSchema } from "@/test/utils/testUtils";
 
-// Helper to access private methods
-const getPrivateMethod = <T>(instance: T, methodName: string) => {
-  return (instance as any)[methodName].bind(instance);
-};
+// Type for property schema
+interface PropertySchema {
+  type: string;
+  enum?: string[];
+  minimum?: number;
+}
 
 // Mock tool factory
 const createTool = (
@@ -46,7 +49,7 @@ describe("TestScenarioEngine", () => {
       const tool: Tool = {
         name: "no_schema",
         description: "Tool without schema",
-        inputSchema: undefined as any,
+        inputSchema: undefined as PartialToolSchema as Tool["inputSchema"],
       };
       const result = generateMinimalParams(tool);
       expect(result).toEqual({});
@@ -176,7 +179,7 @@ describe("TestScenarioEngine", () => {
       const tool: Tool = {
         name: "no_schema",
         description: "Tool without schema",
-        inputSchema: undefined as any,
+        inputSchema: undefined as PartialToolSchema as Tool["inputSchema"],
       };
       const result = generateSimpleParams(tool);
       expect(result).toEqual({});
@@ -246,7 +249,7 @@ describe("TestScenarioEngine", () => {
 
   describe("generateMinimalValue", () => {
     let engine: TestScenarioEngine;
-    let generateMinimalValue: (schema: any) => unknown;
+    let generateMinimalValue: (schema: PropertySchema) => unknown;
 
     beforeEach(() => {
       engine = new TestScenarioEngine();

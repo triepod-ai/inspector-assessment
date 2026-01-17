@@ -10,11 +10,7 @@ import {
 } from "../TestScenarioEngine";
 import { TestScenario } from "../TestDataGenerator";
 import { ValidationResult } from "../ResponseValidator";
-
-// Helper to access private methods
-const getPrivateMethod = <T>(instance: T, methodName: string) => {
-  return (instance as any)[methodName].bind(instance);
-};
+import { getPrivateMethod } from "@/test/utils/testUtils";
 
 // Mock scenario factory
 const createMockScenario = (
