@@ -228,6 +228,7 @@ describe("Assessment Types", () => {
           "prompts",
           "crossCapability",
           "protocolConformance",
+          "protocolCompliance", // v1.25.0+
         ];
 
         expectedCoreKeys.forEach((key) => {
@@ -236,7 +237,13 @@ describe("Assessment Types", () => {
       });
 
       it("should contain all expected optional category keys", () => {
-        const expectedOptionalKeys = ["manifestValidation", "portability"];
+        const expectedOptionalKeys = [
+          "manifestValidation",
+          "portability",
+          "developerExperience", // v1.25.0+
+          "fileModularization", // v1.40.0+
+          "conformance", // v1.40.0+
+        ];
 
         expectedOptionalKeys.forEach((key) => {
           expect(ASSESSMENT_CATEGORY_METADATA).toHaveProperty(key);

@@ -487,7 +487,10 @@ describe("Module Name Validation", () => {
   const VALID_MODULE_NAMES = [
     "functionality",
     "security",
+    "documentation",
     "errorHandling",
+    "usability",
+    "mcpSpecCompliance", // deprecated, use protocolCompliance
     "protocolCompliance",
     "aupCompliance",
     "toolAnnotations",
@@ -498,6 +501,7 @@ describe("Module Name Validation", () => {
     "resources",
     "prompts",
     "crossCapability",
+    "protocolConformance", // deprecated, use protocolCompliance
     "developerExperience",
     "portability",
     "externalAPIScanner",

@@ -93,7 +93,7 @@ For complete CLI documentation, see [CLI Assessment Guide](docs/CLI_ASSESSMENT_G
 
 ---
 
-## Assessment Modules (16 Active + 4 Deprecated)
+## Assessment Modules (18 Total: 16 Active + 2 Opt-In)
 
 ### Active Modules (16)
 
@@ -118,12 +118,12 @@ For complete CLI documentation, see [CLI Assessment Guide](docs/CLI_ASSESSMENT_G
 
 > **v1.25.2+**: Protocol Compliance is a unified module combining MCP Spec Compliance and Protocol Conformance. See [CLI Guide](docs/CLI_ASSESSMENT_GUIDE.md) for details.
 
-### Optional Modules (2) - MCPB Bundles
+### Opt-In Modules (2)
 
-| Module                  | Purpose                      | Policy Alignment                        |
-| ----------------------- | ---------------------------- | --------------------------------------- |
-| **Manifest Validation** | MCPB manifest.json           | manifest_version 0.3 spec               |
-| **Portability**         | Cross-platform compatibility | Hardcoded paths, platform-specific code |
+| Module                      | Purpose                        | Requirement                                            |
+| --------------------------- | ------------------------------ | ------------------------------------------------------ |
+| **File Modularization**     | Code organization quality      | `--source` flag (source code analysis)                 |
+| **MCP Conformance Testing** | Official conformance scenarios | HTTP/SSE transport + @modelcontextprotocol/conformance |
 
 For detailed module documentation, see [Assessment Catalog](docs/ASSESSMENT_CATALOG.md).
 
@@ -346,7 +346,8 @@ npx @modelcontextprotocol/inspector
 
 We built a comprehensive assessment framework on top of the original inspector, transforming it from a debugging tool into a full validation suite. Key additions:
 
-- **17 Assessment Modules** covering functionality, security, compliance
+**18 Assessment Modules** covering functionality, security, compliance (16 active + 2 opt-in)
+
 - **Pure Behavior-Based Detection** analyzing responses, not tool names
 - **Zero False Positives** through context-aware reflection detection
 - **CLI-First Workflow** with three specialized commands

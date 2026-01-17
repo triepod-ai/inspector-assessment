@@ -68,6 +68,12 @@ export const AssessmentModuleNameSchema = z.enum([
   "prompts",
   "crossCapability",
   "protocolConformance",
+  // New unified modules (v1.25.0+)
+  "protocolCompliance",
+  "developerExperience",
+  // Quality tier modules (v1.40.0+)
+  "fileModularization",
+  "conformance",
 ]);
 
 // ============================================================================

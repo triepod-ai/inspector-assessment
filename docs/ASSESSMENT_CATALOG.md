@@ -4,7 +4,7 @@ A comprehensive reference for all assessment modules in the MCP Inspector Assess
 
 ## Overview
 
-The MCP Inspector Assessment runs **17 specialized modules** organized in **4 tiers** (plus opt-in experimental modules) to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
+The MCP Inspector Assessment runs **18 active modules** organized in **4 tiers** (plus 1 opt-in module and 1 deprecated module) to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
 
 ### Module Tier Organization (v1.25.0+)
 

@@ -122,18 +122,24 @@ describe("cli-parserSchemas", () => {
       "prompts",
       "crossCapability",
       "protocolConformance",
+      // New unified modules (v1.25.0+)
+      "protocolCompliance",
+      "developerExperience",
+      // Quality tier modules (v1.40.0+)
+      "fileModularization",
+      "conformance",
     ];
 
     describe("valid modules", () => {
-      test("accepts all 18 valid module names", () => {
+      test("accepts all 22 valid module names", () => {
         for (const module of validModules) {
           const result = AssessmentModuleNameSchema.safeParse(module);
           expect(result.success).toBe(true);
         }
       });
 
-      test("count of valid modules is 18", () => {
-        expect(validModules.length).toBe(18);
+      test("count of valid modules is 22", () => {
+        expect(validModules.length).toBe(22);
       });
     });
 

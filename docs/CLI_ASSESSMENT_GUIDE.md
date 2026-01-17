@@ -256,7 +256,7 @@ npm run assess:full -- --server my-server --http http://localhost:10900/mcp --mo
 
 **Valid Module Names:**
 
-All 19 assessment modules can be run individually:
+All 18 assessment modules can be run individually:
 
 | Tier           | Module Names                                                                                    |
 | -------------- | ----------------------------------------------------------------------------------------------- |

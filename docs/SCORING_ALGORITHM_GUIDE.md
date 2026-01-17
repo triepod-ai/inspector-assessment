@@ -37,7 +37,7 @@ The overall score determines the final **Assessment Level**: PASS, VERIFY, or FA
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  17 Assessment Modules                                   │   │
+│  │  18 Assessment Modules                                   │   │
 │  │  (Each calculates 0-100 score independently)             │   │
 │  └──────────────────────────┬──────────────────────────────┘   │
 │                             │                                   │

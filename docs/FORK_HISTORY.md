@@ -26,7 +26,7 @@ npx @modelcontextprotocol/inspector
 
 We've built a comprehensive assessment framework on top of the original inspector that transforms it from a debugging tool into a full validation suite for MCP servers. Our enhancements focus on:
 
-- **17 Assessment Modules** - Automated validation covering functionality, security, documentation, compliance, and more
+- **18 Assessment Modules** - Automated validation covering functionality, security, documentation, compliance, and more (16 active + 2 opt-in)
 - **Pure Behavior-Based Detection** - Security testing that analyzes tool responses, not tool names
 - **Zero False Positives** - Context-aware reflection detection distinguishes data handling from code execution
 - **MCP Directory Compliance** - Policy checking for Anthropic's MCP Directory requirements
