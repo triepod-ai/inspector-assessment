@@ -16,6 +16,7 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { TestDataGenerator } from "../TestDataGenerator";
 import { PartialToolSchema } from "@/test/utils/testUtils";
+import type { ClaudeCodeBridge } from "@/services/assessment/lib/claudeCodeBridge";
 
 // Helper to access private static methods (Issue #186)
 type StaticMethodAccessor = Record<string, (...args: unknown[]) => unknown>;
@@ -75,16 +76,18 @@ describe("TestDataGenerator", () => {
       const mockBridge = createMockClaudeBridge({
         isFeatureEnabled: jest.fn().mockReturnValue(false),
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      TestDataGenerator.setClaudeBridge(mockBridge as any);
+      TestDataGenerator.setClaudeBridge(
+        mockBridge as unknown as ClaudeCodeBridge,
+      );
 
       expect(TestDataGenerator.isClaudeEnabled()).toBe(false);
     });
 
     it("should return true when bridge is set and feature enabled", () => {
       const mockBridge = createMockClaudeBridge();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      TestDataGenerator.setClaudeBridge(mockBridge as any);
+      TestDataGenerator.setClaudeBridge(
+        mockBridge as unknown as ClaudeCodeBridge,
+      );
 
       expect(TestDataGenerator.isClaudeEnabled()).toBe(true);
       expect(mockBridge.isFeatureEnabled).toHaveBeenCalledWith(
@@ -94,8 +97,9 @@ describe("TestDataGenerator", () => {
 
     it("should allow setting bridge to null", () => {
       const mockBridge = createMockClaudeBridge();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      TestDataGenerator.setClaudeBridge(mockBridge as any);
+      TestDataGenerator.setClaudeBridge(
+        mockBridge as unknown as ClaudeCodeBridge,
+      );
       expect(TestDataGenerator.isClaudeEnabled()).toBe(true);
 
       TestDataGenerator.setClaudeBridge(null);
@@ -344,8 +348,9 @@ describe("TestDataGenerator", () => {
 
     it("should use Claude-generated when Claude enabled and returns data", async () => {
       const mockBridge = createMockClaudeBridge();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      TestDataGenerator.setClaudeBridge(mockBridge as any);
+      TestDataGenerator.setClaudeBridge(
+        mockBridge as unknown as ClaudeCodeBridge,
+      );
 
       const tool = createTool("test", { name: { type: "string" } });
       const scenarios =
@@ -367,8 +372,9 @@ describe("TestDataGenerator", () => {
       const mockBridge = createMockClaudeBridge({
         generateTestParameters: jest.fn().mockResolvedValue([]),
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      TestDataGenerator.setClaudeBridge(mockBridge as any);
+      TestDataGenerator.setClaudeBridge(
+        mockBridge as unknown as ClaudeCodeBridge,
+      );
 
       const tool = createTool("test", { name: { type: "string" } });
       const scenarios =
@@ -383,8 +389,9 @@ describe("TestDataGenerator", () => {
           .fn()
           .mockRejectedValue(new Error("Claude error")),
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      TestDataGenerator.setClaudeBridge(mockBridge as any);
+      TestDataGenerator.setClaudeBridge(
+        mockBridge as unknown as ClaudeCodeBridge,
+      );
 
       const tool = createTool("test", { name: { type: "string" } });
       const scenarios =
@@ -395,8 +402,9 @@ describe("TestDataGenerator", () => {
 
     it("should add error case to Claude scenarios", async () => {
       const mockBridge = createMockClaudeBridge();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      TestDataGenerator.setClaudeBridge(mockBridge as any);
+      TestDataGenerator.setClaudeBridge(
+        mockBridge as unknown as ClaudeCodeBridge,
+      );
 
       const tool = createTool("test", { name: { type: "string" } });
       const scenarios =

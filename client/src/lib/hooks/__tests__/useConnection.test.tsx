@@ -160,8 +160,7 @@ describe("useConnection", () => {
         params: {},
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mockSchema = z.object({ test: z.string() }) as any;
+      const mockSchema = z.object({ test: z.string() });
 
       await act(async () => {
         await result.current.makeRequest(mockRequest, mockSchema);
@@ -199,8 +198,7 @@ describe("useConnection", () => {
         params: {},
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mockSchema = z.object({ test: z.string() }) as any;
+      const mockSchema = z.object({ test: z.string() });
 
       await act(async () => {
         await result.current.makeRequest(mockRequest, mockSchema, {
@@ -230,8 +228,7 @@ describe("useConnection", () => {
       params: {},
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mockSchema = z.object({ test: z.string() }) as any;
+    const mockSchema = z.object({ test: z.string() });
 
     await expect(
       result.current.makeRequest(mockRequest, mockSchema),
