@@ -6,12 +6,60 @@
 import { ErrorHandlingAssessor } from "../modules/ErrorHandlingAssessor";
 import { ErrorTestDetail } from "@/lib/assessmentTypes";
 import { DEFAULT_ASSESSMENT_CONFIG } from "@/lib/assessment/configTypes";
+import { getPrivateMethod } from "@/test/utils/testUtils";
+
+// Type definitions for private method return types (Issue #186)
+type SuggestionResult = { hasSuggestions: boolean; suggestions: string[] };
+type AnalysisResult = {
+  classification: string;
+  shouldPenalize: boolean;
+  bonusPoints: number;
+};
+type ParamsResult = {
+  params: Record<string, unknown>;
+  testedParameter: string;
+  parameterIsRequired: boolean;
+};
+type MetricsResult = {
+  mcpComplianceScore: number;
+  gracefulDegradationCount: number;
+  suggestionCount: number;
+  suggestionBonusPoints: number;
+};
+// Schema type for generateInvalidValueParams (Issue #186)
+type SchemaParam = Record<string, unknown> | null;
 
 describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
   let assessor: ErrorHandlingAssessor;
+  let detectSuggestionPatterns: (text: string) => SuggestionResult;
+  let isNeutralGracefulResponse: (text: string) => boolean;
+  let analyzeInvalidValuesResponse: (test: ErrorTestDetail) => AnalysisResult;
+  let generateInvalidValueParams: (schema: SchemaParam) => ParamsResult;
+  let calculateMetrics: (
+    tests: ErrorTestDetail[],
+    passedTests: number,
+  ) => MetricsResult;
 
   beforeEach(() => {
     assessor = new ErrorHandlingAssessor(DEFAULT_ASSESSMENT_CONFIG);
+    // Create typed method references (Issue #186)
+    detectSuggestionPatterns = getPrivateMethod(
+      assessor,
+      "detectSuggestionPatterns",
+    );
+    isNeutralGracefulResponse = getPrivateMethod(
+      assessor,
+      "isNeutralGracefulResponse",
+    );
+    analyzeInvalidValuesResponse = getPrivateMethod(
+      assessor,
+      "analyzeInvalidValuesResponse",
+    );
+    generateInvalidValueParams = getPrivateMethod(
+      assessor,
+      "generateInvalidValueParams",
+    );
+    calculateMetrics = getPrivateMethod(assessor, "calculateMetrics");
   });
 
   afterEach(() => {
@@ -56,9 +104,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
 
   describe("detectSuggestionPatterns()", () => {
     it('should detect "did you mean" pattern', () => {
-      const { hasSuggestions, suggestions } = (
-        assessor as any
-      ).detectSuggestionPatterns(
+      const { hasSuggestions, suggestions } = detectSuggestionPatterns(
         "Invalid component. Did you mean: Button, Checkbox?",
       );
 
@@ -68,9 +114,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
     });
 
     it('should detect "valid options" pattern', () => {
-      const { hasSuggestions, suggestions } = (
-        assessor as any
-      ).detectSuggestionPatterns(
+      const { hasSuggestions, suggestions } = detectSuggestionPatterns(
         "Unknown type. Valid options: text, number, boolean",
       );
 
@@ -81,9 +125,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
     });
 
     it('should detect "available" pattern', () => {
-      const { hasSuggestions, suggestions } = (
-        assessor as any
-      ).detectSuggestionPatterns(
+      const { hasSuggestions, suggestions } = detectSuggestionPatterns(
         "Component not found. Available: Link, Image, Table",
       );
 
@@ -92,9 +134,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
     });
 
     it('should detect "try" pattern', () => {
-      const { hasSuggestions, suggestions } = (
-        assessor as any
-      ).detectSuggestionPatterns(
+      const { hasSuggestions, suggestions } = detectSuggestionPatterns(
         "Resource not found. Try: home, about, contact",
       );
 
@@ -103,9 +143,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
     });
 
     it('should detect "expected one of" pattern', () => {
-      const { hasSuggestions, suggestions } = (
-        assessor as any
-      ).detectSuggestionPatterns(
+      const { hasSuggestions, suggestions } = detectSuggestionPatterns(
         "Invalid format. Expected one of: json, xml, csv",
       );
 
@@ -114,9 +152,9 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
     });
 
     it("should return empty for no suggestions", () => {
-      const { hasSuggestions, suggestions } = (
-        assessor as any
-      ).detectSuggestionPatterns("Invalid input provided");
+      const { hasSuggestions, suggestions } = detectSuggestionPatterns(
+        "Invalid input provided",
+      );
 
       expect(hasSuggestions).toBe(false);
       expect(suggestions).toHaveLength(0);
@@ -128,7 +166,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
       const longInput = "a".repeat(10000);
       const start = Date.now();
 
-      (assessor as any).detectSuggestionPatterns(longInput);
+      detectSuggestionPatterns(longInput);
 
       const elapsed = Date.now() - start;
       // Should complete in well under 1 second due to truncation
@@ -139,7 +177,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
       const longInput = "x".repeat(10000);
       const start = Date.now();
 
-      (assessor as any).isNeutralGracefulResponse(longInput);
+      isNeutralGracefulResponse(longInput);
 
       const elapsed = Date.now() - start;
       expect(elapsed).toBeLessThan(1000);
@@ -149,9 +187,8 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
       // Pattern near the start should still be detected after truncation
       const longInput = "Did you mean: Button, Checkbox?" + "x".repeat(10000);
 
-      const { hasSuggestions, suggestions } = (
-        assessor as any
-      ).detectSuggestionPatterns(longInput);
+      const { hasSuggestions, suggestions } =
+        detectSuggestionPatterns(longInput);
 
       expect(hasSuggestions).toBe(true);
       expect(suggestions).toContain("Button");
@@ -160,38 +197,34 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
 
   describe("isNeutralGracefulResponse()", () => {
     it("should detect empty JSON array", () => {
-      const result = (assessor as any).isNeutralGracefulResponse("[]");
+      const result = isNeutralGracefulResponse("[]");
       expect(result).toBe(true);
     });
 
     it("should detect empty JSON object", () => {
-      const result = (assessor as any).isNeutralGracefulResponse("{}");
+      const result = isNeutralGracefulResponse("{}");
       expect(result).toBe(true);
     });
 
     it('should detect "no results found" pattern', () => {
-      const result = (assessor as any).isNeutralGracefulResponse(
+      const result = isNeutralGracefulResponse(
         "No results found for your query",
       );
       expect(result).toBe(true);
     });
 
     it('should detect "returned 0" pattern', () => {
-      const result = (assessor as any).isNeutralGracefulResponse(
-        "Search returned 0 items",
-      );
+      const result = isNeutralGracefulResponse("Search returned 0 items");
       expect(result).toBe(true);
     });
 
     it("should detect JSON with empty results array", () => {
-      const result = (assessor as any).isNeutralGracefulResponse(
-        '{"results": [], "count": 0}',
-      );
+      const result = isNeutralGracefulResponse('{"results": [], "count": 0}');
       expect(result).toBe(true);
     });
 
     it("should NOT match non-graceful responses", () => {
-      const result = (assessor as any).isNeutralGracefulResponse(
+      const result = isNeutralGracefulResponse(
         "Successfully executed query with 5 results",
       );
       expect(result).toBe(false);
@@ -212,7 +245,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         },
       );
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("graceful_degradation");
       expect(analysis.shouldPenalize).toBe(false);
@@ -232,7 +265,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         },
       );
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       // Should fall through to another classification, not graceful_degradation
       expect(analysis.classification).not.toBe("graceful_degradation");
@@ -251,7 +284,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         },
       );
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("graceful_degradation");
       expect(analysis.bonusPoints).toBe(15);
@@ -271,7 +304,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         },
       );
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("safe_rejection");
       expect(analysis.shouldPenalize).toBe(false);
@@ -289,7 +322,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         },
       );
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("safe_rejection");
       expect(analysis.bonusPoints).toBe(0);
@@ -307,7 +340,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         required: ["query"],
       };
 
-      const result = (assessor as any).generateInvalidValueParams(schema);
+      const result = generateInvalidValueParams(schema);
 
       expect(result.testedParameter).toBe("query");
       expect(result.parameterIsRequired).toBe(true);
@@ -323,14 +356,14 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         required: [], // No required params
       };
 
-      const result = (assessor as any).generateInvalidValueParams(schema);
+      const result = generateInvalidValueParams(schema);
 
       expect(result.testedParameter).toBe("filter");
       expect(result.parameterIsRequired).toBe(false);
     });
 
     it("should handle schema with no properties", () => {
-      const result = (assessor as any).generateInvalidValueParams(null);
+      const result = generateInvalidValueParams(null);
 
       expect(result.testedParameter).toBe("value");
       expect(result.parameterIsRequired).toBe(false);
@@ -350,7 +383,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         },
       );
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("safe_rejection");
       expect(analysis.shouldPenalize).toBe(false);
@@ -368,7 +401,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         },
       );
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       // Should be penalized because required param wasn't validated
       // Classification is "unknown" since it's not a clear execution or safe response
@@ -389,7 +422,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         },
       );
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("safe_rejection");
       expect(analysis.shouldPenalize).toBe(false);
@@ -406,7 +439,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         },
       );
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       // Empty content should be checked for graceful response
       expect(analysis).toBeDefined();
@@ -437,7 +470,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         ),
       ];
 
-      const metrics = (assessor as any).calculateMetrics(tests, 0);
+      const metrics = calculateMetrics(tests, 0);
 
       expect(metrics.gracefulDegradationCount).toBe(2);
     });
@@ -456,7 +489,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         ),
       ];
 
-      const metrics = (assessor as any).calculateMetrics(tests, 1);
+      const metrics = calculateMetrics(tests, 1);
 
       expect(metrics.suggestionCount).toBe(1);
       expect(metrics.suggestionBonusPoints).toBe(10);
@@ -485,7 +518,7 @@ describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
         ),
       ];
 
-      const metrics = (assessor as any).calculateMetrics(tests, 0);
+      const metrics = calculateMetrics(tests, 0);
 
       // Score should be 100% because bonus points are earned
       expect(metrics.mcpComplianceScore).toBe(100);

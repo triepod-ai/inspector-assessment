@@ -6,12 +6,44 @@
 import { ErrorHandlingAssessor } from "../modules/ErrorHandlingAssessor";
 import { ErrorTestDetail } from "@/lib/assessmentTypes";
 import { DEFAULT_ASSESSMENT_CONFIG } from "@/lib/assessment/configTypes";
+import { getPrivateMethod } from "@/test/utils/testUtils";
+
+// Type definitions for private method return types (Issue #186)
+type AnalysisResult = {
+  classification: string;
+  shouldPenalize: boolean;
+  penaltyAmount: number;
+};
+type MetricsResult = {
+  mcpComplianceScore: number;
+};
 
 describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)", () => {
   let assessor: ErrorHandlingAssessor;
+  let analyzeInvalidValuesResponse: (test: ErrorTestDetail) => AnalysisResult;
+  let extractResponseTextSafe: (response: unknown) => string;
+  let isDefensiveProgrammingResponse: (text: string) => boolean;
+  let calculateMetrics: (
+    tests: ErrorTestDetail[],
+    passedTests: number,
+  ) => MetricsResult;
 
   beforeEach(() => {
     assessor = new ErrorHandlingAssessor(DEFAULT_ASSESSMENT_CONFIG);
+    // Create typed method references (Issue #186)
+    analyzeInvalidValuesResponse = getPrivateMethod(
+      assessor,
+      "analyzeInvalidValuesResponse",
+    );
+    extractResponseTextSafe = getPrivateMethod(
+      assessor,
+      "extractResponseTextSafe",
+    );
+    isDefensiveProgrammingResponse = getPrivateMethod(
+      assessor,
+      "isDefensiveProgrammingResponse",
+    );
+    calculateMetrics = getPrivateMethod(assessor, "calculateMetrics");
   });
 
   afterEach(() => {
@@ -54,7 +86,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
       );
 
       // Access private method via type casting for testing
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("safe_rejection");
       expect(analysis.shouldPenalize).toBe(false);
@@ -69,7 +101,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         "Invalid params: query must be non-empty",
       );
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("safe_rejection");
       expect(analysis.shouldPenalize).toBe(false);
@@ -82,7 +114,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: 'Stored query: ""' }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("safe_reflection");
       expect(analysis.shouldPenalize).toBe(false);
@@ -94,7 +126,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: 'Echo: ""' }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("safe_reflection");
       expect(analysis.shouldPenalize).toBe(false);
@@ -105,7 +137,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "Saved input successfully" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("safe_reflection");
       expect(analysis.shouldPenalize).toBe(false);
@@ -118,7 +150,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "Deleted 0 keys" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("defensive_programming");
       expect(analysis.shouldPenalize).toBe(false);
@@ -130,7 +162,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "No results found" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("defensive_programming");
       expect(analysis.shouldPenalize).toBe(false);
@@ -141,7 +173,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "0 items deleted" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("defensive_programming");
       expect(analysis.shouldPenalize).toBe(false);
@@ -152,7 +184,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "query returned 0 results" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("defensive_programming");
       expect(analysis.shouldPenalize).toBe(false);
@@ -163,7 +195,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "no action taken" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("defensive_programming");
       expect(analysis.shouldPenalize).toBe(false);
@@ -176,7 +208,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "Command executed successfully" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("execution_detected");
       expect(analysis.shouldPenalize).toBe(true);
@@ -188,7 +220,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "deleted 5 rows from users table" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("execution_detected");
       expect(analysis.shouldPenalize).toBe(true);
@@ -205,7 +237,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         ],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("execution_detected");
       expect(analysis.shouldPenalize).toBe(true);
@@ -216,7 +248,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "query returned 15 results" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("execution_detected");
       expect(analysis.shouldPenalize).toBe(true);
@@ -229,7 +261,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "Operation completed" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("execution_detected");
       expect(analysis.shouldPenalize).toBe(true);
@@ -243,7 +275,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "OK" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("unknown");
       expect(analysis.shouldPenalize).toBe(true);
@@ -255,7 +287,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("unknown");
       expect(analysis.shouldPenalize).toBe(true);
@@ -268,7 +300,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         content: [{ type: "text", text: "Success" }],
       });
 
-      const analysis = (assessor as any).analyzeInvalidValuesResponse(test);
+      const analysis = analyzeInvalidValuesResponse(test);
 
       expect(analysis.classification).toBe("unknown");
       expect(analysis.shouldPenalize).toBe(true);
@@ -278,12 +310,12 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
 
   describe("extractResponseTextSafe helper", () => {
     it("should handle string responses", () => {
-      const result = (assessor as any).extractResponseTextSafe("plain text");
+      const result = extractResponseTextSafe("plain text");
       expect(result).toBe("plain text");
     });
 
     it("should handle MCP content array format", () => {
-      const result = (assessor as any).extractResponseTextSafe({
+      const result = extractResponseTextSafe({
         content: [
           { type: "text", text: "Hello " },
           { type: "text", text: "World" },
@@ -293,12 +325,12 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
     });
 
     it("should handle null/undefined responses", () => {
-      expect((assessor as any).extractResponseTextSafe(null)).toBe("");
-      expect((assessor as any).extractResponseTextSafe(undefined)).toBe("");
+      expect(extractResponseTextSafe(null)).toBe("");
+      expect(extractResponseTextSafe(undefined)).toBe("");
     });
 
     it("should JSON stringify plain objects", () => {
-      const result = (assessor as any).extractResponseTextSafe({
+      const result = extractResponseTextSafe({
         status: "ok",
       });
       expect(result).toContain("status");
@@ -324,9 +356,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
       ];
 
       for (const pattern of patterns) {
-        expect((assessor as any).isDefensiveProgrammingResponse(pattern)).toBe(
-          true,
-        );
+        expect(isDefensiveProgrammingResponse(pattern)).toBe(true);
       }
     });
 
@@ -339,9 +369,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
       ];
 
       for (const pattern of executionPatterns) {
-        expect((assessor as any).isDefensiveProgrammingResponse(pattern)).toBe(
-          false,
-        );
+        expect(isDefensiveProgrammingResponse(pattern)).toBe(false);
       }
     });
   });
@@ -367,7 +395,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         }),
       ];
 
-      const metrics = (assessor as any).calculateMetrics(tests, 1);
+      const metrics = calculateMetrics(tests, 1);
 
       // Only missing_required should be scored (100 base + bonuses)
       // invalid_values should be skipped (safe reflection)
@@ -394,7 +422,7 @@ describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)"
         }),
       ];
 
-      const metrics = (assessor as any).calculateMetrics(tests, 1);
+      const metrics = calculateMetrics(tests, 1);
 
       // Both tests should be scored
       // missing_required: 100 points (passed)
