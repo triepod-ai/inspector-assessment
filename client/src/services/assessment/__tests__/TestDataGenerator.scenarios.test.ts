@@ -15,11 +15,17 @@
 
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { TestDataGenerator, TestScenario } from "../TestDataGenerator";
+import { PartialToolSchema } from "@/test/utils/testUtils";
 
-// Helper to access private static methods
+// Helper to access private static methods (Issue #186)
+type StaticMethodAccessor = Record<
+  string,
+  (tool: Tool) => TestScenario | TestScenario[]
+>;
 const getPrivateStaticMethod = (methodName: string) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (TestDataGenerator as any)[methodName].bind(TestDataGenerator);
+  return (TestDataGenerator as unknown as StaticMethodAccessor)[
+    methodName
+  ].bind(TestDataGenerator);
 };
 
 // Tool factory - uses type assertion for flexibility with test schemas
@@ -62,7 +68,9 @@ describe("TestDataGenerator - Scenario Generation", () => {
       const tool: Tool = {
         name: "test",
         description: "test",
-        inputSchema: { type: "array" } as any,
+        inputSchema: {
+          type: "array",
+        } as PartialToolSchema as Tool["inputSchema"],
       };
       const result = generateErrorScenario(tool) as TestScenario;
       expect(result.params).toEqual({});

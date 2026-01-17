@@ -2,6 +2,11 @@ import { renderHook, act } from "@testing-library/react";
 import { useToolsTabState, MetadataEntry } from "../useToolsTabState";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
+// Mock form ref interface for testing (Issue #186)
+interface MockFormRef {
+  validateJson: () => { isValid: boolean; error?: string };
+}
+
 // Mock the schemaUtils module
 jest.mock("@/utils/schemaUtils", () => ({
   generateDefaultValue: jest.fn((schema, _key) => {
@@ -254,7 +259,7 @@ describe("useToolsTabState", () => {
       // Simulate setting a ref
       result.current.formRefs.current["testKey"] = {
         validateJson: () => ({ isValid: true }),
-      } as any;
+      } as MockFormRef;
 
       expect(result.current.formRefs.current["testKey"]).toBeDefined();
 
@@ -289,7 +294,7 @@ describe("useToolsTabState", () => {
       // Set up a form ref with invalid state
       result.current.formRefs.current["testKey"] = {
         validateJson: () => ({ isValid: false, error: "Invalid JSON" }),
-      } as any;
+      } as MockFormRef;
 
       let hasErrors: boolean = false;
       act(() => {
@@ -308,10 +313,10 @@ describe("useToolsTabState", () => {
       // Set up form refs with valid state
       result.current.formRefs.current["key1"] = {
         validateJson: () => ({ isValid: true }),
-      } as any;
+      } as MockFormRef;
       result.current.formRefs.current["key2"] = {
         validateJson: () => ({ isValid: true }),
-      } as any;
+      } as MockFormRef;
 
       let hasErrors: boolean = false;
       act(() => {

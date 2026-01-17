@@ -14,6 +14,12 @@ import {
 } from "../stageBEnrichmentBuilder";
 import type { SecurityTestResult } from "../../resultTypes";
 
+// Type for partial test result with deletable fields (Issue #186)
+type MutableTestResult = SecurityTestResult & {
+  response?: string;
+  evidence?: string;
+};
+
 // Helper to create mock security test results
 function createMockSecurityTest(
   overrides: Partial<SecurityTestResult> = {},
@@ -73,7 +79,7 @@ describe("stageBEnrichmentBuilder Fix Validation Tests", () => {
         ];
 
         // Remove response to test evidence-only case
-        delete (tests[0] as any).response;
+        delete (tests[0] as MutableTestResult).response;
 
         const result = buildToolSummaryStageBEnrichment("test_tool", tests);
 
@@ -125,7 +131,7 @@ describe("stageBEnrichmentBuilder Fix Validation Tests", () => {
         ];
 
         // Remove both response and evidence
-        delete (tests[0] as any).response;
+        delete (tests[0] as MutableTestResult).response;
 
         const result = buildToolSummaryStageBEnrichment("test_tool", tests);
 
@@ -244,7 +250,7 @@ describe("stageBEnrichmentBuilder Fix Validation Tests", () => {
           vulnerable: true,
           response: "response",
         });
-        delete (responseTest as any).evidence;
+        delete (responseTest as MutableTestResult).evidence;
         const result2 = buildToolSummaryStageBEnrichment("test_tool", [
           responseTest,
         ]);
@@ -253,8 +259,8 @@ describe("stageBEnrichmentBuilder Fix Validation Tests", () => {
 
         // Test case 3: Neither -> unknown
         const neitherTest = createMockSecurityTest({ vulnerable: true });
-        delete (neitherTest as any).response;
-        delete (neitherTest as any).evidence;
+        delete (neitherTest as MutableTestResult).response;
+        delete (neitherTest as MutableTestResult).evidence;
         const result3 = buildToolSummaryStageBEnrichment("test_tool", [
           neitherTest,
         ]);
@@ -295,7 +301,7 @@ describe("stageBEnrichmentBuilder Fix Validation Tests", () => {
         ];
 
         // Remove evidence so response is used
-        delete (tests[0] as any).evidence;
+        delete (tests[0] as MutableTestResult).evidence;
 
         const result = buildToolSummaryStageBEnrichment("test_tool", tests);
         const evidence = result.sampleEvidence[0];

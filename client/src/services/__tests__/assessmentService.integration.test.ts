@@ -260,7 +260,12 @@ describe("MCPAssessmentService - Integration Tests", () => {
       });
 
       it("should handle circular reference in responses", async () => {
-        const circularResponse: any = {
+        // Create response with circular reference for edge case testing (Issue #186)
+        interface CircularResponse {
+          content: Array<{ type: string; text: string }>;
+          self?: CircularResponse;
+        }
+        const circularResponse: CircularResponse = {
           content: [
             {
               type: "text",
@@ -292,8 +297,8 @@ describe("MCPAssessmentService - Integration Tests", () => {
           inputSchema: {
             type: "object" as const,
             properties: {
-              // Invalid schema that might cause issues
-              invalidProp: { type: "invalidType" as any },
+              // Invalid schema that might cause issues (Issue #186)
+              invalidProp: { type: "invalidType" as unknown as "string" },
             },
           },
         };

@@ -16,7 +16,6 @@ import {
 } from "@/test/utils/testUtils";
 
 // Helper to access private methods on MutationDetector for testing
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getPrivateMethodOnDetector = <T>(
   detector: MutationDetector,
   name: string,

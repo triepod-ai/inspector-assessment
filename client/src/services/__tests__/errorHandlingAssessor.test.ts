@@ -7,6 +7,33 @@ import { ErrorHandlingAssessor } from "../assessment/modules/ErrorHandlingAssess
 import { AssessmentContext } from "../assessment/AssessmentOrchestrator";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { AssessmentConfiguration } from "@/lib/assessmentTypes";
+import { getPrivateMethod } from "@/test/utils/testUtils";
+
+// Type definitions for private methods (Issue #186)
+type IsErrorResponseFn = (response: unknown) => boolean;
+type ExtractErrorInfoFn = (response: unknown) => {
+  code?: number;
+  message: string;
+};
+type GenerateWrongTypeParamsFn = (schema: {
+  properties: Record<string, { type: string }>;
+}) => Record<string, unknown>;
+type GenerateInvalidValueParamsFn = (schema: {
+  properties: Record<
+    string,
+    {
+      type: string;
+      enum?: string[];
+      format?: string;
+      minimum?: number;
+      maximum?: number;
+    }
+  >;
+}) => {
+  params: Record<string, unknown>;
+  testedParameter: string;
+  parameterIsRequired: boolean;
+};
 
 describe("ErrorHandlingAssessor", () => {
   let assessor: ErrorHandlingAssessor;
@@ -370,10 +397,18 @@ describe("ErrorHandlingAssessor", () => {
         },
       };
 
-      const assessorAny = assessor as any;
-      expect(assessorAny.isErrorResponse(response)).toBe(true);
+      const isErrorResponse = getPrivateMethod<
+        ErrorHandlingAssessor,
+        ReturnType<IsErrorResponseFn>
+      >(assessor, "isErrorResponse");
+      const extractErrorInfo = getPrivateMethod<
+        ErrorHandlingAssessor,
+        ReturnType<ExtractErrorInfoFn>
+      >(assessor, "extractErrorInfo");
 
-      const errorInfo = assessorAny.extractErrorInfo(response);
+      expect(isErrorResponse(response)).toBe(true);
+
+      const errorInfo = extractErrorInfo(response);
       expect(errorInfo.code).toBe(-32602);
       expect(errorInfo.message).toBe("Invalid params");
     });
@@ -384,8 +419,11 @@ describe("ErrorHandlingAssessor", () => {
         isError: true,
       };
 
-      const assessorAny = assessor as any;
-      expect(assessorAny.isErrorResponse(response)).toBe(true);
+      const isErrorResponse = getPrivateMethod<
+        ErrorHandlingAssessor,
+        ReturnType<IsErrorResponseFn>
+      >(assessor, "isErrorResponse");
+      expect(isErrorResponse(response)).toBe(true);
     });
 
     it("should detect error keywords in content", () => {
@@ -393,8 +431,11 @@ describe("ErrorHandlingAssessor", () => {
         content: "Error: Invalid input provided",
       };
 
-      const assessorAny = assessor as any;
-      expect(assessorAny.isErrorResponse(response)).toBe(true);
+      const isErrorResponse = getPrivateMethod<
+        ErrorHandlingAssessor,
+        ReturnType<IsErrorResponseFn>
+      >(assessor, "isErrorResponse");
+      expect(isErrorResponse(response)).toBe(true);
     });
   });
 
@@ -410,8 +451,11 @@ describe("ErrorHandlingAssessor", () => {
         },
       };
 
-      const assessorAny = assessor as any;
-      const wrongTypes = assessorAny.generateWrongTypeParams(schema);
+      const generateWrongTypeParams = getPrivateMethod<
+        ErrorHandlingAssessor,
+        ReturnType<GenerateWrongTypeParamsFn>
+      >(assessor, "generateWrongTypeParams");
+      const wrongTypes = generateWrongTypeParams(schema);
 
       expect(typeof wrongTypes.text).toBe("number");
       expect(typeof wrongTypes.count).toBe("string");
@@ -430,8 +474,11 @@ describe("ErrorHandlingAssessor", () => {
         },
       };
 
-      const assessorAny = assessor as any;
-      const result = assessorAny.generateInvalidValueParams(schema);
+      const generateInvalidValueParams = getPrivateMethod<
+        ErrorHandlingAssessor,
+        ReturnType<GenerateInvalidValueParamsFn>
+      >(assessor, "generateInvalidValueParams");
+      const result = generateInvalidValueParams(schema);
 
       // Issue #173: Method now returns { params, testedParameter, parameterIsRequired }
       expect(result.params.choice).toBe("not_in_enum");

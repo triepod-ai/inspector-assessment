@@ -965,7 +965,7 @@ echo "Hello World"
 
     it("should handle undefined tools gracefully", async () => {
       // Arrange
-      mockContext.tools = undefined as any;
+      mockContext.tools = undefined as unknown as Tool[];
 
       // Act
       const result = await assessor.assess(mockContext);

@@ -281,7 +281,10 @@ describe("FunctionalityAssessor", () => {
         },
       };
 
-      const input = assessor["generateTestInput"](schema) as any;
+      const input = assessor["generateTestInput"](schema) as Record<
+        string,
+        unknown
+      >;
       expect(input).toHaveProperty("nested");
       expect(input.nested).toHaveProperty("value");
       expect(typeof input.nested.value).toBe("string");

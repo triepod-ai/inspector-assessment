@@ -361,7 +361,7 @@ describe("Architecture & Behavior Integration - Critical Bug Hunting", () => {
         manifestJson: {
           dependencies: {
             "valid-package": "1.0.0",
-            "broken-ref": null as any, // Broken reference
+            "broken-ref": null as unknown as string, // Broken reference (Issue #186)
           },
         },
       };

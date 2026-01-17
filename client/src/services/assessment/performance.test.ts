@@ -292,7 +292,7 @@ describePerf("Assessment Performance Benchmarks", () => {
 
       // Create multiple concurrent assessments
       const concurrentCount = 5;
-      const assessmentPromises: Promise<any>[] = [];
+      const assessmentPromises: Promise<unknown>[] = [];
 
       const startTime = performance.now();
 
@@ -548,39 +548,41 @@ describePerf("Assessment Performance Benchmarks", () => {
 
       const stressCallTool = jest
         .fn()
-        .mockImplementation((toolName: string, _params: any) => {
-          // Simulate varying load conditions
-          const complexity = Math.random();
-          let delay: number;
+        .mockImplementation(
+          (toolName: string, _params: Record<string, unknown>) => {
+            // Simulate varying load conditions
+            const complexity = Math.random();
+            let delay: number;
 
-          if (complexity < 0.1) {
-            // 10% very slow responses (simulating external API calls)
-            delay = 200 + Math.random() * 300;
-          } else if (complexity < 0.3) {
-            // 20% medium responses
-            delay = 50 + Math.random() * 100;
-          } else {
-            // 70% fast responses
-            delay = 5 + Math.random() * 20;
-          }
+            if (complexity < 0.1) {
+              // 10% very slow responses (simulating external API calls)
+              delay = 200 + Math.random() * 300;
+            } else if (complexity < 0.3) {
+              // 20% medium responses
+              delay = 50 + Math.random() * 100;
+            } else {
+              // 70% fast responses
+              delay = 5 + Math.random() * 20;
+            }
 
-          return new Promise((resolve, reject) => {
-            setTimeout(() => {
-              // Occasionally fail to simulate real-world conditions
-              if (Math.random() < 0.05) {
-                // 5% failure rate
-                reject(new Error(`Stress-induced failure in ${toolName}`));
-              } else {
-                resolve(
-                  createMockCallToolResponse(
-                    `Stress response from ${toolName}`,
-                    false,
-                  ),
-                );
-              }
-            }, delay);
-          });
-        });
+            return new Promise((resolve, reject) => {
+              setTimeout(() => {
+                // Occasionally fail to simulate real-world conditions
+                if (Math.random() < 0.05) {
+                  // 5% failure rate
+                  reject(new Error(`Stress-induced failure in ${toolName}`));
+                } else {
+                  resolve(
+                    createMockCallToolResponse(
+                      `Stress response from ${toolName}`,
+                      false,
+                    ),
+                  );
+                }
+              }, delay);
+            });
+          },
+        );
 
       const startTime = performance.now();
       const initialMemory = process.memoryUsage();
