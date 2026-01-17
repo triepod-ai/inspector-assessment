@@ -30,6 +30,25 @@ import {
   CompatibilityCallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 
+/**
+ * Extended Tool type with optional outputSchema (MCP 2025-06-18 feature)
+ * This type is not yet in the SDK but is used in some MCP servers
+ */
+type ToolWithOutputSchema = Tool & {
+  outputSchema?: Record<string, unknown>;
+};
+
+/**
+ * Property schema type for JSON Schema validation
+ */
+interface PropertySchema {
+  type?: string;
+  description?: string;
+  enum?: unknown[];
+  minimum?: number;
+  maximum?: number;
+}
+
 export class MCPAssessmentService {
   private config: AssessmentConfiguration;
   private startTime: number = 0;
@@ -287,7 +306,7 @@ export class MCPAssessmentService {
     const recommendations = [...metrics.missingExamples];
     if (
       !hasOutputSchemaDocumentation &&
-      tools?.some((t: any) => t.outputSchema)
+      tools?.some((t) => (t as ToolWithOutputSchema).outputSchema)
     ) {
       recommendations.push(
         "Consider documenting structured output (outputSchema) for tools that support it",
@@ -383,7 +402,9 @@ export class MCPAssessmentService {
     }
 
     // Check if any tools have outputSchema
-    const toolsWithOutputSchema = tools.filter((t: any) => t.outputSchema);
+    const toolsWithOutputSchema = tools.filter(
+      (t) => (t as ToolWithOutputSchema).outputSchema,
+    );
     if (toolsWithOutputSchema.length === 0) {
       // No tools with outputSchema, so documentation not needed
       return true;
@@ -455,7 +476,7 @@ export class MCPAssessmentService {
       const schemaAnalysis = this.analyzeToolSchema(tool);
 
       // Check for outputSchema (MCP 2025-06-18 feature)
-      const hasOutputSchema = !!(tool as any).outputSchema;
+      const hasOutputSchema = !!(tool as ToolWithOutputSchema).outputSchema;
 
       toolAnalysis.push({
         toolName: tool.name,
@@ -796,12 +817,12 @@ export class MCPAssessmentService {
     let goodDescriptions = 0;
 
     for (const [name, prop] of Object.entries(properties)) {
-      const propSchema = prop as any;
+      const propSchema = prop as PropertySchema;
       const hasDesc = !!propSchema.description;
 
       if (hasDesc) {
         descriptionsCount++;
-        if (propSchema.description.length > 20) {
+        if (propSchema.description && propSchema.description.length > 20) {
           goodDescriptions++;
         }
       }

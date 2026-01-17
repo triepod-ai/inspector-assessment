@@ -22,6 +22,16 @@ import {
 } from "./config/performanceConfig";
 import { executeWithTimeout } from "./lib/timeoutUtils";
 
+/**
+ * Schema property definition for minimal value generation
+ * Represents a single property from a JSON Schema
+ */
+interface SchemaProperty {
+  type?: string;
+  enum?: unknown[];
+  minimum?: number;
+}
+
 export interface ScenarioTestResult {
   scenario: TestScenario;
   executed: boolean;
@@ -187,7 +197,9 @@ export class TestScenarioEngine {
       for (const requiredField of tool.inputSchema.required) {
         const schema = tool.inputSchema.properties[requiredField];
         if (schema) {
-          params[requiredField] = this.generateMinimalValue(schema as any);
+          params[requiredField] = this.generateMinimalValue(
+            schema as SchemaProperty,
+          );
         }
       }
     }
@@ -212,7 +224,7 @@ export class TestScenarioEngine {
         if (schema) {
           params[requiredField] = TestDataGenerator.generateSingleValue(
             requiredField,
-            schema as any,
+            schema as SchemaProperty,
           );
         }
       }
@@ -224,7 +236,7 @@ export class TestScenarioEngine {
   /**
    * Generate minimal value for a schema
    */
-  private generateMinimalValue(schema: any): unknown {
+  private generateMinimalValue(schema: SchemaProperty): unknown {
     switch (schema.type) {
       case "string":
         return schema.enum ? schema.enum[0] : "test";

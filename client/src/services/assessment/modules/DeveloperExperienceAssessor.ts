@@ -757,7 +757,7 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
       if (!schema?.properties) continue;
 
       for (const [paramName, paramDef] of Object.entries(
-        schema.properties as Record<string, any>,
+        schema.properties as Record<string, { description?: string }>,
       )) {
         if (this.isDescriptiveName(paramName)) {
           clearCount++;
@@ -814,7 +814,10 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
 
       if (schema?.properties) {
         for (const prop of Object.values(
-          schema.properties as Record<string, any>,
+          schema.properties as Record<
+            string,
+            { enum?: unknown[]; minimum?: number; maximum?: number }
+          >,
         )) {
           if (
             prop.enum ||
