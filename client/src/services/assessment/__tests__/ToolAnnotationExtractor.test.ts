@@ -130,8 +130,8 @@ describe("ToolAnnotationExtractor", () => {
               properties: {},
             },
             annotations: {
-              readOnlyHint: "true" as any, // String instead of boolean
-              openWorldHint: "false" as any, // String instead of boolean
+              readOnlyHint: "true" as unknown as boolean, // String instead of boolean
+              openWorldHint: "false" as unknown as boolean, // String instead of boolean
             },
           } as Tool,
         ];
@@ -164,8 +164,8 @@ describe("ToolAnnotationExtractor", () => {
               properties: {},
             },
             annotations: {
-              readOnlyHint: 1 as any, // Number instead of boolean
-              destructiveHint: 0 as any, // Number instead of boolean
+              readOnlyHint: 1 as unknown as boolean, // Number instead of boolean
+              destructiveHint: 0 as unknown as boolean, // Number instead of boolean
             },
           } as Tool,
         ];
@@ -190,8 +190,8 @@ describe("ToolAnnotationExtractor", () => {
               properties: {},
             },
             annotations: {
-              readOnlyHint: null as any, // null instead of boolean
-              idempotentHint: null as any, // null instead of boolean
+              readOnlyHint: null as unknown as boolean, // null instead of boolean
+              idempotentHint: null as unknown as boolean, // null instead of boolean
             },
           } as Tool,
         ];
@@ -240,8 +240,8 @@ describe("ToolAnnotationExtractor", () => {
             },
             annotations: {
               readOnlyHint: true, // Valid boolean
-              destructiveHint: "false" as any, // Invalid string
-              idempotentHint: 1 as any, // Invalid number
+              destructiveHint: "false" as unknown as boolean, // Invalid string
+              idempotentHint: 1 as unknown as boolean, // Invalid number
               openWorldHint: false, // Valid boolean
             },
           } as Tool,
@@ -282,7 +282,7 @@ describe("ToolAnnotationExtractor", () => {
               properties: {},
             },
             annotations: {
-              readOnlyHint: "true" as any, // Invalid - causes source: "none"
+              readOnlyHint: "true" as unknown as boolean, // Invalid - causes source: "none"
             },
           } as Tool,
         ];

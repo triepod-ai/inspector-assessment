@@ -3,8 +3,25 @@ import {
   createMockAssessmentContext,
   createMockAssessmentConfig,
   createMockToolWithAnnotations,
+  ToolWithAnnotations,
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";
+
+// Extended tool type for testing non-standard metadata fields (Issue #186)
+interface ExtendedTestTool extends ToolWithAnnotations {
+  metadata?: {
+    rateLimit?: { requestsPerMinute?: number; requestsPerSecond?: number };
+    requiredPermission?: string | string[];
+    scopes?: string[];
+    supportsBulkOperations?: boolean;
+    maxBatchSize?: number;
+  };
+  outputSchema?: Record<string, unknown>;
+  requiredPermission?: string;
+  annotations?: ToolWithAnnotations["annotations"] & {
+    rateLimit?: { requestsPerMinute?: number; windowMs?: number };
+  };
+}
 
 describe("ToolAnnotationAssessor - Extended Metadata Extraction", () => {
   let assessor: ToolAnnotationAssessor;
@@ -49,7 +66,7 @@ describe("ToolAnnotationAssessor - Extended Metadata Extraction", () => {
               windowMs: 60000,
             },
           },
-        } as any,
+        } as ExtendedTestTool,
       ];
 
       const result = await assessor.assess(mockContext);
@@ -77,7 +94,7 @@ describe("ToolAnnotationAssessor - Extended Metadata Extraction", () => {
               requestsPerSecond: 10,
             },
           },
-        } as any,
+        } as ExtendedTestTool,
       ];
 
       const result = await assessor.assess(mockContext);
@@ -103,7 +120,7 @@ describe("ToolAnnotationAssessor - Extended Metadata Extraction", () => {
             requiredPermission: ["admin:read", "admin:write"],
             scopes: ["org:admin"],
           },
-        } as any,
+        } as ExtendedTestTool,
       ];
 
       const result = await assessor.assess(mockContext);
@@ -125,7 +142,7 @@ describe("ToolAnnotationAssessor - Extended Metadata Extraction", () => {
             destructiveHint: false,
           }),
           requiredPermission: "user:read",
-        } as any,
+        } as ExtendedTestTool,
       ];
 
       const result = await assessor.assess(mockContext);
@@ -150,7 +167,7 @@ describe("ToolAnnotationAssessor - Extended Metadata Extraction", () => {
               result: { type: "string" },
             },
           },
-        } as any,
+        } as ExtendedTestTool,
       ];
 
       const result = await assessor.assess(mockContext);
@@ -180,7 +197,7 @@ describe("ToolAnnotationAssessor - Extended Metadata Extraction", () => {
             supportsBulkOperations: true,
             maxBatchSize: 100,
           },
-        } as any,
+        } as ExtendedTestTool,
       ];
 
       const result = await assessor.assess(mockContext);
@@ -221,7 +238,7 @@ describe("ToolAnnotationAssessor - Extended Metadata Extraction", () => {
             destructiveHint: false,
           }),
           metadata: { rateLimit: { requestsPerMinute: 10 } },
-        } as any,
+        } as ExtendedTestTool,
         {
           ...createMockToolWithAnnotations({
             name: "tool_with_permissions",
@@ -230,7 +247,7 @@ describe("ToolAnnotationAssessor - Extended Metadata Extraction", () => {
             destructiveHint: false,
           }),
           metadata: { requiredPermission: "admin" },
-        } as any,
+        } as ExtendedTestTool,
         {
           ...createMockToolWithAnnotations({
             name: "tool_with_schema",
@@ -239,7 +256,7 @@ describe("ToolAnnotationAssessor - Extended Metadata Extraction", () => {
             destructiveHint: false,
           }),
           outputSchema: { type: "object" },
-        } as any,
+        } as ExtendedTestTool,
         {
           ...createMockToolWithAnnotations({
             name: "tool_with_bulk",
@@ -248,7 +265,7 @@ describe("ToolAnnotationAssessor - Extended Metadata Extraction", () => {
             destructiveHint: false,
           }),
           metadata: { supportsBulkOperations: true },
-        } as any,
+        } as ExtendedTestTool,
       ];
 
       const result = await assessor.assess(mockContext);

@@ -5,6 +5,25 @@
 
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { TestDataGenerator } from "../TestDataGenerator";
+import { PartialToolSchema } from "@/test/utils/testUtils";
+
+// Type definitions for TestDataGenerator methods (Issue #186)
+type BoundaryScenario = {
+  name: string;
+  params: Record<string, unknown>;
+  category?: string;
+};
+type GenerateBoundaryFn = (tool: Tool) => BoundaryScenario[];
+type GenerateScenariosFn = (tool: Tool) => BoundaryScenario[];
+
+// Type-safe accessor for static methods
+const generateBoundaryScenarios = (
+  TestDataGenerator as unknown as Record<string, GenerateBoundaryFn>
+).generateBoundaryScenarios.bind(TestDataGenerator);
+
+const generateTestScenarios = (
+  TestDataGenerator as unknown as Record<string, GenerateScenariosFn>
+).generateTestScenarios.bind(TestDataGenerator);
 
 describe("TestDataGenerator - Boundary Scenario Optimization", () => {
   afterEach(() => {
@@ -37,9 +56,7 @@ describe("TestDataGenerator - Boundary Scenario Optimization", () => {
         },
       };
 
-      const scenarios = (TestDataGenerator as any).generateBoundaryScenarios(
-        toolWithoutConstraints,
-      );
+      const scenarios = generateBoundaryScenarios(toolWithoutConstraints);
 
       expect(scenarios).toEqual([]);
       expect(scenarios.length).toBe(0);
@@ -62,9 +79,7 @@ describe("TestDataGenerator - Boundary Scenario Optimization", () => {
         },
       };
 
-      const scenarios = (TestDataGenerator as any).generateBoundaryScenarios(
-        toolWithMinimum,
-      );
+      const scenarios = generateBoundaryScenarios(toolWithMinimum);
 
       expect(scenarios.length).toBeGreaterThan(0);
       expect(scenarios[0].name).toBe("Boundary - age at minimum");
@@ -88,9 +103,7 @@ describe("TestDataGenerator - Boundary Scenario Optimization", () => {
         },
       };
 
-      const scenarios = (TestDataGenerator as any).generateBoundaryScenarios(
-        toolWithMaximum,
-      );
+      const scenarios = generateBoundaryScenarios(toolWithMaximum);
 
       expect(scenarios.length).toBeGreaterThan(0);
       expect(scenarios[0].name).toBe("Boundary - percentage at maximum");
@@ -115,9 +128,7 @@ describe("TestDataGenerator - Boundary Scenario Optimization", () => {
         },
       };
 
-      const scenarios = (TestDataGenerator as any).generateBoundaryScenarios(
-        toolWithStringLengths,
-      );
+      const scenarios = generateBoundaryScenarios(toolWithStringLengths);
 
       expect(scenarios.length).toBe(2); // min and max length
       expect(
@@ -157,9 +168,7 @@ describe("TestDataGenerator - Boundary Scenario Optimization", () => {
         },
       };
 
-      const scenarios = (TestDataGenerator as any).generateBoundaryScenarios(
-        mixedTool,
-      );
+      const scenarios = generateBoundaryScenarios(mixedTool);
 
       expect(scenarios.length).toBe(2); // min and max for priority field only
       expect(scenarios.every((s) => s.name.includes("priority"))).toBe(true);
@@ -174,9 +183,7 @@ describe("TestDataGenerator - Boundary Scenario Optimization", () => {
         },
       };
 
-      const scenarios = (TestDataGenerator as any).generateBoundaryScenarios(
-        toolWithoutProperties,
-      );
+      const scenarios = generateBoundaryScenarios(toolWithoutProperties);
 
       expect(scenarios).toEqual([]);
     });
@@ -187,12 +194,10 @@ describe("TestDataGenerator - Boundary Scenario Optimization", () => {
         description: "A tool with array schema",
         inputSchema: {
           type: "array",
-        } as any,
+        } as PartialToolSchema as Tool["inputSchema"],
       };
 
-      const scenarios = (TestDataGenerator as any).generateBoundaryScenarios(
-        toolWithNonObjectSchema,
-      );
+      const scenarios = generateBoundaryScenarios(toolWithNonObjectSchema);
 
       expect(scenarios).toEqual([]);
     });
@@ -215,14 +220,12 @@ describe("TestDataGenerator - Boundary Scenario Optimization", () => {
         },
       };
 
-      const scenarios = (TestDataGenerator as any).generateTestScenarios(
-        simpleToolWithoutConstraints,
-      );
+      const scenarios = generateTestScenarios(simpleToolWithoutConstraints);
 
       // Should have: happy path, edge cases, error case
       // Should NOT have: boundary scenarios
       const boundaryScenarios = scenarios.filter(
-        (s: any) => s.category === "boundary",
+        (s: BoundaryScenario) => s.category === "boundary",
       );
       expect(boundaryScenarios.length).toBe(0);
     });
@@ -245,13 +248,11 @@ describe("TestDataGenerator - Boundary Scenario Optimization", () => {
         },
       };
 
-      const scenarios = (TestDataGenerator as any).generateTestScenarios(
-        toolWithConstraints,
-      );
+      const scenarios = generateTestScenarios(toolWithConstraints);
 
       // Should have: happy path, edge cases, boundary scenarios, error case
       const boundaryScenarios = scenarios.filter(
-        (s: any) => s.category === "boundary",
+        (s: BoundaryScenario) => s.category === "boundary",
       );
       expect(boundaryScenarios.length).toBe(2); // min and max
     });
