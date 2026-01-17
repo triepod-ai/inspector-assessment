@@ -5,6 +5,23 @@ import {
   createMockManifestJson,
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";
+import { ManifestJsonSchema } from "@/lib/assessmentTypes";
+
+// Partial manifest type for testing missing required fields (Issue #186)
+type PartialManifest = Partial<ManifestJsonSchema>;
+
+// Author object type for testing edge cases (Issue #186)
+interface AuthorObject {
+  name?: string | null;
+  email?: string | null;
+  url?: string | null;
+}
+
+// MCP config partial type for testing missing command (Issue #186)
+interface PartialMcpConfig {
+  args?: string[];
+  command?: string;
+}
 
 describe("ManifestValidationAssessor", () => {
   let assessor: ManifestValidationAssessor;
@@ -81,8 +98,8 @@ describe("ManifestValidationAssessor", () => {
     it("should fail when manifest_version is missing", async () => {
       // Arrange
       mockContext.manifestJson = createMockManifestJson({
-        manifest_version: undefined as any,
-      });
+        manifest_version: undefined,
+      } as PartialManifest);
 
       // Act
       const result = await assessor.assess(mockContext);
@@ -119,8 +136,8 @@ describe("ManifestValidationAssessor", () => {
     it("should fail when name is missing", async () => {
       // Arrange
       mockContext.manifestJson = createMockManifestJson({
-        name: undefined as any,
-      });
+        name: undefined,
+      } as PartialManifest);
 
       // Act
       const result = await assessor.assess(mockContext);
@@ -133,8 +150,8 @@ describe("ManifestValidationAssessor", () => {
     it("should fail when version is missing", async () => {
       // Arrange
       mockContext.manifestJson = createMockManifestJson({
-        version: undefined as any,
-      });
+        version: undefined,
+      } as PartialManifest);
 
       // Act
       const result = await assessor.assess(mockContext);
@@ -147,8 +164,8 @@ describe("ManifestValidationAssessor", () => {
     it("should fail when mcp_config is missing", async () => {
       // Arrange
       mockContext.manifestJson = createMockManifestJson({
-        mcp_config: undefined as any,
-      });
+        mcp_config: undefined,
+      } as PartialManifest);
 
       // Act
       const result = await assessor.assess(mockContext);
@@ -179,7 +196,9 @@ describe("ManifestValidationAssessor", () => {
     it("should fail when mcp_config.command is missing", async () => {
       // Arrange
       mockContext.manifestJson = createMockManifestJson({
-        mcp_config: { args: ["index.js"] } as any,
+        mcp_config: {
+          args: ["index.js"],
+        } as PartialMcpConfig as ManifestJsonSchema["mcp_config"],
       });
 
       // Act
@@ -508,7 +527,7 @@ describe("ManifestValidationAssessor", () => {
           mcp_config: {
             args: ["index.js"],
             // Note: no command
-          } as any,
+          } as PartialMcpConfig,
         },
         icon: "icon.png",
       };
@@ -807,7 +826,7 @@ describe("ManifestValidationAssessor", () => {
           manifest_version: "0.3",
           name: "test-server",
           mcp_config: { command: "test" },
-        } as any;
+        } as PartialManifest as ManifestJsonSchema;
 
         const result = await assessor.assess(mockContext);
 
@@ -980,9 +999,9 @@ describe("ManifestValidationAssessor", () => {
             mcp_config: { command: "test" },
             author: {
               name: "John Doe",
-              email: null as any,
-              url: null as any,
-            },
+              email: null,
+              url: null,
+            } as AuthorObject,
           };
 
           const result = await assessor.assess(mockContext);
@@ -1026,7 +1045,7 @@ describe("ManifestValidationAssessor", () => {
             name: "test-server",
             version: "1.0.0",
             mcp_config: { command: "test" },
-            author: {} as any,
+            author: {} as AuthorObject,
           };
 
           const result = await assessor.assess(mockContext);

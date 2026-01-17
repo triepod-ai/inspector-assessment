@@ -3,8 +3,17 @@ import {
   createMockAssessmentConfig,
   createMockTool,
   createMockCallToolResponse,
+  getPrivateProperty,
 } from "@/test/utils/testUtils";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+
+// Type for accessing private registry (Issue #186)
+interface AssessorRegistry {
+  isRegistered(name: string): boolean;
+  resetAllTestCounts(): void;
+  getToolCountForContext(context: { tools: Tool[] }): number;
+  getAssessor(name: string): unknown;
+}
 
 describe("AssessmentOrchestrator Integration Tests", () => {
   let orchestrator: AssessmentOrchestrator;
@@ -49,25 +58,27 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       const mockCallTool = jest
         .fn()
-        .mockImplementation((name: string, _params: any) => {
-          // Simulate varied responses based on tool and parameters
-          if (name === "getUserData") {
-            return createMockCallToolResponse(
-              "User data retrieved successfully",
-              false,
-            );
-          }
-          if (name === "processPayment") {
-            return createMockCallToolResponse(
-              "Payment processed securely",
-              false,
-            );
-          }
-          if (name === "generateReport") {
-            return createMockCallToolResponse("Report generated", false);
-          }
-          return createMockCallToolResponse("Operation completed", false);
-        });
+        .mockImplementation(
+          (name: string, _params: Record<string, unknown>) => {
+            // Simulate varied responses based on tool and parameters
+            if (name === "getUserData") {
+              return createMockCallToolResponse(
+                "User data retrieved successfully",
+                false,
+              );
+            }
+            if (name === "processPayment") {
+              return createMockCallToolResponse(
+                "Payment processed securely",
+                false,
+              );
+            }
+            if (name === "generateReport") {
+              return createMockCallToolResponse("Report generated", false);
+            }
+            return createMockCallToolResponse("Operation completed", false);
+          },
+        );
 
       const mockServerInfo = {
         name: "comprehensive-test-server",
@@ -154,7 +165,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       const mockCallTool = jest
         .fn()
-        .mockImplementation((name: string, params: any) => {
+        .mockImplementation((name: string, params: Record<string, unknown>) => {
           // Simulate vulnerable responses
           if (name === "executeCommand" && params.command) {
             if (params.command.includes("rm -rf")) {
@@ -244,7 +255,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       const mockCallTool = jest
         .fn()
-        .mockImplementation((name: string, params: any) => {
+        .mockImplementation((name: string, params: Record<string, unknown>) => {
           if (name === "authenticateUser") {
             if (!params.username || !params.password || !params.mfaToken) {
               return createMockCallToolResponse(
@@ -567,7 +578,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
         name: null,
         version: undefined,
         metadata: "invalid",
-      } as any;
+      } as unknown;
 
       // Act
       const result = await orchestrator.assess(
@@ -688,7 +699,10 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       const skipOrchestrator = new AssessmentOrchestrator(config);
 
       // Assert - Use registry to check assessor registration (Issue #91)
-      const registry = (skipOrchestrator as any).registry;
+      const registry = getPrivateProperty<
+        AssessmentOrchestrator,
+        AssessorRegistry
+      >(skipOrchestrator, "registry");
 
       // Verify skipped assessors are not registered
       expect(registry.isRegistered("functionality")).toBe(false);
@@ -756,7 +770,10 @@ describe("AssessmentOrchestrator Integration Tests", () => {
       // Act & Assert - Should not throw when calling registry.resetAllTestCounts
       // (Issue #91: resetAllTestCounts moved to registry)
       expect(() => {
-        (skipOrchestrator as any).registry.resetAllTestCounts();
+        getPrivateProperty<AssessmentOrchestrator, AssessorRegistry>(
+          skipOrchestrator,
+          "registry",
+        ).resetAllTestCounts();
       }).not.toThrow();
     });
 
@@ -804,7 +821,10 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       // Act
       const whitelistOrchestrator = new AssessmentOrchestrator(config);
-      const registry = (whitelistOrchestrator as any).registry;
+      const registry = getPrivateProperty<
+        AssessmentOrchestrator,
+        AssessorRegistry
+      >(whitelistOrchestrator, "registry");
 
       // Assert - Only security and documentation should be registered
       // (Issue #91: Use registry.isRegistered() instead of direct property access)

@@ -395,7 +395,7 @@ describe("ManifestValidationAssessor - Unit Tests (Stage 3 Fixes)", () => {
 
       // HEAD fails all attempts, GET succeeds
       (global.fetch as jest.Mock).mockImplementation(
-        (url: string, options: any) => {
+        (url: string, options: RequestInit) => {
           if (options.method === "HEAD") {
             return Promise.reject(headError);
           }

@@ -13,6 +13,14 @@ import { DEFAULT_ASSESSMENT_CONFIG } from "@/lib/assessmentTypes";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { determineOverallStatus } from "../orchestratorHelpers";
 import { calculateModuleScore } from "@/lib/moduleScoring";
+import { getPrivateProperty } from "@/test/utils/testUtils";
+
+// Type for accessing private registry (Issue #186)
+interface AssessorRegistry {
+  isRegistered(name: string): boolean;
+  getToolCountForContext(context: { tools: Tool[] }): number;
+  getAssessor(name: string): unknown;
+}
 
 // Helper to create mock tools
 const createMockTools = (count: number): Tool[] =>
@@ -164,7 +172,10 @@ describe("AssessmentOrchestrator constructor", () => {
       const config = orchestrator.getConfig();
       expect(config.assessmentCategories?.protocolCompliance).toBe(true);
       // Verify assessor is registered via registry (Issue #91)
-      const registry = (orchestrator as any).registry;
+      const registry = getPrivateProperty<
+        AssessmentOrchestrator,
+        AssessorRegistry
+      >(orchestrator, "registry");
       expect(registry.isRegistered("protocolCompliance")).toBe(true);
     });
 
@@ -186,7 +197,10 @@ describe("AssessmentOrchestrator constructor", () => {
       const config = orchestrator.getConfig();
       expect(config.assessmentCategories?.mcpSpecCompliance).toBe(true);
       // The unified assessor should be registered due to BC OR logic (Issue #91)
-      const registry = (orchestrator as any).registry;
+      const registry = getPrivateProperty<
+        AssessmentOrchestrator,
+        AssessorRegistry
+      >(orchestrator, "registry");
       expect(registry.isRegistered("protocolCompliance")).toBe(true);
     });
 
@@ -208,7 +222,10 @@ describe("AssessmentOrchestrator constructor", () => {
       const config = orchestrator.getConfig();
       expect(config.assessmentCategories?.protocolConformance).toBe(true);
       // The unified assessor should be registered due to BC OR logic (Issue #91)
-      const registry = (orchestrator as any).registry;
+      const registry = getPrivateProperty<
+        AssessmentOrchestrator,
+        AssessorRegistry
+      >(orchestrator, "registry");
       expect(registry.isRegistered("protocolCompliance")).toBe(true);
     });
 
@@ -228,7 +245,10 @@ describe("AssessmentOrchestrator constructor", () => {
       });
 
       // No protocol assessor should be registered (Issue #91)
-      const registry = (orchestrator as any).registry;
+      const registry = getPrivateProperty<
+        AssessmentOrchestrator,
+        AssessorRegistry
+      >(orchestrator, "registry");
       expect(registry.isRegistered("protocolCompliance")).toBe(false);
     });
 
@@ -248,7 +268,10 @@ describe("AssessmentOrchestrator constructor", () => {
       });
 
       // Should have exactly one assessor registered (Issue #91)
-      const registry = (orchestrator as any).registry;
+      const registry = getPrivateProperty<
+        AssessmentOrchestrator,
+        AssessorRegistry
+      >(orchestrator, "registry");
       expect(registry.isRegistered("protocolCompliance")).toBe(true);
       // Verify it's a single instance via getAssessor
       const assessor = registry.getAssessor("protocolCompliance");
@@ -337,7 +360,10 @@ describe("getToolCountForTesting (via registry)", () => {
     orchestrator: AssessmentOrchestrator,
     tools: Tool[],
   ): number => {
-    const registry = (orchestrator as any).registry;
+    const registry = getPrivateProperty<
+      AssessmentOrchestrator,
+      AssessorRegistry
+    >(orchestrator, "registry");
     // Create a minimal context with tools
     return registry.getToolCountForContext({ tools });
   };
