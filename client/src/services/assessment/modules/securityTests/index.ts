@@ -13,11 +13,32 @@ export {
   type ConfidenceResult,
   type AnalysisResult,
   type ErrorClassification,
+  // Re-exported from extracted analyzers (Issue #179)
+  type AuthBypassResult,
   type StateBasedAuthResult,
+  type SecretLeakageResult,
   type ChainExploitationAnalysis,
   type ChainExecutionType,
   type ChainVulnerabilityCategory,
+  type ExcessivePermissionsScopeResult,
+  type BlacklistBypassResult,
+  type OutputInjectionResult,
+  type SessionManagementResult,
+  type CryptoFailureResult,
 } from "./SecurityResponseAnalyzer";
+
+// Direct analyzer exports for advanced usage (Issue #179)
+export {
+  AuthBypassAnalyzer,
+  StateBasedAuthAnalyzer,
+  SecretLeakageDetector,
+  ChainExploitationAnalyzer,
+  ExcessivePermissionsAnalyzer,
+  BlacklistBypassAnalyzer,
+  OutputInjectionAnalyzer,
+  SessionManagementAnalyzer,
+  CryptographicFailureAnalyzer,
+} from "./analyzers";
 
 export {
   SecurityPayloadTester,

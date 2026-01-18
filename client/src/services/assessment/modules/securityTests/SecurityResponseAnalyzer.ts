@@ -5,12 +5,26 @@
  * REFACTORED in Issue #53 (v2.0.0): Converted to facade pattern
  * Delegates to focused classes for maintainability (CC 218 → ~50)
  *
- * Extracted classes:
+ * REFACTORED in Issue #179: Extracted specialized vulnerability analyzers
+ * to separate modules for improved modularity and testability.
+ *
+ * Extracted classes (Issue #53):
  * - ErrorClassifier: Error classification and connection error detection
  * - ExecutionArtifactDetector: Execution evidence detection
  * - MathAnalyzer: Math computation detection (Calculator Injection)
  * - SafeResponseDetector: Safe response pattern detection
  * - ConfidenceScorer: Confidence level calculation
+ *
+ * Extracted analyzers (Issue #179):
+ * - AuthBypassAnalyzer: CVE-2025-52882, fail-open authentication
+ * - StateBasedAuthAnalyzer: Cross-tool state abuse
+ * - BlacklistBypassAnalyzer: Incomplete blacklist detection
+ * - OutputInjectionAnalyzer: Indirect prompt injection
+ * - SessionManagementAnalyzer: Session CWEs
+ * - CryptographicFailureAnalyzer: OWASP A02:2021
+ * - ChainExploitationAnalyzer: Multi-tool chains
+ * - ExcessivePermissionsAnalyzer: Scope violations
+ * - SecretLeakageDetector: Credential exposure
  */
 
 import {
@@ -21,38 +35,51 @@ import { SecurityPayload } from "@/lib/securityPatterns";
 import { ToolClassifier, ToolCategory } from "../../ToolClassifier";
 import type { SanitizationDetectionResult } from "./SanitizationDetector";
 
-// Import extracted classes
+// Import extracted classes (Issue #53)
 import { ErrorClassifier } from "./ErrorClassifier";
 import { ExecutionArtifactDetector } from "./ExecutionArtifactDetector";
 import { MathAnalyzer, MathResultAnalysis } from "./MathAnalyzer";
 import { SafeResponseDetector } from "./SafeResponseDetector";
 import { ConfidenceScorer, ConfidenceResult } from "./ConfidenceScorer";
 
-// Import pattern library for chain exploitation analysis
+// Import extracted analyzers (Issue #179)
 import {
-  CHAIN_EXPLOIT_VULNERABLE_PATTERNS,
-  CHAIN_EXPLOIT_SAFE_PATTERNS,
-  CHAIN_VULNERABLE_THRESHOLD,
-  CHAIN_SAFE_THRESHOLD,
-  detectVulnerabilityCategories,
-  // Issue #144: Excessive permissions scope patterns (Challenge #22)
-  SCOPE_VIOLATION_PATTERNS,
-  SCOPE_ENFORCED_PATTERNS,
-  // Issue #146: Error context patterns for false positive reduction
+  AuthBypassAnalyzer,
+  StateBasedAuthAnalyzer,
+  SecretLeakageDetector,
+  ChainExploitationAnalyzer,
+  ExcessivePermissionsAnalyzer,
+  BlacklistBypassAnalyzer,
+  OutputInjectionAnalyzer,
+  SessionManagementAnalyzer,
+  CryptographicFailureAnalyzer,
+} from "./analyzers";
+
+// Import pattern library for Issue #146 context classification
+import {
   isPayloadInErrorContext,
   hasSuccessContext,
   hasErrorContext,
-  // Issue #75: Auth bypass patterns (CVE-2025-52882)
-  AUTH_FAIL_OPEN_PATTERNS,
-  AUTH_FAIL_CLOSED_PATTERNS,
-  // Issue #92: State-based auth patterns (Challenge #7)
-  STATE_AUTH_VULNERABLE_PATTERNS,
-  STATE_AUTH_SAFE_PATTERNS,
 } from "./SecurityPatternLibrary";
 
 // Re-export types for backward compatibility
 export type { ConfidenceResult } from "./ConfidenceScorer";
 export type { MathResultAnalysis } from "./MathAnalyzer";
+
+// Re-export analyzer result types for backward compatibility (Issue #179)
+export type { AuthBypassResult } from "./analyzers/AuthBypassAnalyzer";
+export type { StateBasedAuthResult } from "./analyzers/StateBasedAuthAnalyzer";
+export type { SecretLeakageResult } from "./analyzers/SecretLeakageDetector";
+export type {
+  ChainExploitationAnalysis,
+  ChainExecutionType,
+  ChainVulnerabilityCategory,
+} from "./analyzers/ChainExploitationAnalyzer";
+export type { ExcessivePermissionsScopeResult } from "./analyzers/ExcessivePermissionsAnalyzer";
+export type { BlacklistBypassResult } from "./analyzers/BlacklistBypassAnalyzer";
+export type { OutputInjectionResult } from "./analyzers/OutputInjectionAnalyzer";
+export type { SessionManagementResult } from "./analyzers/SessionManagementAnalyzer";
+export type { CryptoFailureResult } from "./analyzers/CryptographicFailureAnalyzer";
 
 /**
  * Result of response analysis
@@ -60,157 +87,6 @@ export type { MathResultAnalysis } from "./MathAnalyzer";
 export interface AnalysisResult {
   isVulnerable: boolean;
   evidence?: string;
-}
-
-/**
- * Result of auth bypass response analysis (Issue #75)
- * Detects fail-open authentication vulnerabilities (CVE-2025-52882)
- */
-export interface AuthBypassResult {
-  detected: boolean;
-  failureMode: "FAIL_OPEN" | "FAIL_CLOSED" | "UNKNOWN";
-  evidence?: string;
-}
-
-/**
- * Result of cross-tool state-based auth bypass analysis (Issue #92, Challenge #7)
- * Detects privilege escalation via shared mutable state between tools
- */
-export interface StateBasedAuthResult {
-  vulnerable: boolean;
-  safe: boolean;
-  stateDependency: "SHARED_STATE" | "INDEPENDENT" | "UNKNOWN";
-  evidence: string;
-}
-
-/**
- * Result of blacklist bypass response analysis (Issue #110, Challenge #11)
- * Detects incomplete blacklist security controls being bypassed
- */
-export interface BlacklistBypassResult {
-  detected: boolean;
-  bypassType: "BLACKLIST_BYPASS" | "ALLOWLIST_BLOCKED" | "UNKNOWN";
-  bypassMethod?: string;
-  evidence?: string;
-}
-
-/**
- * Result of output injection response analysis (Issue #110, Challenge #8)
- * Detects indirect prompt injection via unsanitized tool output
- */
-export interface OutputInjectionResult {
-  detected: boolean;
-  injectionType:
-    | "LLM_INJECTION_MARKERS"
-    | "RAW_CONTENT_INCLUDED"
-    | "SANITIZED"
-    | "UNKNOWN";
-  markers?: string[];
-  evidence?: string;
-}
-
-/**
- * Result of session management vulnerability analysis (Issue #111, Challenge #12)
- * Detects 5 session management CWEs from mcp-vulnerable-testbed:
- * - CWE-384: Session Fixation (accepts external session ID, no regeneration)
- * - CWE-330: Predictable Tokens (session_{user}_{timestamp}_{counter})
- * - CWE-613: No Session Timeout (expires_at: null, timeout_checked: false)
- * - CWE-200: ID Exposure in URL (session_url contains session_id=)
- */
-export interface SessionManagementResult {
-  detected: boolean;
-  vulnerabilityType:
-    | "SESSION_FIXATION"
-    | "PREDICTABLE_TOKEN"
-    | "NO_TIMEOUT"
-    | "ID_IN_URL"
-    | "NO_REGENERATION"
-    | "UNKNOWN";
-  cweIds: string[];
-  evidence?: string;
-}
-
-/**
- * Result of cryptographic failure analysis (Issue #112, Challenge #13)
- * Detects OWASP A02:2021 Cryptographic Failures:
- * - CWE-328: Weak Hash (MD5/SHA1 for passwords)
- * - CWE-916: Static Salt / Weak KDF (static_salt_123, MD5 derivation)
- * - CWE-330: Predictable RNG (random.random() with timestamp seed)
- * - CWE-208: Timing Attack (non-constant-time comparison)
- * - CWE-327: Broken Cipher (ECB mode, XOR cipher)
- * - CWE-321: Hardcoded Key (key_source: "hardcoded")
- * - CWE-326: Weak Key Length (key_length < 16)
- */
-export interface CryptoFailureResult {
-  detected: boolean;
-  vulnerabilityType:
-    | "WEAK_HASH"
-    | "STATIC_SALT"
-    | "PREDICTABLE_RNG"
-    | "TIMING_ATTACK"
-    | "ECB_MODE"
-    | "HARDCODED_KEY"
-    | "WEAK_KDF"
-    | "WEAK_KEY_LENGTH"
-    | "UNKNOWN";
-  cweIds: string[];
-  evidence?: string;
-}
-
-/**
- * Result of excessive permissions scope analysis (Issue #144, Challenge #22)
- * Detects when tools exceed their declared annotation scope:
- * - CWE-250: Execution with Unnecessary Privileges (scope violation)
- * - CWE-269: Improper Privilege Management (scope escalation)
- */
-export interface ExcessivePermissionsScopeResult {
-  detected: boolean;
-  violationType:
-    | "SCOPE_VIOLATION" // Tool performed write/delete/execute despite readOnlyHint=True
-    | "SCOPE_ESCALATION" // Keyword triggered hidden admin mode
-    | "SAFE" // Tool properly enforced scope restrictions
-    | "UNKNOWN";
-  actualScope?: string; // e.g., "write", "delete", "execute", "network"
-  triggerPayload?: string; // e.g., "admin", "write_file"
-  cweIds: string[];
-  evidence?: string;
-}
-
-/**
- * Chain execution type classification (Issue #93, Challenge #6)
- */
-export type ChainExecutionType =
-  | "VULNERABLE_EXECUTION" // Chain actually executes tools with vulnerabilities
-  | "SAFE_VALIDATION" // Chain validated but not executed (hardened)
-  | "PARTIAL" // Mixed signals in response
-  | "UNKNOWN"; // Cannot determine chain behavior
-
-/**
- * Chain vulnerability categories (Issue #93, Challenge #6)
- */
-export type ChainVulnerabilityCategory =
-  | "OUTPUT_INJECTION" // {{output}} template injection between steps
-  | "RECURSIVE_CHAIN" // Self-referential chain execution (DoS)
-  | "ARBITRARY_TOOL_INVOCATION" // No tool allowlist validation
-  | "TOOL_SHADOWING" // Executes shadowed/poisoned tool definitions
-  | "MISSING_DEPTH_LIMIT" // No/bypassable chain depth limits
-  | "STATE_POISONING"; // Steps modify shared state affecting later steps
-
-/**
- * Result of chain exploitation analysis (Issue #93, Challenge #6)
- * Detects multi-tool chained exploitation attacks
- */
-export interface ChainExploitationAnalysis {
-  vulnerable: boolean;
-  safe: boolean;
-  chainType: ChainExecutionType;
-  vulnerabilityCategories: ChainVulnerabilityCategory[];
-  evidence: {
-    vulnerablePatterns: string[];
-    safePatterns: string[];
-    vulnerableScore: number;
-    safeScore: number;
-  };
 }
 
 /**
@@ -226,23 +102,46 @@ export type ErrorClassification = "connection" | "server" | "protocol";
  * while maintaining the same public API for backward compatibility.
  */
 export class SecurityResponseAnalyzer {
-  // Delegate classes
+  // Delegate classes (Issue #53)
   private errorClassifier: ErrorClassifier;
   private executionDetector: ExecutionArtifactDetector;
   private mathAnalyzer: MathAnalyzer;
   private safeDetector: SafeResponseDetector;
   private confidenceScorer: ConfidenceScorer;
 
+  // Specialized vulnerability analyzers (Issue #179)
+  private authBypassAnalyzer: AuthBypassAnalyzer;
+  private stateBasedAuthAnalyzer: StateBasedAuthAnalyzer;
+  private secretLeakageDetector: SecretLeakageDetector;
+  private chainExploitationAnalyzer: ChainExploitationAnalyzer;
+  private excessivePermissionsAnalyzer: ExcessivePermissionsAnalyzer;
+  private blacklistBypassAnalyzer: BlacklistBypassAnalyzer;
+  private outputInjectionAnalyzer: OutputInjectionAnalyzer;
+  private sessionManagementAnalyzer: SessionManagementAnalyzer;
+  private cryptographicFailureAnalyzer: CryptographicFailureAnalyzer;
+
   constructor() {
+    // Initialize delegate classes (Issue #53)
     this.errorClassifier = new ErrorClassifier();
     this.executionDetector = new ExecutionArtifactDetector();
     this.mathAnalyzer = new MathAnalyzer();
     this.safeDetector = new SafeResponseDetector();
     this.confidenceScorer = new ConfidenceScorer();
+
+    // Initialize specialized analyzers (Issue #179)
+    this.authBypassAnalyzer = new AuthBypassAnalyzer();
+    this.stateBasedAuthAnalyzer = new StateBasedAuthAnalyzer();
+    this.secretLeakageDetector = new SecretLeakageDetector();
+    this.chainExploitationAnalyzer = new ChainExploitationAnalyzer();
+    this.excessivePermissionsAnalyzer = new ExcessivePermissionsAnalyzer();
+    this.blacklistBypassAnalyzer = new BlacklistBypassAnalyzer();
+    this.outputInjectionAnalyzer = new OutputInjectionAnalyzer();
+    this.sessionManagementAnalyzer = new SessionManagementAnalyzer();
+    this.cryptographicFailureAnalyzer = new CryptographicFailureAnalyzer();
   }
 
   // ============================================================================
-  // PUBLIC API - These 8 methods maintain backward compatibility
+  // PUBLIC API - Core Analysis Methods
   // ============================================================================
 
   /**
@@ -285,7 +184,6 @@ export class SecurityResponseAnalyzer {
     );
 
     // Issue #146: If vulnerable, classify execution context to reduce false positives
-    // This distinguishes between actual execution and payload reflection in errors
     if (vulnResult.isVulnerable) {
       return this.classifyVulnerabilityContext(
         vulnResult,
@@ -318,863 +216,87 @@ export class SecurityResponseAnalyzer {
     );
   }
 
+  // ============================================================================
+  // DELEGATED SPECIALIZED ANALYZERS (Issue #179)
+  // ============================================================================
+
   /**
    * Analyze response for auth bypass patterns (Issue #75)
    * Detects fail-open authentication vulnerabilities (CVE-2025-52882)
    */
-  analyzeAuthBypassResponse(
-    response: CompatibilityCallToolResult,
-  ): AuthBypassResult {
-    const responseText = this.extractResponseContent(response);
-
-    // Check for fail-open (vulnerable) patterns first
-    for (const { pattern, evidence } of AUTH_FAIL_OPEN_PATTERNS) {
-      if (pattern.test(responseText)) {
-        return { detected: true, failureMode: "FAIL_OPEN", evidence };
-      }
-    }
-
-    // Check for fail-closed (safe) patterns
-    for (const { pattern, evidence } of AUTH_FAIL_CLOSED_PATTERNS) {
-      if (pattern.test(responseText)) {
-        return { detected: false, failureMode: "FAIL_CLOSED", evidence };
-      }
-    }
-
-    return { detected: false, failureMode: "UNKNOWN" };
+  analyzeAuthBypassResponse(response: CompatibilityCallToolResult) {
+    return this.authBypassAnalyzer.analyze(response);
   }
 
   /**
    * Analyze response for cross-tool state-based authorization bypass (Issue #92)
    * Detects Challenge #7: Privilege escalation via shared mutable state
-   *
-   * Vulnerable pattern: Tool checks shared state (e.g., config_state["admin_mode"])
-   * that can be modified by another tool (e.g., config_modifier)
-   *
-   * Safe pattern: Tool uses independent per-request authorization,
-   * indicated by shared_state_checked: false or independent_auth_required: true
    */
-  analyzeStateBasedAuthBypass(
-    response: CompatibilityCallToolResult,
-  ): StateBasedAuthResult {
-    const responseText = this.extractResponseContent(response);
-
-    // Check vulnerable patterns first (SHARED_STATE)
-    for (const { pattern, evidence } of STATE_AUTH_VULNERABLE_PATTERNS) {
-      if (pattern.test(responseText)) {
-        return {
-          vulnerable: true,
-          safe: false,
-          stateDependency: "SHARED_STATE",
-          evidence: `Cross-tool state dependency detected: ${evidence}`,
-        };
-      }
-    }
-
-    // Check safe patterns (INDEPENDENT)
-    for (const { pattern, evidence } of STATE_AUTH_SAFE_PATTERNS) {
-      if (pattern.test(responseText)) {
-        return {
-          vulnerable: false,
-          safe: true,
-          stateDependency: "INDEPENDENT",
-          evidence: `Independent authorization confirmed: ${evidence}`,
-        };
-      }
-    }
-
-    return {
-      vulnerable: false,
-      safe: false,
-      stateDependency: "UNKNOWN",
-      evidence: "",
-    };
+  analyzeStateBasedAuthBypass(response: CompatibilityCallToolResult) {
+    return this.stateBasedAuthAnalyzer.analyze(response);
   }
 
   /**
    * Analyze response for blacklist bypass patterns (Issue #110, Challenge #11)
    * Detects when incomplete blacklist security controls are bypassed
-   *
-   * This method extracts JSON metadata from tool responses to detect:
-   * - VULNERABLE: bypass_used: true, blacklist_check: "passed"
-   * - SAFE: execution_blocked: true, allowlist_used: true
-   *
-   * @param response The tool response to analyze
-   * @returns Analysis result with bypass detection status
    */
-  analyzeBlacklistBypassResponse(
-    response: CompatibilityCallToolResult,
-  ): BlacklistBypassResult {
-    const responseText = this.extractResponseContent(response);
-
-    // Vulnerable patterns - blacklist bypassed (Challenge #11)
-    const vulnerablePatterns = [
-      {
-        pattern: /"bypass_used"\s*:\s*true/i,
-        evidence: "bypass_used: true (blacklist bypassed)",
-      },
-      {
-        pattern: /"blacklist_check"\s*:\s*"passed"/i,
-        evidence: "blacklist_check: passed (command not blocked)",
-      },
-      {
-        // Combined pattern: vulnerable with bypass context
-        pattern:
-          /"vulnerable"\s*:\s*true[^}]*"bypass_used"|"bypass_used"[^}]*"vulnerable"\s*:\s*true/i,
-        evidence: "vulnerable flag with bypass context",
-      },
-      {
-        pattern: /"bypass_method"\s*:\s*"[^"]+"/i,
-        evidence: "bypass_method specified (blacklist circumvented)",
-      },
-      {
-        pattern: /incomplete\s+blacklist\s+allowed/i,
-        evidence: "evidence indicates incomplete blacklist",
-      },
-    ];
-
-    // Safe patterns - allowlist enforced or execution blocked (hardened)
-    const safePatterns = [
-      {
-        pattern: /"execution_blocked"\s*:\s*true/i,
-        evidence: "execution_blocked: true (secure)",
-      },
-      {
-        pattern: /"allowlist_used"\s*:\s*true/i,
-        evidence: "allowlist_used: true (secure pattern)",
-      },
-      {
-        pattern: /"allowlist_enforced"\s*:\s*true/i,
-        evidence: "allowlist_enforced: true (secure)",
-      },
-      {
-        pattern: /"blacklist_used"\s*:\s*false/i,
-        evidence: "blacklist_used: false (allowlist pattern)",
-      },
-      {
-        pattern: /"status"\s*:\s*"pending_review"/i,
-        evidence: "command stored for review (not executed)",
-      },
-      {
-        pattern: /command.*stored.*not\s+executed/i,
-        evidence: "command stored, not executed",
-      },
-    ];
-
-    // Extract bypass method if present
-    const bypassMethodMatch = responseText.match(
-      /"bypass_method"\s*:\s*"([^"]+)"/i,
-    );
-    const bypassMethod = bypassMethodMatch ? bypassMethodMatch[1] : undefined;
-
-    // Check for vulnerable patterns first
-    for (const { pattern, evidence } of vulnerablePatterns) {
-      if (pattern.test(responseText)) {
-        return {
-          detected: true,
-          bypassType: "BLACKLIST_BYPASS",
-          bypassMethod,
-          evidence,
-        };
-      }
-    }
-
-    // Check for safe patterns
-    for (const { pattern, evidence } of safePatterns) {
-      if (pattern.test(responseText)) {
-        return {
-          detected: false,
-          bypassType: "ALLOWLIST_BLOCKED",
-          evidence,
-        };
-      }
-    }
-
-    return { detected: false, bypassType: "UNKNOWN" };
+  analyzeBlacklistBypassResponse(response: CompatibilityCallToolResult) {
+    return this.blacklistBypassAnalyzer.analyze(response);
   }
 
   /**
    * Analyze response for output injection vulnerabilities (Issue #110, Challenge #8)
    * Detects indirect prompt injection via unsanitized tool output
-   *
-   * This method detects:
-   * - VULNERABLE: LLM injection markers (<IMPORTANT>, [INST], etc.) in output
-   * - VULNERABLE: Tool self-reports raw_content_included: true
-   * - SAFE: Tool reports content_sanitized: true or uses hash references
-   *
-   * @param response The tool response to analyze
-   * @returns Analysis result with output injection detection status
    */
-  analyzeOutputInjectionResponse(
-    response: CompatibilityCallToolResult,
-  ): OutputInjectionResult {
-    const responseText = this.extractResponseContent(response);
-
-    // Check for LLM injection markers in response
-    const llmMarkers: string[] = [];
-    const markerPatterns = [
-      { pattern: /<IMPORTANT>/i, name: "<IMPORTANT>" },
-      { pattern: /<\/IMPORTANT>/i, name: "</IMPORTANT>" },
-      { pattern: /<SYSTEM>/i, name: "<SYSTEM>" },
-      { pattern: /\[INST\]/i, name: "[INST]" },
-      { pattern: /<\|system\|>/i, name: "<|system|>" },
-      { pattern: /<\|user\|>/i, name: "<|user|>" },
-      { pattern: /\{\{SYSTEM_PROMPT\}\}/i, name: "{{SYSTEM_PROMPT}}" },
-      {
-        pattern: /ignore.*previous.*instructions/i,
-        name: "ignore instructions",
-      },
-    ];
-
-    for (const { pattern, name } of markerPatterns) {
-      if (pattern.test(responseText)) {
-        llmMarkers.push(name);
-      }
-    }
-
-    if (llmMarkers.length > 0) {
-      return {
-        detected: true,
-        injectionType: "LLM_INJECTION_MARKERS",
-        markers: llmMarkers,
-        evidence: `LLM injection markers detected: ${llmMarkers.join(", ")}`,
-      };
-    }
-
-    // Check for raw content vulnerability metadata
-    const rawContentPatterns = [
-      {
-        pattern: /"raw_content_included"\s*:\s*true/i,
-        evidence: "raw_content_included: true (unsanitized user content)",
-      },
-      {
-        pattern: /returns\s+unsanitized\s+user\s+content/i,
-        evidence: "Tool reports returning unsanitized user content",
-      },
-      {
-        pattern: /enables\s+indirect\s+prompt\s+injection/i,
-        evidence: "Tool reports enabling indirect prompt injection",
-      },
-      {
-        pattern: /"injection_risk_level"\s*:\s*"(HIGH|CRITICAL)"/i,
-        evidence: "Tool reports HIGH/CRITICAL injection risk level",
-      },
-    ];
-
-    for (const { pattern, evidence } of rawContentPatterns) {
-      if (pattern.test(responseText)) {
-        return {
-          detected: true,
-          injectionType: "RAW_CONTENT_INCLUDED",
-          evidence,
-        };
-      }
-    }
-
-    // Check for safe patterns (sanitized output)
-    const safePatterns = [
-      {
-        pattern: /"content_sanitized"\s*:\s*true/i,
-        evidence: "content_sanitized: true (secure)",
-      },
-      {
-        pattern: /"uses_hash_reference"\s*:\s*true/i,
-        evidence: "uses_hash_reference: true (secure)",
-      },
-      {
-        pattern: /"raw_content_included"\s*:\s*false/i,
-        evidence: "raw_content_included: false (secure)",
-      },
-    ];
-
-    for (const { pattern, evidence } of safePatterns) {
-      if (pattern.test(responseText)) {
-        return {
-          detected: false,
-          injectionType: "SANITIZED",
-          evidence,
-        };
-      }
-    }
-
-    return { detected: false, injectionType: "UNKNOWN" };
+  analyzeOutputInjectionResponse(response: CompatibilityCallToolResult) {
+    return this.outputInjectionAnalyzer.analyze(response);
   }
 
   /**
    * Analyze response for session management vulnerabilities (Issue #111, Challenge #12)
-   * Detects 5 CWEs from mcp-vulnerable-testbed:
-   * - CWE-384: Session Fixation (accepts external session ID, no regeneration)
-   * - CWE-330: Predictable Tokens (session_{user}_{timestamp}_{counter})
-   * - CWE-613: No Session Timeout (expires_at: null, timeout_checked: false)
-   * - CWE-200: ID Exposure in URL (session_url contains session_id=)
-   *
-   * @param response The tool response to analyze
-   * @returns Analysis result with session management detection status
+   * Detects 5 CWEs from mcp-vulnerable-testbed
    */
-  analyzeSessionManagementResponse(
-    response: CompatibilityCallToolResult,
-  ): SessionManagementResult {
-    const responseText = this.extractResponseContent(response);
-    const cweIds: string[] = [];
-    let vulnerabilityType: SessionManagementResult["vulnerabilityType"] =
-      "UNKNOWN";
-    let evidence: string | undefined;
-
-    // Check for safe patterns first (hardened server)
-    const safePatterns = [
-      {
-        pattern: /"fixation_prevented"\s*:\s*true/i,
-        name: "fixation_prevented",
-      },
-      { pattern: /"token_secure"\s*:\s*true/i, name: "token_secure" },
-      { pattern: /"timeout_enforced"\s*:\s*true/i, name: "timeout_enforced" },
-      { pattern: /"id_in_url"\s*:\s*false/i, name: "id_in_url: false" },
-      {
-        pattern: /"regeneration_on_auth"\s*:\s*true/i,
-        name: "regeneration_on_auth",
-      },
-      { pattern: /"attack_blocked"\s*:\s*true/i, name: "attack_blocked" },
-      { pattern: /"cwe_384_mitigated"\s*:\s*true/i, name: "cwe_384_mitigated" },
-    ];
-
-    for (const { pattern, name } of safePatterns) {
-      if (pattern.test(responseText)) {
-        return {
-          detected: false,
-          vulnerabilityType: "UNKNOWN",
-          cweIds: [],
-          evidence: `Secure session management: ${name}`,
-        };
-      }
-    }
-
-    // CWE-384: Session Fixation (external ID accepted)
-    const fixationPatterns = [
-      {
-        pattern: /"attacker_controlled"\s*:\s*true/i,
-        evidence: "attacker_controlled: true (session fixation)",
-      },
-      {
-        pattern: /"fixed"\s*:\s*true/i,
-        evidence: "fixed: true (fixated session)",
-      },
-      {
-        pattern: /session\s*fixation\s*accepted/i,
-        evidence: "session fixation attack accepted",
-      },
-      {
-        pattern: /"fixation_url"\s*:/i,
-        evidence: "fixation_url present (attack vector)",
-      },
-    ];
-
-    for (const { pattern, evidence: evidenceText } of fixationPatterns) {
-      if (pattern.test(responseText)) {
-        if (!cweIds.includes("CWE-384")) cweIds.push("CWE-384");
-        vulnerabilityType = "SESSION_FIXATION";
-        evidence = evidenceText;
-        break;
-      }
-    }
-
-    // CWE-384: No Regeneration after authentication
-    if (/"session_regenerated"\s*:\s*false/i.test(responseText)) {
-      if (!cweIds.includes("CWE-384")) cweIds.push("CWE-384");
-      if (vulnerabilityType === "UNKNOWN") {
-        vulnerabilityType = "NO_REGENERATION";
-        evidence = "session_regenerated: false (CWE-384)";
-      }
-    }
-
-    // CWE-330: Predictable Token Pattern
-    const predictablePatterns = [
-      {
-        pattern:
-          /"token_pattern"\s*:\s*"session_\{user\}_\{timestamp\}_\{counter\}"/i,
-        evidence:
-          "Predictable token pattern exposed: session_{user}_{timestamp}_{counter}",
-      },
-      {
-        pattern: /"session_id"\s*:\s*"session_[a-z0-9]+_\d{9,}_\d+"/i,
-        evidence: "Predictable session ID format detected",
-      },
-    ];
-
-    for (const { pattern, evidence: evidenceText } of predictablePatterns) {
-      if (pattern.test(responseText)) {
-        if (!cweIds.includes("CWE-330")) cweIds.push("CWE-330");
-        if (vulnerabilityType === "UNKNOWN") {
-          vulnerabilityType = "PREDICTABLE_TOKEN";
-          evidence = evidenceText;
-        }
-        break;
-      }
-    }
-
-    // CWE-613: No Session Timeout
-    const noTimeoutPatterns = [
-      {
-        pattern: /"expires_at"\s*:\s*null/i,
-        evidence: "expires_at: null (sessions never expire)",
-      },
-      {
-        pattern: /"timeout_checked"\s*:\s*false/i,
-        evidence: "timeout_checked: false (no expiration validation)",
-      },
-    ];
-
-    for (const { pattern, evidence: evidenceText } of noTimeoutPatterns) {
-      if (pattern.test(responseText)) {
-        if (!cweIds.includes("CWE-613")) cweIds.push("CWE-613");
-        if (vulnerabilityType === "UNKNOWN") {
-          vulnerabilityType = "NO_TIMEOUT";
-          evidence = evidenceText;
-        }
-        break;
-      }
-    }
-
-    // CWE-200: Session ID in URL
-    const idInUrlPatterns = [
-      {
-        pattern: /"session_url"\s*:\s*"[^"]*[?&]session_id=/i,
-        evidence: "Session ID exposed in URL query parameter",
-      },
-      {
-        pattern: /"fixation_url"\s*:\s*"[^"]*[?&]session_id=/i,
-        evidence: "Session ID exposed in fixation URL",
-      },
-    ];
-
-    for (const { pattern, evidence: evidenceText } of idInUrlPatterns) {
-      if (pattern.test(responseText)) {
-        if (!cweIds.includes("CWE-200")) cweIds.push("CWE-200");
-        if (vulnerabilityType === "UNKNOWN") {
-          vulnerabilityType = "ID_IN_URL";
-          evidence = evidenceText;
-        }
-        break;
-      }
-    }
-
-    return {
-      detected: cweIds.length > 0,
-      vulnerabilityType,
-      cweIds: [...new Set(cweIds)], // Dedupe
-      evidence,
-    };
+  analyzeSessionManagementResponse(response: CompatibilityCallToolResult) {
+    return this.sessionManagementAnalyzer.analyze(response);
   }
 
   /**
    * Analyze response for cryptographic failures (Issue #112, Challenge #13)
-   * Detects OWASP A02:2021 Cryptographic Failures from mcp-vulnerable-testbed:
-   * - CWE-328: Weak Hash (MD5/SHA1 for password hashing)
-   * - CWE-916: Static Salt / Weak KDF
-   * - CWE-330: Predictable RNG (random.random() with timestamp seed)
-   * - CWE-208: Timing Attack (non-constant-time comparison)
-   * - CWE-327: Broken Cipher (ECB mode, XOR)
-   * - CWE-321: Hardcoded Key (key_source: "hardcoded")
-   * - CWE-326: Weak Key Length (key_length < 16)
-   *
-   * @param response The tool response to analyze
-   * @returns Analysis result with cryptographic failure detection status
+   * Detects OWASP A02:2021 Cryptographic Failures
    */
-  analyzeCryptographicFailures(
-    response: CompatibilityCallToolResult,
-  ): CryptoFailureResult {
-    const responseText = this.extractResponseContent(response);
-    const cweIds: string[] = [];
-    let vulnerabilityType: CryptoFailureResult["vulnerabilityType"] = "UNKNOWN";
-    let evidence: string | undefined;
-
-    // Check for safe patterns first (hardened server)
-    const safePatterns = [
-      {
-        pattern: /"status"\s*:\s*"stored"/i,
-        name: "request stored (not executed)",
-      },
-      {
-        pattern: /"note"\s*:\s*".*blocked.*secure/i,
-        name: "weak crypto blocked",
-      },
-      {
-        pattern:
-          /"recommendation"\s*:\s*"Use\s+(?:bcrypt|scrypt|Argon2|AES-GCM)/i,
-        name: "secure alternative recommended",
-      },
-      {
-        pattern: /"vulnerable"\s*:\s*false/i,
-        name: "vulnerable: false",
-      },
-    ];
-
-    for (const { pattern, name } of safePatterns) {
-      if (pattern.test(responseText)) {
-        return {
-          detected: false,
-          vulnerabilityType: "UNKNOWN",
-          cweIds: [],
-          evidence: `Secure crypto handling: ${name}`,
-        };
-      }
-    }
-
-    // CWE-328: Weak Hash Algorithm (MD5/SHA1)
-    const weakHashPatterns = [
-      {
-        pattern: /"algorithm"\s*:\s*"MD5"/i,
-        evidence: 'algorithm: "MD5" (weak hash for passwords)',
-      },
-      {
-        pattern: /"algorithm"\s*:\s*"SHA1"/i,
-        evidence: 'algorithm: "SHA1" (weak hash for passwords)',
-      },
-      {
-        pattern: /"algorithm_secure"\s*:\s*false/i,
-        evidence: "algorithm_secure: false",
-      },
-    ];
-
-    for (const { pattern, evidence: evidenceText } of weakHashPatterns) {
-      if (pattern.test(responseText)) {
-        if (!cweIds.includes("CWE-328")) cweIds.push("CWE-328");
-        vulnerabilityType = "WEAK_HASH";
-        evidence = evidenceText;
-        break;
-      }
-    }
-
-    // CWE-916: Static Salt
-    const staticSaltPatterns = [
-      {
-        pattern: /"salt_type"\s*:\s*"static"/i,
-        evidence: 'salt_type: "static" (same salt for all passwords)',
-      },
-      {
-        pattern: /"salt"\s*:\s*"static_salt_123"/i,
-        evidence: 'salt: "static_salt_123" (hardcoded static salt)',
-      },
-      {
-        pattern: /"salt_secure"\s*:\s*false/i,
-        evidence: "salt_secure: false",
-      },
-    ];
-
-    for (const { pattern, evidence: evidenceText } of staticSaltPatterns) {
-      if (pattern.test(responseText)) {
-        if (!cweIds.includes("CWE-916")) cweIds.push("CWE-916");
-        if (vulnerabilityType === "UNKNOWN") {
-          vulnerabilityType = "STATIC_SALT";
-          evidence = evidenceText;
-        }
-        break;
-      }
-    }
-
-    // CWE-330: Predictable RNG
-    const predictableRngPatterns = [
-      {
-        pattern: /"rng_type"\s*:\s*"random\.random\(\)"/i,
-        evidence: 'rng_type: "random.random()" (non-cryptographic RNG)',
-      },
-      {
-        pattern: /"seed"\s*:\s*"timestamp"/i,
-        evidence: 'seed: "timestamp" (predictable seed)',
-      },
-      {
-        pattern: /"cryptographically_secure"\s*:\s*false/i,
-        evidence: "cryptographically_secure: false",
-      },
-    ];
-
-    for (const { pattern, evidence: evidenceText } of predictableRngPatterns) {
-      if (pattern.test(responseText)) {
-        if (!cweIds.includes("CWE-330")) cweIds.push("CWE-330");
-        if (vulnerabilityType === "UNKNOWN") {
-          vulnerabilityType = "PREDICTABLE_RNG";
-          evidence = evidenceText;
-        }
-        break;
-      }
-    }
-
-    // CWE-208: Timing Attack
-    const timingPatterns = [
-      {
-        pattern: /"timing_safe"\s*:\s*false/i,
-        evidence: "timing_safe: false (vulnerable to timing attacks)",
-      },
-      {
-        pattern: /"comparison_type"\s*:\s*"direct_equality"/i,
-        evidence: 'comparison_type: "direct_equality" (non-constant-time)',
-      },
-    ];
-
-    for (const { pattern, evidence: evidenceText } of timingPatterns) {
-      if (pattern.test(responseText)) {
-        if (!cweIds.includes("CWE-208")) cweIds.push("CWE-208");
-        if (vulnerabilityType === "UNKNOWN") {
-          vulnerabilityType = "TIMING_ATTACK";
-          evidence = evidenceText;
-        }
-        break;
-      }
-    }
-
-    // CWE-327: Broken Cipher Mode (ECB/XOR)
-    const brokenCipherPatterns = [
-      {
-        pattern: /"mode"\s*:\s*"ECB"/i,
-        evidence: 'mode: "ECB" (pattern leakage in ciphertext)',
-      },
-      {
-        pattern: /"algorithm"\s*:\s*"XOR"/i,
-        evidence: 'algorithm: "XOR" (weak cipher)',
-      },
-    ];
-
-    for (const { pattern, evidence: evidenceText } of brokenCipherPatterns) {
-      if (pattern.test(responseText)) {
-        if (!cweIds.includes("CWE-327")) cweIds.push("CWE-327");
-        if (vulnerabilityType === "UNKNOWN") {
-          vulnerabilityType = "ECB_MODE";
-          evidence = evidenceText;
-        }
-        break;
-      }
-    }
-
-    // CWE-321: Hardcoded Key
-    const hardcodedKeyPatterns = [
-      {
-        pattern: /"key_source"\s*:\s*"hardcoded"/i,
-        evidence: 'key_source: "hardcoded" (key in source code)',
-      },
-      {
-        pattern: /"key_preview"\s*:\s*"hardcode/i,
-        evidence: "key_preview shows hardcoded key",
-      },
-    ];
-
-    for (const { pattern, evidence: evidenceText } of hardcodedKeyPatterns) {
-      if (pattern.test(responseText)) {
-        if (!cweIds.includes("CWE-321")) cweIds.push("CWE-321");
-        if (vulnerabilityType === "UNKNOWN") {
-          vulnerabilityType = "HARDCODED_KEY";
-          evidence = evidenceText;
-        }
-        break;
-      }
-    }
-
-    // CWE-916: Weak KDF (MD5 for key derivation)
-    const weakKdfPatterns = [
-      {
-        pattern: /"derivation_function"\s*:\s*"MD5"/i,
-        evidence: 'derivation_function: "MD5" (weak KDF)',
-      },
-      {
-        pattern: /"iterations"\s*:\s*1\b/i,
-        evidence: "iterations: 1 (no key stretching)",
-      },
-      {
-        pattern: /"kdf_secure"\s*:\s*false/i,
-        evidence: "kdf_secure: false",
-      },
-    ];
-
-    for (const { pattern, evidence: evidenceText } of weakKdfPatterns) {
-      if (pattern.test(responseText)) {
-        if (!cweIds.includes("CWE-916")) cweIds.push("CWE-916");
-        if (vulnerabilityType === "UNKNOWN") {
-          vulnerabilityType = "WEAK_KDF";
-          evidence = evidenceText;
-        }
-        break;
-      }
-    }
-
-    // CWE-326: Weak Key Length
-    const weakKeyPatterns = [
-      {
-        // Match key_length 1-15 bytes (< 16 bytes = weak for AES-128/HMAC)
-        pattern: /"key_length"\s*:\s*(?:[1-9]|1[0-5])(?!\d)/i,
-        evidence: "key_length < 16 bytes (weak key)",
-      },
-      {
-        pattern: /"key_secure"\s*:\s*false/i,
-        evidence: "key_secure: false (weak key)",
-      },
-    ];
-
-    for (const { pattern, evidence: evidenceText } of weakKeyPatterns) {
-      if (pattern.test(responseText)) {
-        if (!cweIds.includes("CWE-326")) cweIds.push("CWE-326");
-        if (vulnerabilityType === "UNKNOWN") {
-          vulnerabilityType = "WEAK_KEY_LENGTH";
-          evidence = evidenceText;
-        }
-        break;
-      }
-    }
-
-    return {
-      detected: cweIds.length > 0,
-      vulnerabilityType,
-      cweIds: [...new Set(cweIds)], // Dedupe
-      evidence,
-    };
+  analyzeCryptographicFailures(response: CompatibilityCallToolResult) {
+    return this.cryptographicFailureAnalyzer.analyze(response);
   }
 
   /**
    * Analyze response for chain exploitation vulnerabilities (Issue #93, Challenge #6)
-   * Detects multi-tool chained exploitation attacks including:
-   * - Arbitrary tool invocation without allowlist
-   * - Output injection via {{output}} template substitution
-   * - Recursive/circular chain execution (DoS potential)
-   * - State poisoning between chain steps
-   * - Tool shadowing in chains
-   * - Missing depth/size limits
-   *
-   * @param response The tool response to analyze
-   * @returns Analysis result with vulnerability status and evidence
+   * Detects multi-tool chained exploitation attacks
    */
-  analyzeChainExploitation(
-    response: CompatibilityCallToolResult,
-  ): ChainExploitationAnalysis {
-    const responseText = this.extractResponseContent(response);
+  analyzeChainExploitation(response: CompatibilityCallToolResult) {
+    return this.chainExploitationAnalyzer.analyze(response);
+  }
 
-    let vulnerableScore = 0;
-    let safeScore = 0;
-    const matchedVulnPatterns: string[] = [];
-    const matchedSafePatterns: string[] = [];
-
-    // Check vulnerable patterns
-    for (const patternDef of CHAIN_EXPLOIT_VULNERABLE_PATTERNS) {
-      if (patternDef.pattern.test(responseText)) {
-        vulnerableScore += patternDef.weight;
-        matchedVulnPatterns.push(patternDef.description);
-      }
-    }
-
-    // Check safe patterns
-    for (const patternDef of CHAIN_EXPLOIT_SAFE_PATTERNS) {
-      if (patternDef.pattern.test(responseText)) {
-        safeScore += patternDef.weight;
-        matchedSafePatterns.push(patternDef.description);
-      }
-    }
-
-    // Determine chain execution type using documented thresholds
-    let chainType: ChainExecutionType = "UNKNOWN";
-    if (
-      vulnerableScore > CHAIN_VULNERABLE_THRESHOLD &&
-      vulnerableScore > safeScore
-    ) {
-      chainType = "VULNERABLE_EXECUTION";
-    } else if (
-      safeScore > CHAIN_SAFE_THRESHOLD &&
-      safeScore > vulnerableScore
-    ) {
-      chainType = "SAFE_VALIDATION";
-    } else if (vulnerableScore > 0 || safeScore > 0) {
-      chainType = "PARTIAL";
-    }
-
-    // Detect specific vulnerability categories using centralized pattern library
-    const detectedCategories = detectVulnerabilityCategories(responseText);
-    const vulnerabilityCategories =
-      detectedCategories as ChainVulnerabilityCategory[];
-
-    return {
-      vulnerable:
-        vulnerableScore > CHAIN_VULNERABLE_THRESHOLD &&
-        vulnerableScore > safeScore,
-      safe: safeScore > CHAIN_SAFE_THRESHOLD && safeScore > vulnerableScore,
-      chainType,
-      vulnerabilityCategories,
-      evidence: {
-        vulnerablePatterns: matchedVulnPatterns,
-        safePatterns: matchedSafePatterns,
-        vulnerableScore,
-        safeScore,
-      },
-    };
+  /**
+   * Analyze response for excessive permissions scope violations (Issue #144, Challenge #22)
+   * Detects when tools exceed their declared annotation scope
+   */
+  analyzeExcessivePermissionsResponse(response: CompatibilityCallToolResult) {
+    return this.excessivePermissionsAnalyzer.analyze(response);
   }
 
   /**
    * Check for secret leakage in response (Issue #103, Challenge #9)
    * Scans for credential patterns regardless of payload type.
    *
-   * This method detects when tools inadvertently expose:
-   * - API keys (AWS, OpenAI, GitHub, GitLab, Slack)
-   * - Database connection strings with credentials
-   * - Environment variable values
-   * - Partial key previews
-   *
    * @note This method must be called separately from analyzeResponse().
-   * It is not part of the standard vulnerability detection flow because
-   * secret leakage detection requires examining ALL responses, not just
-   * those matching attack payloads. Callers should invoke this method
-   * independently when auditing tool responses for credential exposure.
-   *
-   * @example
-   * ```typescript
-   * const analyzer = new SecurityResponseAnalyzer();
-   * const response = await client.callTool("get_status", { verbose: true });
-   *
-   * // Standard vulnerability check
-   * const vulnResult = analyzer.analyzeResponse(response, payload);
-   *
-   * // Additional secret leakage check (separate concern)
-   * const leakResult = analyzer.checkSecretLeakage(response);
-   * if (leakResult.detected) {
-   *   console.warn(`Secret leaked: ${leakResult.evidence}`);
-   * }
-   * ```
    */
-  checkSecretLeakage(response: CompatibilityCallToolResult): {
-    detected: boolean;
-    evidence?: string;
-  } {
-    const responseText = this.extractResponseContent(response);
-
-    const patterns = [
-      { regex: /AKIA[A-Z0-9]{16}/, name: "AWS Access Key" },
-      { regex: /sk-[a-zA-Z0-9]{20,}/, name: "OpenAI API Key" },
-      { regex: /ghp_[a-zA-Z0-9]{36}/, name: "GitHub PAT" },
-      { regex: /glpat-[a-zA-Z0-9]{20}/, name: "GitLab PAT" },
-      { regex: /xox[baprs]-[a-zA-Z0-9-]+/, name: "Slack Token" },
-      {
-        regex: /(postgresql|mysql|mongodb|redis|mssql):\/\/[^:]+:[^@]+@/i,
-        name: "Connection String with Credentials",
-      },
-      {
-        regex:
-          /(api[_-]?key|secret|password|credential)[^\s]*[:=]\s*["']?[a-zA-Z0-9_-]{10,}/i,
-        name: "Credential Assignment",
-      },
-      {
-        regex:
-          /(SECRET_TOKEN|DATABASE_URL|API_KEY|PRIVATE_KEY|DB_PASSWORD)[^\s]*[:=]/i,
-        name: "Environment Variable Leakage",
-      },
-      {
-        regex: /api_key_preview|key_fragment|partial_key/i,
-        name: "Partial Key Exposure",
-      },
-    ];
-
-    for (const { regex, name } of patterns) {
-      if (regex.test(responseText)) {
-        return {
-          detected: true,
-          evidence: `${name} pattern found in response`,
-        };
-      }
-    }
-    return { detected: false };
+  checkSecretLeakage(response: CompatibilityCallToolResult) {
+    return this.secretLeakageDetector.analyze(response);
   }
+
+  // ============================================================================
+  // ERROR CLASSIFICATION DELEGATION
+  // ============================================================================
 
   /**
    * Check if response indicates connection/server failure
@@ -1357,24 +479,8 @@ export class SecurityResponseAnalyzer {
     }
 
     // Issue #175 + Issue #177: AppleScript error handling
-    //
-    // CRITICAL: Check injection SUCCESS first, THEN syntax errors
-    //
-    // Issue #175: AppleScript syntax errors can trigger XXE false positives when
-    // the XXE payload is echoed back in the error message.
-    //
-    // Issue #177: AppleScript injection payloads that SUCCESSFULLY escape string
-    // context will also produce AppleScript errors, but these are VULNERABILITIES
-    // not false positives. The error occurs AFTER the injection point is reached.
-    //
-    // Example: Payload: " & do shell script "id" & "
-    //          Response: if "" & do shell script "id" & "" ...
-    //          Error: -2710 (Word not running)
-    //          This is INJECTION SUCCESS - the payload reached execution context!
     if (this.safeDetector.isAppleScriptSyntaxError(responseText)) {
       // Issue #177: Check if this looks like INJECTION SUCCESS before dismissing
-      // If injection patterns are detected, this is a vulnerability, not a safe error
-      // Pass payload for enhanced runtime error + payload context detection
       if (
         this.safeDetector.isAppleScriptInjectionSuccess(
           responseText,
@@ -1382,7 +488,6 @@ export class SecurityResponseAnalyzer {
         )
       ) {
         // This is NOT a safe syntax error - it's successful injection!
-        // Return null to continue analysis and potentially flag as vulnerable
         return null;
       }
 
@@ -1448,7 +553,6 @@ export class SecurityResponseAnalyzer {
     }
 
     // Issue #110: Skip SAFE_STORAGE exemption for testbed tools with "vulnerable_" prefix
-    // These are intentionally vulnerable tools that should be tested despite matching safe patterns
     const isTestbedVulnerableTool = tool.name.startsWith("vulnerable_");
     if (
       classification.categories.includes(ToolCategory.SAFE_STORAGE) &&
@@ -1507,10 +611,6 @@ export class SecurityResponseAnalyzer {
     const payloadText = payload.payload.toLowerCase();
 
     // Issue #178: Early check for AppleScript injection success
-    // AppleScript injection may not match standard evidence patterns but IS code execution
-    // This check must come BEFORE evidence pattern matching to catch all cases
-    // IMPORTANT: Only flag if we're in an AppleScript context (has AppleScript error patterns)
-    // to avoid false positives when non-AppleScript tools echo AppleScript-like payloads
     if (
       this.safeDetector.isAppleScriptSyntaxError(responseText) &&
       this.safeDetector.isAppleScriptInjectionSuccess(
@@ -1530,7 +630,6 @@ export class SecurityResponseAnalyzer {
       const evidenceMatchesInput = payload.evidence.test(payloadText);
       if (evidenceMatchesInput && responseText.includes(payloadText)) {
         // Issue #178: Don't dismiss as echoed input if AppleScript injection detected
-        // AppleScript injection payloads appear in response but ARE code execution
         if (
           !this.safeDetector.isAppleScriptInjectionSuccess(
             responseText,
@@ -1542,7 +641,6 @@ export class SecurityResponseAnalyzer {
             evidence: "Evidence pattern matched echoed input, not execution",
           };
         }
-        // AppleScript injection detected - continue to flag as vulnerable
       }
 
       // For validation-type patterns, require execution evidence
@@ -1565,7 +663,6 @@ export class SecurityResponseAnalyzer {
     }
 
     // Issue #110: Check for JSON metadata indicating blacklist bypass (Challenge #11)
-    // This catches cases where regex patterns don't match but structured metadata indicates vulnerability
     if (payload.payloadType === "blacklist_bypass") {
       const bypassResult = this.analyzeBlacklistBypassResponse(response);
       if (bypassResult.detected) {
@@ -1586,23 +683,9 @@ export class SecurityResponseAnalyzer {
     return this.analyzeInjectionResponse(response);
   }
 
-  // ============================================================================
-  // Issue #146: Execution Context Classification (False Positive Reduction)
-  // ============================================================================
-
   /**
    * Issue #146: Classify vulnerability context to reduce false positives
    * Distinguishes between actual execution and payload reflection in errors
-   *
-   * Context classification:
-   * - CONFIRMED: Operation succeeded, payload was actually executed (HIGH risk)
-   * - LIKELY_FALSE_POSITIVE: Operation failed, payload just reflected in error (LOW risk)
-   * - SUSPECTED: Ambiguous case requiring manual review (MEDIUM risk)
-   *
-   * @param vulnResult The vulnerability analysis result from checkVulnerabilityEvidence
-   * @param responseText The full response text (lowercase)
-   * @param payload The security payload that was tested
-   * @returns Updated AnalysisResult with context classification
    */
   private classifyVulnerabilityContext(
     vulnResult: AnalysisResult,
@@ -1618,7 +701,6 @@ export class SecurityResponseAnalyzer {
     );
 
     // CONFIRMED: Success patterns present, no error patterns
-    // This indicates the operation actually executed and returned results
     if (hasSuccess && !hasError) {
       return {
         ...vulnResult,
@@ -1627,10 +709,8 @@ export class SecurityResponseAnalyzer {
     }
 
     // LIKELY_FALSE_POSITIVE: Error context with payload reflection
-    // The server rejected the operation but echoed the payload in the error message
     if (payloadInError && hasError) {
       // Issue #178: Don't dismiss as false positive if AppleScript injection detected
-      // AppleScript injection payloads appear in error context but ARE code execution
       if (
         !this.safeDetector.isAppleScriptInjectionSuccess(
           responseText,
@@ -1645,107 +725,12 @@ export class SecurityResponseAnalyzer {
             `[Context: LIKELY_FALSE_POSITIVE - payload reflected in error message, not executed]`,
         };
       }
-      // AppleScript injection detected - continue to flag as vulnerable
     }
 
     // SUSPECTED: Ambiguous (neither clear success nor clear error)
-    // Mark as requiring manual review
     return {
       ...vulnResult,
       evidence: `${vulnResult.evidence} [Context: SUSPECTED - requires manual review]`,
-    };
-  }
-
-  // ============================================================================
-  // Issue #144: Excessive Permissions Scope Analysis (Challenge #22)
-  // ============================================================================
-
-  /**
-   * Analyze response for excessive permissions scope violations (Issue #144, Challenge #22)
-   * Detects when tools exceed their declared annotation scope:
-   * - scope_violation: Tool performed privileged action despite restrictive annotations
-   * - scope_escalation: Keyword triggered hidden admin/privilege mode
-   * - scope_enforced: Tool properly blocked the privileged action (safe)
-   *
-   * CWE-250: Execution with Unnecessary Privileges
-   * CWE-269: Improper Privilege Management
-   */
-  analyzeExcessivePermissionsResponse(
-    response: CompatibilityCallToolResult,
-  ): ExcessivePermissionsScopeResult {
-    const responseText = this.extractResponseContent(response);
-    const cweIds: string[] = [];
-
-    // Check for safe/hardened patterns first (scope enforced)
-    for (const { pattern, evidence } of SCOPE_ENFORCED_PATTERNS) {
-      if (pattern.test(responseText)) {
-        return {
-          detected: false,
-          violationType: "SAFE",
-          cweIds: [],
-          evidence,
-        };
-      }
-    }
-
-    // Check for scope violation patterns
-    for (const { pattern, evidence } of SCOPE_VIOLATION_PATTERNS) {
-      if (pattern.test(responseText)) {
-        // Determine specific violation type based on pattern
-        if (/"scope_escalation"\s*:\s*true/i.test(responseText)) {
-          // Scope escalation - keyword-triggered privilege escalation
-          cweIds.push("CWE-269");
-
-          // Extract trigger keyword if present
-          const keywordMatch = responseText.match(
-            /"trigger_keyword"\s*:\s*"([^"]+)"/i,
-          );
-          const triggerPayload = keywordMatch?.[1];
-
-          return {
-            detected: true,
-            violationType: "SCOPE_ESCALATION",
-            triggerPayload,
-            cweIds,
-            evidence,
-          };
-        }
-
-        if (/"scope_violation"\s*:\s*true/i.test(responseText)) {
-          // Scope violation - action exceeded declared scope
-          cweIds.push("CWE-250", "CWE-269");
-
-          // Extract actual scope if present
-          const scopeMatch = responseText.match(
-            /"actual_scope"\s*:\s*"([^"]+)"/i,
-          );
-          const actualScope = scopeMatch?.[1];
-
-          return {
-            detected: true,
-            violationType: "SCOPE_VIOLATION",
-            actualScope,
-            cweIds,
-            evidence,
-          };
-        }
-
-        // Generic detection (privileged_data, system_secrets, admin_mode_activated)
-        cweIds.push("CWE-250", "CWE-269");
-        return {
-          detected: true,
-          violationType: "SCOPE_VIOLATION",
-          cweIds,
-          evidence,
-        };
-      }
-    }
-
-    // No scope violation or enforcement detected
-    return {
-      detected: false,
-      violationType: "UNKNOWN",
-      cweIds: [],
     };
   }
 
