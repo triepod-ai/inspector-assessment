@@ -583,7 +583,7 @@ describe("Profile Validation", () => {
   /**
    * Profile validation logic from assess-full.ts
    */
-  const VALID_PROFILES = ["quick", "security", "compliance", "full"];
+  const VALID_PROFILES = ["quick", "security", "compliance", "full", "dev"];
 
   function isValidProfileName(name: string): boolean {
     return VALID_PROFILES.includes(name);
@@ -595,6 +595,7 @@ describe("Profile Validation", () => {
       expect(isValidProfileName("security")).toBe(true);
       expect(isValidProfileName("compliance")).toBe(true);
       expect(isValidProfileName("full")).toBe(true);
+      expect(isValidProfileName("dev")).toBe(true);
     });
   });
 

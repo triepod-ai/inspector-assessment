@@ -371,6 +371,67 @@ describe("buildConfig", () => {
     });
   });
 
+  describe("deprecation warning for v2.0 default change (Issue #190)", () => {
+    let consoleWarnSpy: ReturnType<typeof jest.spyOn>;
+
+    beforeEach(() => {
+      consoleWarnSpy = jest
+        .spyOn(console, "warn")
+        .mockImplementation(() => {}) as ReturnType<typeof jest.spyOn>;
+    });
+
+    afterEach(() => {
+      consoleWarnSpy.mockRestore();
+    });
+
+    it("should warn when running without --profile and no module filters", () => {
+      buildConfig({ serverName: "test" });
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "Running without --profile will default to --profile security in v2.0",
+        ),
+      );
+    });
+
+    it("should NOT warn when using --profile", () => {
+      buildConfig({ serverName: "test", profile: "security" });
+
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("Running without --profile"),
+      );
+    });
+
+    it("should NOT warn when using --only-modules", () => {
+      (resolveModuleNames as jest.Mock).mockReturnValue(["functionality"]);
+      buildConfig({ serverName: "test", onlyModules: ["functionality"] });
+
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("Running without --profile"),
+      );
+    });
+
+    it("should NOT warn when using --skip-modules", () => {
+      (resolveModuleNames as jest.Mock).mockReturnValue(["temporal"]);
+      buildConfig({ serverName: "test", skipModules: ["temporal"] });
+
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("Running without --profile"),
+      );
+    });
+
+    it("should include migration guidance in warning message", () => {
+      buildConfig({ serverName: "test" });
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--profile full or --profile dev"),
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("docs/CLI_ASSESSMENT_GUIDE.md"),
+      );
+    });
+  });
+
   describe("config version validation (Issue #107)", () => {
     let consoleWarnSpy: ReturnType<typeof jest.spyOn>;
 
