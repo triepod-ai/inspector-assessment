@@ -198,46 +198,114 @@ export const EXECUTION_ARTIFACT_PATTERNS = {
 } as const;
 
 // =============================================================================
-// LLM INJECTION MARKER PATTERNS (Issue #110, Challenge #8)
+// LLM INJECTION MARKER PATTERNS (Issue #110, Challenge #8, Issue #191)
 // =============================================================================
+
+/**
+ * Structured LLM injection marker with name metadata
+ * Used by OutputInjectionAnalyzer for detailed reporting (Issue #191)
+ */
+export interface LLMInjectionMarker {
+  pattern: RegExp;
+  name: string;
+  category:
+    | "xml_instruction"
+    | "chat_format"
+    | "template_injection"
+    | "instruction_override";
+}
 
 /**
  * Patterns for detecting LLM prompt injection markers in tool output
  * These indicate potential indirect prompt injection (output injection)
- * Used by: hasLLMInjectionMarkers()
+ * Used by: hasLLMInjectionMarkers(), OutputInjectionAnalyzer
  *
  * When tool output contains these markers, it may flow to the orchestrating
  * LLM and influence its behavior - a security concern for MCP integrations.
+ *
+ * Consolidated from OutputInjectionAnalyzer.ts (Issue #191) - single source of truth
  */
-export const LLM_INJECTION_MARKERS = [
+export const LLM_INJECTION_MARKERS_WITH_METADATA: LLMInjectionMarker[] = [
   // XML-style instruction tags
-  /<IMPORTANT>/i,
-  /<\/IMPORTANT>/i,
-  /<SYSTEM>/i,
-  /<\/SYSTEM>/i,
-  /<INSTRUCTION>/i,
-  /<\/INSTRUCTION>/i,
+  { pattern: /<IMPORTANT>/i, name: "<IMPORTANT>", category: "xml_instruction" },
+  {
+    pattern: /<\/IMPORTANT>/i,
+    name: "</IMPORTANT>",
+    category: "xml_instruction",
+  },
+  { pattern: /<SYSTEM>/i, name: "<SYSTEM>", category: "xml_instruction" },
+  { pattern: /<\/SYSTEM>/i, name: "</SYSTEM>", category: "xml_instruction" },
+  {
+    pattern: /<INSTRUCTION>/i,
+    name: "<INSTRUCTION>",
+    category: "xml_instruction",
+  },
+  {
+    pattern: /<\/INSTRUCTION>/i,
+    name: "</INSTRUCTION>",
+    category: "xml_instruction",
+  },
 
   // Chat model format markers
-  /\[INST\]/i,
-  /\[\/INST\]/i,
-  /<\|system\|>/i,
-  /<\|user\|>/i,
-  /<\|assistant\|>/i,
-  /<\|im_start\|>/i,
-  /<\|im_end\|>/i,
+  { pattern: /\[INST\]/i, name: "[INST]", category: "chat_format" },
+  { pattern: /\[\/INST\]/i, name: "[/INST]", category: "chat_format" },
+  { pattern: /<\|system\|>/i, name: "<|system|>", category: "chat_format" },
+  { pattern: /<\|user\|>/i, name: "<|user|>", category: "chat_format" },
+  {
+    pattern: /<\|assistant\|>/i,
+    name: "<|assistant|>",
+    category: "chat_format",
+  },
+  { pattern: /<\|im_start\|>/i, name: "<|im_start|>", category: "chat_format" },
+  { pattern: /<\|im_end\|>/i, name: "<|im_end|>", category: "chat_format" },
 
   // Template injection patterns
-  /\{\{SYSTEM_PROMPT\}\}/i,
-  /\{\{USER_INPUT\}\}/i,
-  /\{\{ASSISTANT\}\}/i,
+  {
+    pattern: /\{\{SYSTEM_PROMPT\}\}/i,
+    name: "{{SYSTEM_PROMPT}}",
+    category: "template_injection",
+  },
+  {
+    pattern: /\{\{USER_INPUT\}\}/i,
+    name: "{{USER_INPUT}}",
+    category: "template_injection",
+  },
+  {
+    pattern: /\{\{ASSISTANT\}\}/i,
+    name: "{{ASSISTANT}}",
+    category: "template_injection",
+  },
 
   // Instruction override patterns
-  /ignore.*previous.*instructions/i,
-  /disregard.*above.*instructions/i,
-  /new.*instructions.*follow/i,
-  /override.*system.*prompt/i,
-] as const;
+  {
+    pattern: /ignore.*previous.*instructions/i,
+    name: "ignore instructions",
+    category: "instruction_override",
+  },
+  {
+    pattern: /disregard.*above.*instructions/i,
+    name: "disregard instructions",
+    category: "instruction_override",
+  },
+  {
+    pattern: /new.*instructions.*follow/i,
+    name: "new instructions",
+    category: "instruction_override",
+  },
+  {
+    pattern: /override.*system.*prompt/i,
+    name: "override prompt",
+    category: "instruction_override",
+  },
+];
+
+/**
+ * Legacy array of just patterns (for backward compatibility)
+ * @deprecated Use LLM_INJECTION_MARKERS_WITH_METADATA for new code
+ */
+export const LLM_INJECTION_MARKERS = LLM_INJECTION_MARKERS_WITH_METADATA.map(
+  (m) => m.pattern,
+);
 
 /**
  * Patterns for detecting output injection vulnerability metadata

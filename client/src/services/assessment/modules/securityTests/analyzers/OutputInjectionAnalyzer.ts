@@ -1,12 +1,14 @@
 /**
- * Output Injection Analyzer (Issue #110, Challenge #8)
+ * Output Injection Analyzer (Issue #110, Challenge #8, Issue #191)
  * Detects indirect prompt injection via unsanitized tool output
  *
  * Extracted from SecurityResponseAnalyzer.ts for modularity (Issue #179)
+ * Pattern consolidation from SecurityPatternLibrary.ts (Issue #191)
  */
 
 import { CompatibilityCallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { SafeResponseDetector } from "../SafeResponseDetector";
+import { LLM_INJECTION_MARKERS_WITH_METADATA } from "../SecurityPatternLibrary";
 
 /**
  * Result of output injection response analysis (Issue #110, Challenge #8)
@@ -35,21 +37,11 @@ export class OutputInjectionAnalyzer {
   private safeDetector: SafeResponseDetector;
 
   /**
-   * LLM injection marker patterns
+   * LLM injection marker patterns (Issue #191)
+   * Imported from SecurityPatternLibrary - single source of truth
+   * Expanded from 8 to 21 patterns for comprehensive detection
    */
-  private static readonly MARKER_PATTERNS = [
-    { pattern: /<IMPORTANT>/i, name: "<IMPORTANT>" },
-    { pattern: /<\/IMPORTANT>/i, name: "</IMPORTANT>" },
-    { pattern: /<SYSTEM>/i, name: "<SYSTEM>" },
-    { pattern: /\[INST\]/i, name: "[INST]" },
-    { pattern: /<\|system\|>/i, name: "<|system|>" },
-    { pattern: /<\|user\|>/i, name: "<|user|>" },
-    { pattern: /\{\{SYSTEM_PROMPT\}\}/i, name: "{{SYSTEM_PROMPT}}" },
-    {
-      pattern: /ignore.*previous.*instructions/i,
-      name: "ignore instructions",
-    },
-  ];
+  private static readonly MARKER_PATTERNS = LLM_INJECTION_MARKERS_WITH_METADATA;
 
   /**
    * Raw content vulnerability patterns
