@@ -228,11 +228,12 @@ describe("emitModuleProgress - JSONL Progress Output", () => {
   });
 
   describe("Module Names (snake_case)", () => {
+    // Issue #188: error_handling merged into protocol_compliance
     const expectedCoreModules = [
       "functionality",
       "security",
       "documentation",
-      "error_handling",
+      "protocol_compliance", // Previously error_handling, now merged (Issue #188)
       "usability",
     ];
 

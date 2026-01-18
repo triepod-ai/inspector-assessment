@@ -12,7 +12,7 @@
 
 ## Overview
 
-The **Protocol Conformance Assessor** (Module #18) validates MCP protocol-level compliance using conformance-inspired tests. It complements the ErrorHandlingAssessor (application-level) with protocol-level validation to ensure servers follow the MCP specification correctly.
+The **Protocol Conformance Assessor** (Module #18) validates MCP protocol-level compliance using conformance-inspired tests. It has been merged into ProtocolComplianceAssessor along with ErrorHandlingAssessor (Issue #188) to provide unified protocol validation.
 
 ### Key Characteristics
 

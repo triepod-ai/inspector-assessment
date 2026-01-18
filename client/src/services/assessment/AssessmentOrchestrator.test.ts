@@ -693,6 +693,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
         errorHandling: false,
         usability: false,
         mcpSpecCompliance: false,
+        protocolCompliance: false, // Issue #188: Must explicitly disable since defaultEnabled=true
       };
 
       // Act
@@ -706,6 +707,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       // Verify skipped assessors are not registered
       expect(registry.isRegistered("functionality")).toBe(false);
+      // Note: errorHandling is now part of protocolCompliance (Issue #188)
       expect(registry.isRegistered("errorHandling")).toBe(false);
       expect(registry.isRegistered("usability")).toBe(false);
       expect(registry.isRegistered("protocolCompliance")).toBe(false);
@@ -725,6 +727,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
         errorHandling: false,
         usability: true,
         mcpSpecCompliance: false,
+        protocolCompliance: false, // Issue #188: Must explicitly disable since defaultEnabled=true
       };
 
       const skipOrchestrator = new AssessmentOrchestrator(config);
@@ -749,6 +752,8 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       // Verify skipped assessments are undefined
       expect(result.security).toBeUndefined();
+      // Note: errorHandling is now populated by protocolCompliance (Issue #188)
+      // When protocolCompliance is disabled, errorHandling is also undefined
       expect(result.errorHandling).toBeUndefined();
       expect(result.mcpSpecCompliance).toBeUndefined();
     });
@@ -788,6 +793,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
         errorHandling: false,
         usability: false,
         mcpSpecCompliance: false,
+        protocolCompliance: false, // Issue #188: Must explicitly disable since defaultEnabled=true
       };
 
       const skipOrchestrator = new AssessmentOrchestrator(config);
@@ -817,6 +823,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
         errorHandling: false,
         usability: false,
         mcpSpecCompliance: false,
+        protocolCompliance: false, // Issue #188: Must explicitly disable since defaultEnabled=true
       };
 
       // Act
@@ -833,6 +840,7 @@ describe("AssessmentOrchestrator Integration Tests", () => {
 
       // All others should not be registered
       expect(registry.isRegistered("functionality")).toBe(false);
+      // Note: errorHandling is now part of protocolCompliance (Issue #188)
       expect(registry.isRegistered("errorHandling")).toBe(false);
       expect(registry.isRegistered("usability")).toBe(false);
       expect(registry.isRegistered("protocolCompliance")).toBe(false);

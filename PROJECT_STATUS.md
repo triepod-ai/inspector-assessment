@@ -432,3 +432,65 @@
 - All 5253 tests passing
 
 ---
+
+## 2026-01-17: v1.40.2 Patch Release - Documentation Updates
+
+**Summary:** Published v1.40.2 patch release with lessons-learned documentation
+
+**Session Focus:** npm package release for documentation updates
+
+**Changes Made:**
+- Bumped version from 1.40.1 to 1.40.2 across all workspace packages
+- Committed documentation: `docs/lessons-learned/` folder with:
+  - Type-safe testing patterns documentation
+  - Test-automator implementation guide
+  - Quick reference for testing patterns
+- Published all 4 packages to npm registry:
+  - @bryan-thompson/inspector-assessment
+  - @bryan-thompson/inspector-assessment-client
+  - @bryan-thompson/inspector-assessment-server
+  - @bryan-thompson/inspector-assessment-cli
+- Pushed to GitHub with tag v1.40.2
+
+**Key Decisions:**
+- Patch version (1.40.1 -> 1.40.2) appropriate for docs-only changes
+- No code changes, purely documentation additions
+
+**Next Steps:**
+- None specified for this release
+
+**Notes:**
+- All validation checks passed during publish workflow
+- Tag: v1.40.2
+- npm registry: https://www.npmjs.com/package/@bryan-thompson/inspector-assessment
+
+---
+
+## 2026-01-17: Issue #186 Type Safety Partial Cleanup - Complete
+
+**Summary:** Completed Issue #186, replaced remaining `as any` types with proper TypeScript patterns
+
+**Session Focus:** Replace remaining `as any` types in test mocks with proper TypeScript patterns
+
+**Changes Made:**
+- TestDataGenerator.test.ts: Replaced 7 `as any` with `as unknown as ClaudeCodeBridge`
+- useConnection.test.tsx: Removed 3 unnecessary `as any` casts from Zod schemas
+- Removed 10 eslint-disable comments
+- Added ClaudeCodeBridge type import
+
+**Key Decisions:**
+- Partial cleanup approach: Fix easy patterns, keep 4 acceptable private member access patterns
+- Use `as unknown as ClaudeCodeBridge` instead of `as any` for explicit type coercion
+- Zod schemas don't need `as any` - type inference works correctly
+
+**Next Steps:**
+- Issue #186 closed - all acceptance criteria met (0 ESLint warnings)
+- 4 remaining `as any` for private member access are acceptable test patterns
+
+**Notes:**
+- Commit: 6d3f9c0f - fix(types): Replace remaining `as any` in test mocks (Issue #186)
+- ESLint: 0 errors, 0 warnings
+- Tests: 5246 passing
+- Issue #186 fully resolved and closed
+
+---

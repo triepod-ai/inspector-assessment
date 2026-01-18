@@ -19,7 +19,8 @@ import {
   // PrivacyComplianceAssessment, // Removed - out of scope
 } from "@/lib/assessmentTypes";
 import { ProtocolComplianceAssessor } from "./assessment/modules/ProtocolComplianceAssessor";
-import { ErrorHandlingAssessor } from "./assessment/modules/ErrorHandlingAssessor";
+// eslint-disable-next-line deprecation/deprecation
+import { ErrorHandlingAssessor } from "./assessment/modules/ErrorHandlingAssessor.deprecated";
 import { FunctionalityAssessor } from "./assessment/modules/FunctionalityAssessor";
 import { SecurityAssessor } from "./assessment/modules/SecurityAssessor";
 // import { SupplyChainAssessor } from "./assessment/modules/SupplyChainAssessor";

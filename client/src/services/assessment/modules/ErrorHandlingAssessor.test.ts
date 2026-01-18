@@ -1,4 +1,5 @@
-import { ErrorHandlingAssessor } from "./ErrorHandlingAssessor";
+// eslint-disable-next-line deprecation/deprecation
+import { ErrorHandlingAssessor } from "./ErrorHandlingAssessor.deprecated";
 import {
   createMockAssessmentContext,
   createMockTool,

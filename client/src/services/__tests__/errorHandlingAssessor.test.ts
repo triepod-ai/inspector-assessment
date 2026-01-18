@@ -3,7 +3,8 @@
  * Validates that error handling tests align with MCP protocol requirements
  */
 
-import { ErrorHandlingAssessor } from "../assessment/modules/ErrorHandlingAssessor";
+// eslint-disable-next-line deprecation/deprecation
+import { ErrorHandlingAssessor } from "../assessment/modules/ErrorHandlingAssessor.deprecated";
 import { AssessmentContext } from "../assessment/AssessmentOrchestrator";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { AssessmentConfiguration } from "@/lib/assessmentTypes";

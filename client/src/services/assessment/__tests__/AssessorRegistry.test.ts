@@ -41,7 +41,8 @@ describe("AssessorRegistry", () => {
       expect(registry.isRegistered("functionality")).toBe(true);
       expect(registry.isRegistered("security")).toBe(true);
       expect(registry.isRegistered("documentation")).toBe(true);
-      expect(registry.isRegistered("errorHandling")).toBe(true);
+      // Issue #188: errorHandling merged into protocolCompliance
+      expect(registry.isRegistered("protocolCompliance")).toBe(true);
       expect(registry.isRegistered("usability")).toBe(true);
     });
 
@@ -69,7 +70,8 @@ describe("AssessorRegistry", () => {
         ...DEFAULT_ASSESSMENT_CONFIG,
         enableExtendedAssessment: false,
         assessmentCategories: {
-          protocolCompliance: true,
+          // Issue #188: protocolCompliance is now a core assessor (requiresExtended: false)
+          // so it will be registered even with enableExtendedAssessment: false
           aupCompliance: true,
           toolAnnotations: true,
         },
@@ -78,7 +80,7 @@ describe("AssessorRegistry", () => {
       registry.registerAll(ASSESSOR_DEFINITIONS);
 
       // Extended assessors require enableExtendedAssessment
-      expect(registry.isRegistered("protocolCompliance")).toBe(false);
+      // Issue #188: protocolCompliance is now core, so only check actual extended assessors
       expect(registry.isRegistered("aupCompliance")).toBe(false);
       expect(registry.isRegistered("toolAnnotations")).toBe(false);
     });
@@ -294,6 +296,8 @@ describe("AssessorRegistry", () => {
           documentation: false,
           errorHandling: false,
           usability: false,
+          // Issue #188: protocolCompliance is now core with defaultEnabled: true
+          protocolCompliance: false,
         },
       };
       const registry = new AssessorRegistry(config);

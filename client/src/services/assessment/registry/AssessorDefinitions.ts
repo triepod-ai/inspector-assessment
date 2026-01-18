@@ -16,11 +16,12 @@ import { AssessmentPhase, DEFAULT_CONTEXT_REQUIREMENTS } from "./types";
 import { FunctionalityAssessor } from "../modules/FunctionalityAssessor";
 import { SecurityAssessor } from "../modules/SecurityAssessor";
 import { DocumentationAssessor } from "../modules/DocumentationAssessor";
-import { ErrorHandlingAssessor } from "../modules/ErrorHandlingAssessor";
+// ErrorHandlingAssessor merged into ProtocolComplianceAssessor (Issue #188)
+// import { ErrorHandlingAssessor } from "../modules/ErrorHandlingAssessor";
 import { UsabilityAssessor } from "../modules/UsabilityAssessor";
 
-// Protocol compliance
-import { ProtocolComplianceAssessor } from "../modules/ProtocolComplianceAssessor";
+// Protocol compliance (unified module with error handling - Issue #188)
+import { ProtocolComplianceAssessor } from "../modules/ProtocolComplianceAssessor/ProtocolComplianceAssessor";
 
 // MCP Directory compliance gap assessors
 import { AUPComplianceAssessor } from "../modules/AUPComplianceAssessor";
@@ -168,21 +169,8 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
       needsServerInfo: false,
     },
   },
-  {
-    id: "errorHandling",
-    displayName: "Error Handling",
-    assessorClass: ErrorHandlingAssessor,
-    resultField: "errorHandling",
-    phase: AssessmentPhase.CORE,
-    configFlags: {
-      primary: "errorHandling",
-      defaultEnabled: true,
-    },
-    requiresExtended: false,
-    supportsClaudeBridge: false,
-    estimateTests: estimateErrorHandlingTests,
-    contextRequirements: DEFAULT_CONTEXT_REQUIREMENTS, // needsTools + needsCallTool
-  },
+  // ErrorHandlingAssessor merged into ProtocolComplianceAssessor (Issue #188)
+  // Error handling tests now run as part of Protocol Compliance in Phase 2
   {
     id: "usability",
     displayName: "Usability",
@@ -220,12 +208,18 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     configFlags: {
       primary: "protocolCompliance",
       // BC: Enable if ANY of these deprecated flags is true
-      deprecated: ["mcpSpecCompliance", "protocolConformance"],
-      defaultEnabled: false, // Opt-in
+      // Issue #188: errorHandling now merged into this module
+      deprecated: ["mcpSpecCompliance", "protocolConformance", "errorHandling"],
+      defaultEnabled: true, // Changed to true since it includes error handling (Issue #188)
     },
-    requiresExtended: true,
+    requiresExtended: false, // Changed to false since error handling is core (Issue #188)
     supportsClaudeBridge: false,
-    estimateTests: estimateProtocolComplianceTests,
+    estimateTests: (context, config) => {
+      // Combined estimate: protocol checks + error handling tests
+      const protocolTests = estimateProtocolComplianceTests(context, config);
+      const errorTests = estimateErrorHandlingTests(context, config);
+      return protocolTests + errorTests;
+    },
     contextRequirements: {
       needsTools: true,
       needsCallTool: true,
@@ -236,6 +230,10 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
       needsManifest: false,
       needsServerInfo: true, // Needs server capabilities
     },
+    // Issue #188: Extract errorHandling result for backward compatibility
+    additionalResultFields: [
+      { sourceField: "errorHandling", targetField: "errorHandling" },
+    ],
   },
 
   // ============================================================================

@@ -80,7 +80,8 @@ Note: `--http`, `--sse`, and `--config` are mutually exclusive.
 **Module Execution Options:**
 
 - `--module <name>` - Run single module directly (bypasses orchestrator, fastest execution)
-- Valid modules: functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance, toolAnnotations, prohibitedLibraries, manifestValidation, authentication, resources, prompts, crossCapability, developerExperience, portability, externalAPIScanner, fileModularization, conformance
+- Valid modules: functionality, security, temporal, protocolCompliance, aupCompliance, toolAnnotations, prohibitedLibraries, manifestValidation, authentication, resources, prompts, crossCapability, developerExperience, portability, externalAPIScanner, fileModularization, conformance
+- Note: `errorHandling` is deprecated (merged into `protocolCompliance` in Issue #188) but still accepted as an alias for backward compatibility
 - Mutual exclusivity: `--module` cannot be used with `--profile`, `--skip-modules`, or `--only-modules`
 - Output format: `/tmp/inspector-{module}-{server}.json` (e.g., `/tmp/inspector-functionality-my-server.json`)
 
@@ -489,8 +490,7 @@ All events extend `BaseEvent` interface with `version` and `schemaVersion` field
 - `client/src/services/assessment/TestDataGenerator.ts` - Context-aware test data
 - `client/src/services/assessment/testdata/` - Test data constants (realistic values, tool categories)
 - `client/src/services/assessment/modules/SecurityAssessor.ts` - Domain-specific security testing
-- `client/src/services/assessment/modules/ErrorHandlingAssessor.ts` - MCP protocol compliance
-- `client/src/services/assessment/modules/ProtocolComplianceAssessor.ts` - Unified protocol compliance checks
+- `client/src/services/assessment/modules/ProtocolComplianceAssessor/` - Unified protocol compliance (includes error handling, Issue #188)
 
 **UI Components:**
 

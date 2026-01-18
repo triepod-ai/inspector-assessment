@@ -250,6 +250,24 @@ export class AssessorRegistry {
       for (const result of phaseResults) {
         (results as Record<string, unknown>)[result.resultField] =
           result.result;
+
+        // Issue #188: Handle additional result fields for merged assessors
+        const registered = this.assessors.get(result.id);
+        if (registered?.definition.additionalResultFields) {
+          for (const additional of registered.definition
+            .additionalResultFields) {
+            const sourceValue = (result.result as Record<string, unknown>)?.[
+              additional.sourceField
+            ];
+            if (sourceValue !== undefined) {
+              (results as Record<string, unknown>)[additional.targetField] =
+                sourceValue;
+              this.logger.debug(
+                `Extracted additional result field: ${additional.sourceField} -> ${String(additional.targetField)}`,
+              );
+            }
+          }
+        }
       }
     }
 

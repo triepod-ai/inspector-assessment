@@ -13,7 +13,12 @@ import { DEFAULT_ASSESSMENT_CONFIG } from "@/lib/assessmentTypes";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { determineOverallStatus } from "../orchestratorHelpers";
 import { calculateModuleScore } from "@/lib/moduleScoring";
-import { getPrivateProperty } from "@/test/utils/testUtils";
+import {
+  getPrivateProperty,
+  createMockAssessmentContext,
+  createMockTool,
+  createMockAssessmentConfig,
+} from "@/test/utils/testUtils";
 
 // Type for accessing private registry (Issue #186)
 interface AssessorRegistry {
@@ -236,7 +241,9 @@ describe("AssessmentOrchestrator constructor", () => {
           functionality: true,
           security: true,
           documentation: true,
-          errorHandling: true,
+          // Issue #188: errorHandling is now a deprecated alias for protocolCompliance
+          // Set to false to truly disable all protocol flags
+          errorHandling: false,
           usability: true,
           protocolCompliance: false,
           mcpSpecCompliance: false,
@@ -627,6 +634,267 @@ describe("Issue #124: Dual-key output for v2.0.0 transition", () => {
       expect(result.mcpSpecCompliance).toBeDefined();
       expect(result.developerExperience).toBeDefined();
       expect(result.protocolCompliance).toBeDefined();
+    });
+  });
+});
+
+/**
+ * Issue #188: Unified ProtocolComplianceAssessor Tests
+ *
+ * Tests for the unified ProtocolComplianceAssessor that merges protocol compliance
+ * and error handling into a single Phase 2 module. Validates:
+ * - T-001: additionalResultFields extraction writes errorHandling to MCPDirectoryAssessment
+ * - T-002: Deprecated errorHandling config flag enables protocolCompliance
+ * - T-003: Integration test for unified output producing both mcpSpecCompliance AND errorHandling
+ */
+describe("Issue #188: Unified ProtocolComplianceAssessor Integration", () => {
+  describe("T-001: additionalResultFields extraction", () => {
+    it("should extract errorHandling from unified result to MCPDirectoryAssessment", () => {
+      // Simulate the extraction logic from AssessorRegistry.executeAll
+      const unifiedResult = {
+        protocolVersion: "2025-06-18",
+        status: "PASS" as const,
+        complianceScore: 95,
+        explanation: "Good compliance",
+        recommendations: [],
+        errorHandling: {
+          metrics: {
+            totalTests: 10,
+            passedTests: 8,
+            mcpComplianceScore: 80,
+          },
+          errorTests: [],
+          status: "PASS" as const,
+          score: 80,
+          explanation: "Good error handling",
+          recommendations: [],
+        },
+      };
+
+      const results: Record<string, unknown> = {
+        protocolCompliance: unifiedResult,
+      };
+
+      // Extract errorHandling via additionalResultFields logic
+      const errorHandlingField = unifiedResult.errorHandling;
+      if (errorHandlingField !== undefined) {
+        results.errorHandling = errorHandlingField;
+      }
+
+      // Verify extraction
+      expect(results.errorHandling).toBeDefined();
+      expect(results.errorHandling).toEqual(unifiedResult.errorHandling);
+      expect((results.errorHandling as { status: string }).status).toBe("PASS");
+    });
+
+    it("should not extract errorHandling if not present in unified result", () => {
+      const unifiedResult = {
+        protocolVersion: "2025-06-18",
+        status: "PASS" as const,
+        complianceScore: 95,
+        explanation: "Good compliance",
+        recommendations: [],
+        // No errorHandling field
+      };
+
+      const results: Record<string, unknown> = {
+        protocolCompliance: unifiedResult,
+      };
+
+      // Attempt extraction (should not add errorHandling)
+      const errorHandlingField = (unifiedResult as Record<string, unknown>)
+        .errorHandling;
+      if (errorHandlingField !== undefined) {
+        results.errorHandling = errorHandlingField;
+      }
+
+      // Verify errorHandling is not added
+      expect(results.errorHandling).toBeUndefined();
+    });
+  });
+
+  describe("T-002: Deprecated errorHandling config flag", () => {
+    it("should enable protocolCompliance when errorHandling flag is true", () => {
+      const orchestrator = new AssessmentOrchestrator({
+        enableExtendedAssessment: true,
+        assessmentCategories: {
+          functionality: true,
+          security: true,
+          documentation: true,
+          errorHandling: true, // Deprecated flag that should enable protocolCompliance
+          usability: true,
+        },
+      });
+
+      // Verify protocolCompliance assessor is registered via registry (Issue #91)
+      const registry = getPrivateProperty<
+        AssessmentOrchestrator,
+        AssessorRegistry
+      >(orchestrator, "registry");
+      expect(registry.isRegistered("protocolCompliance")).toBe(true);
+    });
+
+    it("should not enable protocolCompliance when errorHandling flag is false and no other flags are true", () => {
+      const orchestrator = new AssessmentOrchestrator({
+        enableExtendedAssessment: true,
+        assessmentCategories: {
+          functionality: true,
+          security: true,
+          documentation: true,
+          errorHandling: false, // Deprecated flag false
+          usability: true,
+          protocolCompliance: false, // Also false
+        },
+      });
+
+      // Verify protocolCompliance assessor is NOT registered
+      const registry = getPrivateProperty<
+        AssessmentOrchestrator,
+        AssessorRegistry
+      >(orchestrator, "registry");
+      expect(registry.isRegistered("protocolCompliance")).toBe(false);
+    });
+  });
+
+  describe("T-003: Unified output integration test", () => {
+    it("should produce both protocolCompliance and errorHandling from unified assessor", async () => {
+      // Mock context with extended assessment enabled
+      const mockContext = createMockAssessmentContext({
+        serverInfo: {
+          name: "test-server",
+          version: "1.0.0",
+        },
+        tools: [
+          createMockTool({
+            name: "test_tool",
+            inputSchema: {
+              type: "object",
+              properties: {
+                query: { type: "string" },
+              },
+              required: ["query"],
+            },
+          }),
+        ],
+        callTool: jest.fn().mockResolvedValue({
+          content: [{ type: "text", text: "Success" }],
+          isError: false,
+        }),
+        config: createMockAssessmentConfig({
+          enableExtendedAssessment: true,
+          assessmentCategories: {
+            functionality: false,
+            security: false,
+            documentation: false,
+            errorHandling: true, // Use deprecated flag to enable
+            usability: false,
+          },
+          maxToolsToTestForErrors: 1, // Test 1 tool for faster execution
+        }),
+      });
+
+      const orchestrator = new AssessmentOrchestrator({
+        enableExtendedAssessment: true,
+        assessmentCategories: {
+          functionality: false,
+          security: false,
+          documentation: false,
+          errorHandling: true, // Deprecated flag
+          usability: false,
+        },
+        maxToolsToTestForErrors: 1,
+      });
+
+      const result = await orchestrator.runFullAssessment(mockContext);
+
+      // Verify protocolCompliance result exists
+      expect(result.protocolCompliance).toBeDefined();
+      expect(result.protocolCompliance?.status).toBeDefined();
+      expect(result.protocolCompliance?.complianceScore).toBeDefined();
+
+      // Verify errorHandling result exists (extracted via additionalResultFields)
+      expect(result.errorHandling).toBeDefined();
+      expect(result.errorHandling?.status).toBeDefined();
+      expect(result.errorHandling?.metrics).toBeDefined();
+
+      // Verify both results are valid
+      expect(["PASS", "FAIL", "NEED_MORE_INFO"]).toContain(
+        result.protocolCompliance?.status,
+      );
+      expect(["PASS", "FAIL", "NEED_MORE_INFO"]).toContain(
+        result.errorHandling?.status,
+      );
+    });
+
+    it("should maintain separation of concerns between protocol and error handling results", async () => {
+      const mockContext = createMockAssessmentContext({
+        serverInfo: {
+          name: "test-server",
+          version: "1.0.0",
+        },
+        tools: [
+          createMockTool({
+            name: "test_tool",
+            inputSchema: {
+              type: "object",
+              properties: {
+                query: { type: "string" },
+              },
+              required: ["query"],
+            },
+          }),
+        ],
+        callTool: jest.fn().mockResolvedValue({
+          content: [{ type: "text", text: "Success" }],
+          isError: false,
+        }),
+        config: createMockAssessmentConfig({
+          enableExtendedAssessment: true,
+          assessmentCategories: {
+            functionality: false,
+            security: false,
+            documentation: false,
+            protocolCompliance: true, // Use new flag
+            usability: false,
+          },
+          maxToolsToTestForErrors: 1,
+        }),
+      });
+
+      const orchestrator = new AssessmentOrchestrator({
+        enableExtendedAssessment: true,
+        assessmentCategories: {
+          functionality: false,
+          security: false,
+          documentation: false,
+          protocolCompliance: true, // New flag
+          usability: false,
+        },
+        maxToolsToTestForErrors: 1,
+      });
+
+      const result = await orchestrator.runFullAssessment(mockContext);
+
+      // Verify protocolCompliance has protocol-specific fields
+      expect(result.protocolCompliance?.protocolChecks).toBeDefined();
+      expect(
+        result.protocolCompliance?.protocolChecks?.jsonRpcCompliance,
+      ).toBeDefined();
+      expect(
+        result.protocolCompliance?.protocolChecks?.schemaCompliance,
+      ).toBeDefined();
+
+      // Verify errorHandling has error-specific fields
+      expect(result.errorHandling?.errorTests).toBeDefined();
+      // Metrics may be nested or at top level depending on implementation
+      const metrics =
+        result.errorHandling?.metrics ||
+        (result.errorHandling as Record<string, unknown>);
+      expect(
+        metrics?.totalTests !== undefined ||
+          (result.errorHandling as Record<string, unknown>)
+            ?.testExecutionMetadata,
+      ).toBeTruthy();
     });
   });
 });

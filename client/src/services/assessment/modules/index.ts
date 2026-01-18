@@ -4,14 +4,13 @@
  * This module exports all assessors for comprehensive MCP server evaluation.
  * Modules are organized into 4 tiers based on assessment purpose.
  *
- * ## Module Tier Organization (v1.25.0+)
+ * ## Module Tier Organization (v1.40.3+)
  *
- * ### Tier 1: Core Security (Always Run) - 6 modules
+ * ### Tier 1: Core Security (Always Run) - 5 modules
  * - FunctionalityAssessor - Tests tool execution and response handling
  * - SecurityAssessor - Checks for security vulnerabilities
  * - TemporalAssessor - Detects rug pull vulnerabilities
- * - ErrorHandlingAssessor - Tests error handling patterns
- * - ProtocolComplianceAssessor - MCP protocol + JSON-RPC validation (NEW)
+ * - ProtocolComplianceAssessor - MCP protocol + JSON-RPC + error handling validation (Issue #188)
  * - AUPComplianceAssessor - Checks for Acceptable Use Policy violations
  *
  * ### Tier 2: Compliance (MCP Directory) - 4 modules
@@ -30,12 +29,13 @@
  * - PortabilityAssessor - Checks for portability issues
  * - ExternalAPIScannerAssessor - External API detection
  *
- * ## Deprecated Modules (v1.25.0+)
+ * ## Deprecated Modules (v1.40.3+)
  * The following modules are deprecated and will be removed in v2.0.0:
  * - DocumentationAssessor → use DeveloperExperienceAssessor
  * - UsabilityAssessor → use DeveloperExperienceAssessor
  * - MCPSpecComplianceAssessor → use ProtocolComplianceAssessor
  * - ProtocolConformanceAssessor → use ProtocolComplianceAssessor
+ * - ErrorHandlingAssessor → merged into ProtocolComplianceAssessor (Issue #188)
  *
  * @public
  * @module assessment/modules
@@ -51,8 +51,16 @@ export { BaseAssessor } from "./BaseAssessor";
 export { FunctionalityAssessor } from "./FunctionalityAssessor";
 export { SecurityAssessor } from "./SecurityAssessor";
 export { TemporalAssessor } from "./TemporalAssessor";
-export { ErrorHandlingAssessor } from "./ErrorHandlingAssessor";
-export { ProtocolComplianceAssessor } from "./ProtocolComplianceAssessor";
+/**
+ * ProtocolComplianceAssessor (v1.40.3+)
+ * Unified module that merges protocol compliance and error handling assessment.
+ * The `errorHandling` result field is preserved for backward compatibility.
+ * @see GitHub Issue #188
+ */
+export {
+  ProtocolComplianceAssessor,
+  type UnifiedProtocolComplianceAssessment,
+} from "./ProtocolComplianceAssessor";
 export { AUPComplianceAssessor } from "./AUPComplianceAssessor";
 
 // ============================================================================
@@ -131,6 +139,15 @@ export { MCPSpecComplianceAssessor } from "./MCPSpecComplianceAssessor";
  * This export will be removed in v2.0.0.
  */
 export { ProtocolConformanceAssessor } from "./ProtocolConformanceAssessor";
+
+/**
+ * @public
+ * @deprecated Use ProtocolComplianceAssessor instead.
+ * ErrorHandlingAssessor has been merged into ProtocolComplianceAssessor (Issue #188).
+ * The `errorHandling` result field is still populated for backward compatibility.
+ * This export will be removed in v2.0.0.
+ */
+export { ErrorHandlingAssessor } from "./ErrorHandlingAssessor.deprecated";
 
 // ============================================================================
 // Type Re-exports (convenience for consumers)

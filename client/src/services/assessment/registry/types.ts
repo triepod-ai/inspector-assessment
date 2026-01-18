@@ -177,6 +177,16 @@ export interface AssessorDefinition<T extends BaseAssessor = BaseAssessor> {
    * @see GitHub Issue #184
    */
   contextRequirements?: ModuleContextRequirements;
+
+  /**
+   * Additional result fields to extract from the assessor's result.
+   * Used for merged assessors that produce multiple result types.
+   * The orchestrator will extract nested fields and write them to
+   * separate fields in MCPDirectoryAssessment for backward compatibility.
+   *
+   * @see GitHub Issue #188
+   */
+  additionalResultFields?: AdditionalResultField[];
 }
 
 /**
@@ -230,6 +240,19 @@ export function supportsClaudeBridge(
     typeof (assessor as unknown as ClaudeBridgeCapable).setClaudeBridge ===
     "function"
   );
+}
+
+/**
+ * Additional result field mapping for merged assessors.
+ * Used when a single assessor produces results for multiple result fields.
+ *
+ * @see GitHub Issue #188
+ */
+export interface AdditionalResultField {
+  /** Field name in the assessor's result object to extract from */
+  sourceField: string;
+  /** Field name in MCPDirectoryAssessment to write to */
+  targetField: keyof MCPDirectoryAssessment;
 }
 
 /**

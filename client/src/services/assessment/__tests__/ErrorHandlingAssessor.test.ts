@@ -3,7 +3,8 @@
  * Tests error handling assessment and errorTests array exposure
  */
 
-import { ErrorHandlingAssessor } from "../modules/ErrorHandlingAssessor";
+// eslint-disable-next-line deprecation/deprecation
+import { ErrorHandlingAssessor } from "../modules/ErrorHandlingAssessor.deprecated";
 import {
   AssessmentConfiguration,
   ErrorTestDetail,

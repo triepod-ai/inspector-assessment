@@ -35,7 +35,7 @@ mcp-assess-full my-server --profile full
 
 ```
 Tier 1 (Core Security):
-  functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance
+  functionality, security, temporal, protocolCompliance, aupCompliance
 
 Tier 2 (Compliance):
   toolAnnotations, prohibitedLibraries, manifestValidation, authentication
@@ -182,6 +182,8 @@ The security assessor automatically adjusts vulnerability severity based on tool
 
 ### 3. Error Handling Assessment
 
+> **Note**: Error handling assessment has been merged into the Protocol Compliance module (Issue #188). This section is maintained for reference and backward compatibility. See [Protocol Compliance](#6-protocol-compliance-unified) for current implementation.
+
 **Purpose**: Validate MCP protocol compliance and error response quality.
 
 **Test Approach**:
@@ -231,7 +233,13 @@ The assessor recognizes graceful degradation patterns for optional parameters an
 - "Empty list", "no data", "no matching"
 - JSON with empty results: `{"results": []}`
 
-**Implementation**: `client/src/services/assessment/modules/ErrorHandlingAssessor.ts` (692 lines)
+**Backward Compatibility** (Issue #188):
+
+- Assessment results still include `errorHandling` field for compatibility
+- Config flag `errorHandling` is now an alias for `protocolCompliance`
+- Both flags enable the unified Protocol Compliance module
+
+**Implementation**: `client/src/services/assessment/modules/ProtocolComplianceAssessor/ErrorHandlingTests.ts` (modular structure)
 
 ---
 
@@ -303,7 +311,7 @@ These core modules validate compliance with Anthropic's MCP Directory Policy req
 
 **Purpose**: Verify adherence to MCP protocol specification and conformance requirements.
 
-> **v1.25.2**: This module unifies `MCPSpecComplianceAssessor` and `ProtocolConformanceAssessor` into a single `ProtocolComplianceAssessor`. The deprecated modules remain exported for backwards compatibility.
+> **v1.25.3**: This module unifies error handling validation, MCP spec compliance, and protocol conformance into a single `ProtocolComplianceAssessor` (Issue #188). The deprecated modules remain exported for backwards compatibility.
 
 **Test Approach**:
 
@@ -327,6 +335,8 @@ These core modules validate compliance with Anthropic's MCP Directory Policy req
 | Error Response Format | Validates `isError: true` flag, content array |
 | Content Type Support | Validates all content items use valid MCP types |
 | Initialization Handshake | Validates serverInfo.name, version, capabilities |
+| Error Handling Quality | Descriptive messages, graceful degradation (Issue #188) |
+| Invalid Input Resilience | Server stability with malformed requests (Issue #188) |
 
 **Pass Criteria**:
 
@@ -352,9 +362,27 @@ Detection results include:
 - Detailed evidence from each source
 - Boolean flags for quick checks (supportsStdio, supportsHTTP, supportsSSE)
 
+**Module Structure** (Issue #188 - Modularized):
+
+The unified ProtocolComplianceAssessor uses a modular directory structure:
+
+```
+ProtocolComplianceAssessor/
+├── index.ts                    # Main orchestrator
+├── ErrorHandlingTests.ts       # Error handling validation
+├── ProtocolConformanceTests.ts # Protocol conformance checks
+└── MCPSpecComplianceTests.ts   # MCP spec compliance
+```
+
+**Backward Compatibility**:
+
+- `errorHandling` result field still populated via `additionalResultFields` pattern
+- Config flag `errorHandling` is an alias for `protocolCompliance`
+- Deprecated assessors (ErrorHandlingAssessor, MCPSpecComplianceAssessor, ProtocolConformanceAssessor) re-exported for compatibility
+
 **Implementation**:
 
-- `client/src/services/assessment/modules/ProtocolComplianceAssessor.ts`
+- `client/src/services/assessment/modules/ProtocolComplianceAssessor/` (modular directory)
 - `client/src/services/assessment/helpers/StdioTransportDetector.ts` (Issue #172)
 
 ---
@@ -657,7 +685,7 @@ See [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) for complete
 
 **Helper**: `client/src/services/assessment/helpers/ExternalAPIDependencyDetector.ts` (Issue #168)
 
-- Shared helper used by TemporalAssessor, FunctionalityAssessor, and ErrorHandlingAssessor
+- Shared helper used by TemporalAssessor, FunctionalityAssessor, and ProtocolComplianceAssessor
 - Returns detection results with confidence levels and domain extraction
 
 ---
@@ -919,7 +947,7 @@ See [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) for complete
 
 **Relationship to Other Modules**:
 
-- **ErrorHandlingAssessor** (#3): Application-level error handling quality
+- **ErrorHandlingAssessor** (#3): Merged into ProtocolComplianceAssessor (Issue #188)
 - **ProtocolComplianceAssessor** (#6): Unified protocol compliance (replaces this module)
 
 **Test Approach**:
@@ -1076,28 +1104,28 @@ If not available, the module logs a warning and skips gracefully.
 
 ## Quick Reference Table
 
-| #   | Module               | Tests               | Policy Ref     | Severity | Tier         |
-| --- | -------------------- | ------------------- | -------------- | -------- | ------------ |
-| 1   | Functionality        | ~10 per tool        | Core           | Medium   | Tier 1: Core |
-| 2   | Security             | 31 patterns × tools | Core           | High     | Tier 1: Core |
-| 3   | Error Handling       | ~20 per tool        | MCP Spec       | Medium   | Tier 1: Core |
-| 4   | Documentation        | ~10 checks          | Core           | Low      | Tier 1: Core |
-| 5   | Usability            | ~8 checks           | Core           | Low      | Tier 1: Core |
-| 6   | Protocol Compliance  | ~20 checks          | MCP Spec       | High     | Tier 1: Core |
-| 7   | AUP Compliance       | 14 categories       | AUP A-N        | Critical | Tier 2: Comp |
-| 8   | Tool Annotations     | Per tool            | Policy #17     | Medium   | Tier 2: Comp |
-| 9   | Prohibited Libraries | ~25 libraries       | Policy #28-30  | Blocking | Tier 2: Comp |
-| 10  | Manifest Validation  | ~10 checks          | MCPB v0.3      | Medium   | Tier 2: Comp |
-| 11  | Portability          | ~8 patterns         | Cross-platform | Low      | Tier 4: Ext  |
-| 12  | External API Scanner | API detection       | Disclosure     | Medium   | Tier 2: Comp |
-| 13  | Authentication       | Auth patterns       | Security       | High     | Tier 2: Comp |
-| 14  | Temporal             | 3 invocations/tool  | Rug pull       | High     | Tier 1: Core |
-| 15  | Resources            | Per resource        | MCP Spec       | Medium   | Tier 3: Cap  |
-| 16  | Prompts              | Per prompt          | MCP Spec       | Medium   | Tier 3: Cap  |
-| 17  | Cross-Capability     | Multi-tool chains   | Security       | High     | Tier 3: Cap  |
-| 18  | File Modularization  | Per file            | Code quality   | Medium   | Tier 4: Ext  |
-| 19  | Protocol Conformance | 3 protocol checks   | MCP Spec       | High     | Deprecated   |
-| 20  | MCP Conformance      | 7 scenarios         | Official MCP   | High     | Opt-In       |
+| #   | Module               | Tests               | Policy Ref     | Severity | Tier          |
+| --- | -------------------- | ------------------- | -------------- | -------- | ------------- |
+| 1   | Functionality        | ~10 per tool        | Core           | Medium   | Tier 1: Core  |
+| 2   | Security             | 31 patterns × tools | Core           | High     | Tier 1: Core  |
+| 3   | Error Handling       | ~20 per tool        | MCP Spec       | Medium   | Merged (#188) |
+| 4   | Documentation        | ~10 checks          | Core           | Low      | Tier 1: Core  |
+| 5   | Usability            | ~8 checks           | Core           | Low      | Tier 1: Core  |
+| 6   | Protocol Compliance  | ~20 checks          | MCP Spec       | High     | Tier 1: Core  |
+| 7   | AUP Compliance       | 14 categories       | AUP A-N        | Critical | Tier 2: Comp  |
+| 8   | Tool Annotations     | Per tool            | Policy #17     | Medium   | Tier 2: Comp  |
+| 9   | Prohibited Libraries | ~25 libraries       | Policy #28-30  | Blocking | Tier 2: Comp  |
+| 10  | Manifest Validation  | ~10 checks          | MCPB v0.3      | Medium   | Tier 2: Comp  |
+| 11  | Portability          | ~8 patterns         | Cross-platform | Low      | Tier 4: Ext   |
+| 12  | External API Scanner | API detection       | Disclosure     | Medium   | Tier 2: Comp  |
+| 13  | Authentication       | Auth patterns       | Security       | High     | Tier 2: Comp  |
+| 14  | Temporal             | 3 invocations/tool  | Rug pull       | High     | Tier 1: Core  |
+| 15  | Resources            | Per resource        | MCP Spec       | Medium   | Tier 3: Cap   |
+| 16  | Prompts              | Per prompt          | MCP Spec       | Medium   | Tier 3: Cap   |
+| 17  | Cross-Capability     | Multi-tool chains   | Security       | High     | Tier 3: Cap   |
+| 18  | File Modularization  | Per file            | Code quality   | Medium   | Tier 4: Ext   |
+| 19  | Protocol Conformance | 3 protocol checks   | MCP Spec       | High     | Deprecated    |
+| 20  | MCP Conformance      | 7 scenarios         | Official MCP   | High     | Opt-In        |
 
 ---
 

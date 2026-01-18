@@ -85,8 +85,11 @@ client/src/services/assessment/modules/
 ├── SecurityAssessor.test.ts
 ├── DocumentationAssessor.ts
 ├── DocumentationAssessor.test.ts
-├── ErrorHandlingAssessor.ts
-├── ErrorHandlingAssessor.test.ts
+├── ProtocolComplianceAssessor/      # Unified protocol compliance (Issue #188)
+│   ├── index.ts                     # Main orchestrator
+│   ├── ErrorHandlingTests.ts        # Error handling validation
+│   ├── ProtocolConformanceTests.ts  # Protocol conformance checks
+│   └── MCPSpecComplianceTests.ts    # MCP spec compliance
 ├── UsabilityAssessor.ts
 ├── UsabilityAssessor.test.ts
 ├── MCPSpecComplianceAssessor.ts       # Extended module
@@ -405,11 +408,23 @@ if (context.executionContext === "LIKELY_FALSE_POSITIVE") {
 
 ---
 
-### 4. ErrorHandlingAssessor (Core)
+### 4. ProtocolComplianceAssessor (Unified - Issue #188)
 
-**Purpose**: Tests MCP protocol compliance for error handling
+**Purpose**: Unified protocol compliance validation including error handling, MCP spec, and conformance
 
-**Validation Tests**:
+> **Note**: ErrorHandlingAssessor has been merged into ProtocolComplianceAssessor (Issue #188). The error handling validation is now part of the unified module.
+
+**Module Structure**:
+
+```
+ProtocolComplianceAssessor/
+├── index.ts                    # Main orchestrator
+├── ErrorHandlingTests.ts       # Error handling validation (former ErrorHandlingAssessor)
+├── ProtocolConformanceTests.ts # Protocol conformance checks
+└── MCPSpecComplianceTests.ts   # MCP spec compliance
+```
+
+**Error Handling Tests** (from ErrorHandlingAssessor):
 
 - Missing required parameters
 - Wrong parameter types
@@ -417,18 +432,25 @@ if (context.executionContext === "LIKELY_FALSE_POSITIVE") {
 - Null/empty values
 - Boundary conditions
 
-**Return Type**: `ErrorHandlingAssessment`
+**Return Type**: `ProtocolComplianceAssessment`
+
+**Backward Compatibility**:
+
+- `errorHandling` field still populated via `additionalResultFields` pattern
+- Config flag `errorHandling` is an alias for `protocolCompliance`
+- Both config flags enable the unified module
 
 **Configuration**:
 
 ```typescript
 {
+  protocolCompliance?: boolean;        // Primary flag (Phase 2)
+  errorHandling?: boolean;             // Deprecated alias (backward compat)
   selectedToolsForTesting?: string[];  // Tools to test (undefined = all, [] = none)
-  // maxToolsToTestForErrors is deprecated - use selectedToolsForTesting instead
 }
 ```
 
-**Implementation Location**: `client/src/services/assessment/modules/ErrorHandlingAssessor.ts`
+**Implementation Location**: `client/src/services/assessment/modules/ProtocolComplianceAssessor/`
 
 ---
 
@@ -1623,7 +1645,7 @@ For detection logic used across multiple assessors, create shared helper classes
 
 **Example: ExternalAPIDependencyDetector**
 
-Used by TemporalAssessor, FunctionalityAssessor, and ErrorHandlingAssessor to detect external API dependencies with two-phase detection:
+Used by TemporalAssessor, FunctionalityAssessor, and ProtocolComplianceAssessor to detect external API dependencies with two-phase detection:
 
 ```typescript
 // Location: client/src/services/assessment/helpers/ExternalAPIDependencyDetector.ts

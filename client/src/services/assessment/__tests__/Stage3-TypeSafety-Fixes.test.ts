@@ -12,7 +12,8 @@
  */
 
 import { FunctionalityAssessor } from "../modules/FunctionalityAssessor";
-import { ErrorHandlingAssessor } from "../modules/ErrorHandlingAssessor";
+// eslint-disable-next-line deprecation/deprecation
+import { ErrorHandlingAssessor } from "../modules/ErrorHandlingAssessor.deprecated";
 import {
   createMockAssessmentContext,
   createMockTool,
