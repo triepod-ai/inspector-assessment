@@ -24,6 +24,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Better CLI error messages help users quickly identify configuration issues
   - Example: Shows both "url must be a valid URL" and "command is required for stdio transport" when neither transport format matches
 
+### Refactored
+
+- **SecurityResponseAnalyzer Modularization** (Issue #179): Extracted specialized vulnerability analyzers for improved maintainability
+  - Reduced main file from 1,774 lines to 759 lines (-57%)
+  - Extracted 9 specialized analyzers to `analyzers/` subdirectory:
+    - `AuthBypassAnalyzer` (58 lines) - CVE-2025-52882 fail-open auth detection
+    - `StateBasedAuthAnalyzer` (80 lines) - Cross-tool state abuse (Issue #92)
+    - `SecretLeakageDetector` (98 lines) - Credential exposure (Issue #103)
+    - `ChainExploitationAnalyzer` (139 lines) - Multi-tool attack chains (Issue #93)
+    - `ExcessivePermissionsAnalyzer` (133 lines) - Permission scope violations (Issue #144)
+    - `BlacklistBypassAnalyzer` (137 lines) - Incomplete blacklist patterns (Issue #110)
+    - `OutputInjectionAnalyzer` (151 lines) - Indirect prompt injection (Issue #110)
+    - `SessionManagementAnalyzer` (232 lines) - Session CWEs (Issue #111)
+    - `CryptographicFailureAnalyzer` (361 lines) - OWASP A02:2021 crypto issues (Issue #112)
+  - New barrel export: `client/src/services/assessment/modules/securityTests/analyzers/index.ts`
+  - Type re-exports maintained for backward compatibility
+  - All public APIs unchanged - internal architecture improvement only
+  - 33 new tests validating analyzer exports and edge cases
+
 ### Fixed
 
 - **AppleScript Injection Echoed Input Bypass** (Issue #178): Fixed bypass where AppleScript injection was dismissed by generic checks
