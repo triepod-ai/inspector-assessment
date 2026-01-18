@@ -1,4 +1,4 @@
-// eslint-disable-next-line deprecation/deprecation
+// @deprecated - using deprecated module for backward compatibility testing
 import { ErrorHandlingAssessor } from "./ErrorHandlingAssessor.deprecated";
 import {
   createMockAssessmentContext,

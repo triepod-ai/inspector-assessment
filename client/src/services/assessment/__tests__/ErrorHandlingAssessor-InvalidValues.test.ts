@@ -3,7 +3,7 @@
  * Tests the analyzeInvalidValuesResponse() method and calculateMetrics() integration
  */
 
-// eslint-disable-next-line deprecation/deprecation
+// @deprecated - using deprecated module for backward compatibility testing
 import { ErrorHandlingAssessor } from "../modules/ErrorHandlingAssessor.deprecated";
 import { ErrorTestDetail } from "@/lib/assessmentTypes";
 import { DEFAULT_ASSESSMENT_CONFIG } from "@/lib/assessment/configTypes";

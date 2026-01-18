@@ -15,7 +15,7 @@ import {
   TIER_1_CORE_SECURITY,
   TIER_2_COMPLIANCE,
   TIER_3_CAPABILITY,
-  TIER_4_EXTENDED,
+  TIER_4_DEVELOPMENT,
   ALL_MODULES,
   resolveModuleNames,
   getProfileModules,
@@ -32,9 +32,15 @@ describe("Profile Definitions", () => {
   });
 
   describe("Profile Constants", () => {
-    it("should have four profiles defined", () => {
+    it("should have five profiles defined", () => {
       const profiles = Object.keys(ASSESSMENT_PROFILES);
-      expect(profiles).toEqual(["quick", "security", "compliance", "full"]);
+      expect(profiles).toEqual([
+        "quick",
+        "security",
+        "compliance",
+        "full",
+        "dev",
+      ]);
     });
 
     it("should have metadata for all profiles", () => {
@@ -74,10 +80,10 @@ describe("Profile Definitions", () => {
       expect(TIER_3_CAPABILITY).toContain("crossCapability");
     });
 
-    it("should have Tier 4 extended modules", () => {
-      expect(TIER_4_EXTENDED).toContain("developerExperience");
-      expect(TIER_4_EXTENDED).toContain("portability");
-      expect(TIER_4_EXTENDED).toContain("externalAPIScanner");
+    it("should have Tier 4 development modules", () => {
+      expect(TIER_4_DEVELOPMENT).toContain("developerExperience");
+      expect(TIER_4_DEVELOPMENT).toContain("portability");
+      expect(TIER_4_DEVELOPMENT).toContain("externalAPIScanner");
     });
 
     it("should combine all tiers in ALL_MODULES", () => {
@@ -85,7 +91,7 @@ describe("Profile Definitions", () => {
         TIER_1_CORE_SECURITY.length +
         TIER_2_COMPLIANCE.length +
         TIER_3_CAPABILITY.length +
-        TIER_4_EXTENDED.length;
+        TIER_4_DEVELOPMENT.length;
       expect(ALL_MODULES.length).toBe(expectedLength);
     });
   });
@@ -114,6 +120,16 @@ describe("Profile Definitions", () => {
       for (const module of ALL_MODULES) {
         expect(ASSESSMENT_PROFILES.full).toContain(module);
       }
+    });
+
+    it("dev profile should include all tiers", () => {
+      for (const module of ALL_MODULES) {
+        expect(ASSESSMENT_PROFILES.dev).toContain(module);
+      }
+    });
+
+    it("dev and full profiles should be equivalent in v1.x", () => {
+      expect(ASSESSMENT_PROFILES.dev).toEqual(ASSESSMENT_PROFILES.full);
     });
   });
 });
@@ -241,6 +257,10 @@ describe("isValidProfileName", () => {
     expect(isValidProfileName("full")).toBe(true);
   });
 
+  it("should return true for dev profile", () => {
+    expect(isValidProfileName("dev")).toBe(true);
+  });
+
   it("should return false for invalid profile names", () => {
     expect(isValidProfileName("invalid")).toBe(false);
     expect(isValidProfileName("")).toBe(false);
@@ -261,6 +281,7 @@ describe("getProfileHelpText", () => {
     expect(help).toContain("security");
     expect(help).toContain("compliance");
     expect(help).toContain("full");
+    expect(help).toContain("dev");
   });
 
   it("should contain module counts", () => {
@@ -380,5 +401,14 @@ describe("Profile Metadata", () => {
     expect(PROFILE_METADATA.security.tiers.length).toBe(1);
     expect(PROFILE_METADATA.compliance.tiers.length).toBe(2);
     expect(PROFILE_METADATA.full.tiers.length).toBe(4);
+    expect(PROFILE_METADATA.dev.tiers.length).toBe(4);
+  });
+
+  it("should have dev profile metadata", () => {
+    expect(PROFILE_METADATA.dev).toBeDefined();
+    expect(PROFILE_METADATA.dev.description).toContain("development");
+    expect(PROFILE_METADATA.dev.moduleCount).toBe(
+      ASSESSMENT_PROFILES.dev.length,
+    );
   });
 });

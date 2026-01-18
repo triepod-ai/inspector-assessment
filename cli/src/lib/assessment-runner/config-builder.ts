@@ -56,6 +56,16 @@ export function buildConfig(
         profileModules,
       ) as AssessmentConfiguration["assessmentCategories"];
     } else {
+      // Issue #190: Deprecation warning for v2.0 default change
+      // Only warn if user didn't specify --only-modules or --skip-modules
+      if (!options.onlyModules?.length && !options.skipModules?.length) {
+        console.warn(
+          "⚠️  Warning: Running without --profile will default to --profile security in v2.0.\n" +
+            "   To preserve current behavior (all modules), use --profile full or --profile dev.\n" +
+            "   See docs/CLI_ASSESSMENT_GUIDE.md for profile details.",
+        );
+      }
+
       // Derive module config from ASSESSMENT_CATEGORY_METADATA (single source of truth)
       const allModules = getAllModulesConfig({
         sourceCodePath: Boolean(options.sourceCodePath),

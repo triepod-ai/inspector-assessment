@@ -13,7 +13,7 @@
  * Tier 3: Capability-Based (Conditional)
  *   - resources, prompts, crossCapability
  *
- * Tier 4: Extended (Optional)
+ * Tier 4: Development (--profile dev only in v2.0)
  *   - developerExperience, portability, externalAPIScanner
  *
  * @module cli/profiles
@@ -26,7 +26,8 @@ export type AssessmentProfileName =
   | "quick"
   | "security"
   | "compliance"
-  | "full";
+  | "full"
+  | "dev";
 
 /**
  * Module alias mappings for backward compatibility.
@@ -81,14 +82,20 @@ export const TIER_3_CAPABILITY = [
 ] as const;
 
 /**
- * Tier 4: Extended modules
- * Optional assessments for comprehensive audits
+ * Tier 4: Development modules
+ * Development-focused assessments (code quality, portability)
+ * In v2.0, these will only run with --profile dev
  */
-export const TIER_4_EXTENDED = [
+export const TIER_4_DEVELOPMENT = [
   "developerExperience",
   "portability",
   "externalAPIScanner",
 ] as const;
+
+/**
+ * @deprecated Use TIER_4_DEVELOPMENT instead. Will be removed in v2.0.
+ */
+export const TIER_4_EXTENDED = TIER_4_DEVELOPMENT;
 
 /**
  * All available modules (new naming)
@@ -97,7 +104,7 @@ export const ALL_MODULES = [
   ...TIER_1_CORE_SECURITY,
   ...TIER_2_COMPLIANCE,
   ...TIER_3_CAPABILITY,
-  ...TIER_4_EXTENDED,
+  ...TIER_4_DEVELOPMENT,
 ] as const;
 
 /**
@@ -139,7 +146,20 @@ export const ASSESSMENT_PROFILES: Record<AssessmentProfileName, string[]> = {
     ...TIER_1_CORE_SECURITY,
     ...TIER_2_COMPLIANCE,
     ...TIER_3_CAPABILITY,
-    ...TIER_4_EXTENDED,
+    ...TIER_4_DEVELOPMENT,
+  ],
+
+  /**
+   * Dev profile: All modules including development-focused assessments
+   * Use when: Full audit including code quality checks
+   * Time: ~8-12 minutes
+   * Note: In v2.0, --profile full will change to compliance-only
+   */
+  dev: [
+    ...TIER_1_CORE_SECURITY,
+    ...TIER_2_COMPLIANCE,
+    ...TIER_3_CAPABILITY,
+    ...TIER_4_DEVELOPMENT,
   ],
 };
 
@@ -181,7 +201,18 @@ export const PROFILE_METADATA: Record<AssessmentProfileName, ProfileMetadata> =
         "Tier 1 (Core Security)",
         "Tier 2 (Compliance)",
         "Tier 3 (Capability)",
-        "Tier 4 (Extended)",
+        "Tier 4 (Development)",
+      ],
+    },
+    dev: {
+      description: "All modules including development-focused assessments",
+      estimatedTime: "~8-12 minutes",
+      moduleCount: ASSESSMENT_PROFILES.dev.length,
+      tiers: [
+        "Tier 1 (Core Security)",
+        "Tier 2 (Compliance)",
+        "Tier 3 (Capability)",
+        "Tier 4 (Development)",
       ],
     },
   };

@@ -20,7 +20,7 @@ import {
   TIER_1_CORE_SECURITY,
   TIER_2_COMPLIANCE,
   TIER_3_CAPABILITY,
-  TIER_4_EXTENDED,
+  TIER_4_DEVELOPMENT,
   type AssessmentProfileName,
 } from "../profiles.js";
 import packageJson from "../../package.json" with { type: "json" };
@@ -86,7 +86,7 @@ export interface AssessmentOptions {
   skipTemporal?: boolean;
   skipModules?: string[];
   onlyModules?: string[];
-  /** Assessment profile (quick, security, compliance, full) */
+  /** Assessment profile (quick, security, compliance, full, dev) */
   profile?: AssessmentProfileName;
   /** Log level for diagnostic output */
   logLevel?: LogLevel;
@@ -692,7 +692,7 @@ Options:
   --claude-http          Enable Claude Code via HTTP transport (connects to mcp-auditor proxy)
   --mcp-auditor-url <url>  mcp-auditor URL for HTTP transport (default: http://localhost:8085)
   --full                 Enable all assessment modules (default)
-  --profile <name>       Use predefined module profile (quick, security, compliance, full)
+  --profile <name>       Use predefined module profile (quick, security, compliance, full, dev)
   --temporal-invocations <n>  Number of invocations per tool for rug pull detection (default: 3)
   --skip-temporal        Skip temporal/rug pull testing (faster assessment)
   --conformance          Enable official MCP conformance tests (experimental, requires HTTP/SSE transport)
@@ -781,6 +781,7 @@ Examples:
   mcp-assess-full my-server --profile security      # Security audit (~2-3min)
   mcp-assess-full my-server --profile compliance    # Directory submission (~5min)
   mcp-assess-full my-server --profile full          # Comprehensive audit (~10-15min)
+  mcp-assess-full my-server --profile dev           # Development-focused (all modules)
 
   # Single module (fastest - bypasses orchestrator):
   mcp-assess-full my-server --http http://localhost:10900/mcp --module toolAnnotations
@@ -847,13 +848,13 @@ ${TIER_2_COMPLIANCE.map(formatModule).join("\n")}
 Tier 3 - Capability-Based (${TIER_3_CAPABILITY.length} modules):
 ${TIER_3_CAPABILITY.map(formatModule).join("\n")}
 
-Tier 4 - Extended (${TIER_4_EXTENDED.length} modules):
-${TIER_4_EXTENDED.map(formatModule).join("\n")}
+Tier 4 - Development (${TIER_4_DEVELOPMENT.length} modules):
+${TIER_4_DEVELOPMENT.map(formatModule).join("\n")}
 
 Usage:
   --only-modules <list>   Run only specified modules (comma-separated)
   --skip-modules <list>   Skip specified modules (comma-separated)
-  --profile <name>        Use predefined profile (quick, security, compliance, full)
+  --profile <name>        Use predefined profile (quick, security, compliance, full, dev)
 
 Examples:
   mcp-assess-full my-server --only-modules functionality,security

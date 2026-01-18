@@ -43,6 +43,7 @@ export const AssessmentProfileNameSchema = z.enum([
   "security",
   "compliance",
   "full",
+  "dev",
 ]);
 
 /**

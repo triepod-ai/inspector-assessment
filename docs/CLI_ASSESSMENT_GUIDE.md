@@ -329,16 +329,19 @@ Examples:
 
 ## Assessment Profiles (v1.25.0+)
 
-The inspector provides 4 pre-configured assessment profiles optimized for different use cases. Use the `--profile` flag to quickly select module combinations without manual configuration.
+The inspector provides 5 pre-configured assessment profiles optimized for different use cases. Use the `--profile` flag to quickly select module combinations without manual configuration.
+
+> **v2.0 Migration Note**: Running without `--profile` will default to `--profile security` in v2.0 (currently defaults to all modules). Use `--profile full` or `--profile dev` to preserve the current behavior of running all modules.
 
 ### Profile Overview
 
-| Profile      | Modules                    | Time     | Use Case                                    |
-| ------------ | -------------------------- | -------- | ------------------------------------------- |
-| `quick`      | 2 modules (Tier 1 partial) | ~30 sec  | Pre-commit hooks, CI validation             |
-| `security`   | 6 modules (Tier 1)         | ~2-3 min | Security-focused audits, vulnerability scan |
-| `compliance` | 10 modules (Tier 1 + 2)    | ~5 min   | MCP Directory submission validation         |
-| `full`       | 16 modules (all tiers)     | ~10-15   | Comprehensive audits, initial server review |
+| Profile      | Modules                    | Time     | Use Case                                     |
+| ------------ | -------------------------- | -------- | -------------------------------------------- |
+| `quick`      | 2 modules (Tier 1 partial) | ~30 sec  | Pre-commit hooks, CI validation              |
+| `security`   | 6 modules (Tier 1)         | ~2-3 min | Security-focused audits, vulnerability scan  |
+| `compliance` | 10 modules (Tier 1 + 2)    | ~5 min   | MCP Directory submission validation          |
+| `full`       | 16 modules (all tiers)     | ~10-15   | Comprehensive audits, initial server review  |
+| `dev`        | 16 modules (all tiers)     | ~10-15   | Development-focused with code quality checks |
 
 ### Using Profiles
 
@@ -354,6 +357,9 @@ mcp-assess-full --server my-server --config config.json --profile compliance
 
 # Comprehensive audit (default)
 mcp-assess-full --server my-server --config config.json --profile full
+
+# Development-focused audit (all modules including code quality)
+mcp-assess-full --server my-server --config config.json --profile dev
 ```
 
 ### Profile Definitions
@@ -442,6 +448,32 @@ mcp-assess-full --server my-server --config config.json --profile compliance
 mcp-assess-full --server my-server --config config.json --profile full
 ```
 
+#### Dev Profile (16 modules, ~10-15 minutes)
+
+**Modules**: All assessment modules including Tiers 1-4
+
+**Includes:**
+
+- All Tier 1 core security modules
+- All Tier 2 compliance modules
+- All Tier 3 capability-based modules
+- All Tier 4 development modules (code quality, portability)
+
+**Best for:**
+
+- Development iteration with full code quality feedback
+- Pre-merge comprehensive checks
+- Preserving v1.x default behavior in v2.0
+
+**Example:**
+
+```bash
+# Development-focused comprehensive assessment
+mcp-assess-full --server my-server --config config.json --profile dev
+```
+
+> **Note**: In v1.x, `--profile dev` and `--profile full` are equivalent. In v2.0, `--profile full` will change to map to `--profile compliance`, while `--profile dev` will continue to include all modules.
+
 ### Module Tier Organization
 
 Understanding module tiers helps you choose the right profile:
@@ -464,10 +496,11 @@ Understanding module tiers helps you choose the right profile:
 - Only relevant if server has these capabilities
 - ~10% of assessment time
 
-**Tier 4 (Extended)** - Optional
+**Tier 4 (Development)** - Code Quality
 
 - developerExperience, portability, externalAPIScanner
-- For comprehensive audits and detailed analysis
+- For development iteration and code quality feedback
+- In v2.0, only runs with `--profile dev`
 - ~5% of assessment time
 
 ---

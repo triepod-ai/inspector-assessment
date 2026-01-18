@@ -543,7 +543,7 @@ describe("Analyzer Integration", () => {
   it("all analyzers should be independent (no shared state)", () => {
     const response1 = createMinimalResponse("first");
     const response2 = createMinimalResponse("second");
-    const tool = createTestTool("test_tool");
+    const _tool = createTestTool("test_tool");
 
     const authBypass = new AuthBypassAnalyzer();
 
