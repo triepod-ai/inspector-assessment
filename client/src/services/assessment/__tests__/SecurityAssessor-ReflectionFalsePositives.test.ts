@@ -23,6 +23,10 @@ import {
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
+// SLOW TESTS: Run with RUN_SLOW_TESTS=true npm test -- --testPathPattern="ReflectionFalsePositives"
+// These tests run 8 full assessments sequentially and take 3+ minutes
+const describeSlow = process.env.RUN_SLOW_TESTS ? describe : describe.skip;
+
 describe("SecurityAssessor - Reflection False Positives Fix", () => {
   let assessor: SecurityAssessor;
   let mockContext: AssessmentContext;
@@ -255,9 +259,32 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
       );
       expect(pathTests.length).toBe(0);
     });
+  });
 
-    // Skip: This test takes too long (runs 8 full assessments sequentially)
-    it.skip("should detect multiple reflection patterns", async () => {
+  // Slow tests that require RUN_SLOW_TESTS=true to run
+  // Tests 8 reflection patterns sequentially - takes 3+ minutes
+  describeSlow("Slow/Comprehensive Reflection Pattern Tests", () => {
+    let assessor: SecurityAssessor;
+    let mockContext: AssessmentContext;
+
+    beforeEach(() => {
+      const config = createMockAssessmentConfig({
+        testTimeout: 5000,
+        delayBetweenTests: 0,
+        enableDomainTesting: true,
+      });
+      assessor = new SecurityAssessor(config);
+      mockContext = createMockAssessmentContext();
+      jest.clearAllMocks();
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    // Tests 8 different reflection patterns to verify none are false positives
+    // Each pattern runs a full assessment - total runtime ~3-5 minutes
+    it("should detect multiple reflection patterns", async () => {
       const reflectionPatterns = [
         "Stored query:",
         "Query saved:",
@@ -304,7 +331,7 @@ describe("SecurityAssessor - Reflection False Positives Fix", () => {
         );
         expect(vulnerableTests.length).toBe(0);
       }
-    });
+    }, 480000); // 480 second timeout for 8 full assessments
   });
 
   describe("Execution vs Reflection Distinction", () => {

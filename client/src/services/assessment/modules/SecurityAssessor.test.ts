@@ -10,6 +10,10 @@ import { AssessmentContext } from "../AssessmentOrchestrator";
 import { SECURITY_ATTACK_PATTERNS } from "@/lib/securityPatterns";
 import { SecurityAssessment as _SecurityAssessment } from "@/lib/assessment/resultTypes";
 
+// SLOW TESTS: Run with RUN_SLOW_TESTS=true npm test -- --testPathPattern="SecurityAssessor"
+// These tests run comprehensive assessments taking 3+ minutes each
+const describeSlow = process.env.RUN_SLOW_TESTS ? describe : describe.skip;
+
 describe("SecurityAssessor", () => {
   let assessor: SecurityAssessor;
   let mockContext: AssessmentContext;
@@ -256,46 +260,52 @@ describe("SecurityAssessor", () => {
       expect(mediumRisk.length).toBeGreaterThan(0);
     }, 60000); // 60 second timeout (reduced from 240s - unit test with mocks)
 
-    // Skip: This test takes too long (>480s) due to comprehensive assessment
-    it.skip("should handle timeout scenarios", async () => {
-      // Enable fake timers for this test
-      jest.useFakeTimers();
-
-      try {
-        // Arrange
-        mockContext.config.testTimeout = 100;
-        mockContext.callTool = jest
-          .fn()
-          .mockImplementation(
-            () =>
-              new Promise((resolve) =>
-                setTimeout(
-                  () => resolve(createMockCallToolResponse("success", false)),
-                  200,
-                ),
+    // Tests timeout handling using real timers (follows FunctionalityAssessor pattern)
+    // Mock tool responds after 200ms, but assessor timeout is 100ms
+    // Note: SecurityAssessor runs many patterns, so test takes ~60-90s even with fast mocks
+    it("should handle timeout scenarios", async () => {
+      // Arrange - tool mock responds after 200ms, assessor timeout is 100ms
+      mockContext.config.testTimeout = 100;
+      mockContext.callTool = jest
+        .fn()
+        .mockImplementation(
+          () =>
+            new Promise((resolve) =>
+              setTimeout(
+                () => resolve(createMockCallToolResponse("success", false)),
+                200,
               ),
-          );
+            ),
+        );
 
-        // Act
-        const resultPromise = assessor.assess(mockContext);
+      // Act - assessor should handle tool timeout gracefully
+      const result = await assessor.assess(mockContext);
 
-        // Fast-forward time
-        jest.advanceTimersByTime(300);
+      // Assert - should complete with valid structure even when tools timeout
+      expect(result).toBeDefined();
+      expect(result.promptInjectionTests.length).toBeGreaterThanOrEqual(0);
+    }, 120000); // 120s timeout - SecurityAssessor runs many patterns
+  });
 
-        const result = await resultPromise;
+  // Slow tests that require RUN_SLOW_TESTS=true to run
+  // These tests run comprehensive assessments taking 3+ minutes each
+  describeSlow("Slow/Comprehensive Tests", () => {
+    let assessor: SecurityAssessor;
+    let mockContext: AssessmentContext;
 
-        // Assert
-        expect(result).toBeDefined();
-        // Should still have structure even if tests timeout
-        expect(result.promptInjectionTests.length).toBeGreaterThanOrEqual(0);
-      } finally {
-        // Clean up fake timers
-        jest.useRealTimers();
-      }
-    }, 480000); // 480 second timeout for comprehensive mode with fake timers
+    beforeEach(() => {
+      const config = createMockAssessmentConfig();
+      assessor = new SecurityAssessor(config);
+      mockContext = createMockAssessmentContext();
+    });
 
-    // Skip: This test takes too long (>480s) due to comprehensive assessment of 3 tools
-    it.skip("should test with different tool configurations", async () => {
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    // Tests comprehensive assessment across multiple tools
+    // 3 tools × ~19 patterns × ~3 payloads ≈ 171 tests
+    it("should test with different tool configurations", async () => {
       // Arrange
       const tools = [
         createMockTool({ name: "read-tool" }),

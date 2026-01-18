@@ -494,3 +494,67 @@
 - Issue #186 fully resolved and closed
 
 ---
+
+## 2026-01-18: Issue #188 Module Merge Complete - ErrorHandlingAssessor into ProtocolComplianceAssessor
+
+**Summary:** Completed Issue #188, merged ErrorHandlingAssessor into ProtocolComplianceAssessor with modular directory architecture
+
+**Session Focus:** Phase E completion - Fix test failures after module merge, code review, npm publishing
+
+**Changes Made:**
+- Created `ProtocolComplianceAssessor/` directory with 18 modular files (~165 lines avg)
+- Added `additionalResultFields` to registry for backward-compatible result extraction
+- Fixed 3 test suites: ProtocolComplianceAssessor.test.ts, AssessorRegistry.test.ts, AssessmentOrchestrator.test.ts
+- Added 6 new integration tests for Issue #188
+- Deprecated old ErrorHandlingAssessor.ts and ProtocolComplianceAssessor.ts (kept for reference)
+- Updated 4 documentation files (ASSESSMENT_CATALOG.md, ASSESSMENT_MODULE_DEVELOPER_GUIDE.md, SCORING_ALGORITHM_GUIDE.md, README.md)
+
+**Key Decisions:**
+- Used `additionalResultFields` pattern to maintain `errorHandling` result field for backward compatibility
+- Set `defaultEnabled: true` and `requiresExtended: false` for protocolCompliance (core assessor)
+- Preserved all deprecated config flag aliases (`skip-error-handling`, `only-error-handling`, `error-handling-timeout`)
+- Modular architecture: 18 focused files instead of one 1500+ line file
+
+**Next Steps:**
+- Monitor for any issues with the merged module in production use
+- Consider similar modularization for other large assessors (SecurityAssessor, FunctionalityAssessor)
+
+**Notes:**
+- Tests: 5252 passing (6 new tests added for Issue #188)
+- Code review: 0 P0/P1 critical issues found
+- Published v1.41.0 to npm registry
+- Commit: fix(types): Replace remaining `as any` in test mocks (Issue #186) preceded this work
+
+---
+
+## 2026-01-18: Issue #187 - Fix Flaky Tests and Add RUN_SLOW_TESTS Pattern
+
+**Summary:** Fixed flaky timeout test and implemented RUN_SLOW_TESTS environment variable pattern for slow security tests
+
+**Session Focus:** Address Issue #187 - review skipped tests, fix flaky tests, add environment variable pattern for slow tests
+
+**Changes Made:**
+- Fixed flaky timeout test in SecurityAssessor.test.ts by removing fake timers (race condition fix)
+- Added `describeSlow` pattern using `RUN_SLOW_TESTS` environment variable
+- Converted 2 `it.skip` tests to `describeSlow` blocks in:
+  - SecurityAssessor.test.ts (line 298 test)
+  - SecurityAssessor-ReflectionFalsePositives.test.ts (line 260 test)
+- Documented RUN_SLOW_TESTS and RUN_PERF_TESTS in CLAUDE.md Build Commands section
+- Ran full 7-stage code review workflow
+
+**Key Decisions:**
+- Used `describeSlow` pattern at module scope (not nested) for Jest test isolation
+- Pattern follows existing `RUN_PERF_TESTS` convention (truthy env var check)
+- Kept setup duplication in `describeSlow` blocks as intentional (Jest requires self-contained setup)
+- Set 120s timeout for timeout test (SecurityAssessor runs many patterns)
+
+**Next Steps:**
+- Consider scheduled CI job for slow tests (nightly/weekly)
+- Monitor for any additional flaky test patterns
+
+**Notes:**
+- Tests: 69 passed, 1 skipped (slow test correctly skipped)
+- Code review: P0:0, P1:1 (deferred as intentional), P2:3 suggestions
+- Timeout test now passes reliably (~41s run time vs previous flakiness)
+
+---

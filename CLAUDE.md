@@ -16,6 +16,8 @@
 - Client lint: `cd client && npm run lint`
 - Run tests: `npm test` (~1560 tests passing)
 - Run assessment tests: `npm test -- assessment` (assessment module tests)
+- Run slow tests: `RUN_SLOW_TESTS=true npm test -- --testPathPattern="SecurityAssessor"` (security reflection tests)
+- Run performance tests: `RUN_PERF_TESTS=true npm test -- --testPathPattern="performance"` (performance benchmarks)
 
 ## Structured Logging (v1.23.1)
 
