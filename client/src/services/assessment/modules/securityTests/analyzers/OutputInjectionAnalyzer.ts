@@ -39,7 +39,7 @@ export class OutputInjectionAnalyzer {
   /**
    * LLM injection marker patterns (Issue #191)
    * Imported from SecurityPatternLibrary - single source of truth
-   * Expanded from 8 to 21 patterns for comprehensive detection
+   * Expanded from 8 to 20 patterns for comprehensive detection
    */
   private static readonly MARKER_PATTERNS = LLM_INJECTION_MARKERS_WITH_METADATA;
 

@@ -2,10 +2,10 @@
  * OutputInjectionAnalyzer Unit Tests (Issue #191)
  *
  * Tests the consolidated LLM injection marker detection from SecurityPatternLibrary.
- * Validates expanded coverage: 8 patterns (original) → 21 patterns (consolidated)
+ * Validates expanded coverage: 8 patterns (original) → 20 patterns (consolidated)
  *
  * Test Requirements:
- * - TR-001: All 21 LLM injection markers should be detected
+ * - TR-001: All 20 LLM injection markers should be detected
  * - TR-002: Raw content vulnerability patterns detected
  * - TR-003: Safe patterns correctly identified
  * - TR-004: Backward compatibility with original 8 patterns
@@ -36,7 +36,7 @@ describe("OutputInjectionAnalyzer (Issue #191)", () => {
     analyzer = new OutputInjectionAnalyzer();
   });
 
-  describe("TR-001: LLM Injection Marker Detection - All 21 Patterns", () => {
+  describe("TR-001: LLM Injection Marker Detection - All 20 Patterns", () => {
     describe("XML-style instruction tags (6 patterns)", () => {
       it("should detect <IMPORTANT> tag", () => {
         const response = createResponse(
@@ -343,7 +343,7 @@ describe("OutputInjectionAnalyzer (Issue #191)", () => {
   });
 
   describe("Pattern Coverage Statistics", () => {
-    it("should have access to all 21 patterns from consolidated library", () => {
+    it("should have access to all 20 patterns from consolidated library", () => {
       // Test by checking multiple patterns work
       const testCases = [
         { marker: "</SYSTEM>", text: "x</SYSTEM>y" },
@@ -372,7 +372,7 @@ describe("OutputInjectionAnalyzer (Issue #191)", () => {
         }
       }
 
-      // Should detect all 11 new patterns (21 total - 8 original - 2 duplicates from opening/closing)
+      // Should detect all 11 new patterns tested (20 total - 8 original = 12 new, but only 11 tested here)
       expect(newPatternsDetected).toBe(11);
     });
   });
