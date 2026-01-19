@@ -13,7 +13,17 @@ import {
   PromptAssessment,
   PromptTestResult,
   AssessmentStatus,
+  PromptEnrichmentData,
+  PromptInventoryItem,
+  PromptCategory,
+  PromptSecurityFlag,
+  PromptPatternCoverage,
+  PromptFlagForReview,
 } from "@/lib/assessmentTypes";
+import {
+  truncateForTokens,
+  MAX_DESCRIPTION_LENGTH,
+} from "../lib/moduleEnrichment";
 import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext, MCPPrompt } from "../AssessmentOrchestrator";
 import { SanitizationDetector } from "./securityTests/SanitizationDetector";
@@ -119,6 +129,9 @@ export class PromptAssessor extends BaseAssessor {
     );
     const recommendations = this.generateRecommendations(results);
 
+    // Issue #197: Build Stage B enrichment data for Claude validation
+    const enrichmentData = this.buildEnrichmentData(context, results);
+
     return {
       promptsTested: context.prompts.length,
       aupViolations,
@@ -128,6 +141,7 @@ export class PromptAssessor extends BaseAssessor {
       status,
       explanation,
       recommendations,
+      enrichmentData,
     };
   }
 
@@ -639,5 +653,264 @@ export class PromptAssessor extends BaseAssessor {
       injectionSafe,
       escapingApplied,
     };
+  }
+
+  // ============================================================================
+  // Issue #197: Stage B Enrichment Data for Claude Validation
+  // ============================================================================
+
+  /**
+   * Build enrichment data for Stage B Claude validation.
+   * Provides context for Claude to validate prompt assessment findings.
+   */
+  private buildEnrichmentData(
+    context: AssessmentContext,
+    results: PromptTestResult[],
+  ): PromptEnrichmentData {
+    // Build prompt inventory
+    const promptInventory = this.buildPromptInventory(context, results);
+
+    // Build pattern coverage
+    const patternCoverage = this.buildPatternCoverage(results);
+
+    // Generate flags for review
+    const flagsForReview = this.generatePromptFlags(results);
+
+    // Calculate metrics
+    const metrics = {
+      totalPrompts: context.prompts?.length ?? 0,
+      aupViolations: results.filter((r) => !r.aupCompliant).length,
+      injectionVulnerabilities: results.filter((r) => r.injectionVulnerable)
+        .length,
+      argumentValidationIssues: results.filter((r) => !r.argumentsValidated)
+        .length,
+      promptsWithDynamicContent: results.filter(
+        (r) => r.dynamicContent?.hasInterpolation,
+      ).length,
+    };
+
+    return {
+      promptInventory,
+      patternCoverage,
+      flagsForReview,
+      metrics,
+    };
+  }
+
+  /**
+   * Build prompt inventory with security analysis
+   */
+  private buildPromptInventory(
+    context: AssessmentContext,
+    results: PromptTestResult[],
+  ): PromptInventoryItem[] {
+    const inventory: PromptInventoryItem[] = [];
+
+    for (const prompt of context.prompts || []) {
+      const result = results.find((r) => r.promptName === prompt.name);
+      const securityFlags = this.inferSecurityFlags(prompt, result);
+      const category = this.inferPromptCategory(prompt);
+
+      const requiredArgs =
+        prompt.arguments?.filter((a) => a.required).map((a) => a.name) || [];
+      const optionalArgs =
+        prompt.arguments?.filter((a) => !a.required).map((a) => a.name) || [];
+
+      inventory.push({
+        name: prompt.name,
+        description: prompt.description
+          ? truncateForTokens(prompt.description, MAX_DESCRIPTION_LENGTH)
+          : undefined,
+        argumentCount: prompt.arguments?.length ?? 0,
+        requiredArgs,
+        optionalArgs,
+        category,
+        securityFlags,
+      });
+    }
+
+    // Limit inventory size for token efficiency
+    return inventory.slice(0, 50);
+  }
+
+  /**
+   * Infer prompt category from name and description
+   */
+  private inferPromptCategory(prompt: MCPPrompt): PromptCategory {
+    const name = prompt.name.toLowerCase();
+    const desc = (prompt.description || "").toLowerCase();
+    const combined = `${name} ${desc}`;
+
+    // Check for code-related prompts
+    if (
+      /code|program|script|function|class|compile|debug|refactor/i.test(
+        combined,
+      )
+    ) {
+      return "code_generation";
+    }
+
+    // Check for data/query prompts
+    if (/query|search|data|database|sql|find|filter|select/i.test(combined)) {
+      return "data_query";
+    }
+
+    // Check for system control prompts
+    if (
+      /system|admin|config|setting|permission|access|execute|run/i.test(
+        combined,
+      )
+    ) {
+      return "system_control";
+    }
+
+    // Check for templating prompts
+    if (/template|format|render|generate|create/i.test(combined)) {
+      return "templating";
+    }
+
+    // Check for content creation
+    if (/write|compose|draft|summarize|translate|content/i.test(combined)) {
+      return "content_creation";
+    }
+
+    // Check for user interaction
+    if (
+      /chat|converse|respond|answer|help|assist|message|user/i.test(combined)
+    ) {
+      return "user_interaction";
+    }
+
+    return "unknown";
+  }
+
+  /**
+   * Infer security flags from prompt and test result
+   */
+  private inferSecurityFlags(
+    prompt: MCPPrompt,
+    result?: PromptTestResult,
+  ): PromptSecurityFlag[] {
+    const flags: PromptSecurityFlag[] = [];
+    const desc = (prompt.description || "").toLowerCase();
+
+    // Check result flags
+    if (result) {
+      if (!result.aupCompliant) {
+        flags.push("aup_violation");
+      }
+      if (result.injectionVulnerable) {
+        flags.push("injection_vulnerable");
+      }
+      if (!result.argumentsValidated) {
+        flags.push("missing_validation");
+      }
+      if (result.dynamicContent?.hasInterpolation) {
+        flags.push("dynamic_content");
+      }
+    }
+
+    // Check description patterns
+    if (/secret|credential|password|key|token/i.test(desc)) {
+      flags.push("sensitive_data");
+    }
+    if (/system|admin|execute|command|shell/i.test(desc)) {
+      flags.push("system_access");
+    }
+    if (/code|script|eval|exec|run/i.test(desc)) {
+      flags.push("code_execution");
+    }
+
+    return flags;
+  }
+
+  /**
+   * Build pattern coverage showing what security tests were performed
+   */
+  private buildPatternCoverage(
+    results: PromptTestResult[],
+  ): PromptPatternCoverage {
+    // Sample patterns for context
+    const samplePatterns: string[] = [];
+    if (AUP_VIOLATION_PATTERNS.length > 0) {
+      samplePatterns.push(
+        `AUP violation patterns (${AUP_VIOLATION_PATTERNS.length}): malware generation, privacy violations, etc.`,
+      );
+    }
+    if (INJECTION_PAYLOADS.length > 0) {
+      samplePatterns.push(
+        `Injection payloads (${INJECTION_PAYLOADS.length}): system prompt injection, delimiter confusion, etc.`,
+      );
+    }
+    if (UNSAFE_CONTENT_PATTERNS.length > 0) {
+      samplePatterns.push(
+        `Unsafe content patterns (${UNSAFE_CONTENT_PATTERNS.length}): jailbreak, bypass filter, etc.`,
+      );
+    }
+
+    return {
+      injectionPatternsChecked: INJECTION_PAYLOADS.length,
+      aupPatternsChecked: AUP_VIOLATION_PATTERNS.length,
+      argumentValidationChecks: results.filter((r) => r.tested).length,
+      samplePatterns,
+    };
+  }
+
+  /**
+   * Generate flags for prompts that warrant review
+   */
+  private generatePromptFlags(
+    results: PromptTestResult[],
+  ): PromptFlagForReview[] {
+    const flags: PromptFlagForReview[] = [];
+
+    for (const result of results) {
+      // Skip results without security concerns
+      if (
+        result.aupCompliant &&
+        !result.injectionVulnerable &&
+        result.argumentsValidated &&
+        result.safetyIssues.length === 0
+      ) {
+        continue;
+      }
+
+      const promptFlags: PromptSecurityFlag[] = [];
+      let riskLevel: "critical" | "high" | "medium" | "low" = "low";
+      let reason = "";
+
+      // Determine risk level and reason
+      if (!result.aupCompliant) {
+        riskLevel = "critical";
+        reason = `AUP violation: ${result.safetyIssues.find((i) => i.includes("AUP")) || "policy violation detected"}`;
+        promptFlags.push("aup_violation");
+      } else if (result.injectionVulnerable) {
+        riskLevel = "high";
+        reason = `Injection vulnerability: ${result.safetyIssues.find((i) => i.includes("Injection")) || "injection detected"}`;
+        promptFlags.push("injection_vulnerable");
+      } else if (!result.argumentsValidated) {
+        riskLevel = "medium";
+        reason = "Missing argument validation";
+        promptFlags.push("missing_validation");
+      } else if (result.safetyIssues.length > 0) {
+        riskLevel = "medium";
+        reason = `Safety issues: ${result.safetyIssues.slice(0, 2).join(", ")}`;
+      }
+
+      if (reason) {
+        flags.push({
+          promptName: result.promptName,
+          reason,
+          flags: promptFlags,
+          riskLevel,
+        });
+      }
+    }
+
+    // Sort by risk level and limit
+    const riskOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    flags.sort((a, b) => riskOrder[a.riskLevel] - riskOrder[b.riskLevel]);
+
+    return flags.slice(0, 20);
   }
 }

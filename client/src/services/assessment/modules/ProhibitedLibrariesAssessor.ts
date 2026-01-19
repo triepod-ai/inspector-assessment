@@ -17,12 +17,19 @@ import type {
   ProhibitedLibraryMatch,
   AssessmentStatus,
   PackageJson,
+  ProhibitedLibrariesEnrichmentData,
+  LibraryInventoryItem,
+  LibrarySecurityFlag,
+  LibraryPolicyCoverage,
+  LibraryFlagForReview,
 } from "@/lib/assessmentTypes";
 import {
   checkPackageJsonDependencies,
   checkRequirementsTxt,
   checkSourceImports,
   checkDependencyUsage,
+  ALL_PROHIBITED_LIBRARIES,
+  type ProhibitedLibrary,
 } from "@/lib/prohibitedLibraries";
 import type { DependencyUsageStatus } from "@/lib/assessmentTypes";
 
@@ -199,6 +206,14 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
       `Assessment complete: ${uniqueMatches.length} prohibited libraries found`,
     );
 
+    // Issue #198: Build Stage B enrichment data for Claude validation
+    const enrichmentData = this.buildEnrichmentData(
+      uniqueMatches,
+      scannedFiles,
+      hasFinancialLibraries,
+      hasMediaLibraries,
+    );
+
     return {
       matches: uniqueMatches,
       scannedFiles,
@@ -207,6 +222,7 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
       status,
       explanation,
       recommendations,
+      enrichmentData,
     };
   }
 
@@ -459,5 +475,187 @@ export class ProhibitedLibrariesAssessor extends BaseAssessor {
     }
 
     return recommendations;
+  }
+
+  // ============================================================================
+  // Issue #198: Stage B Enrichment Data for Claude Validation
+  // ============================================================================
+
+  /**
+   * Build enrichment data for Stage B Claude validation.
+   * Provides context for Claude to validate prohibited libraries findings.
+   */
+  private buildEnrichmentData(
+    matches: ProhibitedLibraryMatch[],
+    scannedFiles: string[],
+    hasFinancialLibraries: boolean,
+    hasMediaLibraries: boolean,
+  ): ProhibitedLibrariesEnrichmentData {
+    // Build library inventory
+    const libraryInventory = this.buildLibraryInventory(matches);
+
+    // Build policy coverage
+    const policyCoverage = this.buildPolicyCoverage(scannedFiles);
+
+    // Generate flags for review
+    const flagsForReview = this.generateLibraryFlags(matches);
+
+    // Calculate metrics
+    const metrics = {
+      totalMatches: matches.length,
+      blockingCount: matches.filter((m) => m.severity === "BLOCKING").length,
+      highCount: matches.filter((m) => m.severity === "HIGH").length,
+      mediumCount: matches.filter((m) => m.severity === "MEDIUM").length,
+      activeCount: matches.filter((m) => m.usageStatus !== "UNUSED").length,
+      unusedCount: matches.filter((m) => m.usageStatus === "UNUSED").length,
+      hasFinancialLibraries,
+      hasMediaLibraries,
+    };
+
+    return {
+      libraryInventory,
+      policyCoverage,
+      flagsForReview,
+      metrics,
+    };
+  }
+
+  /**
+   * Build library inventory with usage analysis
+   */
+  private buildLibraryInventory(
+    matches: ProhibitedLibraryMatch[],
+  ): LibraryInventoryItem[] {
+    return matches.slice(0, 50).map((match) => ({
+      name: match.name,
+      category: match.category,
+      severity: match.severity,
+      location: match.location,
+      usageStatus: match.usageStatus ?? "UNKNOWN",
+      importCount: match.importCount ?? 0,
+      importFiles: match.importFiles?.slice(0, 5) ?? [],
+      policyReference: match.policyReference,
+    }));
+  }
+
+  /**
+   * Build policy coverage showing what was checked
+   */
+  private buildPolicyCoverage(scannedFiles: string[]): LibraryPolicyCoverage {
+    // Get total number of prohibited libraries in checklist
+    const totalLibraries =
+      typeof ALL_PROHIBITED_LIBRARIES !== "undefined"
+        ? ALL_PROHIBITED_LIBRARIES.length
+        : 25; // Fallback estimate
+
+    // Sample library names for context
+    const sampleLibraries =
+      typeof ALL_PROHIBITED_LIBRARIES !== "undefined"
+        ? ALL_PROHIBITED_LIBRARIES.slice(0, 5).map(
+            (lib: ProhibitedLibrary) => lib.name,
+          )
+        : ["stripe", "plaid", "ffmpeg", "imagemagick", "braintree"];
+
+    return {
+      totalProhibitedLibraries: totalLibraries,
+      scannedFiles: scannedFiles.length,
+      policiesChecked: ["Policy #28", "Policy #29", "Policy #30"],
+      sampleLibraries,
+    };
+  }
+
+  /**
+   * Infer security flags from library match
+   */
+  private inferSecurityFlags(
+    match: ProhibitedLibraryMatch,
+  ): LibrarySecurityFlag[] {
+    const flags: LibrarySecurityFlag[] = [];
+
+    // Severity + usage combination flags
+    if (match.severity === "BLOCKING") {
+      if (match.usageStatus !== "UNUSED") {
+        flags.push("blocking_active");
+      } else {
+        flags.push("blocking_unused");
+      }
+    }
+
+    if (match.severity === "HIGH" && match.usageStatus !== "UNUSED") {
+      flags.push("high_active");
+    }
+
+    // Category flags
+    if (
+      match.category === "financial" ||
+      match.category === "payments" ||
+      match.category === "banking"
+    ) {
+      flags.push("financial");
+    }
+    if (match.category === "media") {
+      flags.push("media");
+    }
+
+    // Needs justification
+    if (
+      match.severity === "HIGH" ||
+      (match.severity === "MEDIUM" && match.usageStatus !== "UNUSED")
+    ) {
+      flags.push("needs_justification");
+    }
+
+    return flags;
+  }
+
+  /**
+   * Generate flags for libraries that warrant review
+   */
+  private generateLibraryFlags(
+    matches: ProhibitedLibraryMatch[],
+  ): LibraryFlagForReview[] {
+    const flags: LibraryFlagForReview[] = [];
+
+    for (const match of matches) {
+      const securityFlags = this.inferSecurityFlags(match);
+      let riskLevel: "critical" | "high" | "medium" | "low" = "low";
+      let reason = "";
+
+      // Determine risk level and reason
+      if (match.severity === "BLOCKING" && match.usageStatus !== "UNUSED") {
+        riskLevel = "critical";
+        reason = `BLOCKING library actively imported: ${match.reason}`;
+      } else if (
+        match.severity === "BLOCKING" &&
+        match.usageStatus === "UNUSED"
+      ) {
+        riskLevel = "high";
+        reason = `BLOCKING library in dependencies (not imported): ${match.reason}`;
+      } else if (match.severity === "HIGH" && match.usageStatus !== "UNUSED") {
+        riskLevel = "high";
+        reason = `HIGH severity library actively imported: ${match.reason}`;
+      } else if (match.severity === "HIGH") {
+        riskLevel = "medium";
+        reason = `HIGH severity library in dependencies: ${match.reason}`;
+      } else if (match.severity === "MEDIUM") {
+        riskLevel = "medium";
+        reason = `Library flagged for review: ${match.reason}`;
+      }
+
+      if (reason) {
+        flags.push({
+          libraryName: match.name,
+          reason,
+          flags: securityFlags,
+          riskLevel,
+        });
+      }
+    }
+
+    // Sort by risk level and limit
+    const riskOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    flags.sort((a, b) => riskOrder[a.riskLevel] - riskOrder[b.riskLevel]);
+
+    return flags.slice(0, 20);
   }
 }

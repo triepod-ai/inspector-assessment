@@ -63,6 +63,20 @@ export interface AssessorConfigFlags {
    * Extended assessors use defaultEnabled: false (opt-in)
    */
   defaultEnabled?: boolean;
+
+  /**
+   * Opt-in only flag (Issue #200):
+   * - true: Module NEVER runs by default, even in --profile full or --profile dev
+   *         Requires explicit --enable-<module> or --profile all to run
+   * - false/undefined: Module follows standard defaultEnabled behavior
+   *
+   * Use for modules with narrow applicability or non-security focus:
+   * - prohibitedLibraries: Very narrow scope (~25 libs)
+   * - manifestValidation: Only for MCPB bundles
+   * - fileModularization: Code quality metric, not security
+   * - externalAPIScanner: Informational only
+   */
+  optIn?: boolean;
 }
 
 /**

@@ -37,6 +37,7 @@ export { ZOD_SCHEMA_VERSION };
 
 /**
  * Valid assessment profile names.
+ * Note: 'all' profile includes opt-in modules (Issue #200)
  */
 export const AssessmentProfileNameSchema = z.enum([
   "quick",
@@ -44,6 +45,7 @@ export const AssessmentProfileNameSchema = z.enum([
   "compliance",
   "full",
   "dev",
+  "all",
 ]);
 
 /**

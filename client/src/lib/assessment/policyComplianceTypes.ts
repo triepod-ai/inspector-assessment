@@ -55,6 +55,96 @@ export interface ProhibitedLibrariesAssessment {
   skipped?: boolean;
   /** Reason for skipping if applicable */
   skipReason?: string;
+  /** Issue #198: Stage B enrichment data for Claude validation */
+  enrichmentData?: ProhibitedLibrariesEnrichmentData;
+}
+
+// ============================================================================
+// Prohibited Libraries Stage B Enrichment Types (Issue #198)
+// ============================================================================
+
+/**
+ * Library inventory item for Stage B validation
+ */
+export interface LibraryInventoryItem {
+  name: string;
+  category: ProhibitedLibraryCategory;
+  severity: "BLOCKING" | "HIGH" | "MEDIUM";
+  /** Location where detected */
+  location:
+    | "package.json"
+    | "source_import"
+    | "requirements.txt"
+    | "cargo.toml";
+  /** Whether actually imported in source code */
+  usageStatus: DependencyUsageStatus;
+  /** Number of import statements */
+  importCount: number;
+  /** Files where imported */
+  importFiles: string[];
+  /** Policy reference (e.g., "Policy #28") */
+  policyReference: string;
+}
+
+/**
+ * Security flag for library findings
+ */
+export type LibrarySecurityFlag =
+  | "blocking_active" // BLOCKING severity and actively imported
+  | "blocking_unused" // BLOCKING but not imported
+  | "high_active" // HIGH severity and actively imported
+  | "financial" // Financial/payment category
+  | "media" // Media processing category
+  | "needs_justification"; // Requires justification
+
+/**
+ * Policy coverage for library scanning
+ */
+export interface LibraryPolicyCoverage {
+  /** Total prohibited libraries in checklist */
+  totalProhibitedLibraries: number;
+  /** Files scanned */
+  scannedFiles: number;
+  /** Policies checked */
+  policiesChecked: string[];
+  /** Sample library names from checklist */
+  sampleLibraries: string[];
+}
+
+/**
+ * Flag for libraries that warrant review
+ */
+export interface LibraryFlagForReview {
+  libraryName: string;
+  /** Reason for flagging */
+  reason: string;
+  /** Security flags */
+  flags: LibrarySecurityFlag[];
+  /** Risk level */
+  riskLevel: "critical" | "high" | "medium" | "low";
+}
+
+/**
+ * Prohibited libraries enrichment data for Stage B Claude validation (Issue #198)
+ */
+export interface ProhibitedLibrariesEnrichmentData {
+  /** Library inventory with usage analysis */
+  libraryInventory: LibraryInventoryItem[];
+  /** Policy coverage showing what was checked */
+  policyCoverage: LibraryPolicyCoverage;
+  /** Libraries flagged for review */
+  flagsForReview: LibraryFlagForReview[];
+  /** Summary metrics */
+  metrics: {
+    totalMatches: number;
+    blockingCount: number;
+    highCount: number;
+    mediumCount: number;
+    activeCount: number;
+    unusedCount: number;
+    hasFinancialLibraries: boolean;
+    hasMediaLibraries: boolean;
+  };
 }
 
 // ============================================================================
@@ -179,6 +269,103 @@ export interface ManifestValidationAssessment {
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
+  /** Issue #199: Stage B enrichment data for Claude validation */
+  enrichmentData?: ManifestEnrichmentData;
+}
+
+// ============================================================================
+// Manifest Validation Stage B Enrichment Types (Issue #199)
+// ============================================================================
+
+/**
+ * Field validation item for Stage B validation
+ */
+export interface ManifestFieldItem {
+  field: string;
+  valid: boolean;
+  value?: unknown;
+  issue?: string;
+  severity: "ERROR" | "WARNING" | "INFO";
+  /** Field category */
+  category: ManifestFieldCategory;
+}
+
+/**
+ * Field category for manifest fields
+ */
+export type ManifestFieldCategory =
+  | "required"
+  | "recommended"
+  | "structure"
+  | "format"
+  | "tools"
+  | "privacy";
+
+/**
+ * Security flag for manifest findings
+ */
+export type ManifestSecurityFlag =
+  | "missing_required" // Required field missing
+  | "invalid_format" // Format validation failed
+  | "bundle_root_antipattern" // Uses deprecated ${BUNDLE_ROOT}
+  | "hardcoded_path" // Hardcoded absolute path
+  | "tool_mismatch" // Tool name doesn't match server
+  | "privacy_inaccessible" // Privacy policy URL inaccessible
+  | "no_contact_info" // No contact information
+  | "missing_icon"; // No icon for MCPB bundle
+
+/**
+ * Field coverage for manifest validation
+ */
+export interface ManifestFieldCoverage {
+  /** Total required fields */
+  totalRequired: number;
+  /** Required fields present */
+  requiredPresent: number;
+  /** Recommended fields checked */
+  recommendedChecked: number;
+  /** Sample field names validated */
+  sampleFields: string[];
+  /** Policies checked */
+  policiesChecked: string[];
+}
+
+/**
+ * Flag for manifest issues that warrant review
+ */
+export interface ManifestFlagForReview {
+  field: string;
+  /** Reason for flagging */
+  reason: string;
+  /** Security flags */
+  flags: ManifestSecurityFlag[];
+  /** Risk level */
+  riskLevel: "critical" | "high" | "medium" | "low";
+}
+
+/**
+ * Manifest validation enrichment data for Stage B Claude validation (Issue #199)
+ */
+export interface ManifestEnrichmentData {
+  /** Field inventory with validation results */
+  fieldInventory: ManifestFieldItem[];
+  /** Field coverage showing what was checked */
+  fieldCoverage: ManifestFieldCoverage;
+  /** Fields flagged for review */
+  flagsForReview: ManifestFlagForReview[];
+  /** Summary metrics */
+  metrics: {
+    totalChecks: number;
+    passedChecks: number;
+    errorCount: number;
+    warningCount: number;
+    hasManifest: boolean;
+    hasRequiredFields: boolean;
+    hasIcon: boolean;
+    hasContactInfo: boolean;
+    privacyPoliciesAccessible: boolean;
+    toolsMatch: boolean;
+  };
 }
 
 // ============================================================================

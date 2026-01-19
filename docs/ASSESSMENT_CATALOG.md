@@ -4,16 +4,17 @@ A comprehensive reference for all assessment modules in the MCP Inspector Assess
 
 ## Overview
 
-The MCP Inspector Assessment runs **18 active modules** organized in **4 tiers** (plus 1 opt-in module and 1 deprecated module) to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
+The MCP Inspector Assessment runs **17 active modules** organized in **4 tiers** plus **4 opt-in modules** (and 1 official conformance opt-in) to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
 
-### Module Tier Organization (v1.25.0+)
+### Module Tier Organization (v1.42.0+)
 
 | Tier                      | Modules | Purpose                               | Profile Required |
 | ------------------------- | ------- | ------------------------------------- | ---------------- |
 | **Tier 1: Core Security** | 6       | Essential security validation         | `quick`          |
-| **Tier 2: Compliance**    | 4       | MCP Directory requirements            | `compliance`     |
+| **Tier 2: Compliance**    | 2       | MCP Directory requirements            | `compliance`     |
 | **Tier 3: Capability**    | 3       | Resource/Prompt testing (conditional) | `full`           |
-| **Tier 4: Extended**      | 4       | Developer experience & code quality   | `full`           |
+| **Tier 4: Development**   | 2       | Developer experience & portability    | `full`           |
+| **Opt-In Only**           | 4       | Niche/informational modules           | `all`            |
 
 ### CLI Profiles
 
@@ -27,27 +28,40 @@ mcp-assess-full my-server --profile security
 # MCP Directory submission check (~5 minutes)
 mcp-assess-full my-server --profile compliance
 
-# Comprehensive audit (~10-15 minutes)
+# Comprehensive audit - standard modules (~10-15 minutes)
 mcp-assess-full my-server --profile full
+
+# All modules including opt-in (~15-20 minutes)
+mcp-assess-full my-server --profile all
 ```
 
 ### All Module Names (for `--profile` / `--skip-modules` / `--only-modules`)
 
 ```
 Tier 1 (Core Security):
-  functionality, security, temporal, protocolCompliance, aupCompliance
+  functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance
 
 Tier 2 (Compliance):
-  toolAnnotations, prohibitedLibraries, manifestValidation, authentication
+  toolAnnotations, authentication
 
 Tier 3 (Capability-Based):
   resources, prompts, crossCapability
 
-Tier 4 (Extended):
-  developerExperience, portability, externalAPIScanner*, fileModularization
+Tier 4 (Development):
+  developerExperience, portability
+
+Opt-In Only (requires --profile all):
+  prohibitedLibraries, manifestValidation, fileModularization, externalAPIScanner*
 ```
 
 \* `externalAPIScanner` only runs when `--source` flag is provided
+
+**Opt-In Modules Rationale** (Issue #200):
+
+- `prohibitedLibraries`: Very narrow scope (~25 financial/media libs)
+- `manifestValidation`: Only applicable to MCPB bundles with manifest.json
+- `fileModularization`: Code quality metric, not security-relevant
+- `externalAPIScanner`: Informational only, doesn't detect vulnerabilities
 
 ### Deprecated Module Names (backward compatible)
 

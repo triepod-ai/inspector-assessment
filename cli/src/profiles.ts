@@ -2,19 +2,25 @@
  * Assessment Profiles
  *
  * Pre-configured module sets for common assessment scenarios.
- * Profiles map to the 4-tier module organization:
+ * Profiles map to the 4-tier + opt-in module organization:
  *
  * Tier 1: Core Security (Always Run)
  *   - functionality, security, temporal, errorHandling, protocolCompliance, aupCompliance
  *
  * Tier 2: Compliance (MCP Directory)
- *   - toolAnnotations, prohibitedLibraries, manifestValidation, authentication
+ *   - toolAnnotations, authentication
  *
  * Tier 3: Capability-Based (Conditional)
  *   - resources, prompts, crossCapability
  *
- * Tier 4: Development (--profile dev only in v2.0)
- *   - developerExperience, portability, externalAPIScanner
+ * Tier 4: Development
+ *   - developerExperience, portability
+ *
+ * Opt-In Only (Issue #200 - requires explicit --profile all or --enable-*)
+ *   - prohibitedLibraries: Narrow scope (~25 libs)
+ *   - manifestValidation: Only for MCPB bundles
+ *   - fileModularization: Code quality metric, not security
+ *   - externalAPIScanner: Informational only
  *
  * @module cli/profiles
  */
@@ -27,7 +33,8 @@ export type AssessmentProfileName =
   | "security"
   | "compliance"
   | "full"
-  | "dev";
+  | "dev"
+  | "all";
 
 /**
  * Module alias mappings for backward compatibility.
@@ -63,13 +70,9 @@ export const TIER_1_CORE_SECURITY = [
 /**
  * Tier 2: Compliance modules
  * Required for MCP Directory submission compliance
+ * Note: prohibitedLibraries and manifestValidation moved to OPT_IN_MODULES (Issue #200)
  */
-export const TIER_2_COMPLIANCE = [
-  "toolAnnotations",
-  "prohibitedLibraries",
-  "manifestValidation",
-  "authentication",
-] as const;
+export const TIER_2_COMPLIANCE = ["toolAnnotations", "authentication"] as const;
 
 /**
  * Tier 3: Capability-Based modules
@@ -84,12 +87,11 @@ export const TIER_3_CAPABILITY = [
 /**
  * Tier 4: Development modules
  * Development-focused assessments (code quality, portability)
- * In v2.0, these will only run with --profile dev
+ * Note: externalAPIScanner moved to OPT_IN_MODULES (Issue #200)
  */
 export const TIER_4_DEVELOPMENT = [
   "developerExperience",
   "portability",
-  "externalAPIScanner",
 ] as const;
 
 /**
@@ -98,14 +100,39 @@ export const TIER_4_DEVELOPMENT = [
 export const TIER_4_EXTENDED = TIER_4_DEVELOPMENT;
 
 /**
- * All available modules (new naming)
+ * Opt-in only modules (Issue #200)
+ * These modules NEVER run by default, even in --profile full or --profile dev.
+ * Requires explicit --profile all or --enable-<module> flag.
+ *
+ * Rationale for each:
+ * - prohibitedLibraries: Very narrow scope (~25 financial/media libs)
+ * - manifestValidation: Only applicable to MCPB bundles with manifest.json
+ * - fileModularization: Code quality metric, not security-relevant
+ * - externalAPIScanner: Informational only, doesn't detect vulnerabilities
  */
-export const ALL_MODULES = [
+export const OPT_IN_MODULES = [
+  "prohibitedLibraries",
+  "manifestValidation",
+  "fileModularization",
+  "externalAPIScanner",
+] as const;
+
+/**
+ * Standard modules (excludes opt-in)
+ * These run with --profile full
+ */
+export const STANDARD_MODULES = [
   ...TIER_1_CORE_SECURITY,
   ...TIER_2_COMPLIANCE,
   ...TIER_3_CAPABILITY,
   ...TIER_4_DEVELOPMENT,
 ] as const;
+
+/**
+ * All available modules including opt-in (new naming)
+ * These run with --profile all
+ */
+export const ALL_MODULES = [...STANDARD_MODULES, ...OPT_IN_MODULES] as const;
 
 /**
  * Assessment profile definitions
@@ -138,29 +165,28 @@ export const ASSESSMENT_PROFILES: Record<AssessmentProfileName, string[]> = {
   compliance: [...TIER_1_CORE_SECURITY, ...TIER_2_COMPLIANCE],
 
   /**
-   * Full profile: All modules (Tier 1 + 2 + 3 + 4)
+   * Full profile: All standard modules (Tier 1 + 2 + 3 + 4, excludes opt-in)
    * Use when: Comprehensive audits, initial server review
    * Time: ~8-12 minutes
+   * Note: Does NOT include opt-in modules (Issue #200)
    */
-  full: [
-    ...TIER_1_CORE_SECURITY,
-    ...TIER_2_COMPLIANCE,
-    ...TIER_3_CAPABILITY,
-    ...TIER_4_DEVELOPMENT,
-  ],
+  full: [...STANDARD_MODULES],
 
   /**
-   * Dev profile: All modules including development-focused assessments
-   * Use when: Full audit including code quality checks
+   * Dev profile: Same as full (standard modules, no opt-in)
+   * Use when: Development-focused testing
    * Time: ~8-12 minutes
-   * Note: In v2.0, --profile full will change to compliance-only
+   * Note: Does NOT include opt-in modules (Issue #200)
    */
-  dev: [
-    ...TIER_1_CORE_SECURITY,
-    ...TIER_2_COMPLIANCE,
-    ...TIER_3_CAPABILITY,
-    ...TIER_4_DEVELOPMENT,
-  ],
+  dev: [...STANDARD_MODULES],
+
+  /**
+   * All profile: Every module including opt-in (Issue #200)
+   * Use when: Comprehensive audit including niche modules
+   * Time: ~10-15 minutes
+   * Includes: Tier 1-4 + opt-in (prohibitedLibraries, manifestValidation, etc.)
+   */
+  all: [...ALL_MODULES],
 };
 
 /**
@@ -194,7 +220,7 @@ export const PROFILE_METADATA: Record<AssessmentProfileName, ProfileMetadata> =
       tiers: ["Tier 1 (Core Security)", "Tier 2 (Compliance)"],
     },
     full: {
-      description: "Comprehensive audit with all assessment modules",
+      description: "All standard modules (excludes opt-in)",
       estimatedTime: "~8-12 minutes",
       moduleCount: ASSESSMENT_PROFILES.full.length,
       tiers: [
@@ -205,7 +231,7 @@ export const PROFILE_METADATA: Record<AssessmentProfileName, ProfileMetadata> =
       ],
     },
     dev: {
-      description: "All modules including development-focused assessments",
+      description: "Same as full - standard modules for development",
       estimatedTime: "~8-12 minutes",
       moduleCount: ASSESSMENT_PROFILES.dev.length,
       tiers: [
@@ -213,6 +239,18 @@ export const PROFILE_METADATA: Record<AssessmentProfileName, ProfileMetadata> =
         "Tier 2 (Compliance)",
         "Tier 3 (Capability)",
         "Tier 4 (Development)",
+      ],
+    },
+    all: {
+      description: "Every module including opt-in (niche modules)",
+      estimatedTime: "~10-15 minutes",
+      moduleCount: ASSESSMENT_PROFILES.all.length,
+      tiers: [
+        "Tier 1 (Core Security)",
+        "Tier 2 (Compliance)",
+        "Tier 3 (Capability)",
+        "Tier 4 (Development)",
+        "Opt-In",
       ],
     },
   };
@@ -363,6 +401,7 @@ export function modulesToLegacyConfig(
     prompts: false,
     crossCapability: false,
     protocolConformance: false,
+    fileModularization: false, // Issue #200: Opt-in module
   };
 
   // Enable requested modules, mapping new names to old where needed

@@ -24,6 +24,11 @@ import type {
   ExtractedContactInfo,
   ExtractedVersionInfo,
   ManifestAuthorObject,
+  ManifestEnrichmentData,
+  ManifestFieldItem,
+  ManifestFieldCategory,
+  ManifestFieldCoverage,
+  ManifestFlagForReview,
 } from "@/lib/assessmentTypes";
 
 const REQUIRED_FIELDS = ["name", "version", "mcp_config"] as const;
@@ -374,6 +379,17 @@ export class ManifestValidationAssessor extends BaseAssessor {
     const contactInfo = this.extractContactInfo(manifest);
     const versionInfo = this.extractVersionInfo(manifest);
 
+    // Issue #199: Build Stage B enrichment data for Claude validation
+    const enrichmentData = this.buildEnrichmentData(
+      validationResults,
+      hasRequiredFields,
+      hasIcon,
+      contactInfo,
+      privacyPolicies,
+      manifest,
+      context.tools,
+    );
+
     this.logger.info(
       `Assessment complete: ${validationResults.filter((r) => r.valid).length}/${validationResults.length} checks passed`,
     );
@@ -391,6 +407,7 @@ export class ManifestValidationAssessor extends BaseAssessor {
       status,
       explanation,
       recommendations,
+      enrichmentData,
     };
   }
 
@@ -1015,5 +1032,298 @@ export class ManifestValidationAssessor extends BaseAssessor {
     }
 
     return recommendations;
+  }
+
+  // ==========================================================================
+  // Issue #199: Stage B Enrichment Data Builder
+  // ==========================================================================
+
+  /**
+   * Build Stage B enrichment data for Claude validation (Issue #199)
+   */
+  private buildEnrichmentData(
+    validationResults: ManifestValidationResult[],
+    hasRequiredFields: boolean,
+    hasIcon: boolean,
+    contactInfo: ExtractedContactInfo | undefined,
+    privacyPolicies:
+      | {
+          declared: string[];
+          validationResults: PrivacyPolicyValidation[];
+          allAccessible: boolean;
+        }
+      | undefined,
+    manifest: ManifestJsonSchema,
+    serverTools: Tool[],
+  ): ManifestEnrichmentData {
+    // Build field inventory
+    const fieldInventory = this.buildFieldInventory(validationResults);
+
+    // Build field coverage
+    const fieldCoverage = this.buildFieldCoverage(validationResults);
+
+    // Build flags for review
+    const flagsForReview = this.buildFlagsForReview(
+      validationResults,
+      hasRequiredFields,
+      hasIcon,
+      contactInfo,
+      privacyPolicies,
+      manifest,
+      serverTools,
+    );
+
+    // Calculate metrics
+    const errorCount = validationResults.filter(
+      (r) => !r.valid && r.severity === "ERROR",
+    ).length;
+    const warningCount = validationResults.filter(
+      (r) => r.severity === "WARNING" && r.issue,
+    ).length;
+
+    // Check tool matching
+    const manifestToolNames = manifest.tools
+      ? new Set(manifest.tools.map((t) => t.name))
+      : new Set<string>();
+    const serverToolNames = new Set(serverTools.map((t) => t.name));
+    const toolsMatch =
+      manifestToolNames.size === 0 ||
+      (manifestToolNames.size === serverToolNames.size &&
+        [...manifestToolNames].every((name) => serverToolNames.has(name)));
+
+    return {
+      fieldInventory,
+      fieldCoverage,
+      flagsForReview,
+      metrics: {
+        totalChecks: validationResults.length,
+        passedChecks: validationResults.filter((r) => r.valid).length,
+        errorCount,
+        warningCount,
+        hasManifest: true,
+        hasRequiredFields,
+        hasIcon,
+        hasContactInfo: Boolean(contactInfo),
+        privacyPoliciesAccessible: privacyPolicies?.allAccessible ?? true,
+        toolsMatch,
+      },
+    };
+  }
+
+  /**
+   * Build field inventory from validation results
+   */
+  private buildFieldInventory(
+    results: ManifestValidationResult[],
+  ): ManifestFieldItem[] {
+    return results.map((result) => ({
+      field: result.field,
+      valid: result.valid,
+      value: result.value,
+      issue: result.issue,
+      severity: result.severity,
+      category: this.inferFieldCategory(result.field),
+    }));
+  }
+
+  /**
+   * Infer field category from field name
+   */
+  private inferFieldCategory(field: string): ManifestFieldCategory {
+    // Required fields
+    if (
+      field === "name" ||
+      field === "version" ||
+      field === "mcp_config" ||
+      field === "manifest_version"
+    ) {
+      return "required";
+    }
+
+    // Recommended fields
+    if (
+      field === "description" ||
+      field === "author" ||
+      field === "repository"
+    ) {
+      return "recommended";
+    }
+
+    // Structure fields
+    if (field.includes("mcp_config.") || field === "icon") {
+      return "structure";
+    }
+
+    // Format fields
+    if (field.includes("(format)")) {
+      return "format";
+    }
+
+    // Tools fields
+    if (field.includes("tools")) {
+      return "tools";
+    }
+
+    // Privacy fields
+    if (field.includes("privacy")) {
+      return "privacy";
+    }
+
+    return "structure";
+  }
+
+  /**
+   * Build field coverage showing what was checked
+   */
+  private buildFieldCoverage(
+    results: ManifestValidationResult[],
+  ): ManifestFieldCoverage {
+    const requiredFields = results.filter(
+      (r) =>
+        r.field === "name" ||
+        r.field === "version" ||
+        r.field === "mcp_config" ||
+        r.field === "manifest_version",
+    );
+    const recommendedFields = results.filter(
+      (r) =>
+        r.field === "description" ||
+        r.field === "author" ||
+        r.field === "repository",
+    );
+
+    return {
+      totalRequired: 4, // manifest_version, name, version, mcp_config
+      requiredPresent: requiredFields.filter((r) => r.valid).length,
+      recommendedChecked: recommendedFields.length,
+      sampleFields: results.slice(0, 5).map((r) => r.field),
+      policiesChecked: ["MCPB manifest_version 0.3 spec"],
+    };
+  }
+
+  /**
+   * Build flags for review based on validation results and context
+   */
+  private buildFlagsForReview(
+    results: ManifestValidationResult[],
+    hasRequiredFields: boolean,
+    hasIcon: boolean,
+    contactInfo: ExtractedContactInfo | undefined,
+    privacyPolicies:
+      | {
+          declared: string[];
+          validationResults: PrivacyPolicyValidation[];
+          allAccessible: boolean;
+        }
+      | undefined,
+    manifest: ManifestJsonSchema,
+    serverTools: Tool[],
+  ): ManifestFlagForReview[] {
+    const flags: ManifestFlagForReview[] = [];
+
+    // Flag missing required fields
+    if (!hasRequiredFields) {
+      const missingRequired = results.filter(
+        (r) =>
+          !r.valid &&
+          r.severity === "ERROR" &&
+          (r.field === "name" ||
+            r.field === "version" ||
+            r.field === "mcp_config"),
+      );
+      for (const missing of missingRequired) {
+        flags.push({
+          field: missing.field,
+          reason: missing.issue || `Missing required field: ${missing.field}`,
+          flags: ["missing_required"],
+          riskLevel: "critical",
+        });
+      }
+    }
+
+    // Flag missing icon
+    if (!hasIcon) {
+      flags.push({
+        field: "icon",
+        reason: "No icon found - recommended for MCPB bundles",
+        flags: ["missing_icon"],
+        riskLevel: "low",
+      });
+    }
+
+    // Flag missing contact info
+    if (!contactInfo) {
+      flags.push({
+        field: "author",
+        reason:
+          "No contact information found - users cannot report issues or get support",
+        flags: ["no_contact_info"],
+        riskLevel: "medium",
+      });
+    }
+
+    // Flag inaccessible privacy policies
+    if (privacyPolicies && !privacyPolicies.allAccessible) {
+      const inaccessible = privacyPolicies.validationResults.filter(
+        (r) => !r.accessible,
+      );
+      for (const pp of inaccessible) {
+        flags.push({
+          field: "privacy_policies",
+          reason: `Privacy policy URL inaccessible: ${pp.url} (${pp.error || `HTTP ${pp.statusCode}`})`,
+          flags: ["privacy_inaccessible"],
+          riskLevel: "high",
+        });
+      }
+    }
+
+    // Flag ${BUNDLE_ROOT} anti-pattern
+    const mcpConfig = this.getMcpConfig(manifest);
+    if (mcpConfig) {
+      const configStr = JSON.stringify(mcpConfig);
+      if (configStr.includes("${BUNDLE_ROOT}")) {
+        flags.push({
+          field: "mcp_config",
+          reason:
+            "Uses deprecated ${BUNDLE_ROOT} - use ${__dirname} for relative paths",
+          flags: ["bundle_root_antipattern"],
+          riskLevel: "high",
+        });
+      }
+    }
+
+    // Flag hardcoded paths
+    const hardcodedPathResult = results.find(
+      (r) =>
+        r.field === "mcp_config.command" &&
+        r.issue?.includes("hardcoded absolute path"),
+    );
+    if (hardcodedPathResult) {
+      flags.push({
+        field: "mcp_config.command",
+        reason: "Hardcoded absolute path - reduces portability",
+        flags: ["hardcoded_path"],
+        riskLevel: "medium",
+      });
+    }
+
+    // Flag tool name mismatches
+    if (manifest.tools && serverTools.length > 0) {
+      const manifestToolNames = new Set(manifest.tools.map((t) => t.name));
+      const serverToolNames = new Set(serverTools.map((t) => t.name));
+
+      for (const name of manifestToolNames) {
+        if (!serverToolNames.has(name)) {
+          flags.push({
+            field: "tools",
+            reason: `Manifest declares tool "${name}" not found on server`,
+            flags: ["tool_mismatch"],
+            riskLevel: "medium",
+          });
+        }
+      }
+    }
+
+    return flags;
   }
 }

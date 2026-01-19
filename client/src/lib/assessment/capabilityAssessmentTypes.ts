@@ -94,6 +94,102 @@ export interface ResourceAssessment {
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
+  /** Issue #196: Stage B enrichment data for Claude validation */
+  enrichmentData?: ResourceEnrichmentData;
+}
+
+// ============================================================================
+// Resource Stage B Enrichment Types (Issue #196)
+// ============================================================================
+
+/**
+ * Resource inventory item for Stage B validation
+ */
+export interface ResourceInventoryItem {
+  uri: string;
+  name?: string;
+  mimeType?: string;
+  /** Inferred resource type */
+  resourceType: ResourceType;
+  /** Security flags based on URI/content analysis */
+  securityFlags: ResourceSecurityFlag[];
+  /** Data classification */
+  dataClassification: "public" | "internal" | "confidential" | "restricted";
+}
+
+/**
+ * Resource type categories
+ */
+export type ResourceType =
+  | "file" // Local file resources
+  | "api" // API endpoint resources
+  | "database" // Database resources
+  | "config" // Configuration files
+  | "credential" // Credential/secret stores
+  | "binary" // Binary/blob resources
+  | "template" // Resource templates
+  | "unknown"; // Cannot determine
+
+/**
+ * Security flags for resources
+ */
+export type ResourceSecurityFlag =
+  | "sensitive_uri" // URI matches sensitive pattern
+  | "path_traversal_tested" // Path traversal was tested
+  | "sensitive_content" // Contains sensitive content
+  | "prompt_injection" // Contains prompt injection patterns
+  | "hidden_resource" // Undeclared/hidden resource
+  | "blob_dos_risk" // Blob DoS vulnerability
+  | "polyglot_risk" // Polyglot file vulnerability
+  | "mime_mismatch"; // MIME type mismatch
+
+/**
+ * Security pattern coverage for resources
+ */
+export interface ResourcePatternCoverage {
+  /** Sensitive URI patterns checked */
+  sensitiveUriPatterns: number;
+  /** Path traversal payloads tested */
+  pathTraversalPayloads: number;
+  /** URI injection payloads tested */
+  uriInjectionPayloads: number;
+  /** Hidden resource patterns probed */
+  hiddenResourcePatterns: number;
+  /** Sample patterns tested */
+  samplePatterns: string[];
+}
+
+/**
+ * Flag for resources that warrant review
+ */
+export interface ResourceFlagForReview {
+  resourceUri: string;
+  /** Reason for flagging */
+  reason: string;
+  /** Security flags that triggered the flag */
+  flags: ResourceSecurityFlag[];
+  /** Risk level */
+  riskLevel: "critical" | "high" | "medium" | "low";
+}
+
+/**
+ * Resource enrichment data for Stage B Claude validation (Issue #196)
+ */
+export interface ResourceEnrichmentData {
+  /** Resource inventory with security analysis */
+  resourceInventory: ResourceInventoryItem[];
+  /** Pattern coverage showing what was tested */
+  patternCoverage: ResourcePatternCoverage;
+  /** Resources flagged for review */
+  flagsForReview: ResourceFlagForReview[];
+  /** Summary metrics */
+  metrics: {
+    totalResources: number;
+    totalTemplates: number;
+    sensitiveResources: number;
+    accessibleResources: number;
+    vulnerableResources: number;
+  };
 }
 
 // ============================================================================
@@ -137,6 +233,101 @@ export interface PromptAssessment {
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
+  /** Issue #197: Stage B enrichment data for Claude validation */
+  enrichmentData?: PromptEnrichmentData;
+}
+
+// ============================================================================
+// Prompt Stage B Enrichment Types (Issue #197)
+// ============================================================================
+
+/**
+ * Prompt inventory item for Stage B validation
+ */
+export interface PromptInventoryItem {
+  name: string;
+  description?: string;
+  /** Number of arguments */
+  argumentCount: number;
+  /** Required argument names */
+  requiredArgs: string[];
+  /** Optional argument names */
+  optionalArgs: string[];
+  /** Inferred prompt category */
+  category: PromptCategory;
+  /** Security flags based on analysis */
+  securityFlags: PromptSecurityFlag[];
+}
+
+/**
+ * Prompt category classifications
+ */
+export type PromptCategory =
+  | "code_generation" // Code-related prompts
+  | "data_query" // Database/data queries
+  | "content_creation" // Text/content generation
+  | "system_control" // System/admin operations
+  | "user_interaction" // User-facing interactions
+  | "templating" // Template-based prompts
+  | "unknown"; // Cannot determine
+
+/**
+ * Security flags for prompts
+ */
+export type PromptSecurityFlag =
+  | "aup_violation" // Contains AUP-violating content
+  | "injection_vulnerable" // Vulnerable to injection
+  | "missing_validation" // Arguments not validated
+  | "sensitive_data" // References sensitive data
+  | "dynamic_content" // Has dynamic interpolation
+  | "system_access" // References system operations
+  | "code_execution"; // Can trigger code execution
+
+/**
+ * Security pattern coverage for prompts
+ */
+export interface PromptPatternCoverage {
+  /** Total injection patterns checked */
+  injectionPatternsChecked: number;
+  /** AUP patterns checked */
+  aupPatternsChecked: number;
+  /** Argument validation checks performed */
+  argumentValidationChecks: number;
+  /** Sample patterns tested */
+  samplePatterns: string[];
+}
+
+/**
+ * Flag for prompts that warrant review
+ */
+export interface PromptFlagForReview {
+  promptName: string;
+  /** Reason for flagging */
+  reason: string;
+  /** Security flags that triggered the flag */
+  flags: PromptSecurityFlag[];
+  /** Risk level */
+  riskLevel: "critical" | "high" | "medium" | "low";
+}
+
+/**
+ * Prompt enrichment data for Stage B Claude validation (Issue #197)
+ */
+export interface PromptEnrichmentData {
+  /** Prompt inventory with security analysis */
+  promptInventory: PromptInventoryItem[];
+  /** Pattern coverage showing what was tested */
+  patternCoverage: PromptPatternCoverage;
+  /** Prompts flagged for review */
+  flagsForReview: PromptFlagForReview[];
+  /** Summary metrics */
+  metrics: {
+    totalPrompts: number;
+    aupViolations: number;
+    injectionVulnerabilities: number;
+    argumentValidationIssues: number;
+    promptsWithDynamicContent: number;
+  };
 }
 
 // ============================================================================

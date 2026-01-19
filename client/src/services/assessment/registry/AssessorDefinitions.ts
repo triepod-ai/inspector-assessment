@@ -307,6 +307,7 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     configFlags: {
       primary: "prohibitedLibraries",
       defaultEnabled: false,
+      optIn: true, // Issue #200: Narrow scope (~25 libs), opt-in only
     },
     requiresExtended: true,
     supportsClaudeBridge: false,
@@ -331,6 +332,7 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     configFlags: {
       primary: "manifestValidation",
       defaultEnabled: false,
+      optIn: true, // Issue #200: Only for MCPB bundles, opt-in only
     },
     requiresExtended: true,
     supportsClaudeBridge: false,
@@ -379,6 +381,7 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     configFlags: {
       primary: "externalAPIScanner",
       defaultEnabled: false,
+      optIn: true, // Issue #200: Informational only, opt-in only
     },
     requiresExtended: true,
     supportsClaudeBridge: false,
@@ -507,6 +510,7 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
     configFlags: {
       primary: "fileModularization",
       defaultEnabled: false,
+      optIn: true, // Issue #200: Code quality metric (not security), opt-in only
     },
     requiresExtended: true,
     supportsClaudeBridge: false,

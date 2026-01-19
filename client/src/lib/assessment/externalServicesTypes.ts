@@ -124,7 +124,124 @@ export interface AuthenticationAssessment {
   transportSecurity?: TransportSecurityAnalysis;
   /** Issue #62: Auth configuration analysis for env-dependent auth and fail-open patterns */
   authConfigAnalysis?: AuthConfigAnalysis;
+  /** Issue #195: Stage B enrichment data for Claude validation */
+  enrichmentData?: AuthEnrichmentData;
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
+}
+
+// ============================================================================
+// Authentication Stage B Enrichment Types (Issue #195)
+// ============================================================================
+
+/**
+ * Tool item with auth-related capabilities for Stage B validation
+ */
+export interface AuthToolInventoryItem {
+  name: string;
+  description: string;
+  /** Inferred auth-related capabilities */
+  authCapabilities: AuthToolCapability[];
+  /** Whether this tool handles sensitive auth operations */
+  isSensitive: boolean;
+}
+
+/**
+ * Auth-specific capability categories
+ */
+export type AuthToolCapability =
+  | "oauth" // OAuth flow operations
+  | "api_key" // API key handling
+  | "session" // Session management
+  | "credential" // Credential storage/retrieval
+  | "token" // Token management
+  | "encryption" // Credential encryption
+  | "none"; // No auth capabilities detected
+
+/**
+ * OAuth pattern coverage showing what was checked
+ */
+export interface OAuthPatternCoverage {
+  /** Total OAuth patterns checked */
+  totalPatterns: number;
+  /** Patterns that matched */
+  matchedPatterns: string[];
+  /** Summary of OAuth flow detected */
+  flowType:
+    | "authorization_code"
+    | "client_credentials"
+    | "pkce"
+    | "unknown"
+    | "none";
+  /** Whether PKCE is implemented (security best practice) */
+  pkceDetected: boolean;
+}
+
+/**
+ * API key pattern coverage
+ */
+export interface APIKeyPatternCoverage {
+  /** Total API key patterns checked */
+  totalPatterns: number;
+  /** Patterns that matched */
+  matchedPatterns: string[];
+  /** Whether keys appear to be properly managed via env vars */
+  envVarManaged: boolean;
+}
+
+/**
+ * Transport security summary for Stage B context
+ */
+export interface TransportSecuritySummary {
+  /** Transport type (stdio, http, sse, streamable-http) */
+  transportType: string;
+  /** Whether TLS is enforced */
+  tlsEnforced: boolean;
+  /** Whether CORS is configured */
+  corsConfigured: boolean;
+  /** Whether session cookies are secure */
+  sessionSecure: boolean;
+  /** Count of insecure patterns detected */
+  insecurePatternCount: number;
+  /** Count of secure patterns detected */
+  securePatternCount: number;
+}
+
+/**
+ * Flag for auth tools that warrant review
+ */
+export interface AuthFlagForReview {
+  toolName: string;
+  /** Reason for flagging */
+  reason: string;
+  /** Auth capabilities that triggered the flag */
+  capabilities: AuthToolCapability[];
+  /** Risk level based on capabilities */
+  riskLevel: "high" | "medium" | "low";
+}
+
+/**
+ * Authentication enrichment data for Stage B Claude validation (Issue #195)
+ * Provides context for Claude to validate authentication findings
+ */
+export interface AuthEnrichmentData {
+  /** Tool inventory with auth-related capabilities */
+  toolInventory: AuthToolInventoryItem[];
+  /** OAuth pattern coverage */
+  oauthPatternCoverage: OAuthPatternCoverage;
+  /** API key pattern coverage */
+  apiKeyPatternCoverage: APIKeyPatternCoverage;
+  /** Transport security summary */
+  transportSecurity: TransportSecuritySummary;
+  /** Tools flagged for auth-related review */
+  flagsForReview: AuthFlagForReview[];
+  /** Summary metrics for quick assessment */
+  metrics: {
+    totalTools: number;
+    authSensitiveTools: number;
+    oauthIndicators: number;
+    apiKeyIndicators: number;
+    localDependencyIndicators: number;
+  };
 }

@@ -21,7 +21,18 @@ import type {
   AuthConfigFinding,
   AuthConfigFindingType,
   AuthConfigSeverity,
+  AuthEnrichmentData,
+  AuthToolInventoryItem,
+  AuthToolCapability,
+  OAuthPatternCoverage,
+  APIKeyPatternCoverage,
+  TransportSecuritySummary,
+  AuthFlagForReview,
 } from "@/lib/assessmentTypes";
+import {
+  truncateForTokens,
+  MAX_DESCRIPTION_LENGTH,
+} from "../lib/moduleEnrichment";
 
 // Patterns that indicate OAuth usage
 const OAUTH_PATTERNS = [
@@ -407,8 +418,18 @@ export class AuthenticationAssessor extends BaseAssessor {
         `Review ${f.type}: ${f.message} (${f.file || "unknown file"})`,
     );
 
+    // Build enrichment data for Stage B Claude validation (Issue #195)
+    const enrichmentData = this.buildEnrichmentData(
+      context,
+      oauthIndicators,
+      apiKeyIndicators,
+      localResourceIndicators,
+      transportSecurity,
+      transportType,
+    );
+
     this.logger.info(
-      `Assessment complete: auth=${authMethod}, localDeps=${hasLocalDependencies}, tlsEnforced=${transportSecurity.tlsEnforced}, authConfigFindings=${authConfigAnalysis.totalFindings}`,
+      `Assessment complete: auth=${authMethod}, localDeps=${hasLocalDependencies}, tlsEnforced=${transportSecurity.tlsEnforced}, authConfigFindings=${authConfigAnalysis.totalFindings}, authSensitiveTools=${enrichmentData.metrics.authSensitiveTools}`,
     );
 
     return {
@@ -424,6 +445,7 @@ export class AuthenticationAssessor extends BaseAssessor {
       },
       transportSecurity,
       authConfigAnalysis,
+      enrichmentData,
       status: finalStatus,
       explanation,
       recommendations: [
@@ -1055,5 +1077,259 @@ export class AuthenticationAssessor extends BaseAssessor {
       seen.add(key);
       return true;
     });
+  }
+
+  // ============================================================================
+  // Issue #195: Stage B Enrichment Data
+  // Provides Claude with context for validating authentication findings
+  // ============================================================================
+
+  /**
+   * Build enrichment data for Stage B Claude validation (Issue #195)
+   *
+   * Provides Claude with:
+   * - Tool inventory with auth-related capabilities
+   * - OAuth pattern coverage (what patterns were checked)
+   * - API key pattern coverage
+   * - Transport security summary
+   * - Flags for tools with sensitive auth operations
+   */
+  private buildEnrichmentData(
+    context: AssessmentContext,
+    oauthIndicators: string[],
+    apiKeyIndicators: string[],
+    localResourceIndicators: string[],
+    transportSecurity: TransportSecurityAnalysis | undefined,
+    transportType: string,
+  ): AuthEnrichmentData {
+    // Build tool inventory with auth capabilities
+    const toolInventory = this.buildAuthToolInventory(context);
+
+    // Build OAuth pattern coverage
+    const oauthPatternCoverage =
+      this.buildOAuthPatternCoverage(oauthIndicators);
+
+    // Build API key pattern coverage
+    const apiKeyPatternCoverage = this.buildAPIKeyPatternCoverage(
+      apiKeyIndicators,
+      context,
+    );
+
+    // Build transport security summary
+    const transportSecuritySummary = this.buildTransportSecuritySummary(
+      transportSecurity,
+      transportType,
+    );
+
+    // Generate flags for tools with sensitive auth operations
+    const flagsForReview = this.generateAuthFlags(toolInventory);
+
+    // Calculate metrics
+    const authSensitiveTools = toolInventory.filter(
+      (t) => t.isSensitive,
+    ).length;
+
+    return {
+      toolInventory,
+      oauthPatternCoverage,
+      apiKeyPatternCoverage,
+      transportSecurity: transportSecuritySummary,
+      flagsForReview,
+      metrics: {
+        totalTools: toolInventory.length,
+        authSensitiveTools,
+        oauthIndicators: oauthIndicators.length,
+        apiKeyIndicators: apiKeyIndicators.length,
+        localDependencyIndicators: localResourceIndicators.length,
+      },
+    };
+  }
+
+  /**
+   * Build tool inventory with auth-related capabilities
+   */
+  private buildAuthToolInventory(
+    context: AssessmentContext,
+  ): AuthToolInventoryItem[] {
+    return context.tools.map((tool) => {
+      const capabilities = this.inferAuthCapabilities(
+        tool.name,
+        tool.description,
+      );
+      const isSensitive = capabilities.some(
+        (cap) => cap === "oauth" || cap === "credential" || cap === "token",
+      );
+
+      return {
+        name: tool.name,
+        description: truncateForTokens(
+          tool.description || "",
+          MAX_DESCRIPTION_LENGTH,
+        ),
+        authCapabilities: capabilities,
+        isSensitive,
+      };
+    });
+  }
+
+  /**
+   * Infer auth-related capabilities from tool name and description
+   */
+  private inferAuthCapabilities(
+    name: string,
+    description?: string,
+  ): AuthToolCapability[] {
+    const capabilities: AuthToolCapability[] = [];
+    const text = `${name} ${description || ""}`.toLowerCase();
+
+    // OAuth indicators
+    if (
+      /oauth|authorize|authorization|pkce|code_verifier|code_challenge/i.test(
+        text,
+      )
+    ) {
+      capabilities.push("oauth");
+    }
+
+    // API key indicators
+    if (/api[_-]?key|x-api-key|bearer/i.test(text)) {
+      capabilities.push("api_key");
+    }
+
+    // Session management
+    if (/session|cookie|logout|login/i.test(text)) {
+      capabilities.push("session");
+    }
+
+    // Credential handling
+    if (/credential|password|secret|auth/i.test(text)) {
+      capabilities.push("credential");
+    }
+
+    // Token management
+    if (/token|access_token|refresh_token|jwt/i.test(text)) {
+      capabilities.push("token");
+    }
+
+    // Encryption
+    if (/encrypt|decrypt|hash|cipher/i.test(text)) {
+      capabilities.push("encryption");
+    }
+
+    if (capabilities.length === 0) {
+      capabilities.push("none");
+    }
+
+    return capabilities;
+  }
+
+  /**
+   * Build OAuth pattern coverage info
+   */
+  private buildOAuthPatternCoverage(
+    oauthIndicators: string[],
+  ): OAuthPatternCoverage {
+    // Determine OAuth flow type from indicators
+    let flowType: OAuthPatternCoverage["flowType"] = "none";
+    let pkceDetected = false;
+
+    const indicatorText = oauthIndicators.join(" ").toLowerCase();
+
+    if (/pkce|code_verifier|code_challenge/i.test(indicatorText)) {
+      flowType = "pkce";
+      pkceDetected = true;
+    } else if (/authorization\s*code|code.*grant/i.test(indicatorText)) {
+      flowType = "authorization_code";
+    } else if (/client.*credential/i.test(indicatorText)) {
+      flowType = "client_credentials";
+    } else if (oauthIndicators.length > 0) {
+      flowType = "unknown";
+    }
+
+    return {
+      totalPatterns: OAUTH_PATTERNS.length,
+      matchedPatterns: oauthIndicators.slice(0, 5), // Limit to 5 samples
+      flowType,
+      pkceDetected,
+    };
+  }
+
+  /**
+   * Build API key pattern coverage info
+   */
+  private buildAPIKeyPatternCoverage(
+    apiKeyIndicators: string[],
+    context: AssessmentContext,
+  ): APIKeyPatternCoverage {
+    // Check if API keys appear to be managed via env vars
+    let envVarManaged = false;
+    if (context.sourceCodeFiles) {
+      for (const [, content] of context.sourceCodeFiles) {
+        if (/process\.env\.[A-Z_]*(?:API[_-]?KEY|SECRET)/i.test(content)) {
+          envVarManaged = true;
+          break;
+        }
+      }
+    }
+
+    return {
+      totalPatterns: API_KEY_PATTERNS.length,
+      matchedPatterns: apiKeyIndicators.slice(0, 5), // Limit to 5 samples
+      envVarManaged,
+    };
+  }
+
+  /**
+   * Build transport security summary
+   */
+  private buildTransportSecuritySummary(
+    transportSecurity: TransportSecurityAnalysis | undefined,
+    transportType: string,
+  ): TransportSecuritySummary {
+    return {
+      transportType,
+      tlsEnforced: transportSecurity?.tlsEnforced ?? false,
+      corsConfigured: transportSecurity?.corsConfigured ?? false,
+      sessionSecure: transportSecurity?.sessionSecure ?? false,
+      insecurePatternCount: transportSecurity?.insecurePatterns.length ?? 0,
+      securePatternCount: transportSecurity?.securePatterns.length ?? 0,
+    };
+  }
+
+  /**
+   * Generate flags for tools with sensitive auth operations
+   */
+  private generateAuthFlags(
+    toolInventory: AuthToolInventoryItem[],
+  ): AuthFlagForReview[] {
+    const flags: AuthFlagForReview[] = [];
+
+    for (const tool of toolInventory) {
+      if (!tool.isSensitive) continue;
+
+      // Determine risk level based on capabilities
+      let riskLevel: AuthFlagForReview["riskLevel"] = "low";
+      let reason = "Tool has auth-related capabilities";
+
+      if (tool.authCapabilities.includes("credential")) {
+        riskLevel = "high";
+        reason = "Handles credentials - verify secure storage and transmission";
+      } else if (tool.authCapabilities.includes("oauth")) {
+        riskLevel = "medium";
+        reason = "OAuth implementation - verify PKCE and proper flow";
+      } else if (tool.authCapabilities.includes("token")) {
+        riskLevel = "medium";
+        reason = "Token handling - verify secure storage and expiration";
+      }
+
+      flags.push({
+        toolName: tool.name,
+        reason,
+        capabilities: tool.authCapabilities,
+        riskLevel,
+      });
+    }
+
+    return flags;
   }
 }

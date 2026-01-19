@@ -95,6 +95,36 @@ export function emitModuleProgress(
     Object.assign(event, aupEnrichment);
   }
 
+  // Add authentication enrichment when module is authentication (Issue #195)
+  if (moduleKey === "authentication" && result) {
+    const authEnrichment = buildAuthEnrichment(result);
+    Object.assign(event, authEnrichment);
+  }
+
+  // Add resources enrichment when module is resources (Issue #196)
+  if (moduleKey === "resources" && result) {
+    const resourceEnrichment = buildResourceEnrichment(result);
+    Object.assign(event, resourceEnrichment);
+  }
+
+  // Add prompts enrichment when module is prompts (Issue #197)
+  if (moduleKey === "prompts" && result) {
+    const promptEnrichment = buildPromptEnrichment(result);
+    Object.assign(event, promptEnrichment);
+  }
+
+  // Add prohibited libraries enrichment when module is prohibitedLibraries (Issue #198)
+  if (moduleKey === "prohibitedLibraries" && result) {
+    const librariesEnrichment = buildProhibitedLibrariesEnrichment(result);
+    Object.assign(event, librariesEnrichment);
+  }
+
+  // Add manifest validation enrichment when module is manifestValidation (Issue #199)
+  if (moduleKey === "manifestValidation" && result) {
+    const manifestEnrichment = buildManifestEnrichment(result);
+    Object.assign(event, manifestEnrichment);
+  }
+
   // Emit JSONL to stderr with version and schemaVersion fields
   console.error(JSON.stringify(event));
 }
@@ -265,6 +295,597 @@ export function buildAUPEnrichment(
     // Issue #194: Include enrichment data for Claude validation
     toolInventory: enrichmentData?.toolInventory?.slice(0, 50), // Limit for tokens
     patternCoverage: enrichmentData?.patternCoverage,
+    flagsForReview: enrichmentData?.flagsForReview,
+  };
+}
+
+/**
+ * Build authentication enrichment data from an authentication assessment result.
+ * Issue #195: Provides context for Stage B Claude validation of auth findings.
+ */
+export function buildAuthEnrichment(authResult: {
+  authMethod?: string;
+  hasLocalDependencies?: boolean;
+  transportType?: string;
+  appropriateness?: {
+    isAppropriate: boolean;
+    concerns: string[];
+    explanation: string;
+  };
+  transportSecurity?: {
+    usesTLS: boolean;
+    tlsEnforced: boolean;
+    hasInsecurePatterns: boolean;
+    insecurePatterns: string[];
+    corsConfigured: boolean;
+    corsPermissive: boolean;
+    sessionSecure: boolean;
+  };
+  authConfigAnalysis?: {
+    totalFindings: number;
+    hasHighSeverity: boolean;
+    envDependentAuthCount: number;
+    failOpenPatternCount: number;
+    failOpenLogicCount: number;
+    devModeWarningCount: number;
+    hardcodedSecretCount: number;
+  };
+  enrichmentData?: {
+    toolInventory?: Array<{
+      name: string;
+      description: string;
+      authCapabilities: string[];
+      isSensitive: boolean;
+    }>;
+    oauthPatternCoverage?: {
+      totalPatterns: number;
+      matchedPatterns: string[];
+      flowType: string;
+      pkceDetected: boolean;
+    };
+    apiKeyPatternCoverage?: {
+      totalPatterns: number;
+      matchedPatterns: string[];
+      envVarManaged: boolean;
+    };
+    transportSecurity?: {
+      transportType: string;
+      tlsEnforced: boolean;
+      corsConfigured: boolean;
+      sessionSecure: boolean;
+      insecurePatternCount: number;
+      securePatternCount: number;
+    };
+    flagsForReview?: Array<{
+      toolName: string;
+      reason: string;
+      capabilities: string[];
+      riskLevel: string;
+    }>;
+    metrics?: {
+      totalTools: number;
+      authSensitiveTools: number;
+      oauthIndicators: number;
+      apiKeyIndicators: number;
+      localDependencyIndicators: number;
+    };
+  };
+}): {
+  authMethod: string;
+  authMetrics: {
+    hasLocalDependencies: boolean;
+    tlsEnforced: boolean;
+    corsConfigured: boolean;
+    sessionSecure: boolean;
+    authConfigFindings: number;
+    hasHighSeverityFindings: boolean;
+  };
+  oauthCoverage?: {
+    totalPatterns: number;
+    matchedPatterns: string[];
+    flowType: string;
+    pkceDetected: boolean;
+  };
+  apiKeyCoverage?: {
+    totalPatterns: number;
+    matchedPatterns: string[];
+    envVarManaged: boolean;
+  };
+  concerns: string[];
+  toolInventory?: Array<{
+    name: string;
+    description: string;
+    authCapabilities: string[];
+    isSensitive: boolean;
+  }>;
+  flagsForReview?: Array<{
+    toolName: string;
+    reason: string;
+    capabilities: string[];
+    riskLevel: string;
+  }>;
+} {
+  const enrichmentData = authResult.enrichmentData;
+  const authConfigAnalysis = authResult.authConfigAnalysis;
+  const transportSecurity = authResult.transportSecurity;
+
+  return {
+    authMethod: authResult.authMethod || "unknown",
+    authMetrics: {
+      hasLocalDependencies: authResult.hasLocalDependencies ?? false,
+      tlsEnforced: transportSecurity?.tlsEnforced ?? false,
+      corsConfigured: transportSecurity?.corsConfigured ?? false,
+      sessionSecure: transportSecurity?.sessionSecure ?? false,
+      authConfigFindings: authConfigAnalysis?.totalFindings ?? 0,
+      hasHighSeverityFindings: authConfigAnalysis?.hasHighSeverity ?? false,
+    },
+    oauthCoverage: enrichmentData?.oauthPatternCoverage,
+    apiKeyCoverage: enrichmentData?.apiKeyPatternCoverage,
+    concerns: authResult.appropriateness?.concerns || [],
+    // Issue #195: Include enrichment data for Stage B Claude validation
+    toolInventory: enrichmentData?.toolInventory?.slice(0, 50), // Limit for tokens
+    flagsForReview: enrichmentData?.flagsForReview,
+  };
+}
+
+/**
+ * Build resource enrichment data from a resource assessment result.
+ * Issue #196: Provides context for Stage B Claude validation of resource findings.
+ */
+export function buildResourceEnrichment(resourceResult: {
+  resourcesTested?: number;
+  resourceTemplatesTested?: number;
+  accessibleResources?: number;
+  securityIssuesFound?: number;
+  pathTraversalVulnerabilities?: number;
+  sensitiveDataExposures?: number;
+  promptInjectionVulnerabilities?: number;
+  blobDosVulnerabilities?: number;
+  polyglotVulnerabilities?: number;
+  mimeValidationFailures?: number;
+  enrichmentData?: {
+    resourceInventory?: Array<{
+      uri: string;
+      name?: string;
+      mimeType?: string;
+      resourceType: string;
+      securityFlags: string[];
+      dataClassification: string;
+    }>;
+    patternCoverage?: {
+      sensitiveUriPatterns: number;
+      pathTraversalPayloads: number;
+      uriInjectionPayloads: number;
+      hiddenResourcePatterns: number;
+      samplePatterns: string[];
+    };
+    flagsForReview?: Array<{
+      resourceUri: string;
+      reason: string;
+      flags: string[];
+      riskLevel: string;
+    }>;
+    metrics?: {
+      totalResources: number;
+      totalTemplates: number;
+      sensitiveResources: number;
+      accessibleResources: number;
+      vulnerableResources: number;
+    };
+  };
+}): {
+  resourceMetrics: {
+    totalResources: number;
+    totalTemplates: number;
+    accessibleResources: number;
+    vulnerableResources: number;
+    pathTraversalVulnerabilities: number;
+    sensitiveDataExposures: number;
+    promptInjectionVulnerabilities: number;
+  };
+  patternCoverage?: {
+    sensitiveUriPatterns: number;
+    pathTraversalPayloads: number;
+    uriInjectionPayloads: number;
+    hiddenResourcePatterns: number;
+    samplePatterns: string[];
+  };
+  resourceInventory?: Array<{
+    uri: string;
+    name?: string;
+    mimeType?: string;
+    resourceType: string;
+    securityFlags: string[];
+    dataClassification: string;
+  }>;
+  flagsForReview?: Array<{
+    resourceUri: string;
+    reason: string;
+    flags: string[];
+    riskLevel: string;
+  }>;
+} {
+  const enrichmentData = resourceResult.enrichmentData;
+
+  return {
+    resourceMetrics: {
+      totalResources: resourceResult.resourcesTested ?? 0,
+      totalTemplates: resourceResult.resourceTemplatesTested ?? 0,
+      accessibleResources: resourceResult.accessibleResources ?? 0,
+      vulnerableResources:
+        (resourceResult.pathTraversalVulnerabilities ?? 0) +
+        (resourceResult.sensitiveDataExposures ?? 0) +
+        (resourceResult.promptInjectionVulnerabilities ?? 0) +
+        (resourceResult.blobDosVulnerabilities ?? 0) +
+        (resourceResult.polyglotVulnerabilities ?? 0),
+      pathTraversalVulnerabilities:
+        resourceResult.pathTraversalVulnerabilities ?? 0,
+      sensitiveDataExposures: resourceResult.sensitiveDataExposures ?? 0,
+      promptInjectionVulnerabilities:
+        resourceResult.promptInjectionVulnerabilities ?? 0,
+    },
+    patternCoverage: enrichmentData?.patternCoverage,
+    // Issue #196: Include enrichment data for Stage B Claude validation
+    resourceInventory: enrichmentData?.resourceInventory?.slice(0, 50), // Limit for tokens
+    flagsForReview: enrichmentData?.flagsForReview,
+  };
+}
+
+/**
+ * Build prompt enrichment data from a prompt assessment result.
+ * Issue #197: Provides context for Stage B Claude validation of prompt findings.
+ */
+export function buildPromptEnrichment(promptResult: {
+  promptsTested?: number;
+  aupViolations?: number;
+  injectionVulnerabilities?: number;
+  argumentValidationIssues?: number;
+  enrichmentData?: {
+    promptInventory?: Array<{
+      name: string;
+      description?: string;
+      argumentCount: number;
+      requiredArgs: string[];
+      optionalArgs: string[];
+      category: string;
+      securityFlags: string[];
+    }>;
+    patternCoverage?: {
+      injectionPatternsChecked: number;
+      aupPatternsChecked: number;
+      argumentValidationChecks: number;
+      samplePatterns: string[];
+    };
+    flagsForReview?: Array<{
+      promptName: string;
+      reason: string;
+      flags: string[];
+      riskLevel: string;
+    }>;
+    metrics?: {
+      totalPrompts: number;
+      aupViolations: number;
+      injectionVulnerabilities: number;
+      argumentValidationIssues: number;
+      promptsWithDynamicContent: number;
+    };
+  };
+}): {
+  promptMetrics: {
+    totalPrompts: number;
+    aupViolations: number;
+    injectionVulnerabilities: number;
+    argumentValidationIssues: number;
+  };
+  patternCoverage?: {
+    injectionPatternsChecked: number;
+    aupPatternsChecked: number;
+    argumentValidationChecks: number;
+    samplePatterns: string[];
+  };
+  promptInventory?: Array<{
+    name: string;
+    description?: string;
+    argumentCount: number;
+    requiredArgs: string[];
+    optionalArgs: string[];
+    category: string;
+    securityFlags: string[];
+  }>;
+  flagsForReview?: Array<{
+    promptName: string;
+    reason: string;
+    flags: string[];
+    riskLevel: string;
+  }>;
+} {
+  const enrichmentData = promptResult.enrichmentData;
+
+  return {
+    promptMetrics: {
+      totalPrompts: promptResult.promptsTested ?? 0,
+      aupViolations: promptResult.aupViolations ?? 0,
+      injectionVulnerabilities: promptResult.injectionVulnerabilities ?? 0,
+      argumentValidationIssues: promptResult.argumentValidationIssues ?? 0,
+    },
+    patternCoverage: enrichmentData?.patternCoverage,
+    // Issue #197: Include enrichment data for Stage B Claude validation
+    promptInventory: enrichmentData?.promptInventory?.slice(0, 50), // Limit for tokens
+    flagsForReview: enrichmentData?.flagsForReview,
+  };
+}
+
+/**
+ * Build prohibited libraries enrichment data from a prohibited libraries assessment result.
+ * Issue #198: Provides context for Stage B Claude validation of library findings.
+ */
+export function buildProhibitedLibrariesEnrichment(librariesResult: {
+  matches?: Array<{
+    name: string;
+    category: string;
+    severity: string;
+    location: string;
+    usageStatus?: string;
+    importCount?: number;
+  }>;
+  scannedFiles?: string[];
+  hasFinancialLibraries?: boolean;
+  hasMediaLibraries?: boolean;
+  enrichmentData?: {
+    libraryInventory?: Array<{
+      name: string;
+      category: string;
+      severity: string;
+      location: string;
+      usageStatus: string;
+      importCount: number;
+      importFiles: string[];
+      policyReference: string;
+    }>;
+    policyCoverage?: {
+      totalProhibitedLibraries: number;
+      scannedFiles: number;
+      policiesChecked: string[];
+      sampleLibraries: string[];
+    };
+    flagsForReview?: Array<{
+      libraryName: string;
+      reason: string;
+      flags: string[];
+      riskLevel: string;
+    }>;
+    metrics?: {
+      totalMatches: number;
+      blockingCount: number;
+      highCount: number;
+      mediumCount: number;
+      activeCount: number;
+      unusedCount: number;
+      hasFinancialLibraries: boolean;
+      hasMediaLibraries: boolean;
+    };
+  };
+}): {
+  libraryMetrics: {
+    totalMatches: number;
+    blockingCount: number;
+    highCount: number;
+    mediumCount: number;
+    activeCount: number;
+    unusedCount: number;
+    hasFinancialLibraries: boolean;
+    hasMediaLibraries: boolean;
+  };
+  policyCoverage?: {
+    totalProhibitedLibraries: number;
+    scannedFiles: number;
+    policiesChecked: string[];
+    sampleLibraries: string[];
+  };
+  libraryInventory?: Array<{
+    name: string;
+    category: string;
+    severity: string;
+    location: string;
+    usageStatus: string;
+    importCount: number;
+    importFiles: string[];
+    policyReference: string;
+  }>;
+  flagsForReview?: Array<{
+    libraryName: string;
+    reason: string;
+    flags: string[];
+    riskLevel: string;
+  }>;
+} {
+  const enrichmentData = librariesResult.enrichmentData;
+  const matches = librariesResult.matches || [];
+
+  // Calculate metrics from matches if enrichmentData not available
+  const blockingCount =
+    enrichmentData?.metrics?.blockingCount ??
+    matches.filter((m) => m.severity === "BLOCKING").length;
+  const highCount =
+    enrichmentData?.metrics?.highCount ??
+    matches.filter((m) => m.severity === "HIGH").length;
+  const mediumCount =
+    enrichmentData?.metrics?.mediumCount ??
+    matches.filter((m) => m.severity === "MEDIUM").length;
+  const activeCount =
+    enrichmentData?.metrics?.activeCount ??
+    matches.filter((m) => m.usageStatus === "ACTIVE").length;
+  const unusedCount =
+    enrichmentData?.metrics?.unusedCount ??
+    matches.filter((m) => m.usageStatus === "UNUSED").length;
+
+  return {
+    libraryMetrics: {
+      totalMatches: enrichmentData?.metrics?.totalMatches ?? matches.length,
+      blockingCount,
+      highCount,
+      mediumCount,
+      activeCount,
+      unusedCount,
+      hasFinancialLibraries:
+        enrichmentData?.metrics?.hasFinancialLibraries ??
+        librariesResult.hasFinancialLibraries ??
+        false,
+      hasMediaLibraries:
+        enrichmentData?.metrics?.hasMediaLibraries ??
+        librariesResult.hasMediaLibraries ??
+        false,
+    },
+    policyCoverage: enrichmentData?.policyCoverage,
+    // Issue #198: Include enrichment data for Stage B Claude validation
+    libraryInventory: enrichmentData?.libraryInventory?.slice(0, 50), // Limit for tokens
+    flagsForReview: enrichmentData?.flagsForReview,
+  };
+}
+
+/**
+ * Build manifest validation enrichment data from a manifest validation assessment result.
+ * Issue #199: Provides context for Stage B Claude validation of manifest findings.
+ */
+export function buildManifestEnrichment(manifestResult: {
+  hasManifest?: boolean;
+  manifestVersion?: string;
+  hasRequiredFields?: boolean;
+  hasIcon?: boolean;
+  missingFields?: string[];
+  validationResults?: Array<{
+    field: string;
+    valid: boolean;
+    value?: unknown;
+    issue?: string;
+    severity: "ERROR" | "WARNING" | "INFO";
+  }>;
+  privacyPolicies?: {
+    declared: string[];
+    validationResults: Array<{
+      url: string;
+      accessible: boolean;
+      error?: string;
+    }>;
+    allAccessible: boolean;
+  };
+  contactInfo?: {
+    email?: string;
+    url?: string;
+    name?: string;
+    source: string;
+  };
+  enrichmentData?: {
+    fieldInventory?: Array<{
+      field: string;
+      valid: boolean;
+      value?: unknown;
+      issue?: string;
+      severity: string;
+      category: string;
+    }>;
+    fieldCoverage?: {
+      totalRequired: number;
+      requiredPresent: number;
+      recommendedChecked: number;
+      sampleFields: string[];
+      policiesChecked: string[];
+    };
+    flagsForReview?: Array<{
+      field: string;
+      reason: string;
+      flags: string[];
+      riskLevel: string;
+    }>;
+    metrics?: {
+      totalChecks: number;
+      passedChecks: number;
+      errorCount: number;
+      warningCount: number;
+      hasManifest: boolean;
+      hasRequiredFields: boolean;
+      hasIcon: boolean;
+      hasContactInfo: boolean;
+      privacyPoliciesAccessible: boolean;
+      toolsMatch: boolean;
+    };
+  };
+}): {
+  manifestMetrics: {
+    hasManifest: boolean;
+    hasRequiredFields: boolean;
+    hasIcon: boolean;
+    hasContactInfo: boolean;
+    privacyPoliciesAccessible: boolean;
+    totalChecks: number;
+    passedChecks: number;
+    errorCount: number;
+    warningCount: number;
+  };
+  fieldCoverage?: {
+    totalRequired: number;
+    requiredPresent: number;
+    recommendedChecked: number;
+    sampleFields: string[];
+    policiesChecked: string[];
+  };
+  fieldInventory?: Array<{
+    field: string;
+    valid: boolean;
+    value?: unknown;
+    issue?: string;
+    severity: string;
+    category: string;
+  }>;
+  flagsForReview?: Array<{
+    field: string;
+    reason: string;
+    flags: string[];
+    riskLevel: string;
+  }>;
+} {
+  const enrichmentData = manifestResult.enrichmentData;
+  const validationResults = manifestResult.validationResults || [];
+
+  // Calculate metrics from validation results if enrichmentData not available
+  const errorCount =
+    enrichmentData?.metrics?.errorCount ??
+    validationResults.filter((r) => !r.valid && r.severity === "ERROR").length;
+  const warningCount =
+    enrichmentData?.metrics?.warningCount ??
+    validationResults.filter((r) => r.severity === "WARNING" && r.issue).length;
+  const passedChecks =
+    enrichmentData?.metrics?.passedChecks ??
+    validationResults.filter((r) => r.valid).length;
+
+  return {
+    manifestMetrics: {
+      hasManifest:
+        enrichmentData?.metrics?.hasManifest ??
+        manifestResult.hasManifest ??
+        false,
+      hasRequiredFields:
+        enrichmentData?.metrics?.hasRequiredFields ??
+        manifestResult.hasRequiredFields ??
+        false,
+      hasIcon:
+        enrichmentData?.metrics?.hasIcon ?? manifestResult.hasIcon ?? false,
+      hasContactInfo:
+        enrichmentData?.metrics?.hasContactInfo ??
+        Boolean(manifestResult.contactInfo),
+      privacyPoliciesAccessible:
+        enrichmentData?.metrics?.privacyPoliciesAccessible ??
+        manifestResult.privacyPolicies?.allAccessible ??
+        true,
+      totalChecks:
+        enrichmentData?.metrics?.totalChecks ?? validationResults.length,
+      passedChecks,
+      errorCount,
+      warningCount,
+    },
+    fieldCoverage: enrichmentData?.fieldCoverage,
+    // Issue #199: Include enrichment data for Stage B Claude validation
+    fieldInventory: enrichmentData?.fieldInventory?.slice(0, 50), // Limit for tokens
     flagsForReview: enrichmentData?.flagsForReview,
   };
 }

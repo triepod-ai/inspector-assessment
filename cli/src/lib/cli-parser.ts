@@ -21,6 +21,7 @@ import {
   TIER_2_COMPLIANCE,
   TIER_3_CAPABILITY,
   TIER_4_DEVELOPMENT,
+  OPT_IN_MODULES,
   type AssessmentProfileName,
 } from "../profiles.js";
 import packageJson from "../../package.json" with { type: "json" };
@@ -741,7 +742,7 @@ Module Selection:
     mcpSpecCompliance -> protocolCompliance
     protocolConformance -> protocolCompliance
 
-Module Tiers (16 total):
+Module Tiers (13 standard + 4 opt-in):
   Tier 1 - Core Security (Always Run):
     • Functionality      - Tests all tools work correctly
     • Security           - Prompt injection & vulnerability testing
@@ -752,8 +753,6 @@ Module Tiers (16 total):
 
   Tier 2 - Compliance (MCP Directory):
     • Tool Annotations   - readOnlyHint/destructiveHint validation
-    • Prohibited Libs    - Dependency security checks
-    • Manifest           - MCPB manifest.json validation
     • Authentication     - OAuth/auth evaluation
 
   Tier 3 - Capability-Based (Conditional):
@@ -761,10 +760,15 @@ Module Tiers (16 total):
     • Prompts            - Prompt capability assessment
     • Cross-Capability   - Chained vulnerability detection
 
-  Tier 4 - Extended (Optional):
+  Tier 4 - Development:
     • Developer Experience - Documentation + usability assessment
     • Portability        - Cross-platform compatibility
-    • External API       - External service detection
+
+  Opt-In Only (requires --profile all):
+    • Prohibited Libs    - Dependency security checks (narrow scope)
+    • Manifest           - MCPB manifest.json validation (bundles only)
+    • File Modularization - Code quality metrics (not security)
+    • External API       - External service detection (informational)
 
 Transport Options:
   --config, --http, and --sse are mutually exclusive.
@@ -781,7 +785,8 @@ Examples:
   mcp-assess-full my-server --profile security      # Security audit (~2-3min)
   mcp-assess-full my-server --profile compliance    # Directory submission (~5min)
   mcp-assess-full my-server --profile full          # Comprehensive audit (~10-15min)
-  mcp-assess-full my-server --profile dev           # Development-focused (all modules)
+  mcp-assess-full my-server --profile dev           # Development-focused (standard modules)
+  mcp-assess-full my-server --profile all           # Everything including opt-in modules
 
   # Single module (fastest - bypasses orchestrator):
   mcp-assess-full my-server --http http://localhost:10900/mcp --module toolAnnotations
@@ -811,15 +816,17 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
   protocolCompliance: "MCP protocol + JSON-RPC validation",
   aupCompliance: "Acceptable use policy compliance",
   toolAnnotations: "Tool annotation validation (readOnlyHint, destructiveHint)",
-  prohibitedLibraries: "Prohibited library detection",
-  manifestValidation: "MCPB manifest.json validation",
   authentication: "OAuth/auth evaluation",
   resources: "Resource path traversal + sensitive data exposure",
   prompts: "Prompt AUP compliance + injection testing",
   crossCapability: "Cross-capability attack chain detection",
   developerExperience: "Documentation + usability assessment",
   portability: "Cross-platform compatibility",
-  externalAPIScanner: "External API detection (requires --source)",
+  // Opt-in modules (Issue #200)
+  prohibitedLibraries: "Prohibited library detection (~25 libs, opt-in)",
+  manifestValidation: "MCPB manifest.json validation (bundles only, opt-in)",
+  fileModularization: "Code quality metrics (not security, opt-in)",
+  externalAPIScanner: "External API detection (informational, opt-in)",
 };
 
 /**
@@ -836,8 +843,15 @@ export function printModules(): void {
     return `  ${name.padEnd(22)} ${desc}`;
   };
 
+  const standardCount =
+    TIER_1_CORE_SECURITY.length +
+    TIER_2_COMPLIANCE.length +
+    TIER_3_CAPABILITY.length +
+    TIER_4_DEVELOPMENT.length;
+  const totalCount = standardCount + OPT_IN_MODULES.length;
+
   console.log(`
-Available Assessment Modules (16 total):
+Available Assessment Modules (${standardCount} standard + ${OPT_IN_MODULES.length} opt-in = ${totalCount} total):
 
 Tier 1 - Core Security (${TIER_1_CORE_SECURITY.length} modules):
 ${TIER_1_CORE_SECURITY.map(formatModule).join("\n")}
@@ -851,14 +865,18 @@ ${TIER_3_CAPABILITY.map(formatModule).join("\n")}
 Tier 4 - Development (${TIER_4_DEVELOPMENT.length} modules):
 ${TIER_4_DEVELOPMENT.map(formatModule).join("\n")}
 
+Opt-In Only (${OPT_IN_MODULES.length} modules - requires --profile all):
+${OPT_IN_MODULES.map(formatModule).join("\n")}
+
 Usage:
   --only-modules <list>   Run only specified modules (comma-separated)
   --skip-modules <list>   Skip specified modules (comma-separated)
-  --profile <name>        Use predefined profile (quick, security, compliance, full, dev)
+  --profile <name>        Use predefined profile (quick, security, compliance, full, dev, all)
 
 Examples:
   mcp-assess-full my-server --only-modules functionality,security
   mcp-assess-full my-server --skip-modules temporal,portability
   mcp-assess-full my-server --profile compliance
+  mcp-assess-full my-server --profile all  # Include opt-in modules
 `);
 }
