@@ -102,6 +102,8 @@ export function emitModuleProgress(
 /**
  * Build AUP enrichment data from an AUP compliance assessment result.
  * Samples violations prioritizing by severity (CRITICAL > HIGH > MEDIUM).
+ * Issue #194: Now includes toolInventory, patternCoverage, and flagsForReview
+ * from the enrichmentData field for Stage B Claude validation.
  */
 export function buildAUPEnrichment(
   aupResult: {
@@ -120,6 +122,30 @@ export function buildAUPEnrichment(
       sourceCode: boolean;
     };
     highRiskDomains?: string[];
+    enrichmentData?: {
+      toolInventory?: Array<{
+        name: string;
+        description: string;
+        capabilities: string[];
+      }>;
+      patternCoverage?: {
+        totalPatterns: number;
+        categoriesCovered: string[];
+        samplePatterns: string[];
+        severityBreakdown: {
+          critical: number;
+          high: number;
+          medium: number;
+          flag: number;
+        };
+      };
+      flagsForReview?: Array<{
+        toolName: string;
+        reason: string;
+        capabilities: string[];
+        confidence: string;
+      }>;
+    };
   },
   maxSamples: number = 10,
 ): {
@@ -146,6 +172,28 @@ export function buildAUPEnrichment(
     sourceCode: boolean;
   };
   highRiskDomains: string[];
+  toolInventory?: Array<{
+    name: string;
+    description: string;
+    capabilities: string[];
+  }>;
+  patternCoverage?: {
+    totalPatterns: number;
+    categoriesCovered: string[];
+    samplePatterns: string[];
+    severityBreakdown: {
+      critical: number;
+      high: number;
+      medium: number;
+      flag: number;
+    };
+  };
+  flagsForReview?: Array<{
+    toolName: string;
+    reason: string;
+    capabilities: string[];
+    confidence: string;
+  }>;
 } {
   const violations = aupResult.violations || [];
 
@@ -200,6 +248,9 @@ export function buildAUPEnrichment(
     samplingNote = `Sampled ${sampled.length} of ${violations.length} violations, prioritized by severity (CRITICAL > HIGH > MEDIUM).`;
   }
 
+  // Include enrichmentData fields for Stage B Claude validation (Issue #194)
+  const enrichmentData = aupResult.enrichmentData;
+
   return {
     violationsSample: sampled,
     samplingNote,
@@ -211,6 +262,10 @@ export function buildAUPEnrichment(
       sourceCode: false,
     },
     highRiskDomains: (aupResult.highRiskDomains || []).slice(0, 10),
+    // Issue #194: Include enrichment data for Claude validation
+    toolInventory: enrichmentData?.toolInventory?.slice(0, 50), // Limit for tokens
+    patternCoverage: enrichmentData?.patternCoverage,
+    flagsForReview: enrichmentData?.flagsForReview,
   };
 }
 

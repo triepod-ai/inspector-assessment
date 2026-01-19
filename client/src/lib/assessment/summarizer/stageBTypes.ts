@@ -6,9 +6,12 @@
  * confidence details for better LLM semantic analysis.
  *
  * Issue #137: Stage A data enrichment for Stage B Claude analysis
+ * Issue #194: AUP module enrichment for Claude validation
  *
  * @module assessment/summarizer/stageBTypes
  */
+
+import type { ToolCapability, AUPCategory } from "../aupComplianceTypes";
 
 // ============================================================================
 // Base Evidence Types
@@ -179,6 +182,51 @@ export interface StageBEnrichment {
 }
 
 // ============================================================================
+// AUP Module Enrichment (Issue #194)
+// ============================================================================
+
+/**
+ * Stage B enrichment for the AUP compliance module.
+ * Provides tool inventory, pattern coverage, and flags for Claude validation.
+ */
+export interface AUPModuleStageBEnrichment {
+  /** Tool inventory with names, descriptions, and inferred capabilities */
+  toolInventory: Array<{
+    name: string;
+    description: string;
+    capabilities: ToolCapability[];
+  }>;
+
+  /** Pattern coverage showing what AUP patterns were checked */
+  patternCoverage: {
+    totalPatterns: number;
+    categoriesCovered: AUPCategory[];
+    samplePatterns: string[];
+    severityBreakdown: {
+      critical: number;
+      high: number;
+      medium: number;
+      flag: number;
+    };
+  };
+
+  /** Tools flagged for review based on sensitive capabilities */
+  flagsForReview: Array<{
+    toolName: string;
+    reason: string;
+    capabilities: ToolCapability[];
+    confidence: "low";
+  }>;
+
+  /** Summary counts for quick reference */
+  summary: {
+    totalTools: number;
+    toolsWithSensitiveCapabilities: number;
+    capabilityBreakdown: Record<string, number>;
+  };
+}
+
+// ============================================================================
 // Constants
 // ============================================================================
 
@@ -196,3 +244,6 @@ export const MAX_RESPONSE_LENGTH = 500;
 
 /** Maximum context window size (chars before/after) */
 export const MAX_CONTEXT_WINDOW = 200;
+
+/** Maximum tools to include in inventory (for token efficiency) */
+export const MAX_TOOL_INVENTORY_ITEMS = 50;

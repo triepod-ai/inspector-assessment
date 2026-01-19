@@ -19,12 +19,18 @@ import type {
   AUPComplianceAssessment,
   AUPViolation,
   AssessmentStatus,
+  AUPEnrichmentData,
 } from "@/lib/assessmentTypes";
 import {
   checkTextForAUPViolations,
   checkTextForHighRiskDomains,
 } from "@/lib/aupPatterns";
 import type { ClaudeCodeBridge } from "../lib/claudeCodeBridge";
+import {
+  buildToolInventory,
+  buildPatternCoverage,
+  generateFlagsForReview,
+} from "../lib/moduleEnrichment";
 
 /**
  * Extended AUP violation with semantic analysis results
@@ -172,6 +178,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
         highRiskDomains,
         scannedLocations,
         toolDescriptionMap,
+        context,
       );
     }
 
@@ -187,8 +194,11 @@ export class AUPComplianceAssessor extends BaseAssessor {
       highRiskDomains,
     );
 
+    // Build enrichment data for Stage B Claude validation (Issue #194)
+    const enrichmentData = this.buildEnrichmentData(context);
+
     this.logger.info(
-      `Assessment complete: ${violations.length} violations found, ${highRiskDomains.length} high-risk domains`,
+      `Assessment complete: ${violations.length} violations found, ${highRiskDomains.length} high-risk domains, ${enrichmentData.flagsForReview.length} tools flagged for review`,
     );
 
     return {
@@ -198,6 +208,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
       status,
       explanation,
       recommendations,
+      enrichmentData,
     };
   }
 
@@ -210,6 +221,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
     highRiskDomains: string[],
     scannedLocations: AUPComplianceAssessment["scannedLocations"],
     toolDescriptionMap: Map<string, string>,
+    context: AssessmentContext,
   ): Promise<EnhancedAUPComplianceAssessment> {
     const confirmedViolations: EnhancedAUPViolation[] = [];
     const flaggedForReview: EnhancedAUPViolation[] = [];
@@ -308,6 +320,9 @@ export class AUPComplianceAssessor extends BaseAssessor {
       highRiskDomains,
     );
 
+    // Build enrichment data for Stage B Claude validation (Issue #194)
+    const enrichmentData = this.buildEnrichmentData(context);
+
     this.logger.info(
       `Semantic analysis complete: ${confirmedViolations.length} confirmed, ${flaggedForReview.length} flagged, ${falsePositivesFiltered} filtered`,
     );
@@ -323,6 +338,7 @@ export class AUPComplianceAssessor extends BaseAssessor {
       recommendations,
       semanticAnalysisEnabled: true,
       falsePositivesFiltered,
+      enrichmentData,
     };
   }
 
@@ -693,5 +709,30 @@ export class AUPComplianceAssessor extends BaseAssessor {
     }
 
     return recommendations;
+  }
+
+  /**
+   * Build enrichment data for Stage B Claude validation (Issue #194)
+   *
+   * Provides Claude with:
+   * - Tool inventory with names, descriptions, and inferred capabilities
+   * - Pattern coverage showing what AUP patterns were checked
+   * - Flags for tools with sensitive capabilities (even without violations)
+   */
+  private buildEnrichmentData(context: AssessmentContext): AUPEnrichmentData {
+    // Build tool inventory with capability inference
+    const toolInventory = buildToolInventory(context.tools);
+
+    // Get pattern coverage metadata
+    const patternCoverage = buildPatternCoverage();
+
+    // Generate flags for tools with sensitive capabilities
+    const flagsForReview = generateFlagsForReview(toolInventory);
+
+    return {
+      toolInventory,
+      patternCoverage,
+      flagsForReview,
+    };
   }
 }

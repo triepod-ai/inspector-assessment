@@ -116,9 +116,10 @@ import {
 import { AUPComplianceAssessor } from "../client/src/services/assessment/modules/AUPComplianceAssessor.js";
 import { FunctionalityAssessor } from "../client/src/services/assessment/modules/FunctionalityAssessor.js";
 import { DocumentationAssessor } from "../client/src/services/assessment/modules/DocumentationAssessor.js";
-import { ErrorHandlingAssessor } from "../client/src/services/assessment/modules/ErrorHandlingAssessor.js";
+// ErrorHandlingAssessor merged into ProtocolComplianceAssessor (Issue #188)
+import { ErrorHandlingAssessor } from "../client/src/services/assessment/modules/ErrorHandlingAssessor.deprecated.js";
 import { UsabilityAssessor } from "../client/src/services/assessment/modules/UsabilityAssessor.js";
-import { ProtocolComplianceAssessor } from "../client/src/services/assessment/modules/ProtocolComplianceAssessor.js";
+import { ProtocolComplianceAssessor } from "../client/src/services/assessment/modules/ProtocolComplianceAssessor/index.js";
 import { ToolAnnotationAssessor } from "../client/src/services/assessment/modules/ToolAnnotationAssessor.js";
 import { ProhibitedLibrariesAssessor } from "../client/src/services/assessment/modules/ProhibitedLibrariesAssessor.js";
 import { ManifestValidationAssessor } from "../client/src/services/assessment/modules/ManifestValidationAssessor.js";

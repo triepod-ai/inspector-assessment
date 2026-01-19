@@ -11,17 +11,19 @@
  */
 
 import type { SecurityTestResult } from "../resultTypes";
-import type { AUPViolation } from "../extendedTypes";
+import type { AUPViolation, AUPEnrichmentData } from "../extendedTypes";
 import type { EnhancedToolAnnotationResult } from "../../../services/assessment/modules/annotations/types";
 import {
   type FindingEvidence,
   type PayloadCorrelation,
   type ToolSummaryStageBEnrichment,
   type ToolDetailStageBEnrichment,
+  type AUPModuleStageBEnrichment,
   DEFAULT_TIER2_MAX_SAMPLES,
   DEFAULT_TIER3_MAX_CORRELATIONS,
   MAX_RESPONSE_LENGTH,
   MAX_CONTEXT_WINDOW,
+  MAX_TOOL_INVENTORY_ITEMS,
 } from "./stageBTypes";
 
 // ============================================================================
@@ -365,5 +367,70 @@ export function buildToolDetailStageBEnrichment(
       toolAupViolations && toolAupViolations.length > 0
         ? toolAupViolations
         : undefined,
+  };
+}
+
+// ============================================================================
+// AUP Module Enrichment Builder (Issue #194)
+// ============================================================================
+
+/**
+ * Build Stage B enrichment for the AUP compliance module.
+ *
+ * This converts the AUPEnrichmentData from the assessor into a format
+ * optimized for Stage B Claude analysis, with summary counts and
+ * token-efficient truncation.
+ *
+ * @param enrichmentData - AUP enrichment data from the assessor
+ * @param maxInventoryItems - Maximum tool inventory items to include
+ * @returns AUP module Stage B enrichment
+ */
+export function buildAUPModuleStageBEnrichment(
+  enrichmentData: AUPEnrichmentData | undefined,
+  maxInventoryItems: number = MAX_TOOL_INVENTORY_ITEMS,
+): AUPModuleStageBEnrichment | undefined {
+  if (!enrichmentData) {
+    return undefined;
+  }
+
+  const { toolInventory, patternCoverage, flagsForReview } = enrichmentData;
+
+  // Calculate capability breakdown across all tools
+  const capabilityBreakdown: Record<string, number> = {};
+  for (const tool of toolInventory) {
+    for (const capability of tool.capabilities) {
+      capabilityBreakdown[capability] =
+        (capabilityBreakdown[capability] || 0) + 1;
+    }
+  }
+
+  // Truncate inventory if needed for token efficiency
+  const truncatedInventory = toolInventory
+    .slice(0, maxInventoryItems)
+    .map((tool) => ({
+      name: tool.name,
+      description: truncate(tool.description, MAX_CONTEXT_WINDOW),
+      capabilities: tool.capabilities,
+    }));
+
+  return {
+    toolInventory: truncatedInventory,
+    patternCoverage: {
+      totalPatterns: patternCoverage.totalPatterns,
+      categoriesCovered: patternCoverage.categoriesCovered,
+      samplePatterns: patternCoverage.samplePatterns,
+      severityBreakdown: patternCoverage.severityBreakdown,
+    },
+    flagsForReview: flagsForReview.map((flag) => ({
+      toolName: flag.toolName,
+      reason: flag.reason,
+      capabilities: flag.capabilities,
+      confidence: flag.confidence,
+    })),
+    summary: {
+      totalTools: toolInventory.length,
+      toolsWithSensitiveCapabilities: flagsForReview.length,
+      capabilityBreakdown,
+    },
   };
 }
