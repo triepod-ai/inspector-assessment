@@ -99,6 +99,68 @@ describe("moduleEnrichment", () => {
       const capabilities = inferToolCapabilities(tool);
       expect(capabilities).toContain("exec");
     });
+
+    describe("underscore name handling (Issue #194 - GAP-4)", () => {
+      it("should detect capabilities in tools with underscore prefixes", () => {
+        const tool: Tool = {
+          name: "_read_file",
+          description: "Reads a file from the filesystem",
+          inputSchema: { type: "object" },
+        };
+        const capabilities = inferToolCapabilities(tool);
+        expect(capabilities).toContain("file_system");
+      });
+
+      it("should detect capabilities in tools with multiple underscores", () => {
+        const tool: Tool = {
+          name: "__execute__command__",
+          description: "Executes a shell command",
+          inputSchema: { type: "object" },
+        };
+        const capabilities = inferToolCapabilities(tool);
+        expect(capabilities).toContain("exec");
+      });
+
+      it("should detect capabilities from description when name has underscores", () => {
+        const tool: Tool = {
+          name: "_tool_name_",
+          description: "Makes HTTP requests to APIs",
+          inputSchema: { type: "object" },
+        };
+        const capabilities = inferToolCapabilities(tool);
+        expect(capabilities).toContain("network");
+      });
+
+      it("should handle tool names with only underscores", () => {
+        const tool: Tool = {
+          name: "___",
+          description: "Database query tool",
+          inputSchema: { type: "object" },
+        };
+        const capabilities = inferToolCapabilities(tool);
+        expect(capabilities).toContain("database");
+      });
+
+      it("should detect network capability from snake_case names", () => {
+        const tool: Tool = {
+          name: "fetch_http_data",
+          description: "Fetches data",
+          inputSchema: { type: "object" },
+        };
+        const capabilities = inferToolCapabilities(tool);
+        expect(capabilities).toContain("network");
+      });
+
+      it("should handle underscore-prefixed exec tools", () => {
+        const tool: Tool = {
+          name: "_system_execute",
+          description: "System execution tool",
+          inputSchema: { type: "object" },
+        };
+        const capabilities = inferToolCapabilities(tool);
+        expect(capabilities).toContain("exec");
+      });
+    });
   });
 
   describe("buildToolInventory", () => {
@@ -156,6 +218,69 @@ describe("moduleEnrichment", () => {
 
       expect(inventory[0].name).toBe("no_desc_tool");
       expect(inventory[0].description).toBe("");
+    });
+
+    describe("edge cases (Issue #194 - GAP-5)", () => {
+      it("should handle empty tools array", () => {
+        const tools: Tool[] = [];
+
+        const inventory = buildToolInventory(tools);
+
+        expect(inventory).toEqual([]);
+        expect(inventory).toHaveLength(0);
+      });
+
+      it("should handle tools with underscore names", () => {
+        const tools: Tool[] = [
+          {
+            name: "_private_tool",
+            description: "A private tool that executes shell commands",
+            inputSchema: { type: "object" },
+          },
+          {
+            name: "__dunder_method__",
+            description: "Reads files from filesystem",
+            inputSchema: { type: "object" },
+          },
+        ];
+
+        const inventory = buildToolInventory(tools);
+
+        expect(inventory).toHaveLength(2);
+        expect(inventory[0].name).toBe("_private_tool");
+        expect(inventory[0].capabilities).toContain("exec");
+        expect(inventory[1].name).toBe("__dunder_method__");
+        expect(inventory[1].capabilities).toContain("file_system");
+      });
+
+      it("should handle single tool array", () => {
+        const tools: Tool[] = [
+          {
+            name: "single_tool",
+            description: "Single tool",
+            inputSchema: { type: "object" },
+          },
+        ];
+
+        const inventory = buildToolInventory(tools);
+
+        expect(inventory).toHaveLength(1);
+        expect(inventory[0].name).toBe("single_tool");
+      });
+
+      it("should handle large arrays efficiently", () => {
+        const tools: Tool[] = Array.from({ length: 100 }, (_, i) => ({
+          name: `tool_${i}`,
+          description: `Tool ${i} description`,
+          inputSchema: { type: "object" },
+        }));
+
+        const inventory = buildToolInventory(tools);
+
+        expect(inventory).toHaveLength(100);
+        expect(inventory[0].name).toBe("tool_0");
+        expect(inventory[99].name).toBe("tool_99");
+      });
     });
   });
 

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **AUP Module Enrichment for Stage B Claude Validation** (Issue #194): Enhanced AUP compliance module with tool context enrichment
+  - **Tool Inventory**: Server tools with inferred capabilities (file_system, network, exec, database, auth, crypto, system) for Claude analysis
+  - **Capability Inference**: Keyword-based analysis of tool names and descriptions to identify sensitive operations
+  - **Pattern Coverage**: Metadata about 150+ AUP patterns checked across categories A-N
+  - **Review Flags**: Automatic flagging of tools with sensitive capabilities (exec, auth, system, crypto) for human review
+  - **Token Efficiency**: Limits to 50 tools, 300-char descriptions, 10 high-risk domains (typically <3000 tokens)
+  - **JSONL Events**: Enrichment data included in `module_complete` events for `aup` module
+  - **Implementation**: New `moduleEnrichment.ts` with `inferToolCapabilities()`, `buildToolInventory()`, `generateFlagsForReview()`, `buildPatternCoverage()`
+  - **Stage B Integration**: `buildAUPModuleStageBEnrichment()` for mcp-auditor Stage B Claude validation
+  - **Documentation**: Updated JSONL_EVENTS_ALGORITHMS.md, JSONL_EVENTS_REFERENCE.md, ASSESSMENT_CATALOG.md
+  - **Testing**: 39 new tests covering edge cases, truncation, capability breakdown, flag generation
+
 - **Binary Resource Vulnerability Detection** (Issue #127, Challenge #24): Enhanced ResourceAssessor with binary content security checks
   - Blob DoS detection: Flags binary payloads exceeding 100KB threshold (CWE-400, CWE-409)
   - Polyglot file detection: Tests for dual-format files (PNG/JAR, GIF/JS) using magic byte analysis (CWE-434, CWE-436)

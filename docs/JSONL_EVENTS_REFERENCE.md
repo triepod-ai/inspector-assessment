@@ -1344,13 +1344,16 @@ interface ModulesConfiguredEvent {
 
 **Fields (AUP Module Only):**
 
-| Field              | Type   | Required | Description                                         |
-| ------------------ | ------ | -------- | --------------------------------------------------- |
-| `violationsSample` | array  | Yes      | Up to 10 violations, priority-sampled by severity   |
-| `samplingNote`     | string | Yes      | Description of sampling methodology                 |
-| `violationMetrics` | object | Yes      | Quantitative metrics: total, critical, high, medium |
-| `scannedLocations` | object | Yes      | Boolean flags for each scanned location             |
-| `highRiskDomains`  | array  | Yes      | Up to 10 detected high-risk domains                 |
+| Field              | Type   | Required | Description                                                                          |
+| ------------------ | ------ | -------- | ------------------------------------------------------------------------------------ |
+| `violationsSample` | array  | Yes      | Up to 10 violations, priority-sampled by severity                                    |
+| `samplingNote`     | string | Yes      | Description of sampling methodology                                                  |
+| `violationMetrics` | object | Yes      | Quantitative metrics: total, critical, high, medium                                  |
+| `scannedLocations` | object | Yes      | Boolean flags for each scanned location                                              |
+| `highRiskDomains`  | array  | Yes      | Up to 10 detected high-risk domains                                                  |
+| `toolInventory`    | array  | No       | **(Issue #194)** Up to 50 tools with inferred capabilities for Claude validation     |
+| `patternCoverage`  | object | No       | **(Issue #194)** Metadata about AUP patterns checked (150+ patterns, categories A-N) |
+| `flagsForReview`   | array  | No       | **(Issue #194)** Tools with sensitive capabilities flagged for review                |
 
 **AUP Categories (A-N):**
 
@@ -1400,6 +1403,42 @@ interface AUPViolationMetrics {
   byCategory: Record<string, number>;
 }
 
+// Issue #194: Tool context enrichment for Claude validation
+interface ToolInventoryItem {
+  name: string;
+  description: string; // Truncated to 300 chars
+  capabilities: ToolCapability[]; // Inferred from name/description
+}
+
+type ToolCapability =
+  | "file_system" // File read/write operations
+  | "network" // HTTP, API calls, sockets
+  | "exec" // Command/process execution
+  | "database" // Database queries/storage
+  | "auth" // Authentication/credential handling
+  | "crypto" // Cryptographic operations
+  | "system" // System-level access
+  | "unknown"; // Cannot determine
+
+interface PatternCoverageInfo {
+  totalPatterns: number; // Total AUP patterns checked (150+)
+  categoriesCovered: string[]; // AUP categories A-N
+  samplePatterns: string[]; // 3-5 sample patterns for transparency
+  severityBreakdown: {
+    critical: number;
+    high: number;
+    medium: number;
+    flag: number;
+  };
+}
+
+interface FlagForReview {
+  toolName: string;
+  reason: string; // e.g., "Command/code execution capabilities - high risk"
+  capabilities: string[]; // Sensitive capabilities detected
+  confidence: "low"; // Always low for capability-based flags
+}
+
 interface ModuleCompleteEvent {
   event: "module_complete";
   module: string;
@@ -1420,6 +1459,10 @@ interface ModuleCompleteEvent {
     sourceCode: boolean;
   };
   highRiskDomains?: string[];
+  // Issue #194: Tool context enrichment
+  toolInventory?: ToolInventoryItem[]; // Up to 50 tools
+  patternCoverage?: PatternCoverageInfo;
+  flagsForReview?: FlagForReview[];
 }
 ```
 

@@ -224,6 +224,245 @@ describe("buildAUPEnrichment", () => {
       expect(result.highRiskDomains).toEqual([]);
     });
   });
+
+  describe("enrichmentData fields (Issue #194 - GAP-3)", () => {
+    it("should include toolInventory from enrichmentData", () => {
+      const result = buildAUPEnrichment({
+        violations: [],
+        enrichmentData: {
+          toolInventory: [
+            {
+              name: "tool_1",
+              description: "Tool 1 description",
+              capabilities: ["file_system", "network"],
+            },
+            {
+              name: "tool_2",
+              description: "Tool 2 description",
+              capabilities: ["exec"],
+            },
+          ],
+          patternCoverage: {
+            totalPatterns: 100,
+            categoriesCovered: ["A"],
+            samplePatterns: ["pattern1"],
+            severityBreakdown: {
+              critical: 0,
+              high: 0,
+              medium: 0,
+              flag: 100,
+            },
+          },
+          flagsForReview: [],
+        },
+      });
+
+      expect(result.toolInventory).toBeDefined();
+      expect(result.toolInventory).toHaveLength(2);
+      expect(result.toolInventory![0].name).toBe("tool_1");
+      expect(result.toolInventory![0].capabilities).toEqual([
+        "file_system",
+        "network",
+      ]);
+    });
+
+    it("should include patternCoverage from enrichmentData", () => {
+      const result = buildAUPEnrichment({
+        violations: [],
+        enrichmentData: {
+          toolInventory: [],
+          patternCoverage: {
+            totalPatterns: 150,
+            categoriesCovered: ["A", "B", "C"],
+            samplePatterns: ["pattern1", "pattern2"],
+            severityBreakdown: {
+              critical: 10,
+              high: 20,
+              medium: 30,
+              flag: 90,
+            },
+          },
+          flagsForReview: [],
+        },
+      });
+
+      expect(result.patternCoverage).toBeDefined();
+      expect(result.patternCoverage!.totalPatterns).toBe(150);
+      expect(result.patternCoverage!.categoriesCovered).toEqual([
+        "A",
+        "B",
+        "C",
+      ]);
+      expect(result.patternCoverage!.samplePatterns).toEqual([
+        "pattern1",
+        "pattern2",
+      ]);
+      expect(result.patternCoverage!.severityBreakdown).toEqual({
+        critical: 10,
+        high: 20,
+        medium: 30,
+        flag: 90,
+      });
+    });
+
+    it("should include flagsForReview from enrichmentData", () => {
+      const result = buildAUPEnrichment({
+        violations: [],
+        enrichmentData: {
+          toolInventory: [],
+          patternCoverage: {
+            totalPatterns: 100,
+            categoriesCovered: ["A"],
+            samplePatterns: ["pattern1"],
+            severityBreakdown: {
+              critical: 0,
+              high: 0,
+              medium: 0,
+              flag: 100,
+            },
+          },
+          flagsForReview: [
+            {
+              toolName: "exec_tool",
+              reason: "Shell execution capability",
+              capabilities: ["exec"],
+              confidence: "low",
+            },
+            {
+              toolName: "auth_tool",
+              reason: "Authentication handling",
+              capabilities: ["auth"],
+              confidence: "medium",
+            },
+          ],
+        },
+      });
+
+      expect(result.flagsForReview).toBeDefined();
+      expect(result.flagsForReview).toHaveLength(2);
+      expect(result.flagsForReview![0].toolName).toBe("exec_tool");
+      expect(result.flagsForReview![0].capabilities).toEqual(["exec"]);
+      expect(result.flagsForReview![1].toolName).toBe("auth_tool");
+    });
+
+    it("should truncate toolInventory to 50 items for token efficiency", () => {
+      const tools = Array(75)
+        .fill(null)
+        .map((_, i) => ({
+          name: `tool_${i}`,
+          description: "Test description",
+          capabilities: ["file_system"],
+        }));
+
+      const result = buildAUPEnrichment({
+        violations: [],
+        enrichmentData: {
+          toolInventory: tools,
+          patternCoverage: {
+            totalPatterns: 100,
+            categoriesCovered: ["A"],
+            samplePatterns: ["pattern1"],
+            severityBreakdown: {
+              critical: 0,
+              high: 0,
+              medium: 0,
+              flag: 100,
+            },
+          },
+          flagsForReview: [],
+        },
+      });
+
+      expect(result.toolInventory).toBeDefined();
+      expect(result.toolInventory).toHaveLength(50);
+      expect(result.toolInventory![0].name).toBe("tool_0");
+      expect(result.toolInventory![49].name).toBe("tool_49");
+    });
+
+    it("should handle missing enrichmentData gracefully", () => {
+      const result = buildAUPEnrichment({
+        violations: [],
+      });
+
+      expect(result.toolInventory).toBeUndefined();
+      expect(result.patternCoverage).toBeUndefined();
+      expect(result.flagsForReview).toBeUndefined();
+    });
+
+    it("should handle partial enrichmentData", () => {
+      const result = buildAUPEnrichment({
+        violations: [],
+        enrichmentData: {
+          toolInventory: [
+            {
+              name: "tool_1",
+              description: "Description",
+              capabilities: ["network"],
+            },
+          ],
+          patternCoverage: {
+            totalPatterns: 100,
+            categoriesCovered: ["A"],
+            samplePatterns: ["pattern1"],
+            severityBreakdown: {
+              critical: 0,
+              high: 0,
+              medium: 0,
+              flag: 100,
+            },
+          },
+          // flagsForReview missing
+        } as any,
+      });
+
+      expect(result.toolInventory).toBeDefined();
+      expect(result.patternCoverage).toBeDefined();
+      expect(result.flagsForReview).toBeUndefined();
+    });
+
+    it("should include enrichmentData even with violations present", () => {
+      const result = buildAUPEnrichment({
+        violations: [
+          { severity: "HIGH", category: "C" },
+          { severity: "CRITICAL", category: "A" },
+        ],
+        enrichmentData: {
+          toolInventory: [
+            {
+              name: "tool_1",
+              description: "Description",
+              capabilities: ["exec"],
+            },
+          ],
+          patternCoverage: {
+            totalPatterns: 100,
+            categoriesCovered: ["A", "C"],
+            samplePatterns: ["pattern1"],
+            severityBreakdown: {
+              critical: 5,
+              high: 10,
+              medium: 20,
+              flag: 65,
+            },
+          },
+          flagsForReview: [
+            {
+              toolName: "tool_1",
+              reason: "Exec capability",
+              capabilities: ["exec"],
+              confidence: "low",
+            },
+          ],
+        },
+      });
+
+      // Both violations and enrichment data should be present
+      expect(result.violationsSample).toHaveLength(2);
+      expect(result.toolInventory).toBeDefined();
+      expect(result.patternCoverage).toBeDefined();
+      expect(result.flagsForReview).toBeDefined();
+    });
+  });
 });
 
 describe("determineOverallStatus", () => {

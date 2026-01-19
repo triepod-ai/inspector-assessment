@@ -427,6 +427,8 @@ ProtocolComplianceAssessor/
 - Pattern matching on tool names and descriptions
 - README content analysis
 - Source code scanning (enhanced mode)
+- Tool capability inference (Issue #194)
+- Pattern coverage tracking
 
 **Pass Criteria**:
 
@@ -434,7 +436,22 @@ ProtocolComplianceAssessor/
 - No unmitigated HIGH violations
 - Appropriate disclaimers for flagged domains
 
-**Implementation**: `client/src/services/assessment/modules/AUPComplianceAssessor.ts` + `client/src/lib/aupPatterns.ts`
+**Stage B Enrichment (Issue #194)**:
+
+The AUP module now generates enriched context for Claude validation:
+
+- **Tool Inventory** - Server tools with inferred capabilities (file_system, network, exec, database, auth, crypto, system)
+- **Pattern Coverage** - Metadata about 150+ AUP patterns checked across categories A-N
+- **Review Flags** - Tools with sensitive capabilities flagged for human review (even without violations)
+- **Token Efficiency** - Limits to 50 tools, 300-char descriptions, 10 high-risk domains
+
+This enrichment is included in JSONL `module_complete` events for the `aup` module, enabling Claude to understand server capabilities for more accurate violation validation.
+
+**Implementation**:
+
+- `client/src/services/assessment/modules/AUPComplianceAssessor.ts` - Main assessor with enrichment data building
+- `client/src/services/assessment/lib/moduleEnrichment.ts` - Tool capability inference and enrichment utilities
+- `client/src/lib/aupPatterns.ts` - AUP pattern definitions (150+ patterns)
 
 ---
 

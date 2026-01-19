@@ -392,6 +392,177 @@ describe("AUPComplianceAssessor", () => {
     });
   });
 
+  describe("enrichmentData attachment (Issue #194 - GAP-2)", () => {
+    it("should attach enrichmentData with toolInventory", async () => {
+      // Arrange
+      mockContext.tools = [
+        createMockTool({
+          name: "read_file",
+          description: "Reads a file from the filesystem",
+        }),
+        createMockTool({
+          name: "execute_command",
+          description: "Executes a shell command",
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - enrichmentData should be present
+      expect(result.enrichmentData).toBeDefined();
+      expect(result.enrichmentData.toolInventory).toBeDefined();
+      expect(result.enrichmentData.toolInventory).toHaveLength(2);
+      expect(result.enrichmentData.toolInventory[0].name).toBe("read_file");
+      expect(result.enrichmentData.toolInventory[0].capabilities).toContain(
+        "file_system",
+      );
+      expect(result.enrichmentData.toolInventory[1].name).toBe(
+        "execute_command",
+      );
+      expect(result.enrichmentData.toolInventory[1].capabilities).toContain(
+        "exec",
+      );
+    });
+
+    it("should attach enrichmentData with patternCoverage", async () => {
+      // Arrange
+      mockContext.tools = [createMockTool()];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - patternCoverage should be present
+      expect(result.enrichmentData).toBeDefined();
+      expect(result.enrichmentData.patternCoverage).toBeDefined();
+      expect(
+        result.enrichmentData.patternCoverage.totalPatterns,
+      ).toBeGreaterThan(0);
+      expect(
+        result.enrichmentData.patternCoverage.categoriesCovered.length,
+      ).toBeGreaterThan(0);
+      expect(
+        result.enrichmentData.patternCoverage.samplePatterns,
+      ).toBeDefined();
+      expect(
+        result.enrichmentData.patternCoverage.severityBreakdown,
+      ).toBeDefined();
+      expect(
+        result.enrichmentData.patternCoverage.severityBreakdown.critical,
+      ).toBeGreaterThanOrEqual(0);
+      expect(
+        result.enrichmentData.patternCoverage.severityBreakdown.high,
+      ).toBeGreaterThanOrEqual(0);
+      expect(
+        result.enrichmentData.patternCoverage.severityBreakdown.medium,
+      ).toBeGreaterThanOrEqual(0);
+      expect(
+        result.enrichmentData.patternCoverage.severityBreakdown.flag,
+      ).toBeGreaterThanOrEqual(0);
+    });
+
+    it("should attach enrichmentData with flagsForReview for sensitive capabilities", async () => {
+      // Arrange - tools with sensitive capabilities
+      mockContext.tools = [
+        createMockTool({
+          name: "execute_shell",
+          description: "Executes shell commands",
+        }),
+        createMockTool({
+          name: "get_auth_token",
+          description: "Retrieves authentication token",
+        }),
+        createMockTool({
+          name: "safe_calculator",
+          description: "Performs basic math",
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - flagsForReview should contain tools with sensitive capabilities
+      expect(result.enrichmentData).toBeDefined();
+      expect(result.enrichmentData.flagsForReview).toBeDefined();
+      // Should have at least 2 flags (exec and auth are sensitive)
+      expect(
+        result.enrichmentData.flagsForReview.length,
+      ).toBeGreaterThanOrEqual(2);
+
+      // Verify exec capability flagged
+      const execFlag = result.enrichmentData.flagsForReview.find(
+        (f) => f.toolName === "execute_shell",
+      );
+      expect(execFlag).toBeDefined();
+      expect(execFlag!.capabilities).toContain("exec");
+      expect(execFlag!.confidence).toBe("low");
+
+      // Verify auth capability flagged
+      const authFlag = result.enrichmentData.flagsForReview.find(
+        (f) => f.toolName === "get_auth_token",
+      );
+      expect(authFlag).toBeDefined();
+      expect(authFlag!.capabilities).toContain("auth");
+    });
+
+    it("should attach enrichmentData even when no violations found", async () => {
+      // Arrange - clean tools
+      mockContext.tools = [
+        createMockTool({
+          name: "get_weather",
+          description: "Gets weather information",
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - enrichmentData should still be present
+      expect(result.enrichmentData).toBeDefined();
+      expect(result.enrichmentData.toolInventory).toHaveLength(1);
+      expect(result.enrichmentData.patternCoverage).toBeDefined();
+      expect(result.enrichmentData.flagsForReview).toBeDefined();
+    });
+
+    it("should attach enrichmentData with empty tools array", async () => {
+      // Arrange
+      mockContext.tools = [];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - enrichmentData should be present but empty
+      expect(result.enrichmentData).toBeDefined();
+      expect(result.enrichmentData.toolInventory).toHaveLength(0);
+      expect(result.enrichmentData.patternCoverage).toBeDefined();
+      expect(result.enrichmentData.flagsForReview).toHaveLength(0);
+    });
+
+    it("should truncate long tool descriptions in enrichmentData", async () => {
+      // Arrange - tool with very long description
+      const longDescription = "A".repeat(5000);
+      mockContext.tools = [
+        createMockTool({
+          name: "long_desc_tool",
+          description: longDescription,
+        }),
+      ];
+
+      // Act
+      const result = await assessor.assess(mockContext);
+
+      // Assert - description should be truncated
+      expect(result.enrichmentData).toBeDefined();
+      expect(result.enrichmentData.toolInventory).toHaveLength(1);
+      expect(
+        result.enrichmentData.toolInventory[0].description.length,
+      ).toBeLessThan(longDescription.length);
+      expect(
+        result.enrichmentData.toolInventory[0].description.endsWith("..."),
+      ).toBe(true);
+    });
+  });
+
   describe("Financial Services false positive prevention (Issue #139)", () => {
     it("should NOT flag analytics servers as Financial Services high-risk domain", async () => {
       // Arrange - Microsoft Clarity-like analytics server
