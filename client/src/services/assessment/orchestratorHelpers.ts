@@ -291,9 +291,9 @@ export function buildAUPEnrichment(
       readme: false,
       sourceCode: false,
     },
-    highRiskDomains: (aupResult.highRiskDomains || []).slice(0, 10),
+    highRiskDomains: (aupResult.highRiskDomains || []).slice(0, 10), // Limit domains for JSONL event size
     // Issue #194: Include enrichment data for Claude validation
-    toolInventory: enrichmentData?.toolInventory?.slice(0, 50), // Limit for tokens
+    toolInventory: enrichmentData?.toolInventory?.slice(0, 50), // 50 tools: balance coverage vs token cost (~500-1000 tokens)
     patternCoverage: enrichmentData?.patternCoverage,
     flagsForReview: enrichmentData?.flagsForReview,
   };
@@ -302,6 +302,10 @@ export function buildAUPEnrichment(
 /**
  * Build authentication enrichment data from an authentication assessment result.
  * Issue #195: Provides context for Stage B Claude validation of auth findings.
+ *
+ * Note: Using inline parameter type instead of AuthenticationAssessment import
+ * because this is called with `result: unknown` from emitModuleProgress().
+ * TypeScript structural typing ensures compatibility while avoiding type assertions.
  */
 export function buildAuthEnrichment(authResult: {
   authMethod?: string;
@@ -423,7 +427,7 @@ export function buildAuthEnrichment(authResult: {
     apiKeyCoverage: enrichmentData?.apiKeyPatternCoverage,
     concerns: authResult.appropriateness?.concerns || [],
     // Issue #195: Include enrichment data for Stage B Claude validation
-    toolInventory: enrichmentData?.toolInventory?.slice(0, 50), // Limit for tokens
+    toolInventory: enrichmentData?.toolInventory?.slice(0, 50), // 50 tools: balance coverage vs token cost (~500-1000 tokens)
     flagsForReview: enrichmentData?.flagsForReview,
   };
 }
@@ -526,7 +530,7 @@ export function buildResourceEnrichment(resourceResult: {
     },
     patternCoverage: enrichmentData?.patternCoverage,
     // Issue #196: Include enrichment data for Stage B Claude validation
-    resourceInventory: enrichmentData?.resourceInventory?.slice(0, 50), // Limit for tokens
+    resourceInventory: enrichmentData?.resourceInventory?.slice(0, 50), // 50 resources: balance coverage vs token cost (~500-1000 tokens)
     flagsForReview: enrichmentData?.flagsForReview,
   };
 }
@@ -610,7 +614,7 @@ export function buildPromptEnrichment(promptResult: {
     },
     patternCoverage: enrichmentData?.patternCoverage,
     // Issue #197: Include enrichment data for Stage B Claude validation
-    promptInventory: enrichmentData?.promptInventory?.slice(0, 50), // Limit for tokens
+    promptInventory: enrichmentData?.promptInventory?.slice(0, 50), // 50 prompts: balance coverage vs token cost (~500-1000 tokens)
     flagsForReview: enrichmentData?.flagsForReview,
   };
 }
@@ -738,7 +742,7 @@ export function buildProhibitedLibrariesEnrichment(librariesResult: {
     },
     policyCoverage: enrichmentData?.policyCoverage,
     // Issue #198: Include enrichment data for Stage B Claude validation
-    libraryInventory: enrichmentData?.libraryInventory?.slice(0, 50), // Limit for tokens
+    libraryInventory: enrichmentData?.libraryInventory?.slice(0, 50), // 50 libraries: balance coverage vs token cost (~500-1000 tokens)
     flagsForReview: enrichmentData?.flagsForReview,
   };
 }
@@ -885,7 +889,7 @@ export function buildManifestEnrichment(manifestResult: {
     },
     fieldCoverage: enrichmentData?.fieldCoverage,
     // Issue #199: Include enrichment data for Stage B Claude validation
-    fieldInventory: enrichmentData?.fieldInventory?.slice(0, 50), // Limit for tokens
+    fieldInventory: enrichmentData?.fieldInventory?.slice(0, 50), // 50 fields: balance coverage vs token cost (~500-1000 tokens)
     flagsForReview: enrichmentData?.flagsForReview,
   };
 }

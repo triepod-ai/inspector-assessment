@@ -17,6 +17,8 @@ import {
   TIER_3_CAPABILITY,
   TIER_4_DEVELOPMENT,
   ALL_MODULES,
+  OPT_IN_MODULES,
+  STANDARD_MODULES,
   resolveModuleNames,
   getProfileModules,
   isValidProfileName,
@@ -32,7 +34,7 @@ describe("Profile Definitions", () => {
   });
 
   describe("Profile Constants", () => {
-    it("should have five profiles defined", () => {
+    it("should have six profiles defined", () => {
       const profiles = Object.keys(ASSESSMENT_PROFILES);
       expect(profiles).toEqual([
         "quick",
@@ -40,6 +42,7 @@ describe("Profile Definitions", () => {
         "compliance",
         "full",
         "dev",
+        "all",
       ]);
     });
 
@@ -69,9 +72,8 @@ describe("Profile Definitions", () => {
 
     it("should have Tier 2 compliance modules", () => {
       expect(TIER_2_COMPLIANCE).toContain("toolAnnotations");
-      expect(TIER_2_COMPLIANCE).toContain("prohibitedLibraries");
-      expect(TIER_2_COMPLIANCE).toContain("manifestValidation");
       expect(TIER_2_COMPLIANCE).toContain("authentication");
+      expect(TIER_2_COMPLIANCE).toHaveLength(2);
     });
 
     it("should have Tier 3 capability modules", () => {
@@ -83,16 +85,29 @@ describe("Profile Definitions", () => {
     it("should have Tier 4 development modules", () => {
       expect(TIER_4_DEVELOPMENT).toContain("developerExperience");
       expect(TIER_4_DEVELOPMENT).toContain("portability");
-      expect(TIER_4_DEVELOPMENT).toContain("externalAPIScanner");
+      expect(TIER_4_DEVELOPMENT).toHaveLength(2);
     });
 
-    it("should combine all tiers in ALL_MODULES", () => {
+    it("should have Opt-In modules", () => {
+      expect(OPT_IN_MODULES).toContain("prohibitedLibraries");
+      expect(OPT_IN_MODULES).toContain("manifestValidation");
+      expect(OPT_IN_MODULES).toContain("fileModularization");
+      expect(OPT_IN_MODULES).toContain("externalAPIScanner");
+      expect(OPT_IN_MODULES).toHaveLength(4);
+    });
+
+    it("should combine all tiers plus opt-in in ALL_MODULES", () => {
+      const expectedLength = STANDARD_MODULES.length + OPT_IN_MODULES.length;
+      expect(ALL_MODULES.length).toBe(expectedLength);
+    });
+
+    it("should have STANDARD_MODULES without opt-in", () => {
       const expectedLength =
         TIER_1_CORE_SECURITY.length +
         TIER_2_COMPLIANCE.length +
         TIER_3_CAPABILITY.length +
         TIER_4_DEVELOPMENT.length;
-      expect(ALL_MODULES.length).toBe(expectedLength);
+      expect(STANDARD_MODULES.length).toBe(expectedLength);
     });
   });
 
@@ -116,20 +131,35 @@ describe("Profile Definitions", () => {
       }
     });
 
-    it("full profile should include all tiers", () => {
-      for (const module of ALL_MODULES) {
+    it("full profile should include all standard modules (excludes opt-in)", () => {
+      for (const module of STANDARD_MODULES) {
         expect(ASSESSMENT_PROFILES.full).toContain(module);
+      }
+      // Verify opt-in modules are NOT included
+      for (const module of OPT_IN_MODULES) {
+        expect(ASSESSMENT_PROFILES.full).not.toContain(module);
       }
     });
 
-    it("dev profile should include all tiers", () => {
-      for (const module of ALL_MODULES) {
+    it("dev profile should include all standard modules (excludes opt-in)", () => {
+      for (const module of STANDARD_MODULES) {
         expect(ASSESSMENT_PROFILES.dev).toContain(module);
+      }
+      // Verify opt-in modules are NOT included
+      for (const module of OPT_IN_MODULES) {
+        expect(ASSESSMENT_PROFILES.dev).not.toContain(module);
       }
     });
 
     it("dev and full profiles should be equivalent in v1.x", () => {
       expect(ASSESSMENT_PROFILES.dev).toEqual(ASSESSMENT_PROFILES.full);
+    });
+
+    it("all profile should include all modules including opt-in", () => {
+      for (const module of ALL_MODULES) {
+        expect(ASSESSMENT_PROFILES.all).toContain(module);
+      }
+      expect(ASSESSMENT_PROFILES.all.length).toBe(ALL_MODULES.length);
     });
   });
 });
@@ -261,6 +291,10 @@ describe("isValidProfileName", () => {
     expect(isValidProfileName("dev")).toBe(true);
   });
 
+  it("should return true for all profile", () => {
+    expect(isValidProfileName("all")).toBe(true);
+  });
+
   it("should return false for invalid profile names", () => {
     expect(isValidProfileName("invalid")).toBe(false);
     expect(isValidProfileName("")).toBe(false);
@@ -282,6 +316,7 @@ describe("getProfileHelpText", () => {
     expect(help).toContain("compliance");
     expect(help).toContain("full");
     expect(help).toContain("dev");
+    expect(help).toContain("all");
   });
 
   it("should contain module counts", () => {
@@ -402,6 +437,7 @@ describe("Profile Metadata", () => {
     expect(PROFILE_METADATA.compliance.tiers.length).toBe(2);
     expect(PROFILE_METADATA.full.tiers.length).toBe(4);
     expect(PROFILE_METADATA.dev.tiers.length).toBe(4);
+    expect(PROFILE_METADATA.all.tiers.length).toBe(5); // All 4 tiers + Opt-In
   });
 
   it("should have dev profile metadata", () => {
@@ -409,6 +445,14 @@ describe("Profile Metadata", () => {
     expect(PROFILE_METADATA.dev.description).toContain("development");
     expect(PROFILE_METADATA.dev.moduleCount).toBe(
       ASSESSMENT_PROFILES.dev.length,
+    );
+  });
+
+  it("should have all profile metadata", () => {
+    expect(PROFILE_METADATA.all).toBeDefined();
+    expect(PROFILE_METADATA.all.description).toContain("opt-in");
+    expect(PROFILE_METADATA.all.moduleCount).toBe(
+      ASSESSMENT_PROFILES.all.length,
     );
   });
 });

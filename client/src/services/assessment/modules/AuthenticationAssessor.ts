@@ -1286,13 +1286,25 @@ export class AuthenticationAssessor extends BaseAssessor {
     transportSecurity: TransportSecurityAnalysis | undefined,
     transportType: string,
   ): TransportSecuritySummary {
+    // Early return with defaults if no transport security analysis available
+    if (!transportSecurity) {
+      return {
+        transportType,
+        tlsEnforced: false,
+        corsConfigured: false,
+        sessionSecure: false,
+        insecurePatternCount: 0,
+        securePatternCount: 0,
+      };
+    }
+
     return {
       transportType,
-      tlsEnforced: transportSecurity?.tlsEnforced ?? false,
-      corsConfigured: transportSecurity?.corsConfigured ?? false,
-      sessionSecure: transportSecurity?.sessionSecure ?? false,
-      insecurePatternCount: transportSecurity?.insecurePatterns.length ?? 0,
-      securePatternCount: transportSecurity?.securePatterns.length ?? 0,
+      tlsEnforced: transportSecurity.tlsEnforced,
+      corsConfigured: transportSecurity.corsConfigured,
+      sessionSecure: transportSecurity.sessionSecure,
+      insecurePatternCount: transportSecurity.insecurePatterns.length,
+      securePatternCount: transportSecurity.securePatterns.length,
     };
   }
 

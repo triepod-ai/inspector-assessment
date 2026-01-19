@@ -10,6 +10,11 @@
 
 import {
   buildAUPEnrichment,
+  buildAuthEnrichment,
+  buildResourceEnrichment,
+  buildPromptEnrichment,
+  buildProhibitedLibrariesEnrichment,
+  buildManifestEnrichment,
   determineOverallStatus,
   generateSummary,
   generateRecommendations,
@@ -729,5 +734,499 @@ describe("generateRecommendations", () => {
     const recs = generateRecommendations(results);
 
     expect(recs).toEqual(["rec1"]);
+  });
+});
+
+describe("buildAuthEnrichment", () => {
+  it("should build enrichment with basic auth metrics", () => {
+    const result = buildAuthEnrichment({
+      authMethod: "oauth",
+      hasLocalDependencies: true,
+      transportType: "http",
+      appropriateness: {
+        isAppropriate: true,
+        concerns: [],
+        explanation: "OAuth is appropriate",
+      },
+      transportSecurity: {
+        usesTLS: true,
+        tlsEnforced: true,
+        hasInsecurePatterns: false,
+        insecurePatterns: [],
+        corsConfigured: true,
+        corsPermissive: false,
+        sessionSecure: true,
+      },
+      authConfigAnalysis: {
+        totalFindings: 0,
+        hasHighSeverity: false,
+        envDependentAuthCount: 0,
+        failOpenPatternCount: 0,
+        failOpenLogicCount: 0,
+        devModeWarningCount: 0,
+        hardcodedSecretCount: 0,
+      },
+    });
+
+    expect(result.authMethod).toBe("oauth");
+    expect(result.authMetrics.hasLocalDependencies).toBe(true);
+    expect(result.authMetrics.tlsEnforced).toBe(true);
+    expect(result.authMetrics.corsConfigured).toBe(true);
+    expect(result.authMetrics.sessionSecure).toBe(true);
+    expect(result.authMetrics.authConfigFindings).toBe(0);
+    expect(result.authMetrics.hasHighSeverityFindings).toBe(false);
+  });
+
+  it("should include enrichment data fields", () => {
+    const result = buildAuthEnrichment({
+      authMethod: "apiKey",
+      enrichmentData: {
+        toolInventory: [
+          {
+            name: "auth_tool",
+            description: "Authentication tool",
+            authCapabilities: ["oauth", "apikey"],
+            isSensitive: true,
+          },
+        ],
+        oauthPatternCoverage: {
+          totalPatterns: 10,
+          matchedPatterns: ["oauth2", "pkce"],
+          flowType: "authorization_code",
+          pkceDetected: true,
+        },
+        apiKeyPatternCoverage: {
+          totalPatterns: 5,
+          matchedPatterns: ["api_key", "bearer"],
+          envVarManaged: true,
+        },
+        flagsForReview: [
+          {
+            toolName: "auth_tool",
+            reason: "Sensitive authentication",
+            capabilities: ["oauth"],
+            riskLevel: "medium",
+          },
+        ],
+      },
+    });
+
+    expect(result.toolInventory).toHaveLength(1);
+    expect(result.toolInventory![0].name).toBe("auth_tool");
+    expect(result.oauthCoverage?.pkceDetected).toBe(true);
+    expect(result.apiKeyCoverage?.envVarManaged).toBe(true);
+    expect(result.flagsForReview).toHaveLength(1);
+  });
+
+  it("should truncate toolInventory to 50 items", () => {
+    const tools = Array(75)
+      .fill(null)
+      .map((_, i) => ({
+        name: `tool_${i}`,
+        description: "Test",
+        authCapabilities: ["oauth"],
+        isSensitive: false,
+      }));
+
+    const result = buildAuthEnrichment({
+      enrichmentData: { toolInventory: tools },
+    });
+
+    expect(result.toolInventory).toHaveLength(50);
+  });
+
+  it("should handle missing fields gracefully", () => {
+    const result = buildAuthEnrichment({});
+
+    expect(result.authMethod).toBe("unknown");
+    expect(result.authMetrics.hasLocalDependencies).toBe(false);
+    expect(result.authMetrics.tlsEnforced).toBe(false);
+    expect(result.concerns).toEqual([]);
+  });
+});
+
+describe("buildResourceEnrichment", () => {
+  it("should build enrichment with resource metrics", () => {
+    const result = buildResourceEnrichment({
+      resourcesTested: 10,
+      resourceTemplatesTested: 5,
+      accessibleResources: 8,
+      securityIssuesFound: 2,
+      pathTraversalVulnerabilities: 1,
+      sensitiveDataExposures: 1,
+      promptInjectionVulnerabilities: 0,
+      blobDosVulnerabilities: 0,
+      polyglotVulnerabilities: 0,
+      mimeValidationFailures: 0,
+    });
+
+    expect(result.resourceMetrics.totalResources).toBe(10);
+    expect(result.resourceMetrics.totalTemplates).toBe(5);
+    expect(result.resourceMetrics.accessibleResources).toBe(8);
+    expect(result.resourceMetrics.vulnerableResources).toBe(2);
+    expect(result.resourceMetrics.pathTraversalVulnerabilities).toBe(1);
+    expect(result.resourceMetrics.sensitiveDataExposures).toBe(1);
+  });
+
+  it("should include enrichment data fields", () => {
+    const result = buildResourceEnrichment({
+      resourcesTested: 5,
+      enrichmentData: {
+        resourceInventory: [
+          {
+            uri: "file:///data/users.db",
+            name: "User Database",
+            mimeType: "application/x-sqlite3",
+            resourceType: "database",
+            securityFlags: ["sensitive", "pii"],
+            dataClassification: "confidential",
+          },
+        ],
+        patternCoverage: {
+          sensitiveUriPatterns: 10,
+          pathTraversalPayloads: 15,
+          uriInjectionPayloads: 8,
+          hiddenResourcePatterns: 5,
+          samplePatterns: ["../../../etc/passwd", "file://"],
+        },
+        flagsForReview: [
+          {
+            resourceUri: "file:///data/users.db",
+            reason: "Sensitive database access",
+            flags: ["pii", "sensitive"],
+            riskLevel: "high",
+          },
+        ],
+      },
+    });
+
+    expect(result.resourceInventory).toHaveLength(1);
+    expect(result.resourceInventory![0].uri).toBe("file:///data/users.db");
+    expect(result.patternCoverage?.pathTraversalPayloads).toBe(15);
+    expect(result.flagsForReview).toHaveLength(1);
+  });
+
+  it("should truncate resourceInventory to 50 items", () => {
+    const resources = Array(75)
+      .fill(null)
+      .map((_, i) => ({
+        uri: `file:///resource_${i}`,
+        resourceType: "file",
+        securityFlags: [],
+        dataClassification: "public",
+      }));
+
+    const result = buildResourceEnrichment({
+      enrichmentData: { resourceInventory: resources },
+    });
+
+    expect(result.resourceInventory).toHaveLength(50);
+  });
+
+  it("should handle missing fields gracefully", () => {
+    const result = buildResourceEnrichment({});
+
+    expect(result.resourceMetrics.totalResources).toBe(0);
+    expect(result.resourceMetrics.vulnerableResources).toBe(0);
+  });
+});
+
+describe("buildPromptEnrichment", () => {
+  it("should build enrichment with prompt metrics", () => {
+    const result = buildPromptEnrichment({
+      promptsTested: 15,
+      aupViolations: 2,
+      injectionVulnerabilities: 1,
+      argumentValidationIssues: 3,
+    });
+
+    expect(result.promptMetrics.totalPrompts).toBe(15);
+    expect(result.promptMetrics.aupViolations).toBe(2);
+    expect(result.promptMetrics.injectionVulnerabilities).toBe(1);
+    expect(result.promptMetrics.argumentValidationIssues).toBe(3);
+  });
+
+  it("should include enrichment data fields", () => {
+    const result = buildPromptEnrichment({
+      promptsTested: 5,
+      enrichmentData: {
+        promptInventory: [
+          {
+            name: "search_prompt",
+            description: "Search data",
+            argumentCount: 2,
+            requiredArgs: ["query"],
+            optionalArgs: ["limit"],
+            category: "search",
+            securityFlags: ["injection_risk"],
+          },
+        ],
+        patternCoverage: {
+          injectionPatternsChecked: 20,
+          aupPatternsChecked: 15,
+          argumentValidationChecks: 10,
+          samplePatterns: ["{{malicious}}", "${injection}"],
+        },
+        flagsForReview: [
+          {
+            promptName: "search_prompt",
+            reason: "Injection vulnerability",
+            flags: ["injection_risk"],
+            riskLevel: "medium",
+          },
+        ],
+      },
+    });
+
+    expect(result.promptInventory).toHaveLength(1);
+    expect(result.promptInventory![0].name).toBe("search_prompt");
+    expect(result.patternCoverage?.injectionPatternsChecked).toBe(20);
+    expect(result.flagsForReview).toHaveLength(1);
+  });
+
+  it("should truncate promptInventory to 50 items", () => {
+    const prompts = Array(75)
+      .fill(null)
+      .map((_, i) => ({
+        name: `prompt_${i}`,
+        argumentCount: 1,
+        requiredArgs: ["arg"],
+        optionalArgs: [],
+        category: "test",
+        securityFlags: [],
+      }));
+
+    const result = buildPromptEnrichment({
+      enrichmentData: { promptInventory: prompts },
+    });
+
+    expect(result.promptInventory).toHaveLength(50);
+  });
+
+  it("should handle missing fields gracefully", () => {
+    const result = buildPromptEnrichment({});
+
+    expect(result.promptMetrics.totalPrompts).toBe(0);
+    expect(result.promptMetrics.aupViolations).toBe(0);
+  });
+});
+
+describe("buildProhibitedLibrariesEnrichment", () => {
+  it("should build enrichment with library metrics", () => {
+    const result = buildProhibitedLibrariesEnrichment({
+      matches: [
+        {
+          name: "plaid",
+          category: "financial",
+          severity: "BLOCKING",
+          location: "package.json",
+          usageStatus: "ACTIVE",
+          importCount: 5,
+        },
+        {
+          name: "stripe",
+          category: "financial",
+          severity: "HIGH",
+          location: "package.json",
+          usageStatus: "UNUSED",
+          importCount: 0,
+        },
+      ],
+      scannedFiles: ["package.json", "server.js"],
+      hasFinancialLibraries: true,
+      hasMediaLibraries: false,
+    });
+
+    expect(result.libraryMetrics.totalMatches).toBe(2);
+    expect(result.libraryMetrics.blockingCount).toBe(1);
+    expect(result.libraryMetrics.highCount).toBe(1);
+    expect(result.libraryMetrics.activeCount).toBe(1);
+    expect(result.libraryMetrics.unusedCount).toBe(1);
+    expect(result.libraryMetrics.hasFinancialLibraries).toBe(true);
+  });
+
+  it("should include enrichment data fields", () => {
+    const result = buildProhibitedLibrariesEnrichment({
+      matches: [],
+      enrichmentData: {
+        libraryInventory: [
+          {
+            name: "plaid",
+            category: "financial",
+            severity: "BLOCKING",
+            location: "package.json",
+            usageStatus: "ACTIVE",
+            importCount: 5,
+            importFiles: ["server.js", "auth.js"],
+            policyReference: "MCP_FINANCIAL_LIBS_001",
+          },
+        ],
+        policyCoverage: {
+          totalProhibitedLibraries: 25,
+          scannedFiles: 10,
+          policiesChecked: ["financial", "media"],
+          sampleLibraries: ["plaid", "stripe", "ffmpeg"],
+        },
+        flagsForReview: [
+          {
+            libraryName: "plaid",
+            reason: "Financial API library",
+            flags: ["blocking", "active"],
+            riskLevel: "critical",
+          },
+        ],
+      },
+    });
+
+    expect(result.libraryInventory).toHaveLength(1);
+    expect(result.libraryInventory![0].name).toBe("plaid");
+    expect(result.policyCoverage?.totalProhibitedLibraries).toBe(25);
+    expect(result.flagsForReview).toHaveLength(1);
+  });
+
+  it("should truncate libraryInventory to 50 items", () => {
+    const libraries = Array(75)
+      .fill(null)
+      .map((_, i) => ({
+        name: `lib_${i}`,
+        category: "financial",
+        severity: "HIGH",
+        location: "package.json",
+        usageStatus: "ACTIVE",
+        importCount: 1,
+        importFiles: ["file.js"],
+        policyReference: "POLICY_001",
+      }));
+
+    const result = buildProhibitedLibrariesEnrichment({
+      enrichmentData: { libraryInventory: libraries },
+    });
+
+    expect(result.libraryInventory).toHaveLength(50);
+  });
+
+  it("should handle missing fields gracefully", () => {
+    const result = buildProhibitedLibrariesEnrichment({});
+
+    expect(result.libraryMetrics.totalMatches).toBe(0);
+    expect(result.libraryMetrics.blockingCount).toBe(0);
+    expect(result.libraryMetrics.hasFinancialLibraries).toBe(false);
+  });
+});
+
+describe("buildManifestEnrichment", () => {
+  it("should build enrichment with manifest metrics", () => {
+    const result = buildManifestEnrichment({
+      hasManifest: true,
+      manifestVersion: "0.3",
+      hasRequiredFields: true,
+      hasIcon: true,
+      missingFields: [],
+      validationResults: [
+        {
+          field: "name",
+          valid: true,
+          value: "test-server",
+          severity: "INFO",
+        },
+        {
+          field: "version",
+          valid: false,
+          value: undefined,
+          issue: "Missing required field",
+          severity: "ERROR",
+        },
+      ],
+      privacyPolicies: {
+        declared: ["https://example.com/privacy"],
+        validationResults: [
+          { url: "https://example.com/privacy", accessible: true },
+        ],
+        allAccessible: true,
+      },
+      contactInfo: {
+        email: "test@example.com",
+        name: "Test Author",
+        source: "manifest.json",
+      },
+    });
+
+    expect(result.manifestMetrics.hasManifest).toBe(true);
+    expect(result.manifestMetrics.hasRequiredFields).toBe(true);
+    expect(result.manifestMetrics.hasIcon).toBe(true);
+    expect(result.manifestMetrics.hasContactInfo).toBe(true);
+    expect(result.manifestMetrics.privacyPoliciesAccessible).toBe(true);
+    expect(result.manifestMetrics.totalChecks).toBe(2);
+    expect(result.manifestMetrics.passedChecks).toBe(1);
+    expect(result.manifestMetrics.errorCount).toBe(1);
+  });
+
+  it("should include enrichment data fields", () => {
+    const result = buildManifestEnrichment({
+      hasManifest: true,
+      enrichmentData: {
+        fieldInventory: [
+          {
+            field: "name",
+            valid: true,
+            value: "test-server",
+            severity: "INFO",
+            category: "required",
+          },
+          {
+            field: "version",
+            valid: false,
+            issue: "Invalid version format",
+            severity: "ERROR",
+            category: "required",
+          },
+        ],
+        fieldCoverage: {
+          totalRequired: 10,
+          requiredPresent: 8,
+          recommendedChecked: 5,
+          sampleFields: ["name", "version", "description"],
+          policiesChecked: ["required_fields", "recommended_fields"],
+        },
+        flagsForReview: [
+          {
+            field: "version",
+            reason: "Invalid format",
+            flags: ["error", "required"],
+            riskLevel: "high",
+          },
+        ],
+      },
+    });
+
+    expect(result.fieldInventory).toHaveLength(2);
+    expect(result.fieldInventory![0].field).toBe("name");
+    expect(result.fieldCoverage?.totalRequired).toBe(10);
+    expect(result.flagsForReview).toHaveLength(1);
+  });
+
+  it("should truncate fieldInventory to 50 items", () => {
+    const fields = Array(75)
+      .fill(null)
+      .map((_, i) => ({
+        field: `field_${i}`,
+        valid: true,
+        severity: "INFO" as const,
+        category: "optional",
+      }));
+
+    const result = buildManifestEnrichment({
+      enrichmentData: { fieldInventory: fields },
+    });
+
+    expect(result.fieldInventory).toHaveLength(50);
+  });
+
+  it("should handle missing fields gracefully", () => {
+    const result = buildManifestEnrichment({});
+
+    expect(result.manifestMetrics.hasManifest).toBe(false);
+    expect(result.manifestMetrics.hasRequiredFields).toBe(false);
+    expect(result.manifestMetrics.totalChecks).toBe(0);
   });
 });

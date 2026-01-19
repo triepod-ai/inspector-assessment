@@ -1082,6 +1082,12 @@ export class ManifestValidationAssessor extends BaseAssessor {
     ).length;
 
     // Check tool matching
+    // Design decision: If manifest has no tools declared (size === 0), we consider it a match
+    // rather than a mismatch. This is intentional because:
+    // 1. Manifest tools are optional per spec (manifest_version 0.3)
+    // 2. Servers may have tools but not declare them in manifest (legacy behavior)
+    // 3. We warn about missing tools separately via missingFields check
+    // 4. A mismatch only occurs when manifest declares tools that don't match server reality
     const manifestToolNames = manifest.tools
       ? new Set(manifest.tools.map((t) => t.name))
       : new Set<string>();
