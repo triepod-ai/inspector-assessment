@@ -436,3 +436,15 @@ export function createTemporalMockContext(
 export { createTemporalTestConfig as createConfig };
 export { createTemporalTestTool as createTool };
 export { createTemporalMockContext as createMockContext };
+
+// ============================================
+// Security Assessor Mock Testers (Issue #200)
+// ============================================
+// Re-export mock tester factories for SecurityAssessor DI testing
+
+export {
+  createMockSecurityTesters,
+  createVulnerableMockTesters,
+  createConnectionErrorMockTesters,
+  createConfigurableMockTesters,
+} from "./mockSecurityTesters";

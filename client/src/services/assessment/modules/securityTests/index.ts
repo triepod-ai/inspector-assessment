@@ -75,3 +75,11 @@ export {
   adjustSeverityForAnnotations,
   type SeverityAdjustment,
 } from "./AnnotationAwareSeverity";
+
+// Factory pattern for dependency injection (Issue #200 - V2 Refactoring)
+export {
+  createSecurityTesters,
+  createSecurityTestersWithOverrides,
+  type SecurityTesters,
+  type SecurityTestersConfig,
+} from "./factory";

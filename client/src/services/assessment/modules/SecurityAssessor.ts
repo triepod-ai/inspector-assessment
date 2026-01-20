@@ -33,14 +33,10 @@ import { BaseAssessor } from "./BaseAssessor";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import {
-  SecurityPayloadTester,
-  SecurityPayloadGenerator,
-  CrossToolStateTester,
-  ChainExecutionTester,
-  TestValidityAnalyzer,
-  type PayloadTestConfig,
   type TestLogger,
   type ChainExecutionTestResult,
+  createSecurityTesters,
+  type SecurityTesters,
 } from "./securityTests";
 import { ToolClassifier, ToolCategory } from "../ToolClassifier";
 import {
@@ -54,10 +50,11 @@ import {
 } from "../lib/claudeCodeBridge";
 
 export class SecurityAssessor extends BaseAssessor {
-  private payloadTester: SecurityPayloadTester;
-  private payloadGenerator: SecurityPayloadGenerator;
-  private crossToolStateTester: CrossToolStateTester;
-  private chainTester: ChainExecutionTester;
+  /**
+   * Collection of security testers (injectable for testing)
+   * @since v1.43.0 - Refactored from individual properties to support DI
+   */
+  private testers: SecurityTesters;
   private claudeBridge: ClaudeCodeBridge | null = null;
 
   /**
@@ -110,45 +107,44 @@ export class SecurityAssessor extends BaseAssessor {
     }
   }
 
+  /**
+   * Create a SecurityAssessor with optional dependency injection
+   *
+   * @param config - Assessment configuration
+   * @param testers - Optional pre-configured testers (for testing/mocking)
+   *
+   * @example
+   * // Production usage - testers created automatically via factory
+   * const assessor = new SecurityAssessor(config);
+   *
+   * // Testing with mocks - inject mock testers
+   * const mockTesters = createMockSecurityTesters();
+   * const assessor = new SecurityAssessor(config, mockTesters);
+   */
   constructor(
     config: import("@/lib/assessment/configTypes").AssessmentConfiguration,
+    testers?: SecurityTesters,
   ) {
     super(config);
 
-    // Initialize payload generator for additional checks
-    this.payloadGenerator = new SecurityPayloadGenerator();
+    // Use injected testers or create via factory
+    if (testers) {
+      this.testers = testers;
+    } else {
+      // Create logger adapter for factory
+      const testLogger: TestLogger = {
+        log: (message: string) => this.logger.info(message),
+        logError: (message: string, error: unknown) =>
+          this.logger.error(message, { error }),
+      };
 
-    // Create payload tester config from assessment config
-    const payloadConfig: PayloadTestConfig = {
-      enableDomainTesting: config.enableDomainTesting,
-      maxParallelTests: config.maxParallelTests,
-      securityTestTimeout: config.securityTestTimeout,
-      selectedToolsForTesting: config.selectedToolsForTesting,
-    };
-
-    // Create logger adapter
-    const testLogger: TestLogger = {
-      log: (message: string) => this.logger.info(message),
-      logError: (message: string, error: unknown) =>
-        this.logger.error(message, { error }),
-    };
-
-    // Initialize payload tester with config, logger, and timeout function
-    this.payloadTester = new SecurityPayloadTester(
-      payloadConfig,
-      testLogger,
-      this.executeWithTimeout.bind(this),
-    );
-
-    // Initialize cross-tool state tester (Issue #92)
-    this.crossToolStateTester = new CrossToolStateTester({
-      timeout: config.securityTestTimeout,
-    });
-
-    // Initialize chain execution tester (Issue #93)
-    this.chainTester = new ChainExecutionTester({
-      verbose: false,
-    });
+      // Create testers via factory
+      this.testers = createSecurityTesters({
+        assessmentConfig: config,
+        logger: testLogger,
+        executeWithTimeout: this.executeWithTimeout.bind(this),
+      });
+    }
   }
 
   async assess(context: AssessmentContext): Promise<SecurityAssessment> {
@@ -162,12 +158,12 @@ export class SecurityAssessor extends BaseAssessor {
         "No tool annotations context provided - severity adjustment disabled",
       );
     }
-    this.payloadTester.setToolAnnotationsContext(
+    this.testers.payloadTester.setToolAnnotationsContext(
       context.toolAnnotationsContext,
     );
 
     // Run universal security testing via extracted payload tester
-    const allTests = await this.payloadTester.runUniversalSecurityTests(
+    const allTests = await this.testers.payloadTester.runUniversalSecurityTests(
       toolsToTest,
       context.callTool,
       context.onProgress,
@@ -340,8 +336,7 @@ export class SecurityAssessor extends BaseAssessor {
     );
 
     // Issue #134: Analyze test validity (detect uniform responses)
-    const validityAnalyzer = new TestValidityAnalyzer();
-    const validityResult = validityAnalyzer.analyze(validTests);
+    const validityResult = this.testers.validityAnalyzer.analyze(validTests);
 
     // Adjust status if test validity is compromised
     let overallConfidence: "high" | "medium" | "low" | undefined;
@@ -480,7 +475,7 @@ export class SecurityAssessor extends BaseAssessor {
 
       if (
         /key|secret|credential|password|token|auth/.test(toolText) &&
-        !this.payloadGenerator.hasInputParameters(tool)
+        !this.testers.payloadGenerator.hasInputParameters(tool)
       ) {
         vulnerabilities.push(
           `${tool.name} may expose sensitive data (security-related tool with no input validation)`,
@@ -505,7 +500,8 @@ export class SecurityAssessor extends BaseAssessor {
     >,
     onProgress?: import("@/lib/assessment/progressTypes").ProgressCallback,
   ): Promise<Map<string, import("./securityTests").CrossToolTestResult>> {
-    const pairs = this.crossToolStateTester.identifyCrossToolPairs(tools);
+    const pairs =
+      this.testers.crossToolStateTester.identifyCrossToolPairs(tools);
 
     if (pairs.length === 0) {
       this.logger.info(`No cross-tool pairs identified for sequence testing`);
@@ -516,14 +512,14 @@ export class SecurityAssessor extends BaseAssessor {
       `Running cross-tool sequence tests on ${pairs.length} tool pair(s)...`,
     );
 
-    const results = await this.crossToolStateTester.runAllSequenceTests(
+    const results = await this.testers.crossToolStateTester.runAllSequenceTests(
       tools,
       callTool,
       onProgress,
     );
 
     // Log results
-    const summary = this.crossToolStateTester.summarizeResults(results);
+    const summary = this.testers.crossToolStateTester.summarizeResults(results);
     if (summary.vulnerable > 0) {
       this.logger.info(
         `⚠️ Cross-tool privilege escalation detected in ${summary.vulnerable} pair(s): ${summary.vulnerablePairs.join(", ")}`,
@@ -555,7 +551,8 @@ export class SecurityAssessor extends BaseAssessor {
     >,
     onProgress?: import("@/lib/assessment/progressTypes").ProgressCallback,
   ): Promise<Map<string, ChainExecutionTestResult>> {
-    const chainTools = this.chainTester.identifyChainExecutorTools(tools);
+    const chainTools =
+      this.testers.chainTester.identifyChainExecutorTools(tools);
     const allResults = new Map<string, ChainExecutionTestResult>();
 
     if (chainTools.length === 0) {
@@ -568,10 +565,11 @@ export class SecurityAssessor extends BaseAssessor {
     );
 
     for (const tool of chainTools) {
-      const toolResults = await this.chainTester.runChainExploitationTests(
-        callTool,
-        tool,
-      );
+      const toolResults =
+        await this.testers.chainTester.runChainExploitationTests(
+          callTool,
+          tool,
+        );
 
       // Aggregate results with tool name prefix and emit progress events
       for (const [testName, result] of toolResults) {
@@ -597,7 +595,7 @@ export class SecurityAssessor extends BaseAssessor {
       }
 
       // Log individual tool results
-      const summary = this.chainTester.summarizeResults(toolResults);
+      const summary = this.testers.chainTester.summarizeResults(toolResults);
       if (summary.vulnerable > 0) {
         this.logger.info(
           `⚠️ Chain exploitation detected in ${tool.name}: ${summary.vulnerableTests.join(", ")}`,
