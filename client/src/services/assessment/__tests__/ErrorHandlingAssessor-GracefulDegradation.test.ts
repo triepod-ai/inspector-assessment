@@ -30,7 +30,11 @@ type MetricsResult = {
 // Schema type for generateInvalidValueParams (Issue #186)
 type SchemaParam = Record<string, unknown> | null;
 
-describe("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
+// @deprecated These tests are skipped because ErrorHandlingAssessor is now a thin wrapper
+// that delegates to ProtocolComplianceAssessor. The internal methods tested here no longer
+// exist in the wrapper. Error handling tests are now in ProtocolComplianceAssessor.test.ts.
+// These tests will be removed in v2.0.0 along with the deprecated ErrorHandlingAssessor.
+describe.skip("ErrorHandlingAssessor - Graceful Degradation (Issue #173)", () => {
   let assessor: ErrorHandlingAssessor;
   let detectSuggestionPatterns: (text: string) => SuggestionResult;
   let isNeutralGracefulResponse: (text: string) => boolean;

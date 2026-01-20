@@ -247,7 +247,8 @@ describe("Stage 3 Type Safety Fixes", () => {
     });
   });
 
-  describe("[TEST-002] ErrorHandlingAssessor.getToolSchema - return type fix (FIX-002)", () => {
+  // @deprecated ErrorHandlingAssessor is now a thin wrapper - tests skipped
+  describe.skip("[TEST-002] ErrorHandlingAssessor.getToolSchema - return type fix (FIX-002)", () => {
     let assessor: ErrorHandlingAssessor;
     let mockContext: AssessmentContext;
 

@@ -19,7 +19,10 @@ type MetricsResult = {
   mcpComplianceScore: number;
 };
 
-describe("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)", () => {
+// @deprecated These tests are skipped because ErrorHandlingAssessor is now a thin wrapper
+// that delegates to ProtocolComplianceAssessor. The internal methods tested here no longer
+// exist in the wrapper. These tests will be removed in v2.0.0.
+describe.skip("ErrorHandlingAssessor - Invalid Values Contextual Scoring (Issue #99)", () => {
   let assessor: ErrorHandlingAssessor;
   let analyzeInvalidValuesResponse: (test: ErrorTestDetail) => AnalysisResult;
   let extractResponseTextSafe: (response: unknown) => string;

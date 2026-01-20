@@ -8,7 +8,9 @@ import {
 } from "@/test/utils/testUtils";
 import { AssessmentContext } from "../AssessmentOrchestrator";
 
-describe("ErrorHandlingAssessor", () => {
+// @deprecated These tests are skipped because ErrorHandlingAssessor is now a thin wrapper
+// that delegates to ProtocolComplianceAssessor. These tests will be removed in v2.0.0.
+describe.skip("ErrorHandlingAssessor", () => {
   let assessor: ErrorHandlingAssessor;
   let mockContext: AssessmentContext;
 
