@@ -1,0 +1,194 @@
+{
+  "$schema": "./schemas/sanitization-patterns.schema.json",
+  "_comment": "Sanitization library detection patterns for reducing false positives. Used by SanitizationDetector.",
+  "_version": "1.0.0",
+  "_since": "v1.43.0 (Issue #200 - V2 Refactoring)",
+
+  "libraries": [
+    {
+      "name": "DOMPurify",
+      "patterns": ["\\bDOMPurify\\b", "\\bdom[-_]?purify\\b"],
+      "category": "xss",
+      "confidenceBoost": 25,
+      "languageHint": ["javascript", "typescript"]
+    },
+    {
+      "name": "xss",
+      "patterns": [
+        "\\bxss\\s*\\(",
+        "require\\s*\\(\\s*['\"]xss['\"]\\s*\\)",
+        "import.*from\\s+['\"]xss['\"]",
+        "xss\\s+library"
+      ],
+      "category": "xss",
+      "confidenceBoost": 25,
+      "languageHint": ["javascript", "typescript"]
+    },
+    {
+      "name": "bleach",
+      "patterns": ["\\bbleach\\b", "bleach\\.clean", "import\\s+bleach"],
+      "category": "xss",
+      "confidenceBoost": 25,
+      "languageHint": ["python"]
+    },
+    {
+      "name": "sanitize-html",
+      "patterns": [
+        "\\bsanitize[-_]?html\\b",
+        "sanitizeHtml\\s*\\(",
+        "require\\s*\\(\\s*['\"]sanitize-html['\"]\\s*\\)"
+      ],
+      "category": "html",
+      "confidenceBoost": 20,
+      "languageHint": ["javascript", "typescript"]
+    },
+    {
+      "name": "escape-html",
+      "patterns": [
+        "\\bescape[-_]?html\\b",
+        "escapeHtml\\s*\\(",
+        "require\\s*\\(\\s*['\"]escape-html['\"]\\s*\\)"
+      ],
+      "category": "encoding",
+      "confidenceBoost": 15,
+      "languageHint": ["javascript", "typescript"]
+    },
+    {
+      "name": "he",
+      "patterns": [
+        "\\bhe\\.encode",
+        "\\bhe\\.escape",
+        "require\\s*\\(\\s*['\"]he['\"]\\s*\\)"
+      ],
+      "category": "encoding",
+      "confidenceBoost": 15,
+      "languageHint": ["javascript", "typescript"]
+    },
+    {
+      "name": "validator",
+      "patterns": [
+        "validator\\.js",
+        "\\bvalidatorjs\\b",
+        "validator\\.(isEmail|escape|sanitize|isURL|isAlphanumeric)",
+        "require\\s*\\(\\s*['\"]validator['\"]\\s*\\)"
+      ],
+      "category": "input",
+      "confidenceBoost": 20,
+      "languageHint": ["javascript", "typescript"]
+    },
+    {
+      "name": "Zod",
+      "patterns": [
+        "\\bz\\.string\\s*\\(\\)",
+        "\\bz\\.object\\s*\\(",
+        "\\bzod\\b",
+        "\\.safeParse\\s*\\(",
+        "import.*from\\s+['\"]zod['\"]"
+      ],
+      "category": "input",
+      "confidenceBoost": 15,
+      "languageHint": ["typescript"]
+    },
+    {
+      "name": "Joi",
+      "patterns": [
+        "\\bJoi\\b",
+        "Joi\\.string\\s*\\(\\)",
+        "Joi\\.object\\s*\\(",
+        "\\.validate\\s*\\(",
+        "require\\s*\\(\\s*['\"]joi['\"]\\s*\\)"
+      ],
+      "category": "input",
+      "confidenceBoost": 15,
+      "languageHint": ["javascript", "typescript"]
+    },
+    {
+      "name": "yup",
+      "patterns": [
+        "\\byup\\b",
+        "yup\\.string\\s*\\(\\)",
+        "yup\\.object\\s*\\(",
+        "import.*from\\s+['\"]yup['\"]"
+      ],
+      "category": "input",
+      "confidenceBoost": 15,
+      "languageHint": ["javascript", "typescript"]
+    },
+    {
+      "name": "pydantic",
+      "patterns": [
+        "\\bpydantic\\b",
+        "from\\s+pydantic\\s+import",
+        "BaseModel",
+        "Field\\s*\\("
+      ],
+      "category": "input",
+      "confidenceBoost": 15,
+      "languageHint": ["python"]
+    },
+    {
+      "name": "parameterized-queries",
+      "patterns": [
+        "prepared[\\s_]?statement",
+        "parameterized[\\s_]?quer",
+        "\\$\\d+\\s",
+        ":\\w+\\s",
+        "\\?\\s"
+      ],
+      "category": "sql",
+      "confidenceBoost": 20,
+      "languageHint": ["sql"]
+    },
+    {
+      "name": "helmet",
+      "patterns": [
+        "\\bhelmet\\b",
+        "helmet\\s*\\(\\)",
+        "require\\s*\\(\\s*['\"]helmet['\"]\\s*\\)"
+      ],
+      "category": "framework",
+      "confidenceBoost": 10,
+      "languageHint": ["javascript", "typescript"]
+    },
+    {
+      "name": "django-csrf",
+      "patterns": ["csrf_token", "CsrfViewMiddleware", "@csrf_protect"],
+      "category": "framework",
+      "confidenceBoost": 10,
+      "languageHint": ["python"]
+    }
+  ],
+
+  "genericKeywords": [
+    "\\bsanitiz(e|ed|es|ing|ation)\\b",
+    "\\bescap(e|ed|es|ing)\\b",
+    "\\bencod(e|ed|es|ing)\\b",
+    "\\bvalidat(e|ed|es|ing|ion)\\b",
+    "\\bfilter(ed|s|ing)?\\b",
+    "\\bclean(ed|s|ing)?\\b",
+    "\\bpurif(y|ied|ies|ying)\\b",
+    "\\bnormaliz(e|ed|es|ing)\\b",
+    "\\bstrip(ped|s|ping)?\\b",
+    "\\btrim(med|s|ming)?\\b"
+  ],
+
+  "responseIndicators": [
+    "\\[sanitized\\]",
+    "\\[filtered\\]",
+    "\\[redacted\\]",
+    "\\[removed\\]",
+    "\\[cleaned\\]",
+    "\\[escaped\\]",
+    "input.*sanitized",
+    "content.*filtered",
+    "value.*cleaned",
+    "data.*validated"
+  ],
+
+  "confidenceBoosts": {
+    "SPECIFIC_LIBRARY": 25,
+    "GENERIC_KEYWORD": 8,
+    "RESPONSE_EVIDENCE": 10,
+    "MAX_ADJUSTMENT": 50
+  }
+}
