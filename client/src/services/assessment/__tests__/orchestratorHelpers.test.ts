@@ -15,6 +15,9 @@ import {
   buildPromptEnrichment,
   buildProhibitedLibrariesEnrichment,
   buildManifestEnrichment,
+  buildEnrichment,
+  hasEnrichmentBuilder,
+  getEnrichableModules,
   determineOverallStatus,
   generateSummary,
   generateRecommendations,
@@ -1228,5 +1231,105 @@ describe("buildManifestEnrichment", () => {
     expect(result.manifestMetrics.hasManifest).toBe(false);
     expect(result.manifestMetrics.hasRequiredFields).toBe(false);
     expect(result.manifestMetrics.totalChecks).toBe(0);
+  });
+});
+
+// ============================================================================
+// Enrichment Registry Tests (Issue #200 - V2 Refactoring)
+// ============================================================================
+
+describe("Enrichment Registry", () => {
+  describe("getEnrichableModules", () => {
+    it("should return all registered module names", () => {
+      const modules = getEnrichableModules();
+
+      expect(modules).toContain("aup");
+      expect(modules).toContain("authentication");
+      expect(modules).toContain("resources");
+      expect(modules).toContain("prompts");
+      expect(modules).toContain("prohibitedLibraries");
+      expect(modules).toContain("manifestValidation");
+      expect(modules).toHaveLength(6);
+    });
+  });
+
+  describe("hasEnrichmentBuilder", () => {
+    it("should return true for registered modules", () => {
+      expect(hasEnrichmentBuilder("aup")).toBe(true);
+      expect(hasEnrichmentBuilder("authentication")).toBe(true);
+      expect(hasEnrichmentBuilder("resources")).toBe(true);
+      expect(hasEnrichmentBuilder("prompts")).toBe(true);
+      expect(hasEnrichmentBuilder("prohibitedLibraries")).toBe(true);
+      expect(hasEnrichmentBuilder("manifestValidation")).toBe(true);
+    });
+
+    it("should return false for unregistered modules", () => {
+      expect(hasEnrichmentBuilder("security")).toBe(false);
+      expect(hasEnrichmentBuilder("functionality")).toBe(false);
+      expect(hasEnrichmentBuilder("temporal")).toBe(false);
+      expect(hasEnrichmentBuilder("unknown")).toBe(false);
+    });
+  });
+
+  describe("buildEnrichment", () => {
+    it("should return enrichment data for registered modules", () => {
+      const aupResult = { violations: [] };
+      const enrichment = buildEnrichment("aup", aupResult);
+
+      expect(enrichment).not.toBeNull();
+      expect(enrichment).toHaveProperty("violationsSample");
+      expect(enrichment).toHaveProperty("violationMetrics");
+    });
+
+    it("should return null for unregistered modules", () => {
+      const result = { someData: "test" };
+      const enrichment = buildEnrichment("security", result);
+
+      expect(enrichment).toBeNull();
+    });
+
+    it("should return null when result is null", () => {
+      const enrichment = buildEnrichment("aup", null);
+
+      expect(enrichment).toBeNull();
+    });
+
+    it("should return null when result is undefined", () => {
+      const enrichment = buildEnrichment("aup", undefined);
+
+      expect(enrichment).toBeNull();
+    });
+
+    it("should call correct builder for each module", () => {
+      // AUP
+      const aupResult = buildEnrichment("aup", { violations: [] });
+      expect(aupResult).toHaveProperty("violationsSample");
+
+      // Authentication
+      const authResult = buildEnrichment("authentication", {
+        authMethod: "oauth",
+      });
+      expect(authResult).toHaveProperty("authMethod");
+
+      // Resources
+      const resourceResult = buildEnrichment("resources", {
+        resourcesTested: 5,
+      });
+      expect(resourceResult).toHaveProperty("resourceMetrics");
+
+      // Prompts
+      const promptResult = buildEnrichment("prompts", { promptsTested: 3 });
+      expect(promptResult).toHaveProperty("promptMetrics");
+
+      // Prohibited Libraries
+      const libResult = buildEnrichment("prohibitedLibraries", { matches: [] });
+      expect(libResult).toHaveProperty("libraryMetrics");
+
+      // Manifest
+      const manifestResult = buildEnrichment("manifestValidation", {
+        hasManifest: true,
+      });
+      expect(manifestResult).toHaveProperty("manifestMetrics");
+    });
   });
 });

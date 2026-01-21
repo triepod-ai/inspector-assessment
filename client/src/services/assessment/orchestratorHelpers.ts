@@ -53,6 +53,95 @@ export function emitModuleStartedEvent(
   );
 }
 
+// ============================================================================
+// Enrichment Builder Registry (Issue #200 - V2 Refactoring)
+// ============================================================================
+
+/**
+ * Generic enrichment builder function signature.
+ * All builders accept result as unknown and return Record<string, unknown>.
+ */
+type EnrichmentBuilder = (result: unknown) => Record<string, unknown>;
+
+/**
+ * Supported module names for enrichment.
+ */
+export type EnrichableModule =
+  | "aup"
+  | "authentication"
+  | "resources"
+  | "prompts"
+  | "prohibitedLibraries"
+  | "manifestValidation";
+
+/**
+ * Lazy-initialized registry to avoid forward reference issues.
+ * Maps module keys to their enrichment builder functions.
+ *
+ * Benefits:
+ * - Single point of registration for all enrichment builders
+ * - emitModuleProgress uses single lookup instead of multiple if-blocks
+ * - Easy to add new enrichments without modifying emitModuleProgress
+ */
+let enrichmentBuilders: Record<string, EnrichmentBuilder> | null = null;
+
+function getEnrichmentBuilders(): Record<string, EnrichmentBuilder> {
+  if (!enrichmentBuilders) {
+    enrichmentBuilders = {
+      aup: buildAUPEnrichment as EnrichmentBuilder,
+      authentication: buildAuthEnrichment as EnrichmentBuilder,
+      resources: buildResourceEnrichment as EnrichmentBuilder,
+      prompts: buildPromptEnrichment as EnrichmentBuilder,
+      prohibitedLibraries:
+        buildProhibitedLibrariesEnrichment as EnrichmentBuilder,
+      manifestValidation: buildManifestEnrichment as EnrichmentBuilder,
+    };
+  }
+  return enrichmentBuilders;
+}
+
+/**
+ * Build enrichment data for a module using the registry.
+ *
+ * @param moduleName - The normalized module key (e.g., "aup", "authentication")
+ * @param result - The module's assessment result
+ * @returns Enrichment data to merge into event, or null if no builder registered
+ */
+export function buildEnrichment(
+  moduleName: string,
+  result: unknown,
+): Record<string, unknown> | null {
+  const builders = getEnrichmentBuilders();
+  const builder = builders[moduleName];
+  if (!builder || !result) {
+    return null;
+  }
+  return builder(result);
+}
+
+/**
+ * Check if a module has an enrichment builder registered.
+ *
+ * @param moduleName - The module key to check
+ * @returns true if an enrichment builder exists for this module
+ */
+export function hasEnrichmentBuilder(moduleName: string): boolean {
+  return moduleName in getEnrichmentBuilders();
+}
+
+/**
+ * Get all module names that have enrichment builders.
+ *
+ * @returns Array of module names with registered builders
+ */
+export function getEnrichableModules(): EnrichableModule[] {
+  return Object.keys(getEnrichmentBuilders()) as EnrichableModule[];
+}
+
+// ============================================================================
+// Module Event Emission
+// ============================================================================
+
 /**
  * Emit module_complete event with score and duration.
  * Uses shared score calculator for consistent scoring logic.
@@ -89,40 +178,11 @@ export function emitModuleProgress(
     schemaVersion: SCHEMA_VERSION,
   };
 
-  // Add AUP enrichment when module is AUP
-  if (moduleKey === "aup" && result) {
-    const aupEnrichment = buildAUPEnrichment(result);
-    Object.assign(event, aupEnrichment);
-  }
-
-  // Add authentication enrichment when module is authentication (Issue #195)
-  if (moduleKey === "authentication" && result) {
-    const authEnrichment = buildAuthEnrichment(result);
-    Object.assign(event, authEnrichment);
-  }
-
-  // Add resources enrichment when module is resources (Issue #196)
-  if (moduleKey === "resources" && result) {
-    const resourceEnrichment = buildResourceEnrichment(result);
-    Object.assign(event, resourceEnrichment);
-  }
-
-  // Add prompts enrichment when module is prompts (Issue #197)
-  if (moduleKey === "prompts" && result) {
-    const promptEnrichment = buildPromptEnrichment(result);
-    Object.assign(event, promptEnrichment);
-  }
-
-  // Add prohibited libraries enrichment when module is prohibitedLibraries (Issue #198)
-  if (moduleKey === "prohibitedLibraries" && result) {
-    const librariesEnrichment = buildProhibitedLibrariesEnrichment(result);
-    Object.assign(event, librariesEnrichment);
-  }
-
-  // Add manifest validation enrichment when module is manifestValidation (Issue #199)
-  if (moduleKey === "manifestValidation" && result) {
-    const manifestEnrichment = buildManifestEnrichment(result);
-    Object.assign(event, manifestEnrichment);
+  // Add module-specific enrichment if registered (Issue #200 - Registry Pattern)
+  // Replaces 6 if-blocks with single registry lookup
+  const enrichment = buildEnrichment(moduleKey, result);
+  if (enrichment) {
+    Object.assign(event, enrichment);
   }
 
   // Emit JSONL to stderr with version and schemaVersion fields
