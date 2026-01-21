@@ -511,4 +511,172 @@ describe("emitModuleProgress - JSONL Progress Output", () => {
       }
     });
   });
+
+  // ============================================================================
+  // Enrichment Fields Tests (QA Analysis - Priority 1 Gaps)
+  // ============================================================================
+
+  describe("Enrichment Fields in JSONL Events", () => {
+    // Enrichable modules (from orchestratorHelpers.ts registry)
+    const enrichableModules = [
+      "aup",
+      "authentication",
+      "resources",
+      "prompts",
+      "prohibitedLibraries",
+      "manifestValidation",
+    ];
+
+    // Non-enrichable modules (core assessments)
+    const nonEnrichableModules = ["security", "functionality", "temporal"];
+
+    it("should include enrichment fields for enrichable modules", async () => {
+      const config = createMockAssessmentConfig({
+        enableExtendedAssessment: true,
+        parallelTesting: false,
+        assessmentCategories: {
+          functionality: true,
+          security: true,
+          documentation: true,
+          errorHandling: true,
+          usability: true,
+          mcpSpecCompliance: true,
+          aupCompliance: true,
+          toolAnnotations: true,
+          prohibitedLibraries: true,
+          manifestValidation: true,
+          portability: true,
+        },
+      });
+      orchestrator = new AssessmentOrchestrator(config);
+
+      const context = createMockAssessmentContext({
+        tools: [createMockTool({ name: "test-tool" })],
+      });
+
+      await orchestrator.runFullAssessment(context);
+
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
+
+      // Filter for enrichable module events
+      const enrichableEvents = moduleEvents.filter((e) =>
+        enrichableModules.includes(e.module),
+      );
+
+      // Should have at least one enrichable module event
+      expect(enrichableEvents.length).toBeGreaterThan(0);
+
+      // Each enrichable module event should have enrichment-specific fields
+      for (const event of enrichableEvents) {
+        const eventObj = event as Record<string, unknown>;
+
+        // Each enrichment type has characteristic fields
+        switch (event.module) {
+          case "aup":
+            // AUP enrichment should have violationsSample and violationMetrics
+            expect(eventObj.violationsSample).toBeDefined();
+            expect(eventObj.violationMetrics).toBeDefined();
+            expect(eventObj.samplingNote).toBeDefined();
+            break;
+
+          case "authentication":
+            // Auth enrichment should have authMethod and authMetrics
+            expect(eventObj.authMethod).toBeDefined();
+            expect(eventObj.authMetrics).toBeDefined();
+            break;
+
+          case "resources":
+            // Resource enrichment should have resourceMetrics
+            expect(eventObj.resourceMetrics).toBeDefined();
+            break;
+
+          case "prompts":
+            // Prompt enrichment should have promptMetrics
+            expect(eventObj.promptMetrics).toBeDefined();
+            break;
+
+          case "prohibitedLibraries":
+            // Library enrichment should have libraryMetrics
+            expect(eventObj.libraryMetrics).toBeDefined();
+            break;
+
+          case "manifestValidation":
+            // Manifest enrichment should have manifestMetrics
+            expect(eventObj.manifestMetrics).toBeDefined();
+            break;
+        }
+      }
+    });
+
+    it("should NOT include enrichment fields for non-enrichable modules", async () => {
+      const config = createMockAssessmentConfig({
+        enableExtendedAssessment: true,
+        parallelTesting: false,
+      });
+      orchestrator = new AssessmentOrchestrator(config);
+
+      const context = createMockAssessmentContext({
+        tools: [createMockTool({ name: "test-tool" })],
+      });
+
+      await orchestrator.runFullAssessment(context);
+
+      const calls = consoleErrorSpy.mock.calls.map((c: string[]) => c[0]);
+      const moduleEvents = calls
+        .map((call: string) => parseModuleCompleteEvent(call))
+        .filter(
+          (e: ModuleCompleteEvent | null): e is ModuleCompleteEvent =>
+            e !== null,
+        );
+
+      // Filter for non-enrichable module events
+      const nonEnrichableEvents = moduleEvents.filter((e) =>
+        nonEnrichableModules.includes(e.module),
+      );
+
+      // Should have at least one non-enrichable module event
+      expect(nonEnrichableEvents.length).toBeGreaterThan(0);
+
+      // Non-enrichable modules should NOT have enrichment-specific fields
+      for (const event of nonEnrichableEvents) {
+        const eventObj = event as Record<string, unknown>;
+
+        // Base event fields that are always present
+        const baseFields = [
+          "event",
+          "module",
+          "status",
+          "score",
+          "testsRun",
+          "duration",
+          "version",
+          "schemaVersion",
+        ];
+
+        // Get all keys from the event
+        const eventKeys = Object.keys(eventObj);
+
+        // Check that event only has base fields (no enrichment-specific fields)
+        for (const key of eventKeys) {
+          expect(baseFields).toContain(key);
+        }
+
+        // Specifically verify no enrichment fields are present
+        expect(eventObj.violationsSample).toBeUndefined();
+        expect(eventObj.violationMetrics).toBeUndefined();
+        expect(eventObj.authMethod).toBeUndefined();
+        expect(eventObj.authMetrics).toBeUndefined();
+        expect(eventObj.resourceMetrics).toBeUndefined();
+        expect(eventObj.promptMetrics).toBeUndefined();
+        expect(eventObj.libraryMetrics).toBeUndefined();
+        expect(eventObj.manifestMetrics).toBeUndefined();
+      }
+    });
+  });
 });

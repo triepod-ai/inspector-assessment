@@ -1269,6 +1269,35 @@ describe("Enrichment Registry", () => {
       expect(hasEnrichmentBuilder("temporal")).toBe(false);
       expect(hasEnrichmentBuilder("unknown")).toBe(false);
     });
+
+    // ========================================================================
+    // Priority 2: Case-Sensitivity Documentation Tests (QA Analysis)
+    // ========================================================================
+    describe("case sensitivity", () => {
+      it("should be case-sensitive for module names", () => {
+        // Lowercase (correct) - should return true
+        expect(hasEnrichmentBuilder("aup")).toBe(true);
+        expect(hasEnrichmentBuilder("authentication")).toBe(true);
+
+        // Uppercase (incorrect) - should return false
+        expect(hasEnrichmentBuilder("AUP")).toBe(false);
+        expect(hasEnrichmentBuilder("AUTHENTICATION")).toBe(false);
+
+        // Mixed case (incorrect) - should return false
+        expect(hasEnrichmentBuilder("Aup")).toBe(false);
+        expect(hasEnrichmentBuilder("Authentication")).toBe(false);
+      });
+
+      it("should handle camelCase module names correctly", () => {
+        // prohibitedLibraries is camelCase (correct)
+        expect(hasEnrichmentBuilder("prohibitedLibraries")).toBe(true);
+
+        // All lowercase or uppercase variants should return false
+        expect(hasEnrichmentBuilder("prohibitedlibraries")).toBe(false);
+        expect(hasEnrichmentBuilder("PROHIBITEDLIBRARIES")).toBe(false);
+        expect(hasEnrichmentBuilder("ProhibitedLibraries")).toBe(false);
+      });
+    });
   });
 
   describe("buildEnrichment", () => {
@@ -1298,6 +1327,61 @@ describe("Enrichment Registry", () => {
       const enrichment = buildEnrichment("aup", undefined);
 
       expect(enrichment).toBeNull();
+    });
+
+    // ========================================================================
+    // Priority 2: Malformed Result Object Handling (QA Analysis)
+    // ========================================================================
+    describe("malformed result handling", () => {
+      it("should handle string result gracefully", () => {
+        const enrichment = buildEnrichment("aup", "invalid string result");
+
+        // Should not throw, but may return empty or minimal enrichment
+        expect(() => enrichment).not.toThrow();
+      });
+
+      it("should handle number result gracefully", () => {
+        const enrichment = buildEnrichment("aup", 12345);
+
+        // Should not throw, but may return empty or minimal enrichment
+        expect(() => enrichment).not.toThrow();
+      });
+
+      it("should handle array result gracefully", () => {
+        const enrichment = buildEnrichment("aup", [1, 2, 3]);
+
+        // Should not throw, but may return empty or minimal enrichment
+        expect(() => enrichment).not.toThrow();
+      });
+
+      it("should handle boolean result gracefully", () => {
+        const enrichment = buildEnrichment("aup", true);
+
+        // Should not throw, but may return empty or minimal enrichment
+        expect(() => enrichment).not.toThrow();
+      });
+
+      it("should handle empty object gracefully", () => {
+        const enrichment = buildEnrichment("aup", {});
+
+        // Should not throw and return valid enrichment structure
+        expect(enrichment).not.toBeNull();
+        expect(enrichment).toHaveProperty("violationsSample");
+        expect(enrichment).toHaveProperty("violationMetrics");
+      });
+
+      it("should handle object with unexpected properties gracefully", () => {
+        const enrichment = buildEnrichment("aup", {
+          unexpected: "field",
+          random: 123,
+          array: [1, 2, 3],
+        });
+
+        // Should not throw and return valid enrichment structure
+        expect(enrichment).not.toBeNull();
+        expect(enrichment).toHaveProperty("violationsSample");
+        expect(enrichment).toHaveProperty("violationMetrics");
+      });
     });
 
     it("should call correct builder for each module", () => {
