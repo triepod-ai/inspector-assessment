@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.42.0] - 2026-01-22
+
 ### Added
+
+- **V2 Internal Refactoring - Test Suite Documentation** (Issue #200, Phase 5): Organized 102 test files into 14 categories
+  - Created `client/src/services/assessment/__tests__/README.md` (433 lines)
+  - Categories: Security (26), False Positives (7), Protocol (7), Temporal (7), Test Infrastructure (13), Orchestration (6), Module-Specific (9), Analyzers (10), Response Validation (2), Behavior (3), Integration (5), Utility (7), Package (2), Stage/Fix (2)
+  - Jest `--testPathPattern` commands for selective test execution
+  - CI/CD integration examples for parallel test jobs
+  - Naming conventions for new tests
+
+- **Enrichment Builder Registry Pattern** (Issue #200, Phase 4): New registry-based enrichment system
+  - `buildEnrichment(moduleName, result)` - Get enrichment for any module via registry lookup
+  - `hasEnrichmentBuilder(moduleName)` - Check if module supports enrichment
+  - `getEnrichableModules()` - List all enrichable modules
+  - `EnrichableModule` type for type-safe module names
+  - Replaces 6 repetitive if-blocks with single registry lookup in `emitModuleProgress()`
 
 - **AUP Module Enrichment for Stage B Claude Validation** (Issue #194): Enhanced AUP compliance module with tool context enrichment
   - **Tool Inventory**: Server tools with inferred capabilities (file_system, network, exec, database, auth, crypto, system) for Claude analysis
@@ -28,15 +44,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Detection priority: Magic bytes checked first (primary), JSON self-reporting as supplementary
   - 10 new tests covering Uint8Array handling, magic byte priority, DoS thresholds, and edge cases
 
-### Changed
-
-- **Improved Zod Error Messages** (Issue #84): Enhanced union validation error formatting
-  - `zodErrorFormatter.ts` now shows up to 3 unique errors for union validation failures
-  - Provides more specific error details when server config validation fails
-  - Better CLI error messages help users quickly identify configuration issues
-  - Example: Shows both "url must be a valid URL" and "command is required for stdio transport" when neither transport format matches
-
 ### Refactored
+
+- **V2 Internal Refactoring - Pattern Externalization** (Issue #200, Phase 3): Moved patterns from TypeScript to JSON
+  - Created `patterns/annotation-patterns.json` for tool annotation patterns
+  - Created `patterns/sanitization-patterns.json` for sanitization library patterns
+  - New `patternLoader.ts` with lazy loading and caching
+  - Enables pattern updates without code changes
+  - Backward compatible - existing exports unchanged
+
+- **V2 Internal Refactoring - SecurityAssessor Decoupling** (Issue #200, Phase 2): Factory + DI pattern
+  - New `securityTests/factory.ts` with `createSecurityTesters()` factory function
+  - SecurityAssessor now accepts optional `SecurityTesters` via constructor
+  - Enables mocking individual testers in unit tests
+  - 7 tightly-coupled helpers now injectable
+
+- **V2 Internal Refactoring - Deprecated Code Cleanup** (Issue #200, Phase 1): Converted deprecated files to thin wrappers
+  - `ErrorHandlingAssessor.deprecated.ts` now re-exports from ProtocolComplianceAssessor
+  - `ProtocolComplianceAssessor.deprecated.ts` now re-exports from new implementation
+  - Maintains backward compatibility while reducing maintenance burden
 
 - **SecurityResponseAnalyzer Modularization** (Issue #179): Extracted specialized vulnerability analyzers for improved maintainability
   - Reduced main file from 1,774 lines to 759 lines (-57%)
@@ -54,6 +80,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Type re-exports maintained for backward compatibility
   - All public APIs unchanged - internal architecture improvement only
   - 33 new tests validating analyzer exports and edge cases
+
+### Changed
+
+- **Improved Zod Error Messages** (Issue #84): Enhanced union validation error formatting
+  - `zodErrorFormatter.ts` now shows up to 3 unique errors for union validation failures
+  - Provides more specific error details when server config validation fails
+  - Better CLI error messages help users quickly identify configuration issues
+  - Example: Shows both "url must be a valid URL" and "command is required for stdio transport" when neither transport format matches
+
+### Tests
+
+- **Code Review Tests** (Issue #200): Added 16 tests from code review session
+  - Enrichment field verification tests for JSONL events (2 tests)
+  - Non-enrichable module negative tests (2 tests)
+  - Malformed input handling tests (6 tests)
+  - Case-sensitivity documentation tests (6 tests)
 
 ### Fixed
 
