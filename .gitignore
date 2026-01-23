@@ -1,6 +1,10 @@
 # Folders
 .code-review-cache/
 
+# Context Files
+PROJECT_STATUS.*
+PROJECT_STATUS_ARCHIVE.md
+
 
 .DS_Store
 .vscode
@@ -41,3 +45,6 @@ PUBLISHING_GUIDE.md
 
 # Test coverage reports
 coverage/
+
+inspector.code-workspace
+.env

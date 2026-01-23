@@ -316,3 +316,174 @@
 - Agents used: code-reviewer-pro, debugger, qa-expert, test-automator, docs-sync
 
 ---
+
+## 2026-01-18: Issues #189 and #190 - v2.0 Profile Preparation
+
+**Summary:** Implemented dev profile and deprecation warnings for v2.0 profile transition
+
+**Session Focus:** Preparing CLI for v2.0 where --profile will be required (Issues #189 and #190)
+
+**Changes Made:**
+- Added new `--profile dev` to CLI with all assessment modules (equivalent to `full` in v1.x)
+- Renamed TIER_4_EXTENDED to TIER_4_DEVELOPMENT for clarity with backward compatibility alias
+- Added deprecation warning when running without --profile flag
+- Fixed pre-existing lint errors:
+  - Broken eslint directives in 7 files
+  - Unused variable in 1 file
+- Updated files: profiles.ts, cli-parserSchemas.ts, config-builder.ts, cli-parser.ts, profiles.test.ts, CLI_ASSESSMENT_GUIDE.md
+- 14 files changed, 145 insertions, 39 deletions
+
+**Key Decisions:**
+- `dev` profile includes all modules (like v1.x `full` behavior)
+- `full` becomes CI/CD-optimized in v2.0 (excludes developerExperience, portability, fileModularization)
+- TIER_4_EXTENDED kept as alias for backward compatibility
+- Deprecation warning guides users to adopt --profile before v2.0
+
+**Next Steps:**
+- v2.0 release: Make --profile required (remove deprecation warning)
+- Consider additional profile presets based on user feedback
+
+**Notes:**
+- Commit: 8fdee60e
+- All 51 profile tests pass, build passes, lint passes
+- Issues #189 and #190 closed and pushed to origin
+- This is a non-breaking change preparing for v2.0 breaking change
+
+---
+
+## 2026-01-18: Code Review Workflow on v2.0 Profile Commit
+
+**Summary:** Ran 7-stage code review on commit 8fdee60e, added test coverage for deprecation warnings
+
+**Session Focus:** Code review validation of Issues #189 and #190 implementation (v2.0 profile setup)
+
+**Changes Made:**
+- Ran full 7-stage code review workflow on commit 8fdee60e
+- Stage 1 analysis: Found 5 minor issues (0 P0, 0 P1, 1 P2, 4 P3)
+- Stage 4 test additions in config-builder.test.ts:
+  - Added 5 deprecation warning tests for coverage
+- Stage 4 fix in flag-parsing.test.ts:
+  - Added 'dev' to VALID_PROFILES array
+- Committed test additions: 3933deb0
+- Pushed to origin and verified issues #189 and #190 already closed
+
+**Key Decisions:**
+- Addressed medium priority test gaps only (deprecation warning logic, VALID_PROFILES)
+- Low priority gaps (backward compat alias tests) skipped as already covered by existing tests
+- No P0/P1 issues found - implementation is solid
+
+**Next Steps:**
+- v2.0 release planning - make --profile required
+- Consider adding more profile presets based on user feedback
+
+**Notes:**
+- Review found no critical issues in the v2.0 profile implementation
+- Test coverage improved for deprecation warning scenarios
+- Code review workflow validated the implementation quality
+
+---
+
+## 2026-01-19: Issue #194 - AUP Enrichment Validation and Code Review
+
+**Summary:** Completed Issue #194 validation and comprehensive code review with 39 new tests
+
+**Session Focus:** Issue #194 AUP module enrichment validation and 7-stage code review workflow
+
+**Changes Made:**
+- Validated Issue #194 implementation (cd340b12) against vulnerable-mcp testbed
+- Fixed deprecated import paths in run-security-assessment.ts
+- Ran 7-stage code review workflow on commit cd340b12
+- Created 39 new tests for enrichment functionality:
+  - stageBEnrichmentBuilder-AUP.test.ts (15 tests) - NEW
+  - moduleEnrichment.test.ts (+11 edge case tests)
+  - orchestratorHelpers.test.ts (+7 enrichment field tests)
+  - AUPComplianceAssessor.test.ts (+6 enrichmentData tests)
+- Updated 4 documentation files (JSONL_EVENTS_ALGORITHMS.md, JSONL_EVENTS_REFERENCE.md, ASSESSMENT_CATALOG.md, CHANGELOG.md)
+- Committed and pushed: 7add699c
+- Closed Issue #194
+
+**Key Decisions:**
+- Code review approved with 0 P0/P1 issues
+- P2/P3 issues (overly broad regex patterns, memoization, Set for deduplication) deferred as non-blocking
+- 39 new tests address all HIGH and MEDIUM priority test gaps identified by QA
+
+**Next Steps:**
+- Monitor P2 issue: regex patterns may cause false positives (future iteration)
+- Consider memoization for buildPatternCoverage (P3)
+
+**Notes:**
+- Commits: cd340b12, 7add699c
+- Issue #194 closed and pushed
+- All 5,399 tests passing
+- Agents used: code-reviewer-pro, debugger, qa-expert, test-automator, docs-sync
+
+---
+
+## 2026-01-23: Issue #200 - V2 Internal Refactoring Code Review and v1.42.0 Release
+
+**Summary:** Code review and npm publish of V2 Internal Refactoring (Issue #200)
+
+**Session Focus:** Complete 7-stage code review workflow, create tests, publish v1.42.0
+
+**Changes Made:**
+- Ran full code review workflow (Stages 0-6) on Phase 4-5 commits
+- Created 16 tests addressing QA gaps:
+  - emitModuleProgress.test.ts - orchestrator progress emission tests
+  - orchestratorHelpers.test.ts - helper function tests
+- Committed test changes (88de2bb8)
+- Bumped version 1.41.1 -> 1.42.0 (minor - new exports)
+- Published all 4 packages to npm:
+  - @bryan-thompson/inspector-assessment@1.42.0
+  - @bryan-thompson/inspector-assessment-client@1.42.0
+  - @bryan-thompson/inspector-assessment-server@1.42.0
+  - @bryan-thompson/inspector-assessment-cli@1.42.0
+- Updated CHANGELOG.md with complete release notes
+
+**Key Decisions:**
+- Minor version bump (not patch) due to new public exports (buildEnrichment, hasEnrichmentBuilder, getEnrichableModules)
+- Deferred W1/W2 warnings from code review (theoretical concerns, don't manifest in practice)
+
+**Next Steps:**
+- Continue with other project work
+- Issue #200 V2 Internal Refactoring complete
+
+**Notes:**
+- Commits: 88de2bb8, version bump commits
+- All 5,332 tests passing
+- Code review verdict: PASS
+- npm package verified working via bunx
+
+---
+## 2026-01-23: Issue #201 - Partial Payload Echo Detection for False Positive Prevention
+
+**Summary:** Implemented partial payload echo detection to reduce false positives when servers echo attack payloads in error messages
+
+**Session Focus:** Fix false positives in security module where servers echo attack payloads in error context (e.g., "File not found: /path/<?xml...xxe...>")
+
+**Changes Made:**
+- Added isPayloadPartiallyEchoed() function to SecurityPatternLibrary.ts (55 lines)
+  - Three-tier detection: exact match → prefix (30 chars) → segment-based (50%+ match)
+  - Reduces false positives from harmless error message echoes
+- Updated isPayloadInErrorContext() to use new partial echo detection
+- Updated checkVulnerabilityEvidence() in SecurityResponseAnalyzer.ts
+- Created comprehensive test suite: PayloadEchoDetection-Issue201.test.ts
+  - 29 core tests covering exact, prefix, segment-based, and edge cases
+  - 11 additional edge case tests from code review (40 total tests)
+- All 5372 tests passing (green build)
+
+**Key Decisions:**
+- Three-tier detection strategy balances accuracy and performance
+- Internal implementation fix - no documentation updates needed
+- All P2/P3 suggestions from code review deferred (non-critical)
+- No security vulnerabilities found (P0/P1 count: 0)
+
+**Next Steps:**
+- Push commits to origin (0dcc0f1a, 3c8d345b)
+- Close Issue #201
+
+**Notes:**
+- Code review completed: 0 P0 findings, 0 P1 findings
+- Full 7-stage code review workflow executed
+- Ready for next phase work
+
+---
