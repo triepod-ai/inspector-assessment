@@ -543,7 +543,30 @@ export class ResponseValidator {
       toolName.includes("extract") ||
       toolName.includes("parse") ||
       toolName.includes("analyze") ||
-      toolName.includes("process");
+      toolName.includes("process") ||
+      // File/media operations (Issue #203)
+      toolName.includes("load") ||
+      toolName.includes("open") ||
+      toolName.includes("save") ||
+      toolName.includes("close") ||
+      toolName.includes("play") ||
+      toolName.includes("stop") ||
+      toolName.includes("pause") ||
+      // IO operations
+      toolName.includes("upload") ||
+      toolName.includes("download") ||
+      toolName.includes("import") ||
+      toolName.includes("export") ||
+      // Execution operations
+      toolName.includes("run") ||
+      toolName.includes("execute") ||
+      toolName.includes("invoke") ||
+      toolName.includes("call") ||
+      // Send/receive operations
+      toolName.includes("send") ||
+      toolName.includes("receive") ||
+      toolName.includes("post") ||
+      toolName.includes("put");
 
     // Calculate confidence that this is a business logic error
     let confidenceFactors = 0;
@@ -589,15 +612,40 @@ export class ResponseValidator {
         errorText.includes("subscription") ||
         errorText.includes("trial"));
 
+    // Issue #203: High-confidence validation patterns that are unambiguous enough
+    // to indicate proper input validation, even without tool name matching.
+    // These patterns strongly indicate the tool is correctly validating inputs.
+    const hasHighConfidenceValidationPattern =
+      hasBusinessErrorPattern &&
+      (errorText.includes("file not found") ||
+        errorText.includes("path not found") ||
+        errorText.includes("directory not found") ||
+        errorText.includes("does not exist") ||
+        errorText.includes("no such file") ||
+        errorText.includes("no such directory") ||
+        errorText.includes("invalid path") ||
+        errorText.includes("permission denied") ||
+        errorText.includes("access denied") ||
+        errorText.includes("unauthorized") ||
+        errorText.includes("authentication required") ||
+        errorText.includes("missing required") ||
+        errorText.includes("required parameter") ||
+        errorText.includes("invalid parameter") ||
+        errorText.includes("invalid input") ||
+        errorText.includes("validation failed"));
+
     // Determine confidence threshold based on error type and tool type
     // - Strong operational errors: 20% (very lenient, these are obvious)
+    // - High-confidence validation patterns: 20% (Issue #203 - unambiguous validation errors)
     // - Validation-expected tools (delete/update/etc): 20% (same as operational - these often fail on missing test data)
     // - Other tools: 50% (standard)
     const confidenceThreshold = hasStrongOperationalError
       ? 0.2
-      : isValidationExpected
+      : hasHighConfidenceValidationPattern
         ? 0.2
-        : 0.5;
+        : isValidationExpected
+          ? 0.2
+          : 0.5;
 
     return confidence >= confidenceThreshold;
   }

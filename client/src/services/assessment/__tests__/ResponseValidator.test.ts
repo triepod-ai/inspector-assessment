@@ -515,6 +515,253 @@ describe("ResponseValidator - isBusinessLogicError", () => {
       expect(ResponseValidator.isBusinessLogicError(context)).toBe(true);
     });
   });
+
+  /**
+   * Issue #203: File/Media Operation Errors
+   * Tests that file-based tools returning validation errors (e.g., "file not found")
+   * are correctly recognized as business logic errors, not tool failures.
+   */
+  describe("File/Media Operation Errors (Issue #203)", () => {
+    it("should recognize 'file not found' from load_audio as business logic error", () => {
+      const tool: Tool = {
+        name: "load_audio",
+        description: "Load audio data from a file path",
+        inputSchema: {
+          type: "object",
+          properties: {
+            path: { type: "string" },
+          },
+          required: ["path"],
+        },
+      };
+
+      const context: ValidationContext = {
+        tool,
+        input: { path: "/nonexistent/file.mp3" },
+        response: {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "File not found: /nonexistent/file.mp3",
+            },
+          ],
+        },
+      };
+
+      // Issue #203: This should be true because:
+      // 1. Tool name "load_audio" matches "load" pattern (isValidationExpected)
+      // 2. Error text matches high-confidence pattern "file not found"
+      expect(ResponseValidator.isBusinessLogicError(context)).toBe(true);
+    });
+
+    it("should recognize 'no such file' as business logic error", () => {
+      const tool: Tool = {
+        name: "open_document",
+        description: "Open a document file",
+        inputSchema: {
+          type: "object",
+          properties: {
+            path: { type: "string" },
+          },
+        },
+      };
+
+      const context: ValidationContext = {
+        tool,
+        input: { path: "/missing/document.pdf" },
+        response: {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "No such file or directory: /missing/document.pdf",
+            },
+          ],
+        },
+      };
+
+      expect(ResponseValidator.isBusinessLogicError(context)).toBe(true);
+    });
+
+    it("should recognize 'path does not exist' as business logic error", () => {
+      const tool: Tool = {
+        name: "play_media",
+        description: "Play media file",
+        inputSchema: {
+          type: "object",
+          properties: {
+            file: { type: "string" },
+          },
+        },
+      };
+
+      const context: ValidationContext = {
+        tool,
+        input: { file: "/invalid/path/video.mp4" },
+        response: {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "Path does not exist: /invalid/path/video.mp4",
+            },
+          ],
+        },
+      };
+
+      expect(ResponseValidator.isBusinessLogicError(context)).toBe(true);
+    });
+
+    it("should recognize 'permission denied' as business logic error", () => {
+      const tool: Tool = {
+        name: "save_file",
+        description: "Save file to disk",
+        inputSchema: {
+          type: "object",
+          properties: {
+            path: { type: "string" },
+            content: { type: "string" },
+          },
+        },
+      };
+
+      const context: ValidationContext = {
+        tool,
+        input: { path: "/root/protected.txt", content: "data" },
+        response: {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "Permission denied: cannot write to /root/protected.txt",
+            },
+          ],
+        },
+      };
+
+      expect(ResponseValidator.isBusinessLogicError(context)).toBe(true);
+    });
+
+    it("should recognize validation errors from execute tools", () => {
+      const tool: Tool = {
+        name: "execute_script",
+        description: "Execute a script file",
+        inputSchema: {
+          type: "object",
+          properties: {
+            script: { type: "string" },
+          },
+        },
+      };
+
+      const context: ValidationContext = {
+        tool,
+        input: { script: "/missing/script.sh" },
+        response: {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "Invalid path: script file does not exist",
+            },
+          ],
+        },
+      };
+
+      expect(ResponseValidator.isBusinessLogicError(context)).toBe(true);
+    });
+
+    it("should recognize errors from upload/download tools", () => {
+      const tool: Tool = {
+        name: "upload_file",
+        description: "Upload a file to storage",
+        inputSchema: {
+          type: "object",
+          properties: {
+            localPath: { type: "string" },
+          },
+        },
+      };
+
+      const context: ValidationContext = {
+        tool,
+        input: { localPath: "/missing/file.txt" },
+        response: {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "File not found: /missing/file.txt",
+            },
+          ],
+        },
+      };
+
+      expect(ResponseValidator.isBusinessLogicError(context)).toBe(true);
+    });
+
+    it("should recognize 'missing required parameter' as business logic error", () => {
+      // This tests high-confidence validation pattern even without tool name match
+      const tool: Tool = {
+        name: "custom_tool",
+        description: "A custom tool without matching name patterns",
+        inputSchema: {
+          type: "object",
+          properties: {
+            data: { type: "string" },
+          },
+        },
+      };
+
+      const context: ValidationContext = {
+        tool,
+        input: {},
+        response: {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "Missing required parameter: data",
+            },
+          ],
+        },
+      };
+
+      // Should pass due to high-confidence pattern "missing required"
+      expect(ResponseValidator.isBusinessLogicError(context)).toBe(true);
+    });
+
+    it("should recognize 'invalid input' as business logic error", () => {
+      const tool: Tool = {
+        name: "unknown_tool",
+        description: "Tool with unknown name pattern",
+        inputSchema: {
+          type: "object",
+          properties: {
+            value: { type: "number" },
+          },
+        },
+      };
+
+      const context: ValidationContext = {
+        tool,
+        input: { value: "not-a-number" },
+        response: {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "Invalid input: expected number, got string",
+            },
+          ],
+        },
+      };
+
+      // Should pass due to high-confidence pattern "invalid input"
+      expect(ResponseValidator.isBusinessLogicError(context)).toBe(true);
+    });
+  });
 });
 
 /**
