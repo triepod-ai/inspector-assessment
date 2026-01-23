@@ -55,9 +55,10 @@ import {
   CryptographicFailureAnalyzer,
 } from "./analyzers";
 
-// Import pattern library for Issue #146 context classification
+// Import pattern library for Issue #146 context classification and Issue #201 partial echo detection
 import {
   isPayloadInErrorContext,
+  isPayloadPartiallyEchoed,
   hasSuccessContext,
   hasErrorContext,
 } from "./SecurityPatternLibrary";
@@ -628,7 +629,11 @@ export class SecurityResponseAnalyzer {
     // Check for expected evidence of execution
     if (payload.evidence && payload.evidence.test(responseText)) {
       const evidenceMatchesInput = payload.evidence.test(payloadText);
-      if (evidenceMatchesInput && responseText.includes(payloadText)) {
+      // Issue #201: Use partial echo detection for truncated/modified payloads in errors
+      if (
+        evidenceMatchesInput &&
+        isPayloadPartiallyEchoed(responseText, payload.payload)
+      ) {
         // Issue #178: Don't dismiss as echoed input if AppleScript injection detected
         if (
           !this.safeDetector.isAppleScriptInjectionSuccess(

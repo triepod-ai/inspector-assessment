@@ -114,12 +114,64 @@ export function isPayloadInErrorContext(
   const hasErrorContext = ERROR_CONTEXT_PATTERNS.some((p) =>
     p.test(responseText),
   );
-  // Check if payload is reflected in the response
-  const payloadReflected = responseText
-    .toLowerCase()
-    .includes(payload.toLowerCase());
+  // Issue #201: Use partial echo detection for truncated payloads
+  const payloadReflected = isPayloadPartiallyEchoed(responseText, payload);
 
   return hasErrorContext && payloadReflected;
+}
+
+/**
+ * Issue #201: Check if payload is partially echoed in response
+ * Handles truncation and path prepending common in error messages
+ *
+ * False positives occur when servers echo payloads in error messages like:
+ *   "File not found: /path/to/<?xml...xxe SYSTEM...>"
+ *
+ * The evidence regex matches the echoed payload, not actual exploitation.
+ * This function detects partial echoes that the simple includes() check misses.
+ *
+ * @param responseText The full response text from the tool
+ * @param payload The payload that was sent to the tool
+ * @param minPrefixLength Minimum prefix length to check (default: 30)
+ * @returns true if payload or significant portion is echoed in response
+ */
+export function isPayloadPartiallyEchoed(
+  responseText: string,
+  payload: string,
+  minPrefixLength: number = 30,
+): boolean {
+  const lowerResponse = responseText.toLowerCase();
+  const lowerPayload = payload.toLowerCase();
+
+  // First, check for exact match (original behavior)
+  if (lowerResponse.includes(lowerPayload)) {
+    return true;
+  }
+
+  // Check if significant prefix is present (handles path prepending)
+  const prefixLength = Math.min(minPrefixLength, lowerPayload.length);
+  const prefix = lowerPayload.substring(0, prefixLength);
+  if (prefix.length >= 10 && lowerResponse.includes(prefix)) {
+    return true;
+  }
+
+  // Check if multiple distinct segments of payload appear
+  // (handles modified/escaped payloads like URL encoding)
+  const segments = lowerPayload
+    .split(/[\s<>'"&;:\/\\]+/)
+    .filter((s) => s.length > 5);
+
+  if (segments.length > 0) {
+    const matchCount = segments.filter((seg) =>
+      lowerResponse.includes(seg),
+    ).length;
+    // If more than half of significant segments appear, likely echoed
+    if (matchCount >= Math.ceil(segments.length * 0.5)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
