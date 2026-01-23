@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.42.1] - 2026-01-23
+
+### Fixed
+
+- **Security Module False Positive Prevention** (Issue #201): Add partial payload echo detection
+  - New `isPayloadPartiallyEchoed()` function in `SecurityPatternLibrary.ts`
+  - Detects exact payload matches (backward compatible)
+  - Detects payload prefix (first 30 chars) for path-prepended errors like "File not found: /path/to/<?xml...>"
+  - Detects 50%+ segment matches for truncated/escaped payloads
+  - Updated `isPayloadInErrorContext()` and `checkVulnerabilityEvidence()` to use partial detection
+  - 29+ test cases covering XXE, SSRF, RCE false positive scenarios
+  - Edge case tests for short payloads and custom prefix lengths
+  - Fixes false positives when servers echo attack payloads in error messages
+
 ## [1.42.0] - 2026-01-22
 
 ### Added
