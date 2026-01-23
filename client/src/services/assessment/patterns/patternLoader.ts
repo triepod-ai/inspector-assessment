@@ -15,8 +15,9 @@
  */
 
 // Import JSON files directly (TypeScript resolveJsonModule)
-import annotationPatternsJson from "./annotation-patterns.json";
-import sanitizationPatternsJson from "./sanitization-patterns.json";
+// Node.js v22+ requires import attributes for JSON modules
+import annotationPatternsJson from "./annotation-patterns.json" with { type: "json" };
+import sanitizationPatternsJson from "./sanitization-patterns.json" with { type: "json" };
 
 // ============================================================================
 // Types

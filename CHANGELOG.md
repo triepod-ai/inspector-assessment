@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.42.2] - 2026-01-23
+
+### Fixed
+
+- **Node.js v22 JSON Import Attributes** (Issue #202): Add required `with { type: "json" }` import attributes
+  - Updated `patternLoader.ts` JSON imports for `annotation-patterns.json` and `sanitization-patterns.json`
+  - Updated `Sidebar.tsx` import for `package.json`
+  - Fixes `ERR_IMPORT_ATTRIBUTE_MISSING` crash on Node.js v22+
+
 ## [1.42.1] - 2026-01-23
 
 ### Fixed
