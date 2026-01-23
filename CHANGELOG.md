@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **File Validation Error False Positives** (Issue #203): Enhanced business logic error detection for file/media operations
+  - Added 20 file/media tool name patterns (load, open, save, play, upload, download, etc.)
+  - Added 16 high-confidence validation patterns (file not found, path not found, permission denied, etc.)
+  - Fixed broken tool classification when tools return legitimate "file not found" errors
+  - High-confidence validation patterns use 20% threshold (same as strong operational errors)
+  - Example: `load_audio` returning "File not found: /nonexistent/file.mp3" now correctly classified as "working"
+  - Validation-expected tool list expanded from 23 to 43 patterns
+  - 8 new tests covering file/media operation validation scenarios
+
 ## [1.42.2] - 2026-01-23
 
 ### Fixed

@@ -40,6 +40,9 @@ To recognize new error patterns as business logic errors:
   "account locked",
   "daily limit exceeded",
   "invalid iban");
+
+// Example: Support file/media validation errors (Issue #203)
+("file not found", "path not found", "permission denied", "invalid path");
 ```
 
 2. **Find the pattern category** in `isBusinessLogicError()`:
@@ -57,22 +60,41 @@ const businessErrorPatterns = [
 ];
 ```
 
-3. **Determine the weight**: Does it already have appropriate weight?
+3. **Determine the weight and threshold**: Does it deserve special handling?
 
 ```typescript
-// New banking patterns: part of business rule validation
-// Weight: standard (1x, already weighted in total calculation)
+// Standard patterns: part of business rule validation
+// Weight: 1x (already weighted in total calculation)
+// Threshold: 50% (default)
 
-// If pattern is as obvious as quota/credits, should get special handling:
+// High-confidence patterns (Issue #203): unambiguous validation errors
+// Examples: "file not found", "permission denied", "validation failed"
+// Threshold: 20% (very lenient, these are unambiguous)
+const hasHighConfidenceValidationPattern =
+  hasBusinessErrorPattern &&
+  (errorText.includes("file not found") ||
+    errorText.includes("path not found") ||
+    errorText.includes("permission denied") ||
+    errorText.includes("invalid path") ||
+    // ... other high-confidence validation patterns
+    errorText.includes("validation failed"));
+
+// Strong operational errors: quota/credits/rate limits
+// Threshold: 20% (very lenient, these are obvious)
 const hasStrongOperationalError =
   hasBusinessErrorPattern &&
   (errorText.includes("insufficient funds") ||
-    errorText.includes("account locked") ||
-    // ... other strong banking errors
-    errorText.includes("daily limit exceeded"));
+    errorText.includes("quota exceeded") ||
+    // ... other operational errors
+    errorText.includes("rate limit"));
 
-// Then lower threshold to 0.2 for banking tools
-const confidenceThreshold = hasStrongOperationalError ? 0.2 : 0.5;
+// Apply appropriate threshold
+const confidenceThreshold =
+  hasStrongOperationalError || hasHighConfidenceValidationPattern
+    ? 0.2
+    : isValidationExpected
+      ? 0.2
+      : 0.5;
 ```
 
 4. **Test the change**:
@@ -94,6 +116,31 @@ it("should recognize insufficient funds as business logic error", () => {
         {
           type: "text",
           text: "Insufficient funds in account",
+        },
+      ],
+    },
+  };
+
+  expect(ResponseValidator.isBusinessLogicError(context)).toBe(true);
+});
+
+// Test file validation error (Issue #203)
+it("should recognize file not found as business logic error", () => {
+  const tool: Tool = {
+    name: "load_audio",
+    description: "Load audio file",
+    inputSchema: { type: "object" },
+  };
+
+  const context: ValidationContext = {
+    tool,
+    input: { path: "/nonexistent/file.mp3" },
+    response: {
+      isError: true,
+      content: [
+        {
+          type: "text",
+          text: "File not found: /nonexistent/file.mp3",
         },
       ],
     },
@@ -325,7 +372,28 @@ const isBusinessError = ResponseValidator.isBusinessLogicError(context);
 // Indicates: Tool failure, not validation
 ```
 
-### Scenario 3: Tool Out of Credits
+### Scenario 3: File Validation Error (Issue #203)
+
+```typescript
+const context: ValidationContext = {
+  tool: { name: "load_audio", ... },
+  input: { path: "/nonexistent/file.mp3" },
+  response: {
+    isError: true,
+    content: [{
+      type: "text",
+      text: "File not found: /nonexistent/file.mp3"
+    }]
+  }
+};
+
+const isBusinessError = ResponseValidator.isBusinessLogicError(context);
+// true (high-confidence validation pattern)
+// Special handling: 20% threshold (unambiguous validation)
+// Indicates: Tool working, properly validating file paths
+```
+
+### Scenario 4: Tool Out of Credits
 
 ```typescript
 const context: ValidationContext = {
@@ -346,7 +414,7 @@ const isBusinessError = ResponseValidator.isBusinessLogicError(context);
 // Indicates: Tool working, just operational limitation
 ```
 
-### Scenario 4: Tool Returns Valid JSON
+### Scenario 5: Tool Returns Valid JSON
 
 ```typescript
 const context: ValidationContext = {

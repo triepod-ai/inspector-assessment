@@ -761,6 +761,41 @@ describe("ResponseValidator - isBusinessLogicError", () => {
       // Should pass due to high-confidence pattern "invalid input"
       expect(ResponseValidator.isBusinessLogicError(context)).toBe(true);
     });
+
+    // TODO: Issue #204 - Substring matching causes false positives
+    // Tools like "payload_validator" contain "load" but aren't file operations.
+    // Current implementation uses toolName.includes("load") which is too broad.
+    // Fix requires refactoring to word boundary matching (e.g., /\bload\b/).
+    it.skip("should NOT incorrectly flag tools with substring matches (payload_validator)", () => {
+      const tool: Tool = {
+        name: "payload_validator",
+        description: "Validate API payload structure",
+        inputSchema: {
+          type: "object",
+          properties: {
+            payload: { type: "object" },
+          },
+        },
+      };
+
+      const context: ValidationContext = {
+        tool,
+        input: { payload: { data: "test" } },
+        response: {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "TypeError: Cannot read property 'foo' of undefined",
+            },
+          ],
+        },
+      };
+
+      // EXPECTED: false (crash, not validation)
+      // ACTUAL: true (substring match causes false positive)
+      expect(ResponseValidator.isBusinessLogicError(context)).toBe(false);
+    });
   });
 });
 

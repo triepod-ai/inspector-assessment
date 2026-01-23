@@ -296,6 +296,12 @@ if (hasStrongOperationalError) {
   threshold = 0.2;
 }
 
+// High-confidence validation patterns (Issue #203)
+// -> 20% threshold (file not found, permission denied, etc.)
+else if (hasHighConfidenceValidationPattern) {
+  threshold = 0.2;
+}
+
 // Validation-expected tools (delete, update, create, search, etc.)
 // -> 20% threshold (these often fail on test data)
 else if (isValidationExpected) {
@@ -374,6 +380,21 @@ The validator recognizes standard MCP error codes indicating proper validation:
 "rate limit", "too many requests", "throttled", "quota exceeded"
 ```
 
+#### File/Media Validation (Issue #203)
+
+High-confidence validation patterns that unambiguously indicate proper input validation:
+
+```
+"file not found", "path not found", "directory not found",
+"does not exist", "no such file", "no such directory",
+"invalid path", "permission denied", "access denied",
+"unauthorized", "authentication required", "missing required",
+"required parameter", "invalid parameter", "invalid input",
+"validation failed"
+```
+
+**Special handling**: These patterns use the 20% confidence threshold (same as strong operational errors) because they are unambiguous indicators of working validation logic.
+
 ### Validation-Expected Tools
 
 Tools that inherently involve data validation get lower confidence thresholds:
@@ -384,6 +405,10 @@ Tools that inherently involve data validation get lower confidence thresholds:
 - **State operations**: move, copy, duplicate, archive
 - **Relationship ops**: link, associate, connect, attach
 - **API/scraping**: scrape, crawl, extract, parse, analyze, process
+- **File/media operations** (Issue #203): load, open, save, close, play, stop, pause
+- **IO operations**: upload, download, import, export
+- **Execution operations**: run, execute, invoke, call
+- **Send/receive operations**: send, receive, post, put
 
 ### Code Example: Business Logic Error Detection
 
@@ -455,6 +480,29 @@ const context3: ValidationContext = {
 const result3 = ResponseValidator.isBusinessLogicError(context3);
 console.log(result3); // true - Operational error
 // Strong operational error (credits) = meets 20% threshold
+
+// Scenario 4: File validation error (Issue #203)
+const context4: ValidationContext = {
+  tool: {
+    name: "load_audio",
+    description: "Load audio file",
+    inputSchema: { type: "object" },
+  },
+  input: { path: "/nonexistent/file.mp3" },
+  response: {
+    isError: true,
+    content: [
+      {
+        type: "text",
+        text: "File not found: /nonexistent/file.mp3",
+      },
+    ],
+  },
+};
+
+const result4 = ResponseValidator.isBusinessLogicError(context4);
+console.log(result4); // true - High-confidence validation pattern
+// "file not found" pattern + file operation tool = 20% threshold
 ```
 
 ### When Is Error Validation Used?
