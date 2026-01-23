@@ -133,6 +133,119 @@ describe("Issue #201: Payload Echo Detection", () => {
         expect(isPayloadPartiallyEchoed(response, payload)).toBe(false);
       });
     });
+
+    describe("edge cases - very short payloads (TEST-REQ-001)", () => {
+      it("handles payload shorter than minPrefixLength default (30 chars)", () => {
+        // Payload is 20 chars, shorter than default minPrefixLength of 30
+        const payload = "test_payload_20chars";
+        const response = "Error: file 'test_payload_20chars' not found";
+
+        // Should still detect via exact match
+        expect(isPayloadPartiallyEchoed(response, payload)).toBe(true);
+      });
+
+      it("handles very short payload (< 10 chars) not echoed", () => {
+        // Payload is 8 chars, below the prefix.length >= 10 safety check
+        const payload = "shortval";
+        const response = "Error: Invalid input provided";
+
+        // Should return false (no exact match, prefix too short)
+        expect(isPayloadPartiallyEchoed(response, payload)).toBe(false);
+      });
+
+      it("handles very short payload (< 10 chars) when echoed", () => {
+        // Payload is 8 chars, should still work via exact match
+        const payload = "shortval";
+        const response = "Error: 'shortval' is invalid";
+
+        // Should return true via exact match despite being < 10 chars
+        expect(isPayloadPartiallyEchoed(response, payload)).toBe(true);
+      });
+
+      it("handles payload with all segments ≤5 chars", () => {
+        // All segments after splitting are ≤5 chars: "a", "1", "b", "2", "c", "3"
+        const payload = "a=1&b=2&c=3";
+        const response = "Error: parameters a=1&b=2&c=3 are invalid";
+
+        // Should detect via exact match, not segment match (all segments filtered out)
+        expect(isPayloadPartiallyEchoed(response, payload)).toBe(true);
+      });
+
+      it("handles payload with single long segment", () => {
+        // Single segment after splitting (no delimiters)
+        const payload = "verylongsinglesegmentwithnospaces";
+        const response =
+          "Error: 'verylongsinglesegmentwithnospaces' is not valid";
+
+        // Should detect via exact match or prefix match
+        expect(isPayloadPartiallyEchoed(response, payload)).toBe(true);
+      });
+
+      it("returns false when single long segment not present", () => {
+        // Single segment that's not in response
+        const payload = "verylongsinglesegmentwithnospaces";
+        const response = "Error: Invalid request format";
+
+        // Should return false (no match)
+        expect(isPayloadPartiallyEchoed(response, payload)).toBe(false);
+      });
+    });
+
+    describe("custom minPrefixLength parameter (TEST-REQ-003)", () => {
+      it("detects echo with custom minPrefixLength of 20", () => {
+        // Payload is 40 chars, prefix length set to 20
+        const payload = "attack_payload_exactly_40_characters";
+        const response =
+          "Error: file 'attack_payload_exactly_40_characters' not found";
+
+        // Should detect with custom prefix length
+        expect(isPayloadPartiallyEchoed(response, payload, 20)).toBe(true);
+      });
+
+      it("detects echo with custom minPrefixLength of 50", () => {
+        // Payload is 40 chars, prefix length requested is 50 (longer than payload)
+        const payload = "attack_payload_exactly_40_characters";
+        const response =
+          "Error: file 'attack_payload_exactly_40_characters' not found";
+
+        // Should still detect (minPrefixLength clamped to payload length)
+        expect(isPayloadPartiallyEchoed(response, payload, 50)).toBe(true);
+      });
+
+      it("tests boundary condition: payload exactly 30 chars with 30-char prefix match", () => {
+        // Payload is exactly 30 chars
+        const payload = "attack_payload_thirty_characts";
+        const response =
+          "Error: file 'attack_payload_thirty_characts' not found";
+
+        // Should detect with default minPrefixLength of 30
+        expect(isPayloadPartiallyEchoed(response, payload)).toBe(true);
+        // And with explicit 30
+        expect(isPayloadPartiallyEchoed(response, payload, 30)).toBe(true);
+      });
+
+      it("tests custom minPrefixLength does not match when prefix absent", () => {
+        // Payload is 40 chars, only last 15 chars present in response
+        const payload = "very_long_attack_payload_with_unique_suffix";
+        const response = "Error: suffix was invalid";
+
+        // Should return false with default minPrefixLength of 30 (no 30-char prefix match)
+        expect(isPayloadPartiallyEchoed(response, payload)).toBe(false);
+        // Should return false with custom minPrefixLength of 20 (no 20-char prefix match)
+        expect(isPayloadPartiallyEchoed(response, payload, 20)).toBe(false);
+      });
+
+      it("tests minPrefixLength=10 detects shorter prefix", () => {
+        // Payload is 25 chars, first 10 chars present in response
+        const payload = "testprefix_and_more_stuff";
+        const response = "Error: testprefix was found but invalid";
+
+        // Should detect with minPrefixLength of 10
+        expect(isPayloadPartiallyEchoed(response, payload, 10)).toBe(true);
+        // Should NOT detect with default minPrefixLength of 30 (prefix too short)
+        expect(isPayloadPartiallyEchoed(response, payload)).toBe(false);
+      });
+    });
   });
 
   describe("isPayloadInErrorContext", () => {
