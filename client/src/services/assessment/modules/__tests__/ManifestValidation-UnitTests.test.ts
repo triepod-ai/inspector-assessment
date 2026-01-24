@@ -1,10 +1,11 @@
 /**
  * Unit tests for ManifestValidationAssessor helper functions
- * Tests the fixes applied in Stage 3 (Issue #140)
+ * Tests the fixes applied in Stage 3 (Issue #140) and Issue #209
  *
  * TEST-001: Validates FIX-001 (Levenshtein distance optimization)
  * TEST-002: Validates FIX-001 (findClosestMatch logic - tested indirectly via integration)
  * TEST-003: Validates FIX-002 (fetchWithRetry exponential backoff)
+ * TEST-004: Validates Issue #209 (version consistency - manifest vs runtime)
  */
 
 import {
@@ -442,6 +443,163 @@ describe("ManifestValidationAssessor - Unit Tests (Stage 3 Fixes)", () => {
       expect(privacyResult!.issue).toContain("inaccessible");
       // Fetch not called for invalid URLs
       expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  // ============================================
+  // TEST-004: Version Consistency Check (Issue #209)
+  // Fulfills: Issue #209
+  // Validates: manifest vs runtime version comparison
+  // ============================================
+
+  describe("validateVersionConsistency (Issue #209)", () => {
+    describe("happy path scenarios", () => {
+      it("should pass when versions match exactly", async () => {
+        mockContext.manifestJson = createMockManifestJson({ version: "1.0.0" });
+        mockContext.serverInfo = { name: "test", version: "1.0.0" };
+
+        const result = await assessor.assess(mockContext);
+
+        const consistencyResult = result.validationResults.find(
+          (r) => r.field === "version (consistency)",
+        );
+        expect(consistencyResult).toBeDefined();
+        expect(consistencyResult!.valid).toBe(true);
+        expect(consistencyResult!.severity).toBe("INFO");
+      });
+
+      it("should pass when versions match with prerelease suffix", async () => {
+        mockContext.manifestJson = createMockManifestJson({
+          version: "1.0.0-beta.1",
+        });
+        mockContext.serverInfo = { name: "test", version: "1.0.0-beta.1" };
+
+        const result = await assessor.assess(mockContext);
+
+        const consistencyResult = result.validationResults.find(
+          (r) => r.field === "version (consistency)",
+        );
+        expect(consistencyResult!.valid).toBe(true);
+      });
+    });
+
+    describe("mismatch detection", () => {
+      it("should warn when patch versions differ", async () => {
+        mockContext.manifestJson = createMockManifestJson({ version: "1.0.0" });
+        mockContext.serverInfo = { name: "test", version: "1.0.1" };
+
+        const result = await assessor.assess(mockContext);
+
+        const consistencyResult = result.validationResults.find(
+          (r) => r.field === "version (consistency)",
+        );
+        expect(consistencyResult).toBeDefined();
+        expect(consistencyResult!.valid).toBe(false);
+        expect(consistencyResult!.severity).toBe("WARNING");
+        expect(consistencyResult!.issue).toContain(
+          'Manifest version "1.0.0" differs from runtime version "1.0.1"',
+        );
+      });
+
+      it("should warn when minor versions differ", async () => {
+        mockContext.manifestJson = createMockManifestJson({ version: "1.0.0" });
+        mockContext.serverInfo = { name: "test", version: "1.1.0" };
+
+        const result = await assessor.assess(mockContext);
+
+        const consistencyResult = result.validationResults.find(
+          (r) => r.field === "version (consistency)",
+        );
+        expect(consistencyResult!.valid).toBe(false);
+        expect(consistencyResult!.issue).toContain("differs from runtime");
+      });
+
+      it("should warn when major versions differ", async () => {
+        mockContext.manifestJson = createMockManifestJson({ version: "1.0.0" });
+        mockContext.serverInfo = { name: "test", version: "2.0.0" };
+
+        const result = await assessor.assess(mockContext);
+
+        const consistencyResult = result.validationResults.find(
+          (r) => r.field === "version (consistency)",
+        );
+        expect(consistencyResult!.valid).toBe(false);
+      });
+
+      it("should include both versions in value field", async () => {
+        mockContext.manifestJson = createMockManifestJson({ version: "1.0.0" });
+        mockContext.serverInfo = { name: "test", version: "2.0.0" };
+
+        const result = await assessor.assess(mockContext);
+
+        const consistencyResult = result.validationResults.find(
+          (r) => r.field === "version (consistency)",
+        );
+        expect(consistencyResult!.value).toEqual({
+          manifest: "1.0.0",
+          runtime: "2.0.0",
+        });
+      });
+    });
+
+    describe("edge cases", () => {
+      it("should handle missing runtime version gracefully", async () => {
+        mockContext.manifestJson = createMockManifestJson({ version: "1.0.0" });
+        mockContext.serverInfo = { name: "test" }; // No version
+
+        const result = await assessor.assess(mockContext);
+
+        const consistencyResult = result.validationResults.find(
+          (r) => r.field === "version (consistency)",
+        );
+        expect(consistencyResult).toBeDefined();
+        expect(consistencyResult!.valid).toBe(true);
+        expect(consistencyResult!.severity).toBe("INFO");
+        expect(consistencyResult!.issue).toContain(
+          "Runtime version not available",
+        );
+      });
+
+      it("should handle undefined serverInfo", async () => {
+        mockContext.manifestJson = createMockManifestJson({ version: "1.0.0" });
+        mockContext.serverInfo = undefined;
+
+        const result = await assessor.assess(mockContext);
+
+        const consistencyResult = result.validationResults.find(
+          (r) => r.field === "version (consistency)",
+        );
+        expect(consistencyResult).toBeDefined();
+        expect(consistencyResult!.valid).toBe(true);
+      });
+
+      it("should handle empty runtime version string", async () => {
+        mockContext.manifestJson = createMockManifestJson({ version: "1.0.0" });
+        mockContext.serverInfo = { name: "test", version: "" };
+
+        const result = await assessor.assess(mockContext);
+
+        const consistencyResult = result.validationResults.find(
+          (r) => r.field === "version (consistency)",
+        );
+        // Empty string is falsy, so treated as missing
+        expect(consistencyResult!.valid).toBe(true);
+        expect(consistencyResult!.issue).toContain(
+          "Runtime version not available",
+        );
+      });
+
+      it("should use exact string comparison (case sensitive)", async () => {
+        mockContext.manifestJson = createMockManifestJson({ version: "1.0.0" });
+        mockContext.serverInfo = { name: "test", version: "1.0.0-BETA" };
+
+        const result = await assessor.assess(mockContext);
+
+        const consistencyResult = result.validationResults.find(
+          (r) => r.field === "version (consistency)",
+        );
+        expect(consistencyResult!.valid).toBe(false);
+      });
     });
   });
 });

@@ -7,6 +7,7 @@
  * - Required fields: name, version, description, author
  * - mcp_config structure
  * - icon.png presence
+ * - Version consistency (manifest vs runtime) - Issue #209
  *
  * Reference: MCPB Specification
  */
@@ -307,6 +308,10 @@ export class ManifestValidationAssessor extends BaseAssessor {
     // Validate version format
     this.testCount++;
     validationResults.push(this.validateVersionFormat(manifest.version));
+
+    // Validate version consistency (Issue #209)
+    this.testCount++;
+    validationResults.push(this.validateVersionConsistency(manifest, context));
 
     // Validate tool names match server (Issue #140)
     if (manifest.tools && context.tools.length > 0) {
@@ -719,6 +724,47 @@ export class ManifestValidationAssessor extends BaseAssessor {
       field: "version (format)",
       valid: true,
       value: version,
+      severity: "INFO",
+    };
+  }
+
+  /**
+   * Validate version consistency between manifest and runtime (Issue #209)
+   * Compares manifest.version against serverInfo.version from MCP initialize
+   */
+  private validateVersionConsistency(
+    manifest: ManifestJsonSchema,
+    context: AssessmentContext,
+  ): ManifestValidationResult {
+    const manifestVersion = manifest.version;
+    const runtimeVersion = context.serverInfo?.version;
+
+    // If no runtime version available, skip check with INFO
+    if (!runtimeVersion) {
+      return {
+        field: "version (consistency)",
+        valid: true,
+        value: { manifest: manifestVersion, runtime: undefined },
+        issue: "Runtime version not available for comparison",
+        severity: "INFO",
+      };
+    }
+
+    // Compare versions
+    if (manifestVersion !== runtimeVersion) {
+      return {
+        field: "version (consistency)",
+        valid: false,
+        value: { manifest: manifestVersion, runtime: runtimeVersion },
+        issue: `Manifest version "${manifestVersion}" differs from runtime version "${runtimeVersion}"`,
+        severity: "WARNING",
+      };
+    }
+
+    return {
+      field: "version (consistency)",
+      valid: true,
+      value: { manifest: manifestVersion, runtime: runtimeVersion },
       severity: "INFO",
     };
   }
