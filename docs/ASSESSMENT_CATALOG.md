@@ -4,7 +4,7 @@ A comprehensive reference for all assessment modules in the MCP Inspector Assess
 
 ## Overview
 
-The MCP Inspector Assessment runs **17 active modules** organized in **4 tiers** plus **4 opt-in modules** (and 1 official conformance opt-in) to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
+The MCP Inspector Assessment runs **16 active modules** organized in **4 tiers** plus **3 opt-in modules** to validate MCP servers for functionality, security, protocol compliance, and Anthropic MCP Directory policy adherence.
 
 ### Module Tier Organization (v1.42.0+)
 
@@ -14,7 +14,7 @@ The MCP Inspector Assessment runs **17 active modules** organized in **4 tiers**
 | **Tier 2: Compliance**    | 2       | MCP Directory requirements            | `compliance`     |
 | **Tier 3: Capability**    | 3       | Resource/Prompt testing (conditional) | `full`           |
 | **Tier 4: Development**   | 2       | Developer experience & portability    | `full`           |
-| **Opt-In Only**           | 4       | Niche/informational modules           | `all`            |
+| **Opt-In Only**           | 3       | Niche/informational modules           | `all`            |
 
 ### CLI Profiles
 
@@ -51,13 +51,14 @@ Tier 4 (Development):
   developerExperience, portability
 
 Opt-In Only (requires --profile all):
-  prohibitedLibraries, manifestValidation, fileModularization, externalAPIScanner*
+  dependencyVulnerability*, prohibitedLibraries, manifestValidation, fileModularization, externalAPIScanner*
 ```
 
-\* `externalAPIScanner` only runs when `--source` flag is provided
+\* Requires `--source` flag for source code access
 
-**Opt-In Modules Rationale** (Issue #200):
+**Opt-In Modules Rationale** (Issue #200, Issue #193):
 
+- `dependencyVulnerability`: Requires shell execution and source code access (Issue #193)
 - `prohibitedLibraries`: Very narrow scope (~25 financial/media libs)
 - `manifestValidation`: Only applicable to MCPB bundles with manifest.json
 - `fileModularization`: Code quality metric, not security-relevant
@@ -1117,6 +1118,95 @@ Enabled in these config presets:
 
 ## Opt-In Modules (Experimental)
 
+### Dependency Vulnerability Assessment
+
+**Purpose**: Detect known vulnerabilities in npm/yarn/pnpm dependencies via package manager audits.
+
+**Requirements**:
+
+- `--source` flag with source code path
+- Shell execution capability
+- Valid package manager lock file (package-lock.json, yarn.lock, or pnpm-lock.yaml)
+
+**Test Approach**:
+
+- Automatically detects package manager from lock file
+- Runs audit command: `npm audit --json`, `yarn audit --json`, or `pnpm audit --json`
+- Parses vulnerability counts by severity (critical, high, moderate, low)
+- Calculates score penalty based on severity weights
+- Times out after 30 seconds to prevent hanging
+
+**Severity Scoring**:
+
+| Severity | Score Penalty |
+| -------- | ------------- |
+| Critical | -10 points    |
+| High     | -5 points     |
+| Moderate | -2 points     |
+| Low      | -1 point      |
+
+**Vulnerability Details Captured**:
+
+- Package name and version
+- Severity level
+- Advisory title/description
+- CVE identifier (if available)
+- Fixed version (if available)
+- Dependency path (direct or transitive)
+- Fix availability status
+
+**Pass Criteria**:
+
+- 0 critical vulnerabilities
+- ≤2 high vulnerabilities
+- Score penalty < 20 points
+- Audit completes successfully
+
+**CLI Usage**:
+
+```bash
+# Enable dependency vulnerability assessment
+mcp-assess-full my-server --config config.json --source /path/to/server --profile all
+
+# Or with config flag
+# Add to config.json: { "assessmentCategories": { "dependencyVulnerability": true } }
+```
+
+**When Skipped**:
+
+- Returns `NEED_MORE_INFO` status with skip reason
+- Skipped if `--source` flag not provided
+- Skipped if no lock file found (package-lock.json, yarn.lock, pnpm-lock.yaml)
+- Skipped if audit command fails or times out
+- Provides recommendations for fixing
+
+**Output Fields**:
+
+```typescript
+interface DependencyVulnerabilityAssessment {
+  hasPackageManager: boolean; // Lock file detected?
+  auditInfo: AuditExecutionInfo; // Execution metadata
+  vulnerabilities: VulnerabilityCounts; // Counts by severity
+  totalAdvisories: number; // Total findings
+  findings: DependencyVulnerability[]; // Detailed vulnerabilities
+  scorePenalty: number; // Computed penalty
+  status: AssessmentStatus; // PASS/FAIL/NEED_MORE_INFO
+  explanation: string; // Human-readable summary
+  recommendations: string[]; // Fix suggestions
+}
+```
+
+**Why Opt-In**:
+
+- Requires shell execution (security consideration)
+- Can be slow for large dependency trees (30s timeout)
+- May produce false positives for dev dependencies
+- Requires source code access (not available for all servers)
+
+**Implementation**: `client/src/services/assessment/modules/DependencyVulnerabilityAssessor.ts` (~580 lines)
+
+---
+
 ### Official MCP Conformance Testing
 
 **Purpose**: Run official MCP protocol conformance tests from Anthropic's `@modelcontextprotocol/conformance` package.
@@ -1197,28 +1287,29 @@ If not available, the module logs a warning and skips gracefully.
 
 ## Quick Reference Table
 
-| #   | Module               | Tests               | Policy Ref     | Severity | Tier          |
-| --- | -------------------- | ------------------- | -------------- | -------- | ------------- |
-| 1   | Functionality        | ~10 per tool        | Core           | Medium   | Tier 1: Core  |
-| 2   | Security             | 31 patterns × tools | Core           | High     | Tier 1: Core  |
-| 3   | Error Handling       | ~20 per tool        | MCP Spec       | Medium   | Merged (#188) |
-| 4   | Documentation        | ~10 checks          | Core           | Low      | Tier 1: Core  |
-| 5   | Usability            | ~8 checks           | Core           | Low      | Tier 1: Core  |
-| 6   | Protocol Compliance  | ~20 checks          | MCP Spec       | High     | Tier 1: Core  |
-| 7   | AUP Compliance       | 14 categories       | AUP A-N        | Critical | Tier 2: Comp  |
-| 8   | Tool Annotations     | Per tool            | Policy #17     | Medium   | Tier 2: Comp  |
-| 9   | Prohibited Libraries | ~25 libraries       | Policy #28-30  | Blocking | Tier 2: Comp  |
-| 10  | Manifest Validation  | ~10 checks          | MCPB v0.3      | Medium   | Tier 2: Comp  |
-| 11  | Portability          | ~8 patterns         | Cross-platform | Low      | Tier 4: Ext   |
-| 12  | External API Scanner | API detection       | Disclosure     | Medium   | Tier 2: Comp  |
-| 13  | Authentication       | Auth patterns       | Security       | High     | Tier 2: Comp  |
-| 14  | Temporal             | 3 invocations/tool  | Rug pull       | High     | Tier 1: Core  |
-| 15  | Resources            | Per resource        | MCP Spec       | Medium   | Tier 3: Cap   |
-| 16  | Prompts              | Per prompt          | MCP Spec       | Medium   | Tier 3: Cap   |
-| 17  | Cross-Capability     | Multi-tool chains   | Security       | High     | Tier 3: Cap   |
-| 18  | File Modularization  | Per file            | Code quality   | Medium   | Tier 4: Ext   |
-| 19  | Protocol Conformance | 3 protocol checks   | MCP Spec       | High     | Deprecated    |
-| 20  | MCP Conformance      | 7 scenarios         | Official MCP   | High     | Opt-In        |
+| #   | Module                   | Tests               | Policy Ref     | Severity | Tier          |
+| --- | ------------------------ | ------------------- | -------------- | -------- | ------------- |
+| 1   | Functionality            | ~10 per tool        | Core           | Medium   | Tier 1: Core  |
+| 2   | Security                 | 31 patterns × tools | Core           | High     | Tier 1: Core  |
+| 3   | Error Handling           | ~20 per tool        | MCP Spec       | Medium   | Merged (#188) |
+| 4   | Documentation            | ~10 checks          | Core           | Low      | Tier 1: Core  |
+| 5   | Usability                | ~8 checks           | Core           | Low      | Tier 1: Core  |
+| 6   | Protocol Compliance      | ~20 checks          | MCP Spec       | High     | Tier 1: Core  |
+| 7   | AUP Compliance           | 14 categories       | AUP A-N        | Critical | Tier 2: Comp  |
+| 8   | Tool Annotations         | Per tool            | Policy #17     | Medium   | Tier 2: Comp  |
+| 9   | Prohibited Libraries     | ~25 libraries       | Policy #28-30  | Blocking | Tier 2: Comp  |
+| 10  | Manifest Validation      | ~10 checks          | MCPB v0.3      | Medium   | Tier 2: Comp  |
+| 11  | Portability              | ~8 patterns         | Cross-platform | Low      | Tier 4: Ext   |
+| 12  | External API Scanner     | API detection       | Disclosure     | Medium   | Tier 2: Comp  |
+| 13  | Authentication           | Auth patterns       | Security       | High     | Tier 2: Comp  |
+| 14  | Temporal                 | 3 invocations/tool  | Rug pull       | High     | Tier 1: Core  |
+| 15  | Resources                | Per resource        | MCP Spec       | Medium   | Tier 3: Cap   |
+| 16  | Prompts                  | Per prompt          | MCP Spec       | Medium   | Tier 3: Cap   |
+| 17  | Cross-Capability         | Multi-tool chains   | Security       | High     | Tier 3: Cap   |
+| 18  | File Modularization      | Per file            | Code quality   | Medium   | Tier 4: Ext   |
+| 19  | Protocol Conformance     | 3 protocol checks   | MCP Spec       | High     | Deprecated    |
+| 20  | Dependency Vulnerability | Audit scan          | Security       | High     | Opt-In        |
+| 21  | MCP Conformance          | 7 scenarios         | Official MCP   | High     | Opt-In        |
 
 ---
 
