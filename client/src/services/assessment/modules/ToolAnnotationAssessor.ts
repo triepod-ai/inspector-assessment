@@ -58,6 +58,9 @@ import {
   type EnhancedToolAnnotationResult,
 } from "./annotations";
 
+// Issue #207: Runtime annotation verification
+import { verifyRuntimeAnnotations } from "../helpers/RuntimeAnnotationVerifier";
+
 /**
  * Enhanced tool annotation result with Claude inference
  * Re-exported for backwards compatibility
@@ -152,6 +155,20 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     this.logger.info(
       `Persistence model detected: ${this.persistenceContext.model} (confidence: ${this.persistenceContext.confidence})`,
     );
+
+    // Issue #207: Verify runtime annotations from tools/list response
+    const runtimeVerification = verifyRuntimeAnnotations(context.tools);
+    this.logger.info(
+      `Runtime annotation verification: ${runtimeVerification.toolsWithRuntimeAnnotations}/${runtimeVerification.totalTools} tools have annotations in tools/list response (${runtimeVerification.runtimeCoveragePercent}% coverage)`,
+    );
+    // Log annotation locations for debugging
+    for (const detail of runtimeVerification.toolDetails) {
+      if (detail.location !== "none") {
+        this.logger.debug(
+          `Tool ${detail.toolName}: annotations found at ${detail.location} (${detail.foundHints.join(", ")})`,
+        );
+      }
+    }
 
     // Issue #57: Detect server architecture
     const architectureContext: ArchitectureContext = {
@@ -373,6 +390,8 @@ export class ToolAnnotationAssessor extends BaseAssessor {
         },
         claudeEnhanced: true,
         highConfidenceMisalignments,
+        // Issue #207: Runtime annotation verification
+        runtimeVerification,
       };
     }
 
@@ -403,6 +422,8 @@ export class ToolAnnotationAssessor extends BaseAssessor {
               )
             : 0,
       },
+      // Issue #207: Runtime annotation verification
+      runtimeVerification,
     };
   }
 }

@@ -89,6 +89,47 @@ export interface ToolAnnotationResult {
   };
 }
 
+/**
+ * Location where annotations were found in the tool object
+ * Issue #207: Used for runtime annotation verification
+ */
+export type AnnotationLocation =
+  | "annotations_object" // tool.annotations.readOnlyHint
+  | "direct_properties" // tool.readOnlyHint (preserved by SDK interceptor)
+  | "metadata" // tool.metadata.readOnlyHint
+  | "_meta" // tool._meta.readOnlyHint
+  | "annotations_hints" // tool.annotations.hints.readOnlyHint
+  | "none"; // No annotations found
+
+/**
+ * Per-tool annotation location details
+ * Issue #207: Used for runtime annotation verification
+ */
+export interface ToolAnnotationLocationDetail {
+  toolName: string;
+  location: AnnotationLocation;
+  foundHints: string[];
+}
+
+/**
+ * Result of runtime annotation verification from tools/list response
+ * Issue #207/#204: Verifies annotations are present at runtime, not just in manifest
+ */
+export interface RuntimeAnnotationVerification {
+  /** Whether verification was performed successfully */
+  verified: boolean;
+  /** Total number of tools checked */
+  totalTools: number;
+  /** Number of tools with annotations in tools/list response */
+  toolsWithRuntimeAnnotations: number;
+  /** Number of tools without any annotations */
+  toolsWithoutAnnotations: number;
+  /** Coverage percentage (0-100) */
+  runtimeCoveragePercent: number;
+  /** Details per tool */
+  toolDetails: ToolAnnotationLocationDetail[];
+}
+
 export interface ToolAnnotationAssessment {
   toolResults: ToolAnnotationResult[];
   annotatedCount: number;
@@ -98,6 +139,8 @@ export interface ToolAnnotationAssessment {
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
+  /** Issue #207: Runtime annotation verification from tools/list response */
+  runtimeVerification?: RuntimeAnnotationVerification;
   /** Detailed metrics for annotation quality */
   metrics?: {
     /** Percentage of tools with any annotations (0-100) */

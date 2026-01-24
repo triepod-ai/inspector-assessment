@@ -81,6 +81,19 @@ export interface ToolWithHints extends Tool {
   destructiveHint?: boolean;
   idempotentHint?: boolean;
   openWorldHint?: boolean;
+  // Issue #207: Preserve complete annotations object from raw response
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+    // Non-suffixed variants (Issue #160)
+    readOnly?: boolean;
+    destructive?: boolean;
+    idempotent?: boolean;
+    openWorld?: boolean;
+    title?: string;
+  };
 }
 
 /**
@@ -150,6 +163,24 @@ export async function getToolsWithPreservedHints(
 
       // Start with SDK tool
       const enrichedTool: ToolWithHints = { ...sdkTool };
+
+      // Issue #207: Preserve complete annotations object from raw response
+      // This ensures runtime-defined annotations are not lost when SDK strips them
+      if (rawTool.annotations && Object.keys(rawTool.annotations).length > 0) {
+        enrichedTool.annotations = {
+          ...sdkTool.annotations, // Keep any SDK-preserved annotations
+          ...rawTool.annotations, // Override with raw response annotations
+        };
+
+        // Debug logging when DEBUG_ANNOTATIONS env var is set
+        if (process.env.DEBUG_ANNOTATIONS) {
+          // eslint-disable-next-line no-console
+          console.log(
+            `[DEBUG-HINTS] ${rawTool.name}: Preserved annotations object:`,
+            JSON.stringify(enrichedTool.annotations),
+          );
+        }
+      }
 
       // Preserve hint properties from raw response (priority order)
       for (const hint of HINT_PROPERTIES) {
