@@ -27,6 +27,7 @@ import { ProtocolComplianceAssessor } from "../modules/ProtocolComplianceAssesso
 import { AUPComplianceAssessor } from "../modules/AUPComplianceAssessor";
 import { ToolAnnotationAssessor } from "../modules/ToolAnnotationAssessor";
 import { ProhibitedLibrariesAssessor } from "../modules/ProhibitedLibrariesAssessor";
+import { DependencyVulnerabilityAssessor } from "../modules/DependencyVulnerabilityAssessor";
 import { ManifestValidationAssessor } from "../modules/ManifestValidationAssessor";
 import { PortabilityAssessor } from "../modules/PortabilityAssessor";
 import { ExternalAPIScannerAssessor } from "../modules/ExternalAPIScannerAssessor";
@@ -60,6 +61,7 @@ import {
   estimateAUPComplianceTests,
   estimateToolAnnotationTests,
   estimateProhibitedLibrariesTests,
+  estimateDependencyVulnerabilityTests,
   estimateManifestValidationTests,
   estimatePortabilityTests,
   estimateExternalAPIScannerTests,
@@ -320,6 +322,31 @@ export const ASSESSOR_DEFINITIONS: AssessorDefinition[] = [
       needsPrompts: false,
       needsSourceCode: true, // Required - scans dependencies
       needsManifest: true, // Required - checks package.json
+      needsServerInfo: false,
+    },
+  },
+  {
+    id: "dependencyVulnerability",
+    displayName: "Dependency Audit",
+    assessorClass: DependencyVulnerabilityAssessor,
+    resultField: "dependencyVulnerability",
+    phase: AssessmentPhase.COMPLIANCE,
+    configFlags: {
+      primary: "dependencyVulnerability",
+      defaultEnabled: false,
+      optIn: true, // Issue #193: Shell execution required, opt-in only
+    },
+    requiresExtended: true,
+    supportsClaudeBridge: false,
+    estimateTests: estimateDependencyVulnerabilityTests,
+    contextRequirements: {
+      needsTools: false, // Runs npm/yarn/pnpm audit only
+      needsCallTool: false,
+      needsListTools: false,
+      needsResources: false,
+      needsPrompts: false,
+      needsSourceCode: true, // Required - directory to run audit in
+      needsManifest: false, // Detects package manager from lock file
       needsServerInfo: false,
     },
   },

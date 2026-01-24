@@ -120,6 +120,11 @@ export const estimateToolAnnotationTests: TestEstimatorFn = (context, config) =>
 export const estimateProhibitedLibrariesTests: TestEstimatorFn = () => 5;
 
 /**
+ * Dependency vulnerability assessor: fixed 1 audit execution (Issue #193)
+ */
+export const estimateDependencyVulnerabilityTests: TestEstimatorFn = () => 1;
+
+/**
  * Manifest validation assessor: fixed 10 manifest checks
  */
 export const estimateManifestValidationTests: TestEstimatorFn = () => 10;
@@ -208,6 +213,7 @@ export const ESTIMATOR_MAP: Record<string, TestEstimatorFn> = {
   aupCompliance: estimateAUPComplianceTests,
   toolAnnotations: estimateToolAnnotationTests,
   prohibitedLibraries: estimateProhibitedLibrariesTests,
+  dependencyVulnerability: estimateDependencyVulnerabilityTests,
   manifestValidation: estimateManifestValidationTests,
   portability: estimatePortabilityTests,
   externalAPIScanner: estimateExternalAPIScannerTests,

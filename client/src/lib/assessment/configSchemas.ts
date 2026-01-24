@@ -93,6 +93,7 @@ export const AssessmentCategoriesSchema = z.object({
   aupCompliance: z.boolean().optional(),
   toolAnnotations: z.boolean().optional(),
   prohibitedLibraries: z.boolean().optional(),
+  dependencyVulnerability: z.boolean().optional(),
   manifestValidation: z.boolean().optional(),
   portability: z.boolean().optional(),
   externalAPIScanner: z.boolean().optional(),

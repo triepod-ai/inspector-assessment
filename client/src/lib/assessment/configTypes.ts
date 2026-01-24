@@ -109,6 +109,7 @@ export interface AssessmentConfiguration {
     aupCompliance?: boolean; // AUP 14 categories violation scanning
     toolAnnotations?: boolean; // Policy #17 - readOnlyHint/destructiveHint
     prohibitedLibraries?: boolean; // Policy #28-30 - Financial/Media libs
+    dependencyVulnerability?: boolean; // npm/yarn/pnpm audit (Issue #193)
     manifestValidation?: boolean; // MCPB manifest.json compliance
     portability?: boolean; // Hardcoded paths, platform-specific code
     externalAPIScanner?: boolean; // External API detection and affiliation check
@@ -167,6 +168,7 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfiguration = {
     aupCompliance: false,
     toolAnnotations: false,
     prohibitedLibraries: false,
+    dependencyVulnerability: false, // Issue #193 - npm/yarn/pnpm audit (opt-in, requires shell)
     manifestValidation: false,
     portability: false,
     externalAPIScanner: false,

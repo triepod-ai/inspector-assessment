@@ -33,6 +33,7 @@ import type {
   FileModularizationAssessment,
   ConformanceAssessment,
   DeveloperExperienceAssessment,
+  DependencyVulnerabilityAssessment,
 } from "./extendedTypes";
 
 // ============================================================================
@@ -1028,6 +1029,8 @@ export interface MCPDirectoryAssessment {
   aupCompliance?: AUPComplianceAssessment;
   toolAnnotations?: ToolAnnotationAssessment;
   prohibitedLibraries?: ProhibitedLibrariesAssessment;
+  /** Dependency vulnerability audit results (npm/yarn/pnpm audit) - Issue #193 */
+  dependencyVulnerability?: DependencyVulnerabilityAssessment;
   manifestValidation?: ManifestValidationAssessment;
   portability?: PortabilityAssessment;
   externalAPIScanner?: ExternalAPIScannerAssessment;

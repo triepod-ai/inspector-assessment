@@ -53,6 +53,7 @@ export * from "./configTypes";
 export * from "./aupComplianceTypes";
 export * from "./toolAnnotationTypes";
 export * from "./policyComplianceTypes";
+export * from "./dependencyVulnerabilityTypes";
 export * from "./externalServicesTypes";
 export * from "./temporalSecurityTypes";
 export * from "./capabilityAssessmentTypes";

@@ -27,3 +27,4 @@ export * from "./policyComplianceTypes";
 export * from "./externalServicesTypes";
 export * from "./temporalSecurityTypes";
 export * from "./capabilityAssessmentTypes";
+export * from "./dependencyVulnerabilityTypes";
