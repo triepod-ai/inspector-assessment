@@ -469,11 +469,9 @@ cat /tmp/inspector-assessment-*.json | jq '.overallScore'
 
 # Check module scores
 cat /tmp/inspector-assessment-*.json | jq '{
-  functionality: .functionality.coveragePercentage,
-  security: (100 - (.security.vulnerabilities | length) * 10),
-  documentation: .documentation.status,
-  errorHandling: .errorHandling.metrics.mcpComplianceScore,
-  usability: .usability.status
+  functionality: .modules.functionality.coveragePercentage,
+  security: (100 - (.modules.security.vulnerabilities | length) * 10),
+  protocolCompliance: .modules.protocolCompliance.metrics.mcpComplianceScore
 }'
 
 # Count vulnerabilities

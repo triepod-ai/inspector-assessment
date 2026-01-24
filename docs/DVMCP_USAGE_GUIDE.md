@@ -581,7 +581,7 @@ npx -p @bryan-thompson/inspector-assessment mcp-assess-full dvmcp-ch10 \
 cat /tmp/dvmcp-ch10-results.json | jq '.modules.security.vulnerabilities | length'
 
 # List them by type
-cat /tmp/dvmcp-ch10-results.json | jq '[.security.vulnerabilities[] | .name] | unique'
+cat /tmp/dvmcp-ch10-results.json | jq '[.modules.security.vulnerabilities[] | .name] | unique'
 ```
 
 **Expected Output**:

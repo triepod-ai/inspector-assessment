@@ -145,14 +145,14 @@ Both servers have 6 `safe_*` tools that should NEVER be flagged:
 ```bash
 # Check vulnerable server results
 cat /tmp/inspector-assessment-vulnerable-mcp.json | \
-  jq '[.security.promptInjectionTests[] |
+  jq '[.modules.security.promptInjectionTests[] |
       select(.toolName | startswith("safe_")) |
       select(.vulnerable == true)] | length'
 # Expected: 0
 
 # Check hardened server results
 cat /tmp/inspector-assessment-hardened-mcp.json | \
-  jq '[.security.promptInjectionTests[] |
+  jq '[.modules.security.promptInjectionTests[] |
       select(.toolName | startswith("safe_")) |
       select(.vulnerable == true)] | length'
 # Expected: 0
@@ -227,8 +227,8 @@ echo ""
 echo "=== RESULTS ==="
 VULN_COUNT=$(cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '.modules.security.vulnerabilities | length')
 HARD_COUNT=$(cat /tmp/inspector-assessment-hardened-mcp.json | jq '.modules.security.vulnerabilities | length')
-SAFE_FP_VULN=$(cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '[.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length')
-SAFE_FP_HARD=$(cat /tmp/inspector-assessment-hardened-mcp.json | jq '[.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length')
+SAFE_FP_VULN=$(cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '[.modules.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length')
+SAFE_FP_HARD=$(cat /tmp/inspector-assessment-hardened-mcp.json | jq '[.modules.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length')
 
 echo "Vulnerable server: $VULN_COUNT vulnerabilities (expected: ≥176)"
 echo "Hardened server: $HARD_COUNT vulnerabilities (expected: 0)"

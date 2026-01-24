@@ -2060,7 +2060,7 @@ Ensure no false positives on safe tools:
 ```bash
 # Check safe tool results
 cat /tmp/inspector-assessment-vulnerable-mcp.json | \
-  jq '[.security.promptInjectionTests[] |
+  jq '[.modules.security.promptInjectionTests[] |
       select(.toolName | startswith("safe_")) |
       select(.vulnerable == true)] | length'
 # Expected: 0
@@ -2096,23 +2096,23 @@ cat /tmp/inspector-assessment-vulnerable-mcp.json | \
 ### Quick Validation Commands
 
 ```bash
-# A/B Comparison (200 vs 0)
+# A/B Comparison (~400+ vs 0)
 cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '.modules.security.vulnerabilities | length'
-# Expected: 200
+# Expected: ~400+ (varies with test patterns)
 
 cat /tmp/inspector-assessment-hardened-mcp.json | jq '.modules.security.vulnerabilities | length'
 # Expected: 0
 
 # Zero false positives on safe tools
 cat /tmp/inspector-assessment-vulnerable-mcp.json | \
-  jq '[.security.promptInjectionTests[] |
+  jq '[.modules.security.promptInjectionTests[] |
       select(.toolName | startswith("safe_")) |
       select(.vulnerable == true)] | length'
 # Expected: 0
 
 # View all vulnerabilities by tool
 cat /tmp/inspector-assessment-vulnerable-mcp.json | \
-  jq '[.security.promptInjectionTests[] |
+  jq '[.modules.security.promptInjectionTests[] |
       select(.vulnerable == true)] |
       group_by(.toolName) |
       map({tool: .[0].toolName, count: length})'

@@ -208,10 +208,10 @@ mcp-assess-full --server my-server --output ./results.json
 cat /tmp/inspector-full-assessment-my-server.json | jq '.overallStatus'
 
 # List security vulnerabilities
-cat /tmp/inspector-full-assessment-my-server.json | jq '.security.vulnerabilities'
+cat /tmp/inspector-full-assessment-my-server.json | jq '.modules.security.vulnerabilities'
 
 # Check broken tools
-cat /tmp/inspector-full-assessment-my-server.json | jq '.functionality.brokenTools'
+cat /tmp/inspector-full-assessment-my-server.json | jq '.modules.functionality.brokenTools'
 
 # Get module scores
 cat /tmp/inspector-full-assessment-my-server.json | jq '.moduleSummary'
