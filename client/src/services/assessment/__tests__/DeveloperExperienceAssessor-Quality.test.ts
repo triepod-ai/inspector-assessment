@@ -212,11 +212,18 @@ describe("DeveloperExperienceAssessor - Issue #55 Quality Scoring", () => {
       expect(result.documentation.qualityChecks?.hasLicense).toBe(true);
     });
 
-    it("should detect license section in README as fallback", async () => {
+    // Issue #208: README sections should NOT count as license presence
+    // This was the false positive scenario - fixed by distinguishing file vs declaration
+    it("should NOT count README license section as actual license file (Issue #208)", async () => {
       const readme = "# README\n\n## License\n\nMIT";
       const result = await assessor.assess(createContext(readme));
 
-      expect(result.documentation.qualityChecks?.hasLicense).toBe(true);
+      // Issue #208 FIX: README sections don't count - must have actual file
+      expect(result.documentation.qualityChecks?.hasLicense).toBe(false);
+      expect(result.documentation.qualityChecks?.hasLicenseFile).toBe(false);
+      expect(result.documentation.qualityChecks?.hasLicenseDeclaration).toBe(
+        false,
+      );
     });
 
     it("should return false when no license found", async () => {

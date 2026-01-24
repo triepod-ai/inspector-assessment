@@ -275,7 +275,17 @@ export interface DocumentationQualityChecks {
   hasInstallation: boolean;
   hasConfiguration: boolean;
   hasExamples: boolean;
+  /**
+   * @deprecated Use hasLicenseFile for file-based check. Kept for backward compatibility.
+   * True if either license file exists OR declaration exists (legacy behavior)
+   */
   hasLicense: boolean;
+  /** Issue #208: True only if actual LICENSE file exists (LICENSE, LICENSE.md, etc.) */
+  hasLicenseFile: boolean;
+  /** Issue #208: True if license declared in package.json/manifest or README section (but no file) */
+  hasLicenseDeclaration: boolean;
+  /** Issue #208: Actual license file name if found */
+  licenseFile?: string;
   licenseType?: string;
 }
 

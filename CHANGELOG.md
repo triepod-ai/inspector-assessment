@@ -10,6 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Runtime Annotation Verification** (Issue #207): Detect annotations defined at runtime via SDK decorators/interceptors
+
+### Fixed
+
+- **LICENSE File Existence Check** (Issue #208): Distinguish between actual LICENSE file and declaration-only
+  - New `validateLicenseFile()` method properly checks for LICENSE, LICENSE.md, LICENSE.txt, COPYING files
+  - `hasLicenseFile` field: true only when actual license file exists in repository
+  - `hasLicenseDeclaration` field: true when license declared in package.json/manifest (but no file)
+  - `licenseFile` field: name of the actual license file found (if any)
+  - Scoring: Full 10 points for file, 5 points for declaration-only, 0 points for neither
+  - Fixes false positive where README "## License" section caused PASS without actual LICENSE file
+  - Evidence: MeetGeek audit showed LICENSE file missing but Inspector reported D6 PASS
+  - Backward compatible: `hasLicense` legacy field still true if either file or declaration exists
   - New `RuntimeAnnotationVerifier` helper checks 5 annotation locations in tools/list response
   - Locations: `annotations_object` (standard), `direct_properties` (SDK interceptor), `metadata`, `_meta`, `annotations_hints`
   - Added `runtimeVerification` field to `ToolAnnotationAssessment` output

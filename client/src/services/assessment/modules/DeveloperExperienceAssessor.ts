@@ -495,19 +495,33 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
   /**
    * Assess documentation quality using Issue #55 point-based scoring
    * Max 100 points: README (30), Install (20), Config (20), Examples (20), License (10)
+   *
+   * Issue #208: License check now distinguishes between:
+   * - hasLicenseFile: Actual LICENSE file exists (PASS)
+   * - hasLicenseDeclaration: Only package.json/README mention (WARNING)
    */
   private assessDocumentationQuality(
     content: string,
     context: AssessmentContext,
   ): { checks: DocumentationQualityChecks; score: DocumentationQualityScore } {
+    // Issue #208: Separate file detection from declaration detection
+    const licenseValidation = this.validateLicenseFile(context);
+
     const checks: DocumentationQualityChecks = {
       hasReadme: content.length > 0,
       readmeQuality: this.determineReadmeQuality(content),
       hasInstallation: this.checkInstallInstructions(content),
       hasConfiguration: this.checkConfigurationSection(content),
       hasExamples: this.checkUsageGuide(content),
-      hasLicense: this.detectLicense(context),
-      licenseType: this.detectLicenseType(context),
+      // Legacy field - true if file OR declaration exists (backward compatibility)
+      hasLicense: licenseValidation.hasFile || licenseValidation.hasDeclaration,
+      // Issue #208: New fields for proper distinction
+      hasLicenseFile: licenseValidation.hasFile,
+      hasLicenseDeclaration: licenseValidation.hasDeclaration,
+      licenseFile: licenseValidation.file,
+      licenseType: licenseValidation.hasFile
+        ? this.detectLicenseType(context)
+        : undefined,
     };
 
     const score = this.calculateQualityScore(checks, content);
@@ -540,7 +554,7 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
    * - Installation section: +20
    * - Configuration section: +20
    * - Examples present: +20
-   * - License file: +10
+   * - License file: +10 (full), +5 (declaration only, Issue #208)
    */
   private calculateQualityScore(
     checks: DocumentationQualityChecks,
@@ -559,13 +573,21 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
       }
     }
 
+    // Issue #208: License scoring - file gets full points, declaration-only gets partial
+    let licenseScore = 0;
+    if (checks.hasLicenseFile) {
+      licenseScore = 10; // Full points for actual LICENSE file
+    } else if (checks.hasLicenseDeclaration) {
+      licenseScore = 5; // Partial points for declaration only (WARNING scenario)
+    }
+
     const breakdown = {
       readmeExists: checks.hasReadme ? 10 : 0,
       readmeComprehensive,
       installation: checks.hasInstallation ? 20 : 0,
       configuration: checks.hasConfiguration ? 20 : 0,
       examples: checks.hasExamples ? 20 : 0,
-      license: checks.hasLicense ? 10 : 0,
+      license: licenseScore,
     };
 
     return {
@@ -592,30 +614,6 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
     ];
     const contentLower = content.toLowerCase();
     return configKeywords.some((keyword) => contentLower.includes(keyword));
-  }
-
-  /**
-   * Detect license presence from context
-   * Checks sourceCodeFiles for LICENSE/LICENSE.md or README for license section
-   */
-  private detectLicense(context: AssessmentContext): boolean {
-    // Check source code files if available
-    if (context.sourceCodeFiles) {
-      const licenseFiles = [
-        "LICENSE",
-        "LICENSE.md",
-        "LICENSE.txt",
-        "LICENCE",
-        "LICENCE.md",
-      ];
-      for (const file of licenseFiles) {
-        if (context.sourceCodeFiles.has(file)) return true;
-      }
-    }
-
-    // Fallback: check README for license section
-    const content = context.readmeContent || "";
-    return /^#+\s*licen[sc]e/im.test(content);
   }
 
   /**
@@ -685,6 +683,81 @@ export class DeveloperExperienceAssessor extends BaseAssessor<DeveloperExperienc
     }
 
     return "Unknown";
+  }
+
+  /**
+   * Issue #208: Validate license file existence vs declaration
+   *
+   * This method distinguishes between:
+   * - Actual LICENSE file in repository (PASS)
+   * - License declared in package.json/manifest but no file (WARNING)
+   * - No license file AND no declaration (FAIL)
+   *
+   * The old detectLicense() method returned true for README "## License" sections,
+   * causing false positives. This method only counts actual LICENSE files.
+   */
+  private validateLicenseFile(context: AssessmentContext): {
+    status: "PASS" | "WARNING" | "FAIL";
+    hasFile: boolean;
+    hasDeclaration: boolean;
+    file?: string;
+    declaration?: string;
+    message: string;
+  } {
+    const licenseFiles = [
+      "LICENSE",
+      "LICENSE.md",
+      "LICENSE.txt",
+      "LICENCE",
+      "LICENCE.md",
+      "COPYING",
+      "license",
+      "license.md",
+      "license.txt",
+    ];
+
+    // Check for actual license file
+    let foundFile: string | undefined;
+    if (context.sourceCodeFiles) {
+      for (const file of licenseFiles) {
+        if (context.sourceCodeFiles.has(file)) {
+          foundFile = file;
+          break;
+        }
+      }
+    }
+
+    // Check for declaration in package.json or manifest
+    const declaration =
+      context.packageJson?.license || context.manifestJson?.license;
+
+    if (foundFile) {
+      return {
+        status: "PASS",
+        hasFile: true,
+        hasDeclaration: !!declaration,
+        file: foundFile,
+        declaration: declaration as string | undefined,
+        message: `LICENSE file found: ${foundFile}`,
+      };
+    }
+
+    if (declaration) {
+      return {
+        status: "WARNING",
+        hasFile: false,
+        hasDeclaration: true,
+        declaration: declaration as string,
+        message: `License declared as "${declaration}" but no LICENSE file present`,
+      };
+    }
+
+    return {
+      status: "FAIL",
+      hasFile: false,
+      hasDeclaration: false,
+      message: "No LICENSE file found and no license declaration",
+    };
   }
 
   // ============================================================================
