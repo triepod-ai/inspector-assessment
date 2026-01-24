@@ -275,7 +275,7 @@ The assessor recognizes graceful degradation patterns for optional parameters an
 | Installation Instructions | Clear setup steps provided? |
 | Usage Examples | Code examples for key tools? |
 | Tool Documentation | Each tool described with parameters? |
-| License Information | Open source license specified? |
+| License File (Issue #208) | Actual LICENSE file exists? (PASS=10pts, declaration-only=5pts, none=0pts) |
 
 **Pass Criteria**:
 
@@ -1281,7 +1281,7 @@ Results saved to `/tmp/inspector-assessment-{serverName}.json`
 
 ```bash
 # Quick vulnerability check
-cat /tmp/inspector-assessment-*.json | jq '.security.vulnerabilities'
+cat /tmp/inspector-assessment-*.json | jq '.modules.security.vulnerabilities'
 
 # Check AUP violations
 cat /tmp/inspector-assessment-*.json | jq '.aupCompliance.violations'

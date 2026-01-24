@@ -505,7 +505,7 @@ jobs:
           STATUS=$(jq -r '.overallStatus' ./assessment-results.json)
           if [ "$STATUS" = "FAIL" ]; then
             echo "Assessment failed!"
-            jq '.security.vulnerabilities' ./assessment-results.json
+            jq '.modules.security.vulnerabilities' ./assessment-results.json
             exit 1
           fi
 

@@ -204,12 +204,12 @@ cat /tmp/inspector-assessment-hardened-mcp.json | \
 
 Before merging any changes to MCP Inspector detection logic:
 
-| Criterion            | Requirement          | Verification                               |
-| -------------------- | -------------------- | ------------------------------------------ |
-| Vulnerable Detection | ≥176 vulnerabilities | `jq '.security.vulnerabilities \| length'` |
-| Hardened Detection   | 0 vulnerabilities    | Same tool names, 0 flagged                 |
-| Zero False Positives | 0 on safe\_\* tools  | Both servers                               |
-| Test Suite           | All ~1560 tests pass | `npm test`                                 |
+| Criterion            | Requirement          | Verification                                       |
+| -------------------- | -------------------- | -------------------------------------------------- |
+| Vulnerable Detection | ≥176 vulnerabilities | `jq '.modules.security.vulnerabilities \| length'` |
+| Hardened Detection   | 0 vulnerabilities    | Same tool names, 0 flagged                         |
+| Zero False Positives | 0 on safe\_\* tools  | Both servers                                       |
+| Test Suite           | All ~1560 tests pass | `npm test`                                         |
 
 ### Quick Verification Script
 
@@ -225,8 +225,8 @@ npm run assess -- --server hardened-mcp --config /tmp/hardened-mcp-config.json
 
 echo ""
 echo "=== RESULTS ==="
-VULN_COUNT=$(cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '.security.vulnerabilities | length')
-HARD_COUNT=$(cat /tmp/inspector-assessment-hardened-mcp.json | jq '.security.vulnerabilities | length')
+VULN_COUNT=$(cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '.modules.security.vulnerabilities | length')
+HARD_COUNT=$(cat /tmp/inspector-assessment-hardened-mcp.json | jq '.modules.security.vulnerabilities | length')
 SAFE_FP_VULN=$(cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '[.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length')
 SAFE_FP_HARD=$(cat /tmp/inspector-assessment-hardened-mcp.json | jq '[.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length')
 
@@ -272,11 +272,11 @@ npm run assess -- --server hardened-mcp --config /tmp/hardened-mcp-config.json
 
 ```bash
 # Compare vulnerability counts
-echo "Baseline vulnerable: $(jq '.security.vulnerabilities | length' /tmp/baseline/inspector-assessment-vulnerable-mcp.json)"
-echo "Current vulnerable: $(jq '.security.vulnerabilities | length' /tmp/inspector-assessment-vulnerable-mcp.json)"
+echo "Baseline vulnerable: $(jq '.modules.security.vulnerabilities | length' /tmp/baseline/inspector-assessment-vulnerable-mcp.json)"
+echo "Current vulnerable: $(jq '.modules.security.vulnerabilities | length' /tmp/inspector-assessment-vulnerable-mcp.json)"
 
-echo "Baseline hardened: $(jq '.security.vulnerabilities | length' /tmp/baseline/inspector-assessment-hardened-mcp.json)"
-echo "Current hardened: $(jq '.security.vulnerabilities | length' /tmp/inspector-assessment-hardened-mcp.json)"
+echo "Baseline hardened: $(jq '.modules.security.vulnerabilities | length' /tmp/baseline/inspector-assessment-hardened-mcp.json)"
+echo "Current hardened: $(jq '.modules.security.vulnerabilities | length' /tmp/inspector-assessment-hardened-mcp.json)"
 ```
 
 ### 5. Verify Gap Unchanged or Improved

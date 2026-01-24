@@ -231,19 +231,19 @@ npm run assess -- --server hardened-mcp --config /tmp/hardened-mcp-config.json
 **Validation Commands**:
 
 ```bash
-# A/B Comparison (should be 200 vs 0)
-cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '.security.vulnerabilities | length'
-# Expected: 200
-cat /tmp/inspector-assessment-hardened-mcp.json | jq '.security.vulnerabilities | length'
+# A/B Comparison (should be ~400+ vs 0)
+cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '.modules.security.vulnerabilities | length'
+# Expected: ~400+ (varies with test patterns)
+cat /tmp/inspector-assessment-hardened-mcp.json | jq '.modules.security.vulnerabilities | length'
 # Expected: 0
 
 # Verify zero false positives on safe tools (both servers)
 cat /tmp/inspector-assessment-vulnerable-mcp.json | \
-  jq '[.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length'
+  jq '[.modules.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length'
 # Expected: 0
 
 cat /tmp/inspector-assessment-hardened-mcp.json | \
-  jq '[.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length'
+  jq '[.modules.security.promptInjectionTests[] | select(.toolName | startswith("safe_")) | select(.vulnerable == true)] | length'
 # Expected: 0
 ```
 
@@ -251,7 +251,7 @@ cat /tmp/inspector-assessment-hardened-mcp.json | \
 
 - ✅ False positives: 0 (both servers, safe tools)
 - ✅ Precision: 100%
-- ✅ Vulnerable server: ≥200 vulnerabilities
+- ✅ Vulnerable server: ≥400 vulnerabilities (varies with test patterns)
 - ✅ Hardened server: 0 vulnerabilities (same tool names!)
 - ✅ No regressions in detection logic
 
@@ -395,22 +395,22 @@ Every assessment run automatically saves results to `/tmp/inspector-assessment-{
 cat /tmp/inspector-assessment-memory-mcp.json | jq
 
 # Check functionality results
-cat /tmp/inspector-assessment-memory-mcp.json | jq '.functionality'
+cat /tmp/inspector-assessment-memory-mcp.json | jq '.modules.functionality'
 
 # List broken tools
-cat /tmp/inspector-assessment-memory-mcp.json | jq '.functionality.brokenTools[]'
+cat /tmp/inspector-assessment-memory-mcp.json | jq '.modules.functionality.brokenTools[]'
 
 # Get specific tool details
-cat /tmp/inspector-assessment-memory-mcp.json | jq '.functionality.enhancedResults[] | select(.toolName == "tool_name")'
+cat /tmp/inspector-assessment-memory-mcp.json | jq '.modules.functionality.enhancedResults[] | select(.toolName == "tool_name")'
 
 # See all tools and their status
-cat /tmp/inspector-assessment-memory-mcp.json | jq '.functionality.enhancedResults[] | {tool: .toolName, status: .overallStatus}'
+cat /tmp/inspector-assessment-memory-mcp.json | jq '.modules.functionality.enhancedResults[] | {tool: .toolName, status: .overallStatus}'
 
 # Get security vulnerabilities
-cat /tmp/inspector-assessment-memory-mcp.json | jq '.security.vulnerabilities'
+cat /tmp/inspector-assessment-memory-mcp.json | jq '.modules.security.vulnerabilities'
 
-# Check error handling metrics
-cat /tmp/inspector-assessment-memory-mcp.json | jq '.errorHandling.metrics'
+# Check protocol compliance metrics (includes error handling)
+cat /tmp/inspector-assessment-memory-mcp.json | jq '.modules.protocolCompliance'
 ```
 
 ## Feature Documentation

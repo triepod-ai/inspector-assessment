@@ -2384,7 +2384,7 @@ output_path=$(mcp-assess-full \
 
 # Use output path
 echo "Results: $output_path"
-cat "$output_path" | jq '.security.vulnerabilities'
+cat "$output_path" | jq '.modules.security.vulnerabilities'
 ```
 
 **Use Cases:**

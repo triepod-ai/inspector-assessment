@@ -279,13 +279,13 @@ cat /tmp/dvmcp-ch2-results.json | jq '.'
 
 ```bash
 # Count vulnerabilities
-cat /tmp/dvmcp-ch2-results.json | jq '.security.vulnerabilities | length'
+cat /tmp/dvmcp-ch2-results.json | jq '.modules.security.vulnerabilities | length'
 
 # List vulnerability names
-cat /tmp/dvmcp-ch2-results.json | jq '.security.vulnerabilities[].name'
+cat /tmp/dvmcp-ch2-results.json | jq '.modules.security.vulnerabilities[].name'
 
 # View detailed vulnerability info
-cat /tmp/dvmcp-ch2-results.json | jq '.security.vulnerabilities[] | {name, toolName, pattern}'
+cat /tmp/dvmcp-ch2-results.json | jq '.modules.security.vulnerabilities[] | {name, toolName, pattern}'
 ```
 
 ### Check Tool Annotation Results
@@ -302,10 +302,10 @@ cat /tmp/dvmcp-ch2-results.json | jq '.toolAnnotations.poisonedDescriptionsDetec
 
 ```bash
 # List broken tools
-cat /tmp/dvmcp-ch2-results.json | jq '.functionality.brokenTools[]'
+cat /tmp/dvmcp-ch2-results.json | jq '.modules.functionality.brokenTools[]'
 
 # Check tool-by-tool status
-cat /tmp/dvmcp-ch2-results.json | jq '.functionality.enhancedResults[] | {tool: .toolName, status: .overallStatus}'
+cat /tmp/dvmcp-ch2-results.json | jq '.modules.functionality.enhancedResults[] | {tool: .toolName, status: .overallStatus}'
 ```
 
 ---
@@ -392,7 +392,7 @@ npx -p @bryan-thompson/inspector-assessment mcp-assess-full dvmcp-ch3 \
   --output /tmp/dvmcp-ch3-results.json
 
 # Check for permission/traversal vulnerabilities
-cat /tmp/dvmcp-ch3-results.json | jq '.security.vulnerabilities[] | select(.name | test("traversal|permission"; "i"))'
+cat /tmp/dvmcp-ch3-results.json | jq '.modules.security.vulnerabilities[] | select(.name | test("traversal|permission"; "i"))'
 ```
 
 ### CH4: Rug Pull (Temporal Mutation)
@@ -488,7 +488,7 @@ npx -p @bryan-thompson/inspector-assessment mcp-assess-full dvmcp-ch7 \
   --output /tmp/dvmcp-ch7-results.json
 
 # Check for token theft vulnerabilities
-cat /tmp/dvmcp-ch7-results.json | jq '.security.vulnerabilities[] | select(.name | test("token|credential|jwt"; "i"))'
+cat /tmp/dvmcp-ch7-results.json | jq '.modules.security.vulnerabilities[] | select(.name | test("token|credential|jwt"; "i"))'
 ```
 
 **Expected Output**:
@@ -544,7 +544,7 @@ npx -p @bryan-thompson/inspector-assessment mcp-assess-full dvmcp-ch9 \
   --output /tmp/dvmcp-ch9-results.json
 
 # View detected command injection vulnerabilities
-cat /tmp/dvmcp-ch9-results.json | jq '.security.vulnerabilities[] | select(.name | test("command|rce|injection"; "i"))'
+cat /tmp/dvmcp-ch9-results.json | jq '.modules.security.vulnerabilities[] | select(.name | test("command|rce|injection"; "i"))'
 ```
 
 **Expected Output**:
@@ -578,7 +578,7 @@ npx -p @bryan-thompson/inspector-assessment mcp-assess-full dvmcp-ch10 \
   --output /tmp/dvmcp-ch10-results.json
 
 # View all detected vulnerabilities
-cat /tmp/dvmcp-ch10-results.json | jq '.security.vulnerabilities | length'
+cat /tmp/dvmcp-ch10-results.json | jq '.modules.security.vulnerabilities | length'
 
 # List them by type
 cat /tmp/dvmcp-ch10-results.json | jq '[.security.vulnerabilities[] | .name] | unique'
@@ -661,7 +661,7 @@ for port in $(seq $DVMCP_PORT_START $DVMCP_PORT_END); do
     --output "$output"
 
   # Extract summary
-  vulnerabilities=$(jq '.security.vulnerabilities | length' "$output" 2>/dev/null || echo "0")
+  vulnerabilities=$(jq '.modules.security.vulnerabilities | length' "$output" 2>/dev/null || echo "0")
   echo "  Vulnerabilities found: $vulnerabilities"
 done
 
@@ -903,7 +903,7 @@ jobs:
       - name: Check results
         run: |
           for i in {1..10}; do
-            vulns=$(jq '.security.vulnerabilities | length' /tmp/dvmcp-ch$i-results.json)
+            vulns=$(jq '.modules.security.vulnerabilities | length' /tmp/dvmcp-ch$i-results.json)
             echo "Challenge $i: $vulns vulnerabilities"
           done
 ```

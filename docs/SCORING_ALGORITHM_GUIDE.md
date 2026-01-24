@@ -477,7 +477,7 @@ cat /tmp/inspector-assessment-*.json | jq '{
 }'
 
 # Count vulnerabilities
-cat /tmp/inspector-assessment-*.json | jq '.security.vulnerabilities | length'
+cat /tmp/inspector-assessment-*.json | jq '.modules.security.vulnerabilities | length'
 
 # Check module applicability
 cat /tmp/inspector-assessment-*.json | jq 'keys'

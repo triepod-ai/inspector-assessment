@@ -2049,8 +2049,8 @@ npm run assess -- --server vulnerable-mcp --config /tmp/vulnerable-mcp-config.js
 npm run assess -- --server hardened-mcp --config /tmp/hardened-mcp-config.json
 
 # Check results
-cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '.security.vulnerabilities | length'
-cat /tmp/inspector-assessment-hardened-mcp.json | jq '.security.vulnerabilities | length'
+cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '.modules.security.vulnerabilities | length'
+cat /tmp/inspector-assessment-hardened-mcp.json | jq '.modules.security.vulnerabilities | length'
 ```
 
 ### Step 4: Validate Against Safe Tools
@@ -2097,10 +2097,10 @@ cat /tmp/inspector-assessment-vulnerable-mcp.json | \
 
 ```bash
 # A/B Comparison (200 vs 0)
-cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '.security.vulnerabilities | length'
+cat /tmp/inspector-assessment-vulnerable-mcp.json | jq '.modules.security.vulnerabilities | length'
 # Expected: 200
 
-cat /tmp/inspector-assessment-hardened-mcp.json | jq '.security.vulnerabilities | length'
+cat /tmp/inspector-assessment-hardened-mcp.json | jq '.modules.security.vulnerabilities | length'
 # Expected: 0
 
 # Zero false positives on safe tools
