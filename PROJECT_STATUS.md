@@ -519,3 +519,81 @@
 - Session ID: 20260123_141216_4725f358
 
 ---
+
+## 2026-01-23: Issue #207 Runtime Annotation Verification (Resolves Issue #204)
+
+**Summary:** Implemented runtime annotation verification to fix false negatives for servers that define annotations in code rather than manifest.json
+
+**Session Focus:** Add RuntimeAnnotationVerifier helper to detect all 5 annotation locations in tools/list response
+
+**Problem:** MCP servers can define tool annotations at runtime (via SDK decorators/interceptors) rather than statically in manifest.json. Previous implementation only checked the `annotations` object, causing 0% coverage for valid implementations.
+
+**Changes Made:**
+- Created `RuntimeAnnotationVerifier.ts` helper with 5 location checks
+- Added `runtimeVerification` field to ToolAnnotationAssessment output
+- Added 3 annotation location types exported from toolAnnotationTypes.ts
+- Added comprehensive test suite (`RuntimeAnnotationVerification-Issue207.test.ts`)
+- Integrated into ToolAnnotationAssessor.ts assessment flow
+
+**Annotation Locations Detected:**
+1. `annotations_object` - `tool.annotations.readOnlyHint` (standard location)
+2. `direct_properties` - `tool.readOnlyHint` (SDK interceptor pattern)
+3. `metadata` - `tool.metadata.readOnlyHint` (metadata wrapper)
+4. `_meta` - `tool._meta.readOnlyHint` (underscore convention)
+5. `annotations_hints` - `tool.annotations.hints.readOnlyHint` (nested hints)
+
+**Results:**
+- 5380 tests passing (no test failures)
+- All location types validated in test suite
+- Resolves Issue #204 false negative for runtime-defined annotations
+
+**Key Decisions:**
+- Prioritize `annotations_object` over alternative locations (standard compliance)
+- Report all found locations in toolDetails array for transparency
+- Calculate coverage from ANY valid location (not just standard)
+
+**Next Steps:**
+- Update ASSESSMENT_CATALOG.md with runtime verification documentation
+- Consider documenting annotation best practices for server developers
+
+**Notes:**
+- This resolves the false negative identified in Issue #203 review (QA Stage 3)
+- Backward compatible - no changes to existing assessment behavior
+- Helper is reusable for future annotation-related features
+
+---
+
+## 2026-01-23: Issue #203 Code Review - File Validation Error False Negatives Fix
+
+**Summary:** Completed code review workflow and published v1.42.3 with Issue #203 documentation updates
+
+**Session Focus:** 7-stage code review of Issue #203 fix (file validation error false negatives), documentation sync, npm release
+
+**Changes Made:**
+- Ran full code review workflow (stages 0-6) on Issue #203 fix
+- Stage 1: 0 P0/P1 issues, 3 P3 suggestions (deferred)
+- Stage 2: Build + 5380 tests passing validated
+- Stage 3: QA identified P1 gap (substring false positive) for Issue #204
+- Stage 4: Added skipped test documenting P1 gap
+- Stage 5: Updated CHANGELOG, RESPONSE_VALIDATION_CORE, RESPONSE_VALIDATION_EXTENSION docs
+- Stage 6: Verification passed
+- Committed docs: a0069fc9
+- Bumped to v1.42.3 and published to npm
+- Pushed to GitHub with tag v1.42.3
+- Issue #203 confirmed closed
+
+**Key Decisions:**
+- P3 suggestions (test coverage, substring matching, ternary simplification) deferred
+- P1 gap (substring false positive like "payload_validator" matching "load") documented for Issue #204
+- Documentation updates committed separately from implementation fix
+
+**Next Steps:**
+- Consider Issue #204 for substring matching refinement (word boundary regex)
+- Monitor for any other file operation edge cases
+
+**Notes:**
+- Review workflow session ID: 20260123_145546_8a427995
+- v1.42.3 now live on npm
+- Issue #203 closed automatically
+
+---

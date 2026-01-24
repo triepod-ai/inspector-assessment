@@ -551,6 +551,68 @@ The assessor can optionally analyze server architecture to provide context for a
 
 See [Architecture Detection Guide](ARCHITECTURE_DETECTION_GUIDE.md) for complete documentation.
 
+#### Runtime Annotation Verification (Issue #207)
+
+The assessor now verifies that annotations are present at runtime via the `tools/list` response, not just in static manifest files.
+
+**Problem Solved**:
+
+MCP servers can define annotations in two ways:
+
+1. **Static** - In `manifest.json` or config files
+2. **Runtime** - Via SDK decorators, interceptors, or dynamic tool registration
+
+Previous versions only checked the standard `tool.annotations` object, causing **false negatives** (0% coverage) for servers that use runtime-defined annotations.
+
+**Detection Strategy**:
+
+The `RuntimeAnnotationVerifier` helper checks **5 possible locations** where annotations may appear in the `tools/list` response:
+
+| Location             | Path                                  | Source                                        |
+| -------------------- | ------------------------------------- | --------------------------------------------- |
+| `annotations_object` | `tool.annotations.readOnlyHint`       | Standard MCP location                         |
+| `direct_properties`  | `tool.readOnlyHint`                   | SDK interceptor pattern (preserves top-level) |
+| `metadata`           | `tool.metadata.readOnlyHint`          | Metadata wrapper pattern                      |
+| `_meta`              | `tool._meta.readOnlyHint`             | Underscore convention                         |
+| `annotations_hints`  | `tool.annotations.hints.readOnlyHint` | Nested hints pattern                          |
+
+**Output Fields**:
+
+The `ToolAnnotationAssessment` result now includes:
+
+```typescript
+{
+  runtimeVerification: {
+    verified: true,           // Whether verification succeeded
+    totalTools: 10,            // Number of tools checked
+    toolsWithRuntimeAnnotations: 8,  // Tools with annotations in tools/list
+    toolsWithoutAnnotations: 2,      // Tools with no annotations found
+    runtimeCoveragePercent: 80,      // Percentage with runtime annotations
+    toolDetails: [             // Per-tool location details
+      {
+        toolName: "get_user",
+        location: "annotations_object",
+        foundHints: ["readOnlyHint"]
+      },
+      {
+        toolName: "create_user",
+        location: "direct_properties",
+        foundHints: ["destructiveHint"]
+      }
+    ]
+  }
+}
+```
+
+**Benefits**:
+
+- Eliminates false negatives for runtime-defined annotations
+- Supports all common SDK annotation patterns
+- Provides transparency via per-tool location reporting
+- Backward compatible with existing manifest-based annotations
+
+**Implementation**: `client/src/services/assessment/helpers/RuntimeAnnotationVerifier.ts`
+
 ---
 
 ### 9. Prohibited Libraries

@@ -10,44 +10,18 @@
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import type {
+  AnnotationLocation,
+  ToolAnnotationLocationDetail,
+  RuntimeAnnotationVerification,
+} from "../../../lib/assessment/toolAnnotationTypes";
 
-/**
- * Location where annotations were found in the tool object
- */
-export type AnnotationLocation =
-  | "annotations_object" // tool.annotations.readOnlyHint
-  | "direct_properties" // tool.readOnlyHint (preserved by SDK interceptor)
-  | "metadata" // tool.metadata.readOnlyHint
-  | "_meta" // tool._meta.readOnlyHint
-  | "annotations_hints" // tool.annotations.hints.readOnlyHint
-  | "none"; // No annotations found
-
-/**
- * Per-tool annotation location details
- */
-export interface ToolAnnotationLocationDetail {
-  toolName: string;
-  location: AnnotationLocation;
-  foundHints: string[];
-}
-
-/**
- * Result of runtime annotation verification
- */
-export interface RuntimeAnnotationVerification {
-  /** Whether verification was performed successfully */
-  verified: boolean;
-  /** Total number of tools checked */
-  totalTools: number;
-  /** Number of tools with annotations in tools/list response */
-  toolsWithRuntimeAnnotations: number;
-  /** Number of tools without any annotations */
-  toolsWithoutAnnotations: number;
-  /** Coverage percentage (0-100) */
-  runtimeCoveragePercent: number;
-  /** Details per tool */
-  toolDetails: ToolAnnotationLocationDetail[];
-}
+// Re-export types for external consumers
+export type {
+  AnnotationLocation,
+  ToolAnnotationLocationDetail,
+  RuntimeAnnotationVerification,
+};
 
 /**
  * Hint property names to check (both suffixed and non-suffixed)
@@ -83,6 +57,15 @@ function findHintProperties(
  * Detect where annotations are located in a tool object
  */
 function detectAnnotationLocation(tool: Tool): ToolAnnotationLocationDetail {
+  // Guard against malformed tool objects
+  if (!tool || !tool.name) {
+    return {
+      toolName: tool?.name || "unknown",
+      location: "none",
+      foundHints: [],
+    };
+  }
+
   const t = tool as Record<string, unknown>;
   const result: ToolAnnotationLocationDetail = {
     toolName: tool.name,

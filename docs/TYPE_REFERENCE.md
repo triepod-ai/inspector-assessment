@@ -828,6 +828,8 @@ interface ToolAnnotationAssessment {
   status: AssessmentStatus;
   explanation: string;
   recommendations: string[];
+  /** Issue #207: Runtime annotation verification from tools/list response */
+  runtimeVerification?: RuntimeAnnotationVerification;
   metrics?: {
     coverage: number; // % with annotations
     consistency: number; // % without contradictions
@@ -842,6 +844,29 @@ interface ToolAnnotationAssessment {
   };
   poisonedDescriptionsDetected?: number;
 }
+
+interface RuntimeAnnotationVerification {
+  verified: boolean; // Whether verification was performed successfully
+  totalTools: number; // Total number of tools checked
+  toolsWithRuntimeAnnotations: number; // Tools with annotations in tools/list response
+  toolsWithoutAnnotations: number; // Tools without any annotations
+  runtimeCoveragePercent: number; // Coverage percentage (0-100)
+  toolDetails: ToolAnnotationLocationDetail[]; // Details per tool
+}
+
+interface ToolAnnotationLocationDetail {
+  toolName: string;
+  location: AnnotationLocation;
+  foundHints: string[]; // e.g., ["readOnlyHint", "destructiveHint"]
+}
+
+type AnnotationLocation =
+  | "annotations_object" // tool.annotations.readOnlyHint (standard)
+  | "direct_properties" // tool.readOnlyHint (SDK interceptor)
+  | "metadata" // tool.metadata.readOnlyHint
+  | "_meta" // tool._meta.readOnlyHint
+  | "annotations_hints" // tool.annotations.hints.readOnlyHint
+  | "none"; // No annotations found
 ```
 
 ### SecurityAnnotations (Issue #170)

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Runtime Annotation Verification** (Issue #207): Detect annotations defined at runtime via SDK decorators/interceptors
+  - New `RuntimeAnnotationVerifier` helper checks 5 annotation locations in tools/list response
+  - Locations: `annotations_object` (standard), `direct_properties` (SDK interceptor), `metadata`, `_meta`, `annotations_hints`
+  - Added `runtimeVerification` field to `ToolAnnotationAssessment` output
+  - Resolves false negatives (0% coverage) for servers that define annotations dynamically
+  - New types exported: `RuntimeAnnotationVerification`, `ToolAnnotationLocationDetail`, `AnnotationLocation`
+  - Comprehensive test suite covering all 5 location patterns
+  - Backward compatible - no changes to existing assessment behavior
+
 ### Fixed
 
 - **File Validation Error False Positives** (Issue #203): Enhanced business logic error detection for file/media operations
