@@ -442,3 +442,36 @@
 - Issue #193 and #209 closed on GitHub
 
 ---
+
+## 2026-01-24: Issue #192 - Static Annotation Scanner for ES Module Syntax
+
+**Summary:** Implemented AST-based static annotation scanner with full ES module support
+
+**Session Focus:** Creating StaticAnnotationScanner.ts to detect nested annotations in ES module patterns like `const TOOLS = [{ annotations: {...} }]`
+
+**Changes Made:**
+- Created `client/src/services/assessment/lib/StaticAnnotationScanner.ts` using acorn + acorn-walk for AST parsing
+- Implemented detection of nested annotations in array/object patterns common in ES module MCP servers
+- Fixed P1: Added .tsx/.jsx file extension support for React-based MCP tool definitions
+- Added 42 unit tests in `StaticAnnotationScanner.test.ts` (2 specifically for the P1 fix)
+- Updated `docs/ASSESSMENT_CATALOG.md` with feature documentation
+- Commits: 0782962c (initial implementation), d1cd1dda (P1 fix)
+
+**Key Decisions:**
+- Used acorn parser (lightweight, ES2020+ support) over heavier alternatives like TypeScript compiler API
+- Recursive AST walking to find annotations at any nesting depth
+- File extension handling: .ts, .tsx, .js, .jsx, .mjs, .cjs supported
+- Integration point: ToolAnnotationAssessor can use scanner for source-level annotation validation
+
+**Next Steps:**
+- Integrate StaticAnnotationScanner with ToolAnnotationAssessor for enhanced annotation coverage detection
+- Consider adding Python annotation scanning for FastMCP servers
+- Potential npm version bump for next release
+
+**Notes:**
+- All 5516 project tests pass
+- Issue #192 closed on GitHub
+- Code review workflow: 7 stages with code-reviewer-pro, debugger, qa-expert, test-automator, docs-sync agents
+- Scanner enables detection of annotations that may not be exposed via MCP protocol introspection
+
+---
