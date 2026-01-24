@@ -140,7 +140,14 @@ export class StaticAnnotationScanner {
   private readonly MAX_FILE_SIZE = 500_000;
 
   /** File extensions to scan */
-  private readonly SCANNABLE_EXTENSIONS = [".js", ".ts", ".mjs", ".cjs"];
+  private readonly SCANNABLE_EXTENSIONS = [
+    ".js",
+    ".ts",
+    ".mjs",
+    ".cjs",
+    ".tsx",
+    ".jsx",
+  ];
 
   /**
    * Scan source files for tool annotations.

@@ -614,6 +614,84 @@ The `ToolAnnotationAssessment` result now includes:
 
 **Implementation**: `client/src/services/assessment/helpers/RuntimeAnnotationVerifier.ts`
 
+#### Static Annotation Scanning (Issue #192)
+
+The assessor includes **AST-based source code scanning** as a fallback for detecting annotations when the MCP runtime doesn't provide them.
+
+**Problem Solved**:
+
+When MCP servers don't include annotations in the `tools/list` response (e.g., due to SDK limitations or developer oversight), the inspector can analyze the source code directly to extract annotation definitions.
+
+**Detection Strategy**:
+
+The `StaticAnnotationScanner` uses AST parsing (via `acorn`) to find annotations in JavaScript/TypeScript source files:
+
+```javascript
+// Detects annotations in ES module syntax:
+const TOOLS = [
+  {
+    name: "get_user",
+    annotations: { readOnlyHint: true },
+  },
+];
+
+// Also handles React/JSX tool definitions:
+export const tools = [<Tool name="create_user" destructiveHint={true} />];
+```
+
+**Supported File Extensions**:
+
+- `.js` - JavaScript modules
+- `.ts` - TypeScript modules
+- `.mjs` - ES modules
+- `.tsx` - TypeScript with JSX
+- `.jsx` - JavaScript with JSX
+
+**How It Works**:
+
+1. Parse source files into AST (Abstract Syntax Tree)
+2. Walk the AST to find tool definition objects
+3. Extract `annotations` objects or hint properties
+4. Match annotations to tool names
+5. Provide evidence with file paths and line numbers
+
+**Output Fields**:
+
+```typescript
+{
+  staticAnnotationScan: {
+    sourceCodeScanned: true,          // Whether source was available
+    annotatedToolCount: 5,             // Tools with static annotations found
+    scannedFiles: ["server.ts", ...],  // Files that were scanned
+    evidence: [
+      {
+        filePath: "server.ts",
+        toolName: "get_user",
+        confidence: "high",
+        detail: "Found readOnlyHint: true in annotations object",
+        lineNumber: 42
+      }
+    ],
+    parseErrors: []                    // Any parsing errors encountered
+  }
+}
+```
+
+**Benefits**:
+
+- Provides annotation coverage when runtime verification fails
+- Detects nested annotations that regex-based scanning misses
+- Supports modern ES module syntax and JSX/TSX files
+- No false positives from comments or string literals
+
+**Limitations**:
+
+- Requires `--source` flag to provide source code files
+- Cannot detect annotations computed at runtime
+- Medium confidence (static analysis vs. runtime truth)
+
+**Implementation**: `client/src/services/assessment/helpers/StaticAnnotationScanner.ts`
+
 ---
 
 ### 9. Prohibited Libraries

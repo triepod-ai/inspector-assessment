@@ -94,6 +94,66 @@
 
 ---
 
+## 2026-01-24: Issue #192 - Static Annotation Scanner for ES Module Tool Definitions
+
+**Summary:** Implemented AST-based static source code scanning to detect tool annotations in modern ES module syntax that regex-based scanning misses
+
+**Session Focus:** Fix false negatives when annotations are nested inside tool definition objects/arrays in ES module syntax
+
+**Problem:** Previous annotation detection relied on simple text pattern matching, which missed annotations in modern codebases using:
+- ES module array syntax: `const TOOLS = [{ name: 'x', annotations: { readOnlyHint: true } }]`
+- React/JSX patterns: `<Tool name="get_user" readOnlyHint={true} />`
+- Nested object structures that don't match flat regex patterns
+
+**Changes Made:**
+- Created `StaticAnnotationScanner.ts` helper (481 lines) with AST parsing via `acorn`
+- Added support for `.tsx` and `.jsx` file extensions
+- Integrated into ToolAnnotationAssessor.ts as fallback when runtime verification fails
+- Updated AlignmentChecker.ts to use static scanning results
+- Created comprehensive test suite: `StaticAnnotationScanner.test.ts` (614+ lines)
+  - 2 tests for .tsx/.jsx support added in Stage 4
+  - Full coverage of nested annotations, JSX patterns, parse errors
+- Updated ASSESSMENT_CATALOG.md with Static Annotation Scanning documentation section
+- Updated PROJECT_STATUS.md with Issue #192 entry
+
+**Detection Capabilities:**
+- Parses JavaScript/TypeScript/JSX/TSX files into AST (Abstract Syntax Tree)
+- Walks AST to find tool definition objects with annotations
+- Extracts annotation properties from nested structures
+- Provides evidence with file paths and line numbers
+- Handles parse errors gracefully (logs but doesn't fail assessment)
+
+**Supported Extensions:**
+- `.js` - JavaScript modules
+- `.ts` - TypeScript modules
+- `.mjs` - ES modules
+- `.tsx` - TypeScript with JSX (Issue #192 fix)
+- `.jsx` - JavaScript with JSX (Issue #192 fix)
+
+**Results:**
+- All tests passing (no test failures)
+- Detects annotations missed by regex-based scanning
+- No false positives from comments or string literals
+- Medium confidence level (static analysis vs. runtime truth)
+
+**Key Decisions:**
+- Use acorn for AST parsing (robust, well-maintained, standard parser)
+- Add .tsx/.jsx support for React-based MCP servers
+- Graceful fallback: parse errors don't block assessment
+- Requires `--source` flag for source code access (security boundary)
+
+**Next Steps:**
+- Monitor for additional ES module patterns in wild
+- Consider extending to detect computed/dynamic annotations
+
+**Notes:**
+- Complements RuntimeAnnotationVerifier (Issue #207) for complete coverage
+- 5-stage agent workflow: code-reviewer-pro → debugger → qa-expert → test-automator → docs-sync
+- Implementation: `client/src/services/assessment/helpers/StaticAnnotationScanner.ts`
+- Test suite: `client/src/services/assessment/__tests__/StaticAnnotationScanner.test.ts`
+
+---
+
 ## 2026-01-23: Issue #202 Code Review - Node.js v22 JSON Import Attributes Fix
 
 **Summary:** Ran comprehensive 7-stage code review workflow on Issue #202 fix (Node.js v22 JSON Import Attributes)
@@ -284,5 +344,101 @@
 - QA agent initially raised false alarm about fix correctness (confused TypeScript interface structure with actual JSON output)
 - Resolved confusion by verifying actual JSON structure against documentation examples
 - All jq command examples now verified against production JSON output
+
+---
+
+## 2026-01-24: Code Review for Issue #209 - Version Consistency Check
+
+**Summary:** Completed 7-stage code review for Issue #209 (Version Consistency Check)
+
+**Session Focus:** Code review workflow validation of validateVersionConsistency() implementation
+
+**Changes Made:**
+- Reviewed commit 1250320b adding version consistency check to ManifestValidationAssessor
+- Validated implementation follows BaseAssessor extension pattern
+- Verified 10 test cases cover all code paths (happy path, mismatch detection, edge cases)
+- Pushed commit to origin/main
+
+**Key Decisions:**
+- 0 P0/P1 issues found - implementation production-ready
+- 3 P3 suggestions (documentation enhancements) deferred to follow-up PR
+- QA validation: ADEQUATE verdict, LOW risk, HIGH confidence
+
+**Next Steps:**
+- Optional: Address P3 documentation suggestions in future PR
+- Close Issue #209 on GitHub
+
+**Notes:**
+- All 5468 project tests pass
+- Files: ManifestValidationAssessor.ts (+46 lines), ManifestValidation-UnitTests.test.ts (+160 lines)
+
+---
+
+## 2026-01-24: Memory Leak Pattern Analysis - Jest Test Suite
+
+**Summary:** Comprehensive memory leak pattern analysis completed on 224 Jest test files with zero HIGH or MEDIUM severity issues found
+
+**Session Focus:** Automated scanning of Jest test suite for memory leak patterns across client, CLI, server, and scripts directories
+
+**Changes Made:**
+- No code changes - analysis-only session using memory-leak-scanner agent
+- Scanned 224 test files: client (187), cli (29), server (3), scripts (5)
+- Analyzed 6 memory leak pattern categories: child process streams, module mocks, AbortController, listeners, console spies, fake timers
+
+**Key Decisions:**
+- No action required - test suite already follows memory management best practices
+- All cleanup patterns properly implemented (afterEach/afterAll hooks, try-finally blocks, stream destruction, module unmocking)
+- Confidence level: HIGH - automated pattern analysis across entire test suite
+
+**Findings:**
+- 0 HIGH severity issues (child process streams properly cleaned in test teardown)
+- 0 MEDIUM severity issues (module mocks and AbortController handled correctly)
+- 0 LOW severity issues (console spies, fake timers, response clones cleaned in afterEach hooks)
+- Notable: listener-leak.test.ts demonstrates sophisticated EventEmitter state management with proper cleanup
+
+**Next Steps:**
+- Consider adding --detectOpenHandles to Jest CI configuration to catch future regressions
+- Document listener leak test patterns in test guidelines for developer reference
+
+**Notes:**
+- Codebase demonstrates excellent memory leak hygiene across entire test suite
+- All 224 test files implement proper resource cleanup mechanisms
+- Analysis validates existing test practices rather than identifying problems
+
+---
+
+## 2026-01-24: Issue #193 Code Review - Dependency Vulnerability Detection Module
+
+**Summary:** Completed 7-stage code review for Issue #193, applied fixes, published v1.43.0 to npm
+
+**Session Focus:** Full code review workflow for the new DependencyVulnerabilityAssessor module (commit 1a6e7709)
+
+**Changes Made:**
+- Stage 1: Code review identified 7 issues (0 P0, 2 P1, 2 P2, 3 P3)
+- Stage 2: Applied FIX-001 - debug logging for malformed yarn audit lines in DependencyVulnerabilityAssessor.ts
+- Stage 3: QA validated fix as ADEQUATE
+- Stage 4: Created 6 new tests + afterEach cleanup in DependencyVulnerabilityAssessor.test.ts
+- Stage 5: Updated README.md (module count 18->19) and docs/ASSESSMENT_CATALOG.md (new module entry)
+- Stage 6: Verified all 5474 tests passing, fixed prettier formatting
+- Committed code review changes (c88b6fb8)
+- Pushed to origin, closed Issues #193 and #209
+- Bumped version 1.42.3 -> 1.43.0 and published all 4 packages to npm
+- Verified mcp-auditor integration (Issue #197) was already completed
+
+**Key Decisions:**
+- ISSUE-001 (exec timeout orphan process) accepted as acceptable risk - edge case with low impact
+- New module added as opt-in (requires source code access) - appropriate for specialized use case
+- P3 issues (documentation enhancements) deferred to future work
+
+**Next Steps:**
+- Monitor npm package adoption
+- Address deferred P3 documentation suggestions in follow-up PR
+- Continue assessment module development
+
+**Notes:**
+- Code review workflow: 7 stages (review, fix, QA, test, docs, verify, commit)
+- npm packages published: @bryan-thompson/inspector-assessment (root + 3 workspaces)
+- All 5474 project tests pass
+- Issue #193 and #209 closed on GitHub
 
 ---

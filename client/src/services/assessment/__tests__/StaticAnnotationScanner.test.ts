@@ -350,6 +350,30 @@ module.exports = tool;
       expect(result.annotations.has("cjs_tool")).toBe(true);
     });
 
+    it("should support .tsx files (P1 fix validation - TG-001)", () => {
+      const sourceCode = `
+export const tool = { name: 'tsx_tool', annotations: { readOnlyHint: true } };
+`;
+      const files = new Map([["component.tsx", sourceCode]]);
+      const result = scanner.scan(files);
+
+      expect(result.annotations.has("tsx_tool")).toBe(true);
+      expect(result.scannedFiles).toHaveLength(1);
+      expect(result.scannedFiles[0]).toBe("component.tsx");
+    });
+
+    it("should support .jsx files (P1 fix validation - TG-001)", () => {
+      const sourceCode = `
+export const tool = { name: 'jsx_tool', annotations: { destructiveHint: true } };
+`;
+      const files = new Map([["component.jsx", sourceCode]]);
+      const result = scanner.scan(files);
+
+      expect(result.annotations.has("jsx_tool")).toBe(true);
+      expect(result.scannedFiles).toHaveLength(1);
+      expect(result.scannedFiles[0]).toBe("component.jsx");
+    });
+
     it("should skip non-JS/TS files", () => {
       const sourceCode = `
 tool = { name: 'py_tool', annotations: { readOnlyHint: True } }
