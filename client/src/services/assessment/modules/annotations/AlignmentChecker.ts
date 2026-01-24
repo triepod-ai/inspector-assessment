@@ -22,6 +22,7 @@ import {
   scanDescriptionForPoisoning,
   type PoisoningScanResult,
 } from "./DescriptionPoisoningDetector";
+import type { StaticAnnotation } from "../../helpers/StaticAnnotationScanner";
 
 /**
  * Extended Tool type with MCP annotation properties
@@ -598,19 +599,47 @@ function mergePoisoningScanResults(
 
 /**
  * Assess a single tool's annotations
+ *
+ * @param tool - The tool to assess
+ * @param compiledPatterns - Compiled name patterns for behavior inference
+ * @param persistenceContext - Server persistence context
+ * @param staticAnnotations - Optional map of static annotations from source code (Issue #192)
  */
 export function assessSingleTool(
   tool: Tool,
   compiledPatterns: CompiledPatterns,
   persistenceContext?: ServerPersistenceContext,
+  staticAnnotations?: Map<string, StaticAnnotation>,
 ): ToolAnnotationResult {
   const issues: string[] = [];
   const recommendations: string[] = [];
 
-  const annotations = extractAnnotations(tool);
-  const hasAnnotations =
+  // First try runtime annotation extraction
+  let annotations = extractAnnotations(tool);
+  let hasAnnotations =
     annotations.readOnlyHint !== undefined ||
     annotations.destructiveHint !== undefined;
+
+  // Issue #192: Fall back to static source code annotations if no runtime annotations
+  if (!hasAnnotations && staticAnnotations?.has(tool.name)) {
+    const staticAnn = staticAnnotations.get(tool.name)!;
+    const hasStaticAnnotations =
+      staticAnn.readOnlyHint !== undefined ||
+      staticAnn.destructiveHint !== undefined;
+
+    if (hasStaticAnnotations) {
+      annotations = {
+        readOnlyHint: staticAnn.readOnlyHint,
+        destructiveHint: staticAnn.destructiveHint,
+        idempotentHint: staticAnn.idempotentHint,
+        openWorldHint: staticAnn.openWorldHint,
+        title: annotations.title,
+        description: annotations.description,
+        source: "source-code",
+      };
+      hasAnnotations = true;
+    }
+  }
 
   const inferredBehavior = inferBehavior(
     tool.name,

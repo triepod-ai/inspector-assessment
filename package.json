@@ -132,6 +132,8 @@
   "dependencies": {
     "@modelcontextprotocol/conformance": "^0.1.9",
     "@modelcontextprotocol/sdk": "^1.25.2",
+    "acorn": "^8.14.0",
+    "acorn-walk": "^8.3.4",
     "commander": "^14.0.2",
     "node-fetch": "^3.3.2",
     "open": "^10.2.0",

@@ -61,6 +61,9 @@ import {
 // Issue #207: Runtime annotation verification
 import { verifyRuntimeAnnotations } from "../helpers/RuntimeAnnotationVerifier";
 
+// Issue #192: Static source code annotation scanning
+import { StaticAnnotationScanner } from "../helpers/StaticAnnotationScanner";
+
 /**
  * Enhanced tool annotation result with Claude inference
  * Re-exported for backwards compatibility
@@ -170,6 +173,20 @@ export class ToolAnnotationAssessor extends BaseAssessor {
       }
     }
 
+    // Issue #192: Scan source code for static annotations
+    const staticScanner = new StaticAnnotationScanner();
+    const staticScanResult = staticScanner.scan(context.sourceCodeFiles);
+    if (staticScanResult.sourceCodeScanned) {
+      this.logger.info(
+        `Static annotation scan: ${staticScanResult.annotatedToolCount}/${context.tools.length} tools have annotations in source code (${staticScanResult.scannedFiles.length} files scanned)`,
+      );
+      if (staticScanResult.parseErrors.length > 0) {
+        this.logger.debug(
+          `Static scan parse errors: ${staticScanResult.parseErrors.length} files failed to parse`,
+        );
+      }
+    }
+
     // Issue #57: Detect server architecture
     const architectureContext: ArchitectureContext = {
       tools: context.tools.map((t) => ({
@@ -211,10 +228,12 @@ export class ToolAnnotationAssessor extends BaseAssessor {
     for (const tool of context.tools) {
       this.testCount++;
       // Use extracted assessSingleTool function
+      // Issue #192: Pass static annotations for fallback when MCP annotations missing
       const result = assessSingleTool(
         tool,
         this.compiledPatterns,
         this.persistenceContext,
+        staticScanResult.annotations,
       );
 
       // Enhance with Claude inference if available
