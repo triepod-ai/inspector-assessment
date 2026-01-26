@@ -59,6 +59,8 @@ import { StdioTransportDetector } from "../../../../client/lib/services/assessme
 import { extractToolAnnotationsContext } from "../../../../client/lib/services/assessment/helpers/ToolAnnotationExtractor.js";
 // Issue #212: Import native module detector for pre-flight warnings
 import { detectNativeModules } from "./native-module-detector.js";
+// Issue #213: Import static modules for static-only assessment
+import { STATIC_MODULES, RUNTIME_MODULES } from "../static-modules.js";
 
 /**
  * Run full assessment against an MCP server
@@ -67,6 +69,242 @@ import { detectNativeModules } from "./native-module-detector.js";
  * @returns Assessment results
  */
 export async function runFullAssessment(
+  options: AssessmentOptions,
+): Promise<MCPDirectoryAssessment> {
+  // Issue #213: Handle static-only mode
+  if (options.staticOnly) {
+    return runStaticOnlyAssessment(options);
+  }
+
+  // Issue #213: Handle fallback-static mode
+  if (options.fallbackStatic) {
+    try {
+      return await runRuntimeAssessment(options);
+    } catch (error) {
+      if (!options.jsonOnly) {
+        console.log(
+          `\n⚠️  Runtime assessment failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        console.log("   Falling back to static-only assessment...\n");
+      }
+      // Fall back to static assessment
+      return runStaticOnlyAssessment(options);
+    }
+  }
+
+  // Default: runtime assessment
+  return runRuntimeAssessment(options);
+}
+
+/**
+ * Run static-only assessment (no server connection)
+ *
+ * Validates source code, manifest, documentation, and code quality
+ * without connecting to or executing the MCP server.
+ *
+ * @param options - CLI assessment options (must include sourceCodePath)
+ * @returns Assessment results from static-capable modules
+ * @see Issue #213
+ */
+async function runStaticOnlyAssessment(
+  options: AssessmentOptions,
+): Promise<MCPDirectoryAssessment> {
+  // Issue #155: Enable annotation debug mode if flag is set
+  if (options.debugAnnotations) {
+    setAnnotationDebugMode(true);
+    if (!options.jsonOnly) {
+      console.log("🔍 Annotation debug mode enabled (--debug-annotations)");
+    }
+  }
+
+  if (!options.jsonOnly) {
+    console.log(
+      `\n📋 Starting static-only assessment for: ${options.serverName}`,
+    );
+    console.log("   Mode: No server connection (static analysis only)\n");
+  }
+
+  // Validate source code path is provided (should be caught by CLI validation)
+  if (!options.sourceCodePath) {
+    throw new Error("--static-only requires --source <path>");
+  }
+
+  // Phase 1: Static Discovery
+  const discoveryStart = Date.now();
+  emitPhaseStarted("discovery");
+
+  // Resolve and load source files
+  const resolvedSourcePath = resolveSourcePath(options.sourceCodePath);
+
+  if (!fs.existsSync(resolvedSourcePath)) {
+    throw new Error(`Source path not found: ${resolvedSourcePath}`);
+  }
+
+  const sourceFiles = loadSourceFiles(resolvedSourcePath, options.debugSource);
+
+  if (!options.jsonOnly) {
+    console.log(`📁 Loaded source files from: ${resolvedSourcePath}`);
+    console.log(
+      `   README: ${sourceFiles.readmeContent ? "found" : "not found"}`,
+    );
+    console.log(
+      `   package.json: ${sourceFiles.packageJson ? "found" : "not found"}`,
+    );
+    console.log(
+      `   manifest.json: ${sourceFiles.manifestJson ? "found" : "not found"}`,
+    );
+    console.log(
+      `   Source files: ${sourceFiles.sourceCodeFiles?.size || 0} file(s)`,
+    );
+  }
+
+  // Try to extract tools from manifest if available
+  // In static mode, tools are optional - many static modules don't need them
+  type StaticTool = {
+    name: string;
+    description?: string;
+    inputSchema: {
+      type: "object";
+      properties?: Record<string, unknown>;
+    };
+  };
+
+  let tools: StaticTool[] = [];
+
+  if (sourceFiles.manifestJson) {
+    const manifest = sourceFiles.manifestJson as {
+      mcp_config?: {
+        tools?: Array<{
+          name: string;
+          description?: string;
+          inputSchema?: { type?: string; properties?: Record<string, unknown> };
+        }>;
+      };
+    };
+    if (manifest.mcp_config?.tools) {
+      // Convert manifest tools to expected schema format
+      tools = manifest.mcp_config.tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        inputSchema: {
+          type: "object" as const,
+          properties: t.inputSchema?.properties || {},
+        },
+      }));
+      if (!options.jsonOnly) {
+        console.log(`   Tools from manifest: ${tools.length} tool(s)`);
+      }
+    }
+  }
+
+  // Emit discovery events (minimal - no server discovery)
+  emitToolsDiscoveryComplete(tools.length);
+  emitPhaseComplete("discovery", Date.now() - discoveryStart);
+
+  // Build static-mode configuration
+  const config = buildConfig(options);
+
+  // Emit modules_configured event
+  if (config.assessmentCategories) {
+    const enabled: string[] = [];
+    const skipped: string[] = [];
+    for (const [key, value] of Object.entries(config.assessmentCategories)) {
+      if (value) {
+        enabled.push(key);
+      } else {
+        skipped.push(key);
+      }
+    }
+    emitModulesConfigured(enabled, skipped, "static-only");
+  }
+
+  const orchestrator = new AssessmentOrchestrator(config);
+
+  if (!options.jsonOnly) {
+    const enabledCount = Object.values(
+      config.assessmentCategories || {},
+    ).filter(Boolean).length;
+    console.log(`\n🏃 Running ${enabledCount} static module(s)...`);
+    console.log(
+      `   Skipped: ${RUNTIME_MODULES.length} runtime-only module(s)\n`,
+    );
+  }
+
+  // Phase 2: Static Assessment
+  const assessmentStart = Date.now();
+  emitPhaseStarted("assessment");
+
+  // Build assessment context WITHOUT server connection
+  // Use type assertion for tools - in static mode, tools are informational only
+  // and many static modules don't require them at all
+  const context: AssessmentContext = {
+    serverName: options.serverName,
+    tools: tools as AssessmentContext["tools"],
+    // NO callTool - static mode doesn't execute tools
+    callTool: undefined as unknown as AssessmentContext["callTool"],
+    // NO listTools - static mode doesn't refresh tool list
+    listTools: undefined,
+    config,
+    sourceCodePath: options.sourceCodePath,
+    // Include all source files
+    ...sourceFiles,
+    // No resources/prompts in static mode
+    resources: [],
+    resourceTemplates: [],
+    prompts: [],
+    // No server info in static mode
+    serverInfo: undefined,
+    serverCapabilities: undefined,
+  };
+
+  const results = await orchestrator.runFullAssessment(context);
+
+  // End of assessment phase
+  emitPhaseComplete("assessment", Date.now() - assessmentStart);
+
+  // Mark results as static-only mode
+  const staticResults = {
+    ...results,
+    assessmentMode: "static-only" as const,
+    staticContext: {
+      sourceCodePath: resolvedSourcePath,
+      manifestFound: !!sourceFiles.manifestJson,
+      packageJsonFound: !!sourceFiles.packageJson,
+      readmeFound: !!sourceFiles.readmeContent,
+      toolsExtracted: tools.length,
+      sourceFilesLoaded: sourceFiles.sourceCodeFiles?.size || 0,
+    },
+    skippedModules: RUNTIME_MODULES.map((name) => ({
+      name,
+      reason: "requires_runtime" as const,
+    })),
+  };
+
+  // Emit assessment complete event
+  const defaultOutputPath = `/tmp/inspector-static-assessment-${options.serverName}.json`;
+  emitAssessmentComplete(
+    staticResults.overallStatus,
+    staticResults.totalTestsRun,
+    staticResults.executionTime,
+    options.outputPath || defaultOutputPath,
+  );
+
+  if (!options.jsonOnly) {
+    console.log(`\n✅ Static assessment complete`);
+    console.log(`   Tests run: ${staticResults.totalTestsRun}`);
+    console.log(`   Status: ${staticResults.overallStatus}`);
+  }
+
+  return staticResults;
+}
+
+/**
+ * Run runtime assessment (standard mode with server connection)
+ *
+ * @param options - CLI assessment options
+ * @returns Assessment results
+ */
+async function runRuntimeAssessment(
   options: AssessmentOptions,
 ): Promise<MCPDirectoryAssessment> {
   // Issue #155: Enable annotation debug mode if flag is set

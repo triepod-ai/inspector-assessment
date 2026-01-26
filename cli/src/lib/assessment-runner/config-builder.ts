@@ -23,6 +23,7 @@ import {
 } from "../../profiles.js";
 
 import type { AssessmentOptions } from "../cli-parser.js";
+import { STATIC_MODULES } from "../static-modules.js";
 
 /**
  * Build assessment configuration from CLI options
@@ -41,7 +42,59 @@ export function buildConfig(
     enableSourceCodeAnalysis: Boolean(options.sourceCodePath),
   };
 
-  if (options.fullAssessment !== false) {
+  // Issue #213: Static-only mode - enable only static-capable modules
+  if (options.staticOnly) {
+    const staticModuleConfig: Record<string, boolean> = {};
+
+    // Start with all modules disabled
+    const allModules = getAllModulesConfig({
+      sourceCodePath: true, // Static mode always has source
+      skipTemporal: true, // Temporal requires runtime
+    });
+    for (const key of Object.keys(allModules)) {
+      staticModuleConfig[key] = false;
+    }
+
+    // Enable only static-capable modules
+    for (const module of STATIC_MODULES) {
+      staticModuleConfig[module] = true;
+    }
+
+    // Apply --only-modules filter if provided (whitelist within static modules)
+    if (options.onlyModules?.length) {
+      const resolved = resolveModuleNames(options.onlyModules);
+      for (const key of Object.keys(staticModuleConfig)) {
+        // Module must be in whitelist AND be static-capable
+        staticModuleConfig[key] =
+          resolved.includes(key) && STATIC_MODULES.includes(key as any);
+      }
+    }
+
+    // Apply --skip-modules filter if provided
+    if (options.skipModules?.length) {
+      const resolved = resolveModuleNames(options.skipModules);
+      for (const module of resolved) {
+        if (module in staticModuleConfig) {
+          staticModuleConfig[module] = false;
+        }
+      }
+    }
+
+    config.assessmentCategories =
+      staticModuleConfig as AssessmentConfiguration["assessmentCategories"];
+
+    // Log static mode info
+    const enabledModules = Object.entries(staticModuleConfig)
+      .filter(([_, enabled]) => enabled)
+      .map(([name]) => name);
+    console.log(
+      `📋 Static-only mode: ${enabledModules.length} modules enabled`,
+    );
+    console.log(`   Modules: ${enabledModules.join(", ")}`);
+
+    // Skip the rest of the module configuration logic
+    // (claudeCode, performance config, logging will still be applied below)
+  } else if (options.fullAssessment !== false) {
     // Priority: --profile > --only-modules > --skip-modules > default (all)
     if (options.profile) {
       // Use profile-based module selection

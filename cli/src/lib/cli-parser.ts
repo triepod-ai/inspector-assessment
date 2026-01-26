@@ -107,6 +107,10 @@ export interface AssessmentOptions {
   sseUrl?: string;
   /** Run single module directly, bypassing orchestrator (Issue #184) */
   singleModule?: string;
+  /** Run static-only assessment without server connection (Issue #213) */
+  staticOnly?: boolean;
+  /** Try runtime assessment, fall back to static on failure (Issue #213) */
+  fallbackStatic?: boolean;
 }
 
 /**
@@ -464,6 +468,14 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
         // Issue #137: Stage B enrichment for Claude semantic analysis
         options.stageBVerbose = true;
         break;
+      case "--static-only":
+        // Issue #213: Static-only assessment without server connection
+        options.staticOnly = true;
+        break;
+      case "--fallback-static":
+        // Issue #213: Try runtime, fall back to static on failure
+        options.fallbackStatic = true;
+        break;
       case "--profile": {
         const profileValue = args[++i];
         if (!profileValue) {
@@ -612,6 +624,51 @@ export function parseArgs(argv?: string[]): AssessmentOptions {
     return options as AssessmentOptions;
   }
 
+  // Issue #213: Validate --static-only and --fallback-static options
+  if (options.staticOnly && options.fallbackStatic) {
+    console.error(
+      "Error: --static-only and --fallback-static are mutually exclusive",
+    );
+    console.error("  Use --static-only for static analysis only");
+    console.error(
+      "  Use --fallback-static to try runtime first, then fall back to static",
+    );
+    setTimeout(() => process.exit(1), 10);
+    options.helpRequested = true;
+    return options as AssessmentOptions;
+  }
+
+  if (options.staticOnly && !options.sourceCodePath) {
+    console.error("Error: --static-only requires --source <path>");
+    console.error("  Provide the path to source code for static analysis");
+    setTimeout(() => process.exit(1), 10);
+    options.helpRequested = true;
+    return options as AssessmentOptions;
+  }
+
+  if (
+    options.staticOnly &&
+    (options.httpUrl || options.sseUrl || options.serverConfigPath)
+  ) {
+    console.error(
+      "Error: --static-only cannot be used with --http, --sse, or --config",
+    );
+    console.error("  Static-only mode does not connect to a server");
+    setTimeout(() => process.exit(1), 10);
+    options.helpRequested = true;
+    return options as AssessmentOptions;
+  }
+
+  if (options.staticOnly && options.singleModule) {
+    console.error("Error: --static-only cannot be used with --module");
+    console.error(
+      "  Static mode runs all static-capable modules automatically",
+    );
+    setTimeout(() => process.exit(1), 10);
+    options.helpRequested = true;
+    return options as AssessmentOptions;
+  }
+
   if (!options.serverName) {
     console.error("Error: --server is required");
     printHelp();
@@ -707,6 +764,10 @@ Options:
                          breakdowns to tiered output (Tier 2 + Tier 3)
   --module, -m <name>    Run single module directly (bypasses orchestrator for faster execution)
                          Mutually exclusive with --skip-modules, --only-modules, --profile
+  --static-only          Run static analysis only (no server connection required)
+                         Requires --source path. Validates manifest, docs, code quality.
+  --fallback-static      Try runtime assessment, fall back to static on failure
+                         Use when server may have startup issues.
   --skip-modules <list>  Skip specific modules (comma-separated)
   --only-modules <list>  Run only specific modules (comma-separated)
   --json                 Output only JSON path (no console summary)
@@ -770,6 +831,23 @@ Module Tiers (13 standard + 4 opt-in):
     • File Modularization - Code quality metrics (not security)
     • External API       - External service detection (informational)
 
+Static Analysis (--static-only):
+  When a server won't start, use --static-only with --source to validate:
+    • Manifest           - Schema compliance, required fields
+    • Developer Experience - README quality, documentation
+    • Prohibited Libs    - Banned dependency detection
+    • Portability        - Platform-specific patterns
+    • External API       - External service detection
+    • Tool Annotations   - Annotation presence in source
+    • Authentication     - Credential patterns
+    • AUP Compliance     - Policy keyword analysis
+    • File Modularization - Code structure metrics
+    • Conformance        - Code quality checks
+
+  Modules skipped in static mode (require runtime):
+    • Functionality, Security, Temporal, Protocol Compliance
+    • Resources, Prompts, Cross-Capability
+
 Transport Options:
   --config, --http, and --sse are mutually exclusive.
   Use --http or --sse for quick testing without a config file.
@@ -796,6 +874,13 @@ Examples:
   # Custom module selection:
   mcp-assess-full my-server --skip-modules temporal,resources  # Skip expensive modules
   mcp-assess-full my-server --only-modules functionality,toolAnnotations  # Annotation PR review
+
+  # Static analysis (when server won't start):
+  mcp-assess-full my-server --source ./my-server --static-only
+  mcp-assess-full my-server --source ./my-server --static-only --only-modules manifestValidation,prohibitedLibraries
+
+  # Fallback mode (try runtime, fall back to static on failure):
+  mcp-assess-full my-server --http http://localhost:10900/mcp --source ./my-server --fallback-static
 
   # Advanced options:
   mcp-assess-full --server my-server --source ./my-server --output ./results.json

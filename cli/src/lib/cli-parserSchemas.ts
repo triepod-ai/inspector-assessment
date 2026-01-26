@@ -164,6 +164,9 @@ export const AssessmentOptionsSchema = z
     outputFormat: OutputFormatSchema.optional(),
     autoTier: z.boolean().optional(),
     stageBVerbose: z.boolean().optional(),
+    // Issue #213: Static analysis mode options
+    staticOnly: z.boolean().optional(),
+    fallbackStatic: z.boolean().optional(),
   })
   .refine(
     (data) =>
@@ -176,6 +179,15 @@ export const AssessmentOptionsSchema = z
   .refine((data) => !(data.skipModules?.length && data.onlyModules?.length), {
     message: "--skip-modules and --only-modules are mutually exclusive",
     path: ["skipModules"],
+  })
+  // Issue #213: Static mode validations
+  .refine((data) => !(data.staticOnly && data.fallbackStatic), {
+    message: "--static-only and --fallback-static are mutually exclusive",
+    path: ["staticOnly"],
+  })
+  .refine((data) => !(data.staticOnly && !data.sourceCodePath), {
+    message: "--static-only requires --source <path>",
+    path: ["staticOnly"],
   });
 
 /**

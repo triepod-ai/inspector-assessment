@@ -445,7 +445,7 @@ export function emitAnnotationAligned(
 export function emitModulesConfigured(
   enabled: string[],
   skipped: string[],
-  reason: "skip-modules" | "only-modules" | "default",
+  reason: "skip-modules" | "only-modules" | "default" | "static-only",
 ): void {
   emitJSONL({
     event: "modules_configured",

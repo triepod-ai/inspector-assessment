@@ -112,20 +112,23 @@ describe("Assessment Runner Facade", () => {
   });
 
   describe("Export Completeness", () => {
-    it("should export exactly 6 functions", () => {
+    it("should export exactly 10 functions", () => {
       const exportedFunctions = Object.entries(AssessmentRunner).filter(
         ([, value]) => typeof value === "function",
       );
 
-      expect(exportedFunctions.length).toBe(7);
+      expect(exportedFunctions.length).toBe(10);
       expect(exportedFunctions.map(([name]) => name).sort()).toEqual([
         "buildConfig",
         "connectToServer",
         "createCallToolWrapper",
+        "detectNativeModules", // Issue #212
+        "getValidModuleNames", // Issue #184
         "loadServerConfig",
         "loadSourceFiles",
         "resolveSourcePath",
         "runFullAssessment",
+        "runSingleModule", // Issue #184
       ]);
     });
 
@@ -139,6 +142,11 @@ describe("Assessment Runner Facade", () => {
         "createCallToolWrapper",
         "buildConfig",
         "runFullAssessment",
+        // Issue #184: Single module execution
+        "runSingleModule",
+        "getValidModuleNames",
+        // Issue #212: Native module detection
+        "detectNativeModules",
       ];
 
       // All exports should be in the expected list

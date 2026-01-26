@@ -15,7 +15,7 @@ describe("assessment-runner index exports", () => {
   });
 
   describe("function exports", () => {
-    it("should export all 7 public functions", () => {
+    it("should export all 10 public functions", () => {
       expect(typeof assessmentRunner.loadServerConfig).toBe("function");
       expect(typeof assessmentRunner.loadSourceFiles).toBe("function");
       expect(typeof assessmentRunner.resolveSourcePath).toBe("function");
@@ -23,23 +23,31 @@ describe("assessment-runner index exports", () => {
       expect(typeof assessmentRunner.createCallToolWrapper).toBe("function");
       expect(typeof assessmentRunner.buildConfig).toBe("function");
       expect(typeof assessmentRunner.runFullAssessment).toBe("function");
+      // Issue #184: Single module execution
+      expect(typeof assessmentRunner.runSingleModule).toBe("function");
+      expect(typeof assessmentRunner.getValidModuleNames).toBe("function");
+      // Issue #212: Native module detection
+      expect(typeof assessmentRunner.detectNativeModules).toBe("function");
     });
 
-    it("should export exactly 7 functions", () => {
+    it("should export exactly 10 functions", () => {
       const functionNames = Object.keys(assessmentRunner).filter(
         (key) =>
           typeof assessmentRunner[key as keyof typeof assessmentRunner] ===
           "function",
       );
-      expect(functionNames).toHaveLength(7);
+      expect(functionNames).toHaveLength(10);
       expect(functionNames.sort()).toEqual([
         "buildConfig",
         "connectToServer",
         "createCallToolWrapper",
+        "detectNativeModules", // Issue #212
+        "getValidModuleNames", // Issue #184
         "loadServerConfig",
         "loadSourceFiles",
         "resolveSourcePath",
         "runFullAssessment",
+        "runSingleModule", // Issue #184
       ]);
     });
   });
