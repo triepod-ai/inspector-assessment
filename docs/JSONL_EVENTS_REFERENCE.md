@@ -2,7 +2,7 @@
 
 > **Part of the JSONL Events API documentation series:**
 >
-> - **Reference** (this document) - All 17 event types and schema definitions
+> - **Reference** (this document) - All 18 event types and schema definitions
 > - [Algorithms](JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP enrichment algorithms
 > - [Integration](JSONL_EVENTS_INTEGRATION.md) - Lifecycle examples, integration checklist, testing
 
@@ -1513,6 +1513,94 @@ interface AssessmentCompleteEvent {
 
 ---
 
+### 18. `native_module_warning`
+
+**When**: During pre-flight phase, before server connection, when native modules are detected in package.json
+
+**Purpose**: Warns about native modules that may cause hangs or Gatekeeper blocks during server startup
+
+**Issue**: [#212](https://github.com/triepod-ai/inspector-assessment/issues/212)
+
+```json
+{
+  "event": "native_module_warning",
+  "moduleName": "canvas",
+  "category": "image",
+  "severity": "HIGH",
+  "warningMessage": "Canvas requires native Cairo binaries that may be blocked by macOS Gatekeeper",
+  "dependencyType": "dependencies",
+  "version": "^2.11.0",
+  "suggestedEnvVars": {
+    "CANVAS_BACKEND": "mock"
+  },
+  "version": "1.44.0",
+  "schemaVersion": 2
+}
+```
+
+**Fields:**
+
+| Field              | Type   | Required | Description                                                            |
+| ------------------ | ------ | -------- | ---------------------------------------------------------------------- |
+| `moduleName`       | string | Yes      | Name of the detected native module (e.g., "canvas", "sharp")           |
+| `category`         | string | Yes      | Module category: `image`, `database`, `graphics`, `system`, `crypto`   |
+| `severity`         | string | Yes      | Impact severity: `HIGH` (likely issues) or `MEDIUM` (possible issues)  |
+| `warningMessage`   | string | Yes      | Human-readable warning about potential issues                          |
+| `dependencyType`   | string | Yes      | Where found: `dependencies`, `devDependencies`, `optionalDependencies` |
+| `version`          | string | Yes      | Version specifier from package.json (e.g., "^2.11.0")                  |
+| `suggestedEnvVars` | object | No       | Optional environment variables to mitigate issues                      |
+| `version`          | string | Yes      | Inspector version (auto-added)                                         |
+| `schemaVersion`    | number | Yes      | Event schema version (auto-added, current: 2)                          |
+
+**Known Native Modules:**
+
+| Module             | Category | Severity | Suggested Env                   |
+| ------------------ | -------- | -------- | ------------------------------- |
+| canvas             | image    | HIGH     | `CANVAS_BACKEND=mock`           |
+| sharp              | image    | HIGH     | `SHARP_IGNORE_GLOBAL_LIBVIPS=1` |
+| better-sqlite3     | database | HIGH     | -                               |
+| maplibre-gl-native | graphics | HIGH     | `ENABLE_DYNAMIC_MAPS=false`     |
+| bcrypt             | crypto   | MEDIUM   | -                               |
+| sqlite3            | database | MEDIUM   | -                               |
+| leveldown          | database | MEDIUM   | -                               |
+| node-gyp           | system   | MEDIUM   | -                               |
+
+**TypeScript Interface:**
+
+```typescript
+interface NativeModuleWarningEvent {
+  event: "native_module_warning";
+  moduleName: string;
+  category: "image" | "database" | "graphics" | "system" | "crypto";
+  severity: "HIGH" | "MEDIUM";
+  warningMessage: string;
+  dependencyType: "dependencies" | "devDependencies" | "optionalDependencies";
+  version: string;
+  suggestedEnvVars?: Record<string, string>;
+  version: string;
+  schemaVersion: number;
+}
+```
+
+**Console Output Example:**
+
+When `jsonOnly` is false, warnings are also printed to the console:
+
+```
+⚠️  Native Module Warning: Detected 2 native module(s) that may cause issues:
+   🔴 canvas (dependencies)
+      Canvas requires native Cairo binaries that may be blocked by macOS Gatekeeper
+      Suggested: CANVAS_BACKEND=mock
+   🔴 sharp (dependencies)
+      Sharp uses libvips native binaries that may cause Gatekeeper issues
+      Suggested: SHARP_IGNORE_GLOBAL_LIBVIPS=1
+
+   If server hangs or times out, native binaries may be blocked by macOS Gatekeeper.
+   See: https://support.apple.com/en-us/HT202491
+```
+
+---
+
 ## Related Documentation
 
 - [JSONL Events Algorithms](JSONL_EVENTS_ALGORITHMS.md) - EventBatcher and AUP enrichment algorithms
@@ -1521,5 +1609,5 @@ interface AssessmentCompleteEvent {
 
 ---
 
-**Last Updated**: 2026-01-11
+**Last Updated**: 2026-01-26
 **Status**: Stable

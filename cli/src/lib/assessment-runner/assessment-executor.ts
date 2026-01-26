@@ -57,6 +57,8 @@ import { ExternalAPIDependencyDetector } from "../../../../client/lib/services/a
 import { StdioTransportDetector } from "../../../../client/lib/services/assessment/helpers/StdioTransportDetector.js";
 // Issue #170: Import tool annotation extractor for security severity adjustment
 import { extractToolAnnotationsContext } from "../../../../client/lib/services/assessment/helpers/ToolAnnotationExtractor.js";
+// Issue #212: Import native module detector for pre-flight warnings
+import { detectNativeModules } from "./native-module-detector.js";
 
 /**
  * Run full assessment against an MCP server
@@ -107,6 +109,33 @@ export async function runFullAssessment(
     );
     if (!options.jsonOnly) {
       console.log("✅ Server config loaded");
+    }
+  }
+
+  // Issue #212: Pre-flight native module detection
+  // Run before server connection to warn about potential Gatekeeper/native issues
+  if (options.sourceCodePath) {
+    try {
+      const preflightSourcePath = resolveSourcePath(options.sourceCodePath);
+      if (fs.existsSync(preflightSourcePath)) {
+        const preflightSource = loadSourceFiles(preflightSourcePath, false);
+        if (preflightSource.packageJson) {
+          const nativeModuleResult = detectNativeModules(
+            preflightSource.packageJson,
+            {
+              jsonOnly: options.jsonOnly,
+              serverName: options.serverName,
+            },
+          );
+          if (nativeModuleResult.detected && !options.jsonOnly) {
+            console.log(
+              `\u{1F4E6} Pre-flight check: ${nativeModuleResult.count} native module(s) detected`,
+            );
+          }
+        }
+      }
+    } catch {
+      // Pre-flight is best-effort; don't fail assessment if source path is invalid
     }
   }
 

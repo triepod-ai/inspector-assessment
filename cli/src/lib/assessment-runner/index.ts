@@ -37,3 +37,11 @@ export {
   getValidModuleNames,
   type SingleModuleResult,
 } from "./single-module-runner.js";
+
+// Native Module Detection (Issue #212)
+export {
+  detectNativeModules,
+  type NativeModuleDetectionResult,
+  type DetectedNativeModule,
+  type DetectionOptions,
+} from "./native-module-detector.js";

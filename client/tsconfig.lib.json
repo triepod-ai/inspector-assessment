@@ -22,6 +22,7 @@
     "src/lib/assessmentTypes.ts",
     "src/lib/aupPatterns.ts",
     "src/lib/policyMapping.ts",
+    "src/lib/nativeModules.ts",
     "src/lib/reportFormatters/**/*.ts",
     "src/lib/assessment/**/*.ts"
   ],

@@ -104,18 +104,38 @@ export async function connectToServer(config: ServerConfig): Promise<Client> {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
+    // Issue #212: Detect SIGKILL (exit code 137) which may indicate Gatekeeper blocking
+    const isSigkill =
+      errorMessage.includes("exit code 137") ||
+      errorMessage.includes("SIGKILL") ||
+      errorMessage.toLowerCase().includes("killed");
+
     // Provide helpful context when connection fails
+    let contextualHelp = `Failed to connect to MCP server: ${errorMessage}\n\n`;
+
     if (stderrData.trim()) {
-      throw new Error(
-        `Failed to connect to MCP server: ${errorMessage}\n\n` +
-          `Server stderr:\n${stderrData.trim()}\n\n` +
-          `Common causes:\n` +
-          `  - Missing environment variables (check .env file)\n` +
-          `  - Required external services not running\n` +
-          `  - Missing API credentials`,
-      );
+      contextualHelp += `Server stderr:\n${stderrData.trim()}\n\n`;
     }
-    throw new Error(`Failed to connect to MCP server: ${errorMessage}`);
+
+    contextualHelp += `Common causes:\n`;
+    contextualHelp += `  - Missing environment variables (check .env file)\n`;
+    contextualHelp += `  - Required external services not running\n`;
+    contextualHelp += `  - Missing API credentials\n`;
+
+    // Issue #212: Add native module specific help for SIGKILL/timeout
+    if (isSigkill) {
+      contextualHelp += `\n\u{1F534} Exit code 137 (SIGKILL) detected - possible causes:\n`;
+      contextualHelp += `  - macOS Gatekeeper blocked unsigned native binaries\n`;
+      contextualHelp += `  - Native module (canvas, sharp, better-sqlite3) killed by security policy\n`;
+      contextualHelp += `  - Out of memory during native module initialization\n`;
+      contextualHelp += `\nSuggested actions:\n`;
+      contextualHelp += `  - Check pre-flight warnings above for detected native modules\n`;
+      contextualHelp += `  - Try: xattr -d com.apple.quarantine /path/to/binary\n`;
+      contextualHelp += `  - Open System Preferences > Security & Privacy to allow blocked apps\n`;
+      contextualHelp += `  - Consider pure JavaScript alternatives (e.g., jimp instead of sharp)\n`;
+    }
+
+    throw new Error(contextualHelp);
   }
 
   return client;

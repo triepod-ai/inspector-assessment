@@ -584,3 +584,42 @@ export function emitTieredOutput(
     tiers,
   });
 }
+
+// ============================================================================
+// Native Module Warning Events - Issue #212
+// ============================================================================
+
+/**
+ * Emit native_module_warning event when native modules detected in package.json.
+ * This is a pre-flight warning that doesn't block assessment, but alerts
+ * users to potential issues with native binaries being blocked by Gatekeeper.
+ *
+ * @param moduleName - Name of the detected native module (e.g., "canvas")
+ * @param category - Module category (image, database, graphics, system, crypto)
+ * @param severity - Impact severity (HIGH or MEDIUM)
+ * @param warningMessage - Human-readable warning about potential issues
+ * @param dependencyType - Where found (dependencies, devDependencies, optionalDependencies)
+ * @param version - Version specifier from package.json
+ * @param suggestedEnvVars - Optional environment variables to mitigate issues
+ */
+export function emitNativeModuleWarning(
+  moduleName: string,
+  category: string,
+  severity: "HIGH" | "MEDIUM",
+  warningMessage: string,
+  dependencyType: string,
+  version: string,
+  suggestedEnvVars?: Record<string, string>,
+): void {
+  emitJSONL({
+    event: "native_module_warning",
+    moduleName,
+    category,
+    severity,
+    warningMessage,
+    dependencyType,
+    version,
+    ...(suggestedEnvVars &&
+      Object.keys(suggestedEnvVars).length > 0 && { suggestedEnvVars }),
+  });
+}
