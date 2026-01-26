@@ -451,6 +451,55 @@ describe("Config Builder Static Mode", () => {
       expect(categories.functionality).toBe(false);
     });
 
+    it("should result in zero enabled modules if only runtime modules in --only-modules", () => {
+      const config = buildConfig({
+        serverName: "test-server",
+        sourceCodePath: "/path/to/source",
+        staticOnly: true,
+        onlyModules: ["functionality", "security", "temporal"],
+      });
+
+      const categories = config.assessmentCategories!;
+
+      // All runtime modules should be disabled
+      expect(categories.functionality).toBe(false);
+      expect(categories.security).toBe(false);
+      expect(categories.temporal).toBe(false);
+
+      // Static modules should also be disabled (not in onlyModules)
+      expect(categories.manifestValidation).toBe(false);
+      expect(categories.prohibitedLibraries).toBe(false);
+    });
+
+    it("should result in zero enabled modules if all static modules skipped", () => {
+      const config = buildConfig({
+        serverName: "test-server",
+        sourceCodePath: "/path/to/source",
+        staticOnly: true,
+        skipModules: [
+          "manifestValidation",
+          "documentation",
+          "usability",
+          "prohibitedLibraries",
+          "portability",
+          "externalAPIScanner",
+          "fileModularization",
+          "conformance",
+          "toolAnnotations",
+          "authentication",
+          "aupCompliance",
+        ],
+      });
+
+      const categories = config.assessmentCategories!;
+
+      // All static modules should be disabled
+      expect(categories.manifestValidation).toBe(false);
+      expect(categories.prohibitedLibraries).toBe(false);
+      expect(categories.portability).toBe(false);
+      expect(categories.toolAnnotations).toBe(false);
+    });
+
     it("should log static mode info", () => {
       buildConfig({
         serverName: "test-server",

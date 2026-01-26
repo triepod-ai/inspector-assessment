@@ -32,7 +32,7 @@ mcp-assess-full --server memory-mcp --config /tmp/config.json
 
 ## Table of Contents
 
-1. [Four Assessment Modes](#four-assessment-modes)
+1. [Five Assessment Modes](#five-assessment-modes)
 2. [Configuration Files](#configuration-files)
 3. [Logging & Diagnostics](#logging--diagnostics)
 4. [Output & Results](#output--results)
@@ -44,9 +44,9 @@ mcp-assess-full --server memory-mcp --config /tmp/config.json
 
 ---
 
-## Four Assessment Modes
+## Five Assessment Modes
 
-The MCP Inspector provides four distinct CLI modes for different workflows:
+The MCP Inspector provides five distinct CLI modes for different workflows:
 
 ### Mode 1: Local Development Script
 
@@ -229,7 +229,126 @@ The `--stage-b-verbose` flag enhances Claude semantic analysis with additional e
 
 ---
 
-### Mode 4: Single-Module Execution (Issue #184)
+---
+
+### Mode 4: Static-Only Assessment (Issue #213)
+
+**Purpose**: Assess MCP servers without requiring a running server connection
+**Command**: Use `--static-only` flag with source code path
+**Performance**: Fastest for code quality checks, no network overhead
+
+```bash
+# Local development
+npm run assess:full -- --server my-server --source /path/to/code --static-only
+
+# Published npm package
+mcp-assess-full --server my-server --source /path/to/code --static-only
+
+# Fallback mode (runtime first, static on failure)
+mcp-assess-full --server my-server --config config.json --source /path/to/code --fallback-static
+```
+
+**Key Characteristics:**
+
+- **No server connection required**: Analyze code without running the server
+- **Fast execution**: No network overhead, no tool invocations
+- **CI/CD friendly**: Perfect for pre-commit hooks and PR validation
+- **11 static-capable modules**: Documentation, manifest, libraries, portability, etc.
+
+**Static-Capable Modules (11):**
+
+| Tier           | Module Names                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| **Tier 2 (4)** | `toolAnnotations`, `prohibitedLibraries`, `manifestValidation`, `authentication`          |
+| **Tier 4 (3)** | `developerExperience`, `portability`, `externalAPIScanner`                                |
+| **Tier 5 (2)** | `fileModularization`, `conformance`                                                       |
+| **Tier 1 (2)** | `aupCompliance` (partial - requires source), `documentation` (deprecated alias for devEx) |
+
+**Runtime-Only Modules (9):**
+
+Cannot run without a live server connection:
+
+| Tier           | Module Names                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| **Tier 1 (7)** | `functionality`, `security`, `temporal`, `protocolCompliance`, `errorHandling`, `resources`, `prompts` |
+| **Tier 3 (1)** | `crossCapability`                                                                                      |
+| **Tier 5 (1)** | `dependencyVulnerability`                                                                              |
+
+**Flags:**
+
+- `--static-only`: Run only static analysis (requires `--source <path>`)
+- `--fallback-static`: Try runtime first, fall back to static on connection failure
+- `--source <path>`: Source code path (required for static modes)
+
+**Mutual Exclusivity:**
+
+`--static-only` cannot be used with:
+
+- `--config`, `--http`, `--sse` (static mode doesn't need server connection)
+- Runtime-only module selections (e.g., `--only-modules security`)
+
+```bash
+# ❌ Invalid - conflicting flags
+npm run assess:full -- --server my-server --static-only --config config.json
+
+# ✅ Valid - static-only with source
+npm run assess:full -- --server my-server --source /path/to/code --static-only
+
+# ✅ Valid - fallback mode with both transport and source
+npm run assess:full -- --server my-server --config config.json --source /path/to/code --fallback-static
+```
+
+**Output Format:**
+
+```
+/tmp/inspector-full-assessment-{server}.json
+
+Contains results from static-capable modules only:
+  - manifestValidation
+  - developerExperience (documentation + usability)
+  - prohibitedLibraries
+  - etc.
+```
+
+**Use Cases:**
+
+1. **Pre-commit validation**: Fast checks without running server
+
+   ```bash
+   npm run assess:full -- --server my-server --source . --static-only
+   ```
+
+2. **PR validation**: Quick code quality checks in CI
+
+   ```bash
+   mcp-assess-full --server my-server --source . --static-only --json
+   ```
+
+3. **Fallback for unreliable servers**: Try runtime, fall back to static
+
+   ```bash
+   mcp-assess-full --server my-server --config config.json --source . --fallback-static
+   ```
+
+4. **Documentation review**: Check docs without server deployment
+   ```bash
+   mcp-assess-full --server my-server --source . --static-only --only-modules developerExperience
+   ```
+
+**Comparison with Runtime Assessment:**
+
+| Aspect             | Static-Only                 | Runtime (Full)         |
+| ------------------ | --------------------------- | ---------------------- |
+| **Speed**          | Fast (~30s)                 | Moderate (~5-10 min)   |
+| **Modules**        | 11 static-capable           | 18 total (all modules) |
+| **Server Needed**  | No                          | Yes                    |
+| **Code Needed**    | Yes (--source required)     | No (optional for some) |
+| **Security Tests** | No (requires runtime)       | Yes                    |
+| **CI/CD Use**      | Pre-commit, fast validation | Full assessment gate   |
+
+---
+
+### Mode 5: Single-Module Execution (Issue #184)
 
 **Purpose**: Run individual assessment modules for rapid validation, CI/CD checks, or debugging
 **Command**: Use `--module <name>` flag with any assessment command
@@ -324,6 +443,25 @@ Examples:
    ```bash
    npm run assess:full -- --server my-server --http http://localhost:10900/mcp --module manifestValidation
    ```
+
+**Example: Static-Only Fallback in CI/CD**
+
+```yaml
+# .github/workflows/mcp-assessment.yml
+- name: Run MCP Assessment with Fallback
+  run: |
+    mcp-assess-full \
+      --server my-server \
+      --config config.json \
+      --source . \
+      --fallback-static \
+      --output assessment-results.json || true
+
+- name: Check Results
+  run: |
+    # Even if server connection fails, static analysis still runs
+    cat assessment-results.json | jq '.summary'
+```
 
 ---
 
@@ -1479,7 +1617,118 @@ ls -lh ./results/
 
 ---
 
-### Use Case 7: Reduce False Positives with Claude Semantic Analysis
+### Use Case 7: Static-Only Assessment (No Server Required)
+
+**Goal**: Assess code quality and documentation without running the server
+
+Requires: Source code path via `--source` flag
+
+```bash
+# Static-only assessment (no server connection needed)
+mcp-assess-full --server my-server --source /path/to/code --static-only
+
+# Output includes 11 static-capable modules:
+# - manifestValidation
+# - developerExperience (documentation + usability)
+# - prohibitedLibraries
+# - portability
+# - externalAPIScanner
+# - fileModularization
+# - conformance
+# - toolAnnotations
+# - authentication
+# - aupCompliance (partial)
+```
+
+**When to Use:**
+
+- **Pre-commit hooks**: Fast validation before committing code
+- **PR validation**: Quick checks without deploying test servers
+- **Offline development**: Work without network connectivity
+- **Early validation**: Check code quality before server is fully functional
+- **CI/CD optimization**: Reduce infrastructure requirements
+
+**Example Pre-Commit Hook:**
+
+```bash
+#!/bin/bash
+# .git/hooks/pre-commit
+
+echo "Running static MCP assessment..."
+mcp-assess-full --server $(basename $(pwd)) --source . --static-only --json > /dev/null
+
+if [ $? -ne 0 ]; then
+  echo "Static assessment failed! Fix issues before committing."
+  exit 1
+fi
+
+echo "Static assessment passed!"
+```
+
+**Example PR Validation (GitHub Actions):**
+
+```yaml
+name: Static MCP Assessment
+on: [pull_request]
+
+jobs:
+  static-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run static assessment
+        run: |
+          npx @bryan-thompson/inspector-assessment \
+            $(basename $(pwd)) \
+            --source . \
+            --static-only \
+            --output ./static-results.json
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-assessment
+          path: static-results.json
+```
+
+**Benefits:**
+
+- No server infrastructure needed
+- Fast execution (~30 seconds)
+- No network dependencies
+- Suitable for offline development
+- Lower CI/CD costs (no test server deployment)
+
+**Limitations:**
+
+- Cannot test runtime behavior (security, functionality)
+- No tool invocation testing
+- No protocol compliance checks
+- 11 static modules vs 18 total modules
+
+**Fallback Mode:**
+
+For servers with unreliable connectivity, use `--fallback-static`:
+
+```bash
+# Try runtime assessment, fall back to static if server unavailable
+mcp-assess-full \
+  --server my-server \
+  --config config.json \
+  --source /path/to/code \
+  --fallback-static
+```
+
+This ensures assessment always completes, even if server connection fails.
+
+---
+
+### Use Case 8: Reduce False Positives with Claude Semantic Analysis
 
 **Goal**: Enhance security assessment with AI-driven semantic analysis to validate findings
 
@@ -2677,21 +2926,23 @@ mcp-assess-full --server my-server --config config.json \
 
 ## Summary
 
-| Task                 | Command                                                                   |
-| -------------------- | ------------------------------------------------------------------------- |
-| Quick security audit | `npm run assess -- --server S`                                            |
-| Full assessment      | `mcp-assess-full --server S --config C`                                   |
-| Quick HTTP testing   | `mcp-assess-full --server S --http http://localhost:10900/mcp`            |
-| Quick SSE testing    | `mcp-assess-full --server S --sse http://localhost:9002/sse`              |
-| Single module run    | `mcp-assess-full --server S --http URL --module toolAnnotations`          |
-| Pre-flight check     | `mcp-assess-full --server S --config C --preflight`                       |
-| Markdown report      | `mcp-assess-full --server S --config C --format markdown`                 |
-| Baseline comparison  | `mcp-assess-full --server S --config C --compare baseline.json`           |
-| Skip modules         | `mcp-assess-full --server S --skip-modules security,aupCompliance`        |
-| Run specific modules | `mcp-assess-full --server S --only-modules functionality,toolAnnotations` |
-| CI/CD integration    | Exit code: 0=PASS, 1=FAIL                                                 |
-| Real-time progress   | Capture stderr, parse JSONL events                                        |
-| Resume assessment    | `mcp-assess-full --server S --resume`                                     |
+| Task                   | Command                                                                   |
+| ---------------------- | ------------------------------------------------------------------------- |
+| Quick security audit   | `npm run assess -- --server S`                                            |
+| Full assessment        | `mcp-assess-full --server S --config C`                                   |
+| Quick HTTP testing     | `mcp-assess-full --server S --http http://localhost:10900/mcp`            |
+| Quick SSE testing      | `mcp-assess-full --server S --sse http://localhost:9002/sse`              |
+| Single module run      | `mcp-assess-full --server S --http URL --module toolAnnotations`          |
+| Static-only assessment | `mcp-assess-full --server S --source /path/to/code --static-only`         |
+| Fallback mode          | `mcp-assess-full --server S --config C --source /path --fallback-static`  |
+| Pre-flight check       | `mcp-assess-full --server S --config C --preflight`                       |
+| Markdown report        | `mcp-assess-full --server S --config C --format markdown`                 |
+| Baseline comparison    | `mcp-assess-full --server S --config C --compare baseline.json`           |
+| Skip modules           | `mcp-assess-full --server S --skip-modules security,aupCompliance`        |
+| Run specific modules   | `mcp-assess-full --server S --only-modules functionality,toolAnnotations` |
+| CI/CD integration      | Exit code: 0=PASS, 1=FAIL                                                 |
+| Real-time progress     | Capture stderr, parse JSONL events                                        |
+| Resume assessment      | `mcp-assess-full --server S --resume`                                     |
 
 ---
 

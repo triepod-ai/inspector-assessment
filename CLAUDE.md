@@ -79,6 +79,31 @@ npm run assess:full -- --server my-server --sse http://localhost:9002/sse --modu
 
 Note: `--http`, `--sse`, and `--config` are mutually exclusive.
 
+**Static Analysis Options (Issue #213):**
+
+- `--static-only` - Run only static analysis (no server connection required, requires `--source <path>`)
+- `--fallback-static` - Try runtime assessment first, fall back to static analysis on connection failure
+- `--source <path>` - Source code path for static analysis and AUP/portability assessments
+
+**Static-capable modules** (11 total):
+
+- manifestValidation, documentation, usability, prohibitedLibraries
+- portability, externalAPIScanner, fileModularization, conformance
+- toolAnnotations, authentication, aupCompliance
+
+**Runtime-only modules** (9 total):
+
+- functionality, security, temporal, protocolCompliance, resources
+- prompts, crossCapability, errorHandling, dependencyVulnerability
+
+```bash
+# Static-only assessment (no server needed)
+npm run assess:full -- --server my-server --source /path/to/code --static-only
+
+# Fallback mode (runtime first, static on failure)
+npm run assess:full -- --server my-server --config config.json --source /path/to/code --fallback-static
+```
+
 **Module Execution Options:**
 
 - `--module <name>` - Run single module directly (bypasses orchestrator, fastest execution)
