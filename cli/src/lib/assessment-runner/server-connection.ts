@@ -14,6 +14,34 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { ServerConfig } from "../cli-parser.js";
 
 /**
+ * Returns minimal environment variables for spawned MCP servers.
+ * Using a curated set prevents unintended behavior from inherited env vars
+ * (e.g., native module loading triggered by unexpected env conditions).
+ *
+ * @see https://github.com/triepod-ai/inspector-assessment/issues/211
+ */
+function getMinimalEnv(): Record<string, string> {
+  const minimal: Record<string, string> = {};
+
+  // Essential system paths
+  if (process.env.PATH) minimal.PATH = process.env.PATH;
+  if (process.env.HOME) minimal.HOME = process.env.HOME;
+  if (process.env.TMPDIR) minimal.TMPDIR = process.env.TMPDIR;
+  if (process.env.TMP) minimal.TMP = process.env.TMP;
+  if (process.env.TEMP) minimal.TEMP = process.env.TEMP;
+
+  // Node.js environment
+  minimal.NODE_ENV = process.env.NODE_ENV || "production";
+
+  // Platform-specific essentials
+  if (process.env.USER) minimal.USER = process.env.USER;
+  if (process.env.SHELL) minimal.SHELL = process.env.SHELL;
+  if (process.env.LANG) minimal.LANG = process.env.LANG;
+
+  return minimal;
+}
+
+/**
  * Connect to MCP server via configured transport
  *
  * @param config - Server configuration
@@ -42,10 +70,8 @@ export async function connectToServer(config: ServerConfig): Promise<Client> {
         command: config.command,
         args: config.args,
         env: {
-          ...(Object.fromEntries(
-            Object.entries(process.env).filter(([, v]) => v !== undefined),
-          ) as Record<string, string>),
-          ...config.env,
+          ...getMinimalEnv(),
+          ...config.env, // Explicit config overrides take priority
         },
         cwd: config.cwd,
         stderr: "pipe",

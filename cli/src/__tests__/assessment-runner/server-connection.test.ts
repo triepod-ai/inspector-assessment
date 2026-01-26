@@ -174,7 +174,7 @@ describe("connectToServer", () => {
       ).rejects.toThrow("Command required for stdio transport");
     });
 
-    it("should merge process.env with config.env", async () => {
+    it("should pass minimal env vars plus config.env overrides", async () => {
       const originalEnv = process.env;
       process.env = { PATH: "/usr/bin", HOME: "/home/user" };
 
@@ -190,6 +190,7 @@ describe("connectToServer", () => {
       const callArg = (StdioClientTransport as jest.Mock).mock.calls[0][0] as {
         env: Record<string, string>;
       };
+      // Minimal env vars (PATH, HOME) should be present
       expect(callArg.env).toEqual(
         expect.objectContaining({
           PATH: "/usr/bin",
@@ -197,6 +198,41 @@ describe("connectToServer", () => {
           CUSTOM_VAR: "value",
         }),
       );
+      // NODE_ENV should default to "production" when not set
+      expect(callArg.env.NODE_ENV).toBe("production");
+
+      process.env = originalEnv;
+    });
+
+    it("should NOT pass arbitrary process.env vars (Issue #211)", async () => {
+      const originalEnv = process.env;
+      process.env = {
+        PATH: "/usr/bin",
+        HOME: "/home/user",
+        SOME_RANDOM_VAR: "should-not-pass",
+        ENABLE_DYNAMIC_MAPS: "true", // This caused TomTom MCP issues
+        AWS_ACCESS_KEY_ID: "secret", // Sensitive vars should not leak
+      };
+
+      const config = {
+        transport: "stdio" as const,
+        command: "node",
+        args: [],
+        env: {},
+      };
+
+      await connectToServer(config);
+
+      const callArg = (StdioClientTransport as jest.Mock).mock.calls[0][0] as {
+        env: Record<string, string>;
+      };
+      // These arbitrary vars should NOT be in the env
+      expect(callArg.env.SOME_RANDOM_VAR).toBeUndefined();
+      expect(callArg.env.ENABLE_DYNAMIC_MAPS).toBeUndefined();
+      expect(callArg.env.AWS_ACCESS_KEY_ID).toBeUndefined();
+      // But essential vars should still be present
+      expect(callArg.env.PATH).toBe("/usr/bin");
+      expect(callArg.env.HOME).toBe("/home/user");
 
       process.env = originalEnv;
     });

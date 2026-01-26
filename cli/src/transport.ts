@@ -15,6 +15,33 @@ export type TransportOptions = {
   headers?: Record<string, string>;
 };
 
+/**
+ * Returns minimal environment variables for spawned MCP servers.
+ * Using a curated set prevents unintended behavior from inherited env vars.
+ *
+ * @see https://github.com/triepod-ai/inspector-assessment/issues/211
+ */
+function getMinimalEnv(): Record<string, string> {
+  const minimal: Record<string, string> = {};
+
+  // Essential system paths
+  if (process.env.PATH) minimal.PATH = process.env.PATH;
+  if (process.env.HOME) minimal.HOME = process.env.HOME;
+  if (process.env.TMPDIR) minimal.TMPDIR = process.env.TMPDIR;
+  if (process.env.TMP) minimal.TMP = process.env.TMP;
+  if (process.env.TEMP) minimal.TEMP = process.env.TEMP;
+
+  // Node.js environment
+  minimal.NODE_ENV = process.env.NODE_ENV || "production";
+
+  // Platform-specific essentials
+  if (process.env.USER) minimal.USER = process.env.USER;
+  if (process.env.SHELL) minimal.SHELL = process.env.SHELL;
+  if (process.env.LANG) minimal.LANG = process.env.LANG;
+
+  return minimal;
+}
+
 function createStdioTransport(options: TransportOptions): Transport {
   let args: string[] = [];
 
@@ -22,19 +49,12 @@ function createStdioTransport(options: TransportOptions): Transport {
     args = options.args;
   }
 
-  const processEnv: Record<string, string> = {};
-
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined) {
-      processEnv[key] = value;
-    }
-  }
-
+  // Use minimal env + SDK defaults instead of full process.env
   const defaultEnv = getDefaultEnvironment();
 
   const env: Record<string, string> = {
     ...defaultEnv,
-    ...processEnv,
+    ...getMinimalEnv(),
   };
 
   const { cmd: actualCommand, args: actualArgs } = findActualExecutable(
