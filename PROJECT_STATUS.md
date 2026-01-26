@@ -288,3 +288,36 @@
 - All project tests pass (5516 tests)
 
 ---
+
+## 2026-01-26: Issue #213 Static/Manifest-Only Validation Mode
+
+**Summary:** Implemented Issue #213 - Static/manifest-only validation mode with full code review
+
+**Session Focus:** Adding --static-only and --fallback-static CLI flags to enable MCP server assessment without requiring a running server connection
+
+**Changes Made:**
+- cli/src/lib/static-modules.ts: Created module defining 11 static-capable and 9 runtime-only modules
+- cli/src/lib/cli-parser.ts: Added CLI flag parsing with mutual exclusivity validation
+- cli/src/lib/assessment-executor.ts: Implemented runStaticOnlyAssessment() function
+- cli/src/lib/config-builder.ts: Added static mode config building support
+- Created 56 tests (33 unit + 23 integration) for static mode validation
+- CLAUDE.md: Added Static Analysis Options section documenting new flags
+- docs/CLI_ASSESSMENT_GUIDE.md: Added Mode 4 (Static-Only) and Use Case 7 (manifest validation)
+
+**Key Decisions:**
+- Used legacy module names (documentation, usability) instead of developerExperience for backward compatibility
+- Deferred P2/P3 code review issues as non-blocking (type safety concerns that don't affect runtime)
+- Integration tests focus on unit components rather than full orchestrator to avoid circular dependencies
+
+**Next Steps:**
+- Consider adding E2E tests for fallback mode error handling (ECONNREFUSED, ETIMEDOUT)
+- Future: Define StaticOnlyAssessmentResult type for type-safe consumer access
+
+**Notes:**
+- 7-stage code review completed: 0 P0, 0 P1, 3 P2, 4 P3 issues (all deferred)
+- Commits: b58f92ed (feature), 2ba9e349 (tests/docs)
+- GitHub Issue #213 closed
+- Static-capable modules: manifestValidation, toolAnnotations, prohibitedLibraries, aupCompliance, externalAPIScanner, fileModularization, documentation, usability, conformance, portability, authentication
+- Runtime-only modules: functionality, security, protocolCompliance, temporal, crossCapability, resources, prompts
+
+---
