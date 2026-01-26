@@ -41,8 +41,37 @@ const AssessmentSaveSchema = z.object({
   assessment: z.object({}).passthrough(), // Must be object, allow any properties
 });
 
+/**
+ * Returns minimal environment variables for spawned MCP servers.
+ * Using a curated set prevents unintended behavior from inherited env vars
+ * (e.g., leaking API keys or triggering unexpected native module loading).
+ *
+ * @see https://github.com/triepod-ai/inspector-assessment/issues/211
+ */
+function getMinimalEnv(): Record<string, string> {
+  const minimal: Record<string, string> = {};
+
+  // Essential system paths
+  if (process.env.PATH) minimal.PATH = process.env.PATH;
+  if (process.env.HOME) minimal.HOME = process.env.HOME;
+  if (process.env.TMPDIR) minimal.TMPDIR = process.env.TMPDIR;
+  if (process.env.TMP) minimal.TMP = process.env.TMP;
+  if (process.env.TEMP) minimal.TEMP = process.env.TEMP;
+
+  // Node.js environment
+  minimal.NODE_ENV = process.env.NODE_ENV || "production";
+
+  // Platform-specific essentials
+  if (process.env.USER) minimal.USER = process.env.USER;
+  if (process.env.SHELL) minimal.SHELL = process.env.SHELL;
+  if (process.env.LANG) minimal.LANG = process.env.LANG;
+
+  return minimal;
+}
+
 const defaultEnvironment = {
   ...getDefaultEnvironment(),
+  ...getMinimalEnv(),
   ...(process.env.MCP_ENV_VARS ? JSON.parse(process.env.MCP_ENV_VARS) : {}),
 };
 
@@ -296,7 +325,7 @@ const createTransport = async (
     const command = (query.command as string).trim();
     const origArgs = shellParseArgs(query.args as string) as string[];
     const queryEnv = query.env ? JSON.parse(query.env as string) : {};
-    const env = { ...defaultEnvironment, ...process.env, ...queryEnv };
+    const env = { ...defaultEnvironment, ...queryEnv };
 
     const { cmd, args } = findActualExecutable(command, origArgs);
 

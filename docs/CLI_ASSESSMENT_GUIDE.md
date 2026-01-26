@@ -670,6 +670,51 @@ The inspector looks for server config in this order:
 
 First match wins. If no config found, error is thrown with attempted paths.
 
+### Environment Variable Filtering
+
+**Version**: 1.43.2+
+**Issue**: [#211](https://github.com/triepod-ai/inspector-assessment/issues/211)
+
+When spawning MCP servers via STDIO transport, the inspector passes a **minimal curated set** of environment variables to prevent unintended behavior (e.g., unexpected native module loading).
+
+**Minimal Environment Variables Included:**
+
+| Variable   | Purpose                                        |
+| ---------- | ---------------------------------------------- |
+| `PATH`     | System executable paths                        |
+| `HOME`     | User home directory                            |
+| `TMPDIR`   | Temporary directory (Unix)                     |
+| `TMP`      | Temporary directory (Windows)                  |
+| `TEMP`     | Temporary directory (Windows alternative)      |
+| `NODE_ENV` | Node.js environment (defaults to `production`) |
+| `USER`     | Username                                       |
+| `SHELL`    | Shell executable                               |
+| `LANG`     | Locale settings                                |
+
+**Config env overrides take priority**: Variables explicitly passed in the `env` field of your config file will always override the minimal set.
+
+**Migration for servers relying on inherited environment variables:**
+
+If your MCP server previously relied on environment variables from the inspector's environment (e.g., `AWS_PROFILE`, `DATABASE_URL`, `OPENAI_API_KEY`), you must now **explicitly pass them** via the config `env` field:
+
+```json
+{
+  "command": "python3",
+  "args": ["server.py"],
+  "env": {
+    "AWS_PROFILE": "my-profile",
+    "DATABASE_URL": "postgresql://...",
+    "OPENAI_API_KEY": "sk-..."
+  }
+}
+```
+
+**Why this change?**
+
+The full `process.env` inheritance caused unintended behavior in some MCP servers (e.g., TomTom MCP loading native modules unexpectedly). The minimal curated set prevents these issues while maintaining compatibility with the majority of servers.
+
+**Does not affect HTTP/SSE transports**: This filtering only applies to STDIO transport (spawned subprocesses). HTTP and SSE servers manage their own environment.
+
 ---
 
 ## Logging & Diagnostics

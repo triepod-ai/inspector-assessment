@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Runtime Annotation Verification** (Issue #207): Detect annotations defined at runtime via SDK decorators/interceptors
 
+### Changed
+
+- **Minimal Environment Variables for Spawned MCP Servers** (Issue #211): STDIO transport now passes curated minimal env vars
+  - **Breaking Change**: MCP servers relying on inherited environment variables must now explicitly pass them via config `env` field
+  - **Minimal set included**: PATH, HOME, TMPDIR, TMP, TEMP, NODE_ENV (defaults to "production"), USER, SHELL, LANG
+  - **Config env takes priority**: Variables in config `env` field always override minimal set
+  - **Why**: Prevents unintended behavior (e.g., TomTom MCP native module loading) from full `process.env` inheritance
+  - **Migration**: Add previously inherited vars to config: `"env": {"AWS_PROFILE": "...", "DATABASE_URL": "..."}`
+  - **Scope**: Only affects STDIO transport (spawned subprocesses), not HTTP/SSE servers
+  - Applied to both `cli/src/transport.ts` and `server/src/index.ts` for consistency
+
 ### Fixed
 
 - **LICENSE File Existence Check** (Issue #208): Distinguish between actual LICENSE file and declaration-only
