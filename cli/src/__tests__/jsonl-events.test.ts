@@ -36,6 +36,7 @@ import {
   emitValidationSummary,
   emitPhaseStarted,
   emitPhaseComplete,
+  emitNativeModuleWarning,
   extractToolParams,
   type ToolParam,
   SCHEMA_VERSION,
@@ -676,6 +677,226 @@ describe("JSONL Event Emission", () => {
     it("should handle default reason", () => {
       emitModulesConfigured(["security", "functionality"], [], "default");
       expect(emittedEvents[0]).toHaveProperty("reason", "default");
+    });
+  });
+
+  // ============================================================================
+  // GAP-001: emitNativeModuleWarning() Tests
+  // ============================================================================
+
+  describe("emitNativeModuleWarning", () => {
+    it("should emit native_module_warning with all required fields", () => {
+      emitNativeModuleWarning(
+        "canvas",
+        "NATIVE_BINARY",
+        "HIGH",
+        "Native binary may trigger Gatekeeper on macOS",
+        "dependencies",
+        "^2.11.2",
+        { CANVAS_BACKEND: "node" },
+      );
+
+      expect(emittedEvents[0]).toHaveProperty("event", "native_module_warning");
+      expect(emittedEvents[0]).toHaveProperty("moduleName", "canvas");
+      expect(emittedEvents[0]).toHaveProperty("category", "NATIVE_BINARY");
+      expect(emittedEvents[0]).toHaveProperty("severity", "HIGH");
+      expect(emittedEvents[0]).toHaveProperty(
+        "warningMessage",
+        "Native binary may trigger Gatekeeper on macOS",
+      );
+      expect(emittedEvents[0]).toHaveProperty("dependencyType", "dependencies");
+      expect(emittedEvents[0]).toHaveProperty("moduleVersion", "^2.11.2");
+      expect(emittedEvents[0]).toHaveProperty("suggestedEnvVars");
+      expect(emittedEvents[0].suggestedEnvVars).toEqual({
+        CANVAS_BACKEND: "node",
+      });
+    });
+
+    it("should emit native_module_warning without suggestedEnvVars (optional parameter)", () => {
+      emitNativeModuleWarning(
+        "sharp",
+        "NATIVE_BINARY",
+        "MEDIUM",
+        "Image processing module with native dependencies",
+        "devDependencies",
+        "^0.33.0",
+      );
+
+      expect(emittedEvents[0]).toHaveProperty("event", "native_module_warning");
+      expect(emittedEvents[0]).toHaveProperty("moduleName", "sharp");
+      expect(emittedEvents[0]).toHaveProperty("category", "NATIVE_BINARY");
+      expect(emittedEvents[0]).toHaveProperty("severity", "MEDIUM");
+      expect(emittedEvents[0]).toHaveProperty(
+        "warningMessage",
+        "Image processing module with native dependencies",
+      );
+      expect(emittedEvents[0]).toHaveProperty(
+        "dependencyType",
+        "devDependencies",
+      );
+      expect(emittedEvents[0]).toHaveProperty("moduleVersion", "^0.33.0");
+      expect(emittedEvents[0]).not.toHaveProperty("suggestedEnvVars");
+    });
+
+    it("should not include suggestedEnvVars when empty object provided", () => {
+      emitNativeModuleWarning(
+        "better-sqlite3",
+        "NATIVE_BINARY",
+        "HIGH",
+        "SQLite with native bindings",
+        "dependencies",
+        "^9.0.0",
+        {},
+      );
+
+      expect(emittedEvents[0]).toHaveProperty("event", "native_module_warning");
+      expect(emittedEvents[0]).toHaveProperty("moduleName", "better-sqlite3");
+      expect(emittedEvents[0]).not.toHaveProperty("suggestedEnvVars");
+    });
+
+    it("should handle HIGH severity", () => {
+      emitNativeModuleWarning(
+        "canvas",
+        "NATIVE_BINARY",
+        "HIGH",
+        "Critical native module",
+        "dependencies",
+        "^2.0.0",
+      );
+
+      expect(emittedEvents[0]).toHaveProperty("severity", "HIGH");
+    });
+
+    it("should handle MEDIUM severity", () => {
+      emitNativeModuleWarning(
+        "node-gyp",
+        "BUILD_TOOL",
+        "MEDIUM",
+        "Build toolchain required",
+        "devDependencies",
+        "^10.0.0",
+      );
+
+      expect(emittedEvents[0]).toHaveProperty("severity", "MEDIUM");
+    });
+
+    it("should include version and schemaVersion fields", () => {
+      emitNativeModuleWarning(
+        "test-module",
+        "TEST_CATEGORY",
+        "HIGH",
+        "Test warning",
+        "dependencies",
+        "^1.0.0",
+      );
+
+      expect(emittedEvents[0]).toHaveProperty("version");
+      expect(emittedEvents[0]).toHaveProperty("schemaVersion", SCHEMA_VERSION);
+    });
+
+    it("should handle multiple suggestedEnvVars", () => {
+      emitNativeModuleWarning(
+        "puppeteer",
+        "NATIVE_BINARY",
+        "MEDIUM",
+        "Chromium download may be blocked",
+        "dependencies",
+        "^21.0.0",
+        {
+          PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true",
+          PUPPETEER_EXECUTABLE_PATH: "/usr/bin/chromium",
+        },
+      );
+
+      expect(emittedEvents[0].suggestedEnvVars).toEqual({
+        PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true",
+        PUPPETEER_EXECUTABLE_PATH: "/usr/bin/chromium",
+      });
+    });
+
+    it("should handle different dependencyType values", () => {
+      emitNativeModuleWarning(
+        "module1",
+        "NATIVE_BINARY",
+        "HIGH",
+        "Warning 1",
+        "dependencies",
+        "^1.0.0",
+      );
+      emitNativeModuleWarning(
+        "module2",
+        "NATIVE_BINARY",
+        "HIGH",
+        "Warning 2",
+        "devDependencies",
+        "^2.0.0",
+      );
+      emitNativeModuleWarning(
+        "module3",
+        "NATIVE_BINARY",
+        "MEDIUM",
+        "Warning 3",
+        "optionalDependencies",
+        "^3.0.0",
+      );
+
+      expect(emittedEvents[0]).toHaveProperty("dependencyType", "dependencies");
+      expect(emittedEvents[1]).toHaveProperty(
+        "dependencyType",
+        "devDependencies",
+      );
+      expect(emittedEvents[2]).toHaveProperty(
+        "dependencyType",
+        "optionalDependencies",
+      );
+    });
+
+    it("should handle different category values", () => {
+      emitNativeModuleWarning(
+        "canvas",
+        "NATIVE_BINARY",
+        "HIGH",
+        "Binary warning",
+        "dependencies",
+        "^1.0.0",
+      );
+      emitNativeModuleWarning(
+        "node-gyp",
+        "BUILD_TOOL",
+        "MEDIUM",
+        "Build warning",
+        "devDependencies",
+        "^2.0.0",
+      );
+      emitNativeModuleWarning(
+        "custom",
+        "CUSTOM_CATEGORY",
+        "HIGH",
+        "Custom warning",
+        "dependencies",
+        "^3.0.0",
+      );
+
+      expect(emittedEvents[0]).toHaveProperty("category", "NATIVE_BINARY");
+      expect(emittedEvents[1]).toHaveProperty("category", "BUILD_TOOL");
+      expect(emittedEvents[2]).toHaveProperty("category", "CUSTOM_CATEGORY");
+    });
+
+    it("should emit valid JSON", () => {
+      emitNativeModuleWarning(
+        "test-module",
+        "TEST",
+        "HIGH",
+        "Test message",
+        "dependencies",
+        "^1.0.0",
+        { VAR1: "value1" },
+      );
+
+      // If parsing failed, emittedEvents would be empty
+      expect(emittedEvents.length).toBe(1);
+      expect(emittedEvents[0]).toBeDefined();
+      expect(typeof emittedEvents[0]).toBe("object");
     });
   });
 

@@ -1277,6 +1277,7 @@ mcp-assess-full --server my-server --config config.json --preflight
 
 **What It Checks:**
 
+- Native modules that may cause hangs (canvas, sharp, sqlite3, etc.)
 - Server is reachable
 - Tools exist and are discoverable
 - manifest.json is valid (if --source provided)
@@ -1546,23 +1547,24 @@ mcp-assess-full --server my-server --config config.json 2>&1 | \
 
 ### Event Types
 
-13 distinct event types are emitted in sequence:
+14 key event types are emitted (18 total - see [JSONL_EVENTS_REFERENCE.md](JSONL_EVENTS_REFERENCE.md) for complete list):
 
-| Event Type                      | When                   | Purpose                      |
-| ------------------------------- | ---------------------- | ---------------------------- |
-| `server_connected`              | Connection established | Server is reachable          |
-| `tool_discovered`               | Each tool found        | Tool metadata (name, params) |
-| `tools_discovery_complete`      | After all tools        | Total tool count             |
-| `modules_configured`            | Before modules run     | Enabled/skipped modules      |
-| `module_started`                | Before each module     | Test count estimate          |
-| `test_batch`                    | During execution       | Real-time progress           |
-| `vulnerability_found`           | Security detections    | Security alerts              |
-| `annotation_missing`            | Tool lacks hints       | Missing annotations          |
-| `annotation_misaligned`         | Hint conflicts         | Annotation conflicts         |
-| `annotation_aligned`            | Annotations match      | Proper annotations confirmed |
-| `annotation_review_recommended` | Ambiguous patterns     | Manual review suggested      |
-| `module_complete`               | Module finishes        | Module result + score        |
-| `assessment_complete`           | End of assessment      | Final summary                |
+| Event Type                      | When                   | Purpose                          |
+| ------------------------------- | ---------------------- | -------------------------------- |
+| `native_module_warning`         | Pre-flight phase       | Native module detection warnings |
+| `server_connected`              | Connection established | Server is reachable              |
+| `tool_discovered`               | Each tool found        | Tool metadata (name, params)     |
+| `tools_discovery_complete`      | After all tools        | Total tool count                 |
+| `modules_configured`            | Before modules run     | Enabled/skipped modules          |
+| `module_started`                | Before each module     | Test count estimate              |
+| `test_batch`                    | During execution       | Real-time progress               |
+| `vulnerability_found`           | Security detections    | Security alerts                  |
+| `annotation_missing`            | Tool lacks hints       | Missing annotations              |
+| `annotation_misaligned`         | Hint conflicts         | Annotation conflicts             |
+| `annotation_aligned`            | Annotations match      | Proper annotations confirmed     |
+| `annotation_review_recommended` | Ambiguous patterns     | Manual review suggested          |
+| `module_complete`               | Module finishes        | Module result + score            |
+| `assessment_complete`           | End of assessment      | Final summary                    |
 
 ### Event Examples
 
@@ -1943,11 +1945,33 @@ ModuleNotFoundError: No module named 'mcp'
 Tool 'fetch_url' timed out after 30000ms
 ```
 
+**Common Causes:**
+
+- **Native module Gatekeeper blocks** (Issue #212) - Canvas, Sharp, SQLite may hang during startup
+- Slow network connections
+- Server performing long operations
+
 **Solution:**
 
-The default timeout is 30 seconds. For slow servers:
+1. **Check for native module warnings** in pre-flight output:
 
-1. **Increase timeout in config:**
+   ```
+   ⚠️  Native Module Warning: Detected canvas (dependencies)
+   ```
+
+   If present, use suggested environment variables:
+
+   ```json
+   {
+     "command": "node",
+     "args": ["server.js"],
+     "env": {
+       "CANVAS_BACKEND": "mock"
+     }
+   }
+   ```
+
+2. **Increase timeout in config:**
 
    ```json
    {
@@ -1957,9 +1981,9 @@ The default timeout is 30 seconds. For slow servers:
    }
    ```
 
-2. **Or skip specific slow tools** (if supported by your assessment version)
+3. **Or skip specific slow tools** (if supported by your assessment version)
 
-3. **Run security-only assessment** (faster, fewer tests):
+4. **Run security-only assessment** (faster, fewer tests):
 
    ```bash
    mcp-assess-security --server my-server --config config.json

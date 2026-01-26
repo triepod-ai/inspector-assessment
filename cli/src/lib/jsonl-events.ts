@@ -618,7 +618,7 @@ export function emitNativeModuleWarning(
     severity,
     warningMessage,
     dependencyType,
-    version,
+    moduleVersion: version, // Renamed to avoid collision with package version
     ...(suggestedEnvVars &&
       Object.keys(suggestedEnvVars).length > 0 && { suggestedEnvVars }),
   });

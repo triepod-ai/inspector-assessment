@@ -1529,7 +1529,7 @@ interface AssessmentCompleteEvent {
   "severity": "HIGH",
   "warningMessage": "Canvas requires native Cairo binaries that may be blocked by macOS Gatekeeper",
   "dependencyType": "dependencies",
-  "version": "^2.11.0",
+  "moduleVersion": "^2.11.0",
   "suggestedEnvVars": {
     "CANVAS_BACKEND": "mock"
   },
@@ -1547,7 +1547,7 @@ interface AssessmentCompleteEvent {
 | `severity`         | string | Yes      | Impact severity: `HIGH` (likely issues) or `MEDIUM` (possible issues)  |
 | `warningMessage`   | string | Yes      | Human-readable warning about potential issues                          |
 | `dependencyType`   | string | Yes      | Where found: `dependencies`, `devDependencies`, `optionalDependencies` |
-| `version`          | string | Yes      | Version specifier from package.json (e.g., "^2.11.0")                  |
+| `moduleVersion`    | string | Yes      | Version specifier from package.json (e.g., "^2.11.0")                  |
 | `suggestedEnvVars` | object | No       | Optional environment variables to mitigate issues                      |
 | `version`          | string | Yes      | Inspector version (auto-added)                                         |
 | `schemaVersion`    | number | Yes      | Event schema version (auto-added, current: 2)                          |
@@ -1575,7 +1575,7 @@ interface NativeModuleWarningEvent {
   severity: "HIGH" | "MEDIUM";
   warningMessage: string;
   dependencyType: "dependencies" | "devDependencies" | "optionalDependencies";
-  version: string;
+  moduleVersion: string;
   suggestedEnvVars?: Record<string, string>;
   version: string;
   schemaVersion: number;

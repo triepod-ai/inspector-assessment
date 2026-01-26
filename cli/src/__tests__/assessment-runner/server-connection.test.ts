@@ -358,4 +358,235 @@ describe("connectToServer", () => {
       );
     });
   });
+
+  // ============================================================================
+  // GAP-002: SIGKILL Detection Tests (Issue #212)
+  // ============================================================================
+
+  describe("SIGKILL detection (Issue #212)", () => {
+    it('should detect SIGKILL from "exit code 137" error message', async () => {
+      let stderrCallback: (data: Buffer) => void = () => {};
+      mockStdioTransport.stderr.on.mockImplementation(
+        (event: string, cb: (data: Buffer) => void) => {
+          if (event === "data") {
+            stderrCallback = cb;
+          }
+        },
+      );
+
+      mockConnect.mockImplementation(async () => {
+        throw new Error("Process exited with exit code 137");
+      });
+
+      const config = {
+        transport: "stdio" as const,
+        command: "node",
+        args: ["server.js"],
+      };
+
+      await expect(connectToServer(config)).rejects.toThrow(
+        /Exit code 137 \(SIGKILL\) detected/,
+      );
+    });
+
+    it('should detect SIGKILL from "SIGKILL" in error message', async () => {
+      mockConnect.mockRejectedValue(new Error("Process killed with SIGKILL"));
+
+      const config = {
+        transport: "stdio" as const,
+        command: "python",
+        args: ["server.py"],
+      };
+
+      await expect(connectToServer(config)).rejects.toThrow(
+        /Exit code 137 \(SIGKILL\) detected/,
+      );
+    });
+
+    it('should detect SIGKILL from "killed" (lowercase) in error message', async () => {
+      mockConnect.mockRejectedValue(
+        new Error("Server process was killed unexpectedly"),
+      );
+
+      const config = {
+        transport: "stdio" as const,
+        command: "node",
+        args: [],
+      };
+
+      await expect(connectToServer(config)).rejects.toThrow(
+        /Exit code 137 \(SIGKILL\) detected/,
+      );
+    });
+
+    it("should NOT trigger SIGKILL help for regular errors", async () => {
+      mockConnect.mockRejectedValue(new Error("Connection refused"));
+
+      const config = {
+        transport: "stdio" as const,
+        command: "node",
+        args: [],
+      };
+
+      const error = await connectToServer(config).catch((e) => e);
+      expect(error.message).not.toMatch(/Exit code 137 \(SIGKILL\) detected/);
+      expect(error.message).toMatch(/Failed to connect to MCP server/);
+      expect(error.message).toMatch(/Common causes/);
+    });
+
+    it("should include xattr suggestion in SIGKILL error message", async () => {
+      mockConnect.mockRejectedValue(new Error("exit code 137"));
+
+      const config = {
+        transport: "stdio" as const,
+        command: "node",
+        args: [],
+      };
+
+      await expect(connectToServer(config)).rejects.toThrow(
+        /xattr -d com\.apple\.quarantine/,
+      );
+    });
+
+    it("should include Security & Privacy suggestion in SIGKILL error message", async () => {
+      mockConnect.mockRejectedValue(new Error("Process killed with SIGKILL"));
+
+      const config = {
+        transport: "stdio" as const,
+        command: "node",
+        args: [],
+      };
+
+      await expect(connectToServer(config)).rejects.toThrow(
+        /System Preferences > Security & Privacy/,
+      );
+    });
+
+    it("should mention Gatekeeper in SIGKILL error message", async () => {
+      mockConnect.mockRejectedValue(new Error("exit code 137"));
+
+      const config = {
+        transport: "stdio" as const,
+        command: "node",
+        args: [],
+      };
+
+      await expect(connectToServer(config)).rejects.toThrow(
+        /macOS Gatekeeper blocked unsigned native binaries/,
+      );
+    });
+
+    it("should mention native module examples in SIGKILL error message", async () => {
+      mockConnect.mockRejectedValue(new Error("killed"));
+
+      const config = {
+        transport: "stdio" as const,
+        command: "node",
+        args: [],
+      };
+
+      await expect(connectToServer(config)).rejects.toThrow(
+        /canvas, sharp, better-sqlite3/,
+      );
+    });
+
+    it("should mention pre-flight warnings in SIGKILL error message", async () => {
+      mockConnect.mockRejectedValue(new Error("SIGKILL"));
+
+      const config = {
+        transport: "stdio" as const,
+        command: "node",
+        args: [],
+      };
+
+      await expect(connectToServer(config)).rejects.toThrow(
+        /Check pre-flight warnings above for detected native modules/,
+      );
+    });
+
+    it("should suggest pure JavaScript alternatives in SIGKILL error message", async () => {
+      mockConnect.mockRejectedValue(new Error("exit code 137"));
+
+      const config = {
+        transport: "stdio" as const,
+        command: "node",
+        args: [],
+      };
+
+      await expect(connectToServer(config)).rejects.toThrow(
+        /jimp instead of sharp/,
+      );
+    });
+
+    it("should include both stderr and SIGKILL help when process is killed", async () => {
+      let stderrCallback: (data: Buffer) => void = () => {};
+      mockStdioTransport.stderr.on.mockImplementation(
+        (event: string, cb: (data: Buffer) => void) => {
+          if (event === "data") {
+            stderrCallback = cb;
+          }
+        },
+      );
+
+      mockConnect.mockImplementation(async () => {
+        stderrCallback(Buffer.from("Loading canvas module..."));
+        throw new Error("Process killed (exit code 137)");
+      });
+
+      const config = {
+        transport: "stdio" as const,
+        command: "node",
+        args: ["server.js"],
+      };
+
+      const error = await connectToServer(config).catch((e) => e);
+      expect(error.message).toMatch(/Loading canvas module/);
+      expect(error.message).toMatch(/Exit code 137 \(SIGKILL\) detected/);
+      expect(error.message).toMatch(/macOS Gatekeeper/);
+      expect(error.message).toMatch(/xattr/);
+    });
+
+    it("should handle SIGKILL detection for HTTP transport", async () => {
+      // SIGKILL can occur during startup even for HTTP servers
+      mockConnect.mockRejectedValue(
+        new Error("Server startup failed: exit code 137"),
+      );
+
+      const config = {
+        transport: "http" as const,
+        url: "http://localhost:8080",
+      };
+
+      await expect(connectToServer(config)).rejects.toThrow(
+        /Exit code 137 \(SIGKILL\) detected/,
+      );
+    });
+
+    it("should handle SIGKILL detection for SSE transport", async () => {
+      mockConnect.mockRejectedValue(new Error("Connection killed"));
+
+      const config = {
+        transport: "sse" as const,
+        url: "http://localhost:3000/events",
+      };
+
+      await expect(connectToServer(config)).rejects.toThrow(
+        /Exit code 137 \(SIGKILL\) detected/,
+      );
+    });
+
+    it("should mention OOM as possible cause in SIGKILL error", async () => {
+      mockConnect.mockRejectedValue(new Error("SIGKILL"));
+
+      const config = {
+        transport: "stdio" as const,
+        command: "node",
+        args: [],
+      };
+
+      await expect(connectToServer(config)).rejects.toThrow(
+        /Out of memory during native module initialization/,
+      );
+    });
+  });
 });
