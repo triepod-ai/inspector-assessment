@@ -7,9 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.43.2] - 2026-01-26
+
 ### Added
 
+- **Static/Manifest-Only Validation Mode** (Issue #213): Run assessments without a live server connection
+  - New `--static-only` flag runs only static analysis modules (no server required)
+  - New `--fallback-static` flag tries runtime first, falls back to static on connection failure
+  - Requires `--source <path>` for source code analysis
+  - 11 static-capable modules: manifestValidation, toolAnnotations, prohibitedLibraries, aupCompliance, externalAPIScanner, fileModularization, documentation, usability, conformance, portability, authentication
+  - 9 runtime-only modules: functionality, security, protocolCompliance, temporal, crossCapability, resources, prompts, errorHandling, dependencyVulnerability
+  - 56 new tests (33 unit + 23 integration) for static mode validation
+  - Updated CLI documentation with Mode 4 (Static-Only) and Use Case 7 (manifest validation)
+
+- **Native Module Detection and Warning System** (Issue #212): Proactive detection of native modules in MCP server dependencies
+  - New `nativeModules.ts` library with 50+ known native module patterns
+  - Detects native modules via package.json dependencies and node_modules scanning
+  - Warning system alerts users about potential cross-platform compatibility issues
+  - Categories: Database (better-sqlite3, sqlite3), Crypto (argon2, bcrypt), System (fsevents, node-pty), Media (sharp, canvas), Network (bufferutil, utf-8-validate)
+  - Integration with ManifestValidationAssessor for automatic detection during assessment
+  - 19 comprehensive tests covering detection, categorization, and edge cases
+
 - **Runtime Annotation Verification** (Issue #207): Detect annotations defined at runtime via SDK decorators/interceptors
+  - New `RuntimeAnnotationVerifier` helper checks 5 annotation locations in tools/list response
+  - Locations: `annotations_object` (standard), `direct_properties` (SDK interceptor), `metadata`, `_meta`, `annotations_hints`
+  - Added `runtimeVerification` field to `ToolAnnotationAssessment` output
+  - Resolves false negatives (0% coverage) for servers that define annotations dynamically
+  - New types exported: `RuntimeAnnotationVerification`, `ToolAnnotationLocationDetail`, `AnnotationLocation`
+  - Comprehensive test suite covering all 5 location patterns
 
 ### Changed
 
@@ -31,17 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `licenseFile` field: name of the actual license file found (if any)
   - Scoring: Full 10 points for file, 5 points for declaration-only, 0 points for neither
   - Fixes false positive where README "## License" section caused PASS without actual LICENSE file
-  - Evidence: MeetGeek audit showed LICENSE file missing but Inspector reported D6 PASS
   - Backward compatible: `hasLicense` legacy field still true if either file or declaration exists
-  - New `RuntimeAnnotationVerifier` helper checks 5 annotation locations in tools/list response
-  - Locations: `annotations_object` (standard), `direct_properties` (SDK interceptor), `metadata`, `_meta`, `annotations_hints`
-  - Added `runtimeVerification` field to `ToolAnnotationAssessment` output
-  - Resolves false negatives (0% coverage) for servers that define annotations dynamically
-  - New types exported: `RuntimeAnnotationVerification`, `ToolAnnotationLocationDetail`, `AnnotationLocation`
-  - Comprehensive test suite covering all 5 location patterns
-  - Backward compatible - no changes to existing assessment behavior
-
-### Fixed
 
 - **File Validation Error False Positives** (Issue #203): Enhanced business logic error detection for file/media operations
   - Added 20 file/media tool name patterns (load, open, save, play, upload, download, etc.)
